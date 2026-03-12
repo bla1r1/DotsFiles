@@ -1,9 +1,9 @@
 /* ══════════════════════════════════════════════════════
    SwayNC — Tokyo Night × Hyprland
-   Совместимо с swaync 0.12+ (новая структура DOM)
+   Compatible with swaync 0.12+ (new DOM structure)
    ══════════════════════════════════════════════════════ */
 
-/* ── Переопределяем CSS переменные системного файла ── */
+/* ── Override CSS variables from the system file ── */
 :root {
   --cc-bg:                  rgba(22, 22, 30, 0.92);
   --noti-border-color:      rgba(122, 162, 247, 0.22);
@@ -31,7 +31,7 @@
   --group-collapse-tranistion:  opacity 300ms ease-in-out;
 }
 
-/* ── Fallback @define-color для старых секций ── */
+/* ── Fallback @define-color for older sections ── */
 @define-color cc-bg             rgba(22, 22, 30, 0.92);
 @define-color noti-border-color rgba(122, 162, 247, 0.22);
 @define-color noti-bg           rgba(36, 40, 59, 0.85);
@@ -45,7 +45,7 @@
 @define-color text-color-disabled rgba(65, 72, 104, 0.70);
 @define-color bg-selected       #7aa2f7;
 
-/* ── Токены Tokyo Night ── */
+/* ── Tokyo Night tokens ── */
 @define-color blue    #7aa2f7;
 @define-color purple  #bb9af7;
 @define-color cyan    #7dcfff;
@@ -105,7 +105,7 @@ notificationwindow, blankwindow {
     padding: 4px 10px;
 }
 
-/* ── Само уведомление ── */
+/* ── Notification body ── */
 .notification-row .notification-background .notification {
     border-radius: var(--border-radius);
     border: var(--border);
@@ -119,7 +119,7 @@ notificationwindow, blankwindow {
     box-shadow: var(--notification-shadow);
 }
 
-/* ── default action (кнопка-обёртка) ── */
+/* ── default action (wrapper button) ── */
 .notification-row .notification-background .notification .notification-default-action {
     padding: 6px 8px;
     margin: 0;
@@ -140,7 +140,7 @@ notificationwindow, blankwindow {
     border-bottom-right-radius: 0;
 }
 
-/* ── Контент внутри ── */
+/* ── Inner content ── */
 .notification-row .notification-background .notification .notification-default-action .notification-content {
     background: transparent;
     border-radius: var(--border-radius);

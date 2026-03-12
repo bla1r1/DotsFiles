@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# ── Отримуємо поточні значення ──────────────────────────────
+# ── Get current values ─────────────────────────────────────
 VOL=$(pamixer --get-volume 2>/dev/null || echo "0")
 MUTED=$(pamixer --get-mute 2>/dev/null || echo "false")
 
@@ -15,7 +15,7 @@ fi
 SSID=$(nmcli -t -f active,ssid dev wifi 2>/dev/null | grep '^yes' | cut -d: -f2)
 [ -z "$SSID" ] && SSID="Disconnected"
 
-# ── Іконки гучності ─────────────────────────────────────────
+# ── Volume icons ───────────────────────────────────────────
 if [ "$MUTED" = "true" ]; then
     VOL_LABEL="󰝟  Volume: Muted"
 elif [ "$VOL" -lt 33 ]; then
@@ -29,7 +29,7 @@ fi
 BRIGHT_LABEL="󰃞  Brightness: $BRIGHT_PCT%"
 NET_LABEL="󰤨  Network: $SSID"
 
-# ── Rofi меню ──────────────────────────────────────────────
+# ── Rofi menu ─────────────────────────────────────────────
 CHOICE=$(printf '%s\n' \
     "$VOL_LABEL" \
     "󰝝  Volume +" \
@@ -48,7 +48,7 @@ CHOICE=$(printf '%s\n' \
         -no-custom \
         -format s)
 
-# ── Обробка вибору ─────────────────────────────────────────
+# ── Choice handling ───────────────────────────────────────
 case "$CHOICE" in
     "󰝝  Volume +")       pamixer --increase 5 ;;
     "󰝞  Volume -")       pamixer --decrease 5 ;;
