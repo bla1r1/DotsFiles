@@ -9,13 +9,13 @@
 # by Avni Bilgin (2023)
 # -----------------------------------------------------
 
-# Erstelle mit Pywal Farbpaletten
+# Create color palettes with Pywal
 wal -q -i "$1"
 
-# Kopiere Hintergrundbild in den Cache-Ordner
+# Copy wallpaper to the cache folder
 cp "$1" $HOME/.cache/current_wallpaper.jpg
 
-# Setze das neue Wallpaper
+# Set the new wallpaper
 swww img $HOME/.cache/current_wallpaper.jpg \
     --transition-bezier .43,1.19,1,.4 \
     --transition-fps=60 \
@@ -23,14 +23,14 @@ swww img $HOME/.cache/current_wallpaper.jpg \
     --transition-duration=0.7 \
     --transition-pos "$( hyprctl cursorpos )"
 
-# Erstelle ein verschwommenes Hintergrundbild für Rofi
+# Create a blurred background image for Rofi
 convert -strip -scale 10% -blur 0x3 -resize 100% "$1" "$HOME/.cache/current_wallpaper.blur" &
 
-# Erstelle benutzerdefinierte Config-Dateien (mit PyWal-Templates)
+# Create custom config files (with Pywal templates)
 $HOME/.config/hypr/scripts/create_sddm_config.sh &
 $HOME/.config/hypr/scripts/create_module_clock_colors.sh &
 
-# Starte Waybar neu
+# Restart Waybar
 killall waybar
 sleep 1
 waybar &

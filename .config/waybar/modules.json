@@ -78,8 +78,8 @@
         "on-click-middle": "sleep 0.1 && ~/.config/hypr/scripts/cliphist.sh w",
         "interval" : 86400, // once every day
         "tooltip": true,
-        "on-scroll-up": "dunstctl close",
-        "on-scroll-down": "dunstctl history-pop"
+        "on-scroll-up": "swaync-client -C",
+        "on-scroll-down": "swaync-client -t -sw"
     },
 
         "custom/copyq": {

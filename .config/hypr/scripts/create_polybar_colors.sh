@@ -1,19 +1,19 @@
 #!/bin/bash
 
-# Quellpfad der Datei
+# Source file path
 source_path="$HOME/.cache/wal/colors-polybar"
 
-# Zielverzeichnis und Dateiname
+# Target directory and filename
 target_directory="$HOME/.config/polybar/shapes"
 target_filename="colors.ini"
 
-# Zielvollständiger Pfad
+# Full target path
 target_path="$target_directory/$target_filename"
 
-# Überprüfen, ob das Zielverzeichnis existiert, andernfalls erstellen
+# Check whether the target directory exists; otherwise create it
 if [ ! -d "$target_directory" ]; then
     mkdir -p "$target_directory"
 fi
 
-# Kopiere die Datei
+# Copy the file
 cp "$source_path" "$target_path"

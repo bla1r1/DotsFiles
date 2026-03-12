@@ -3,7 +3,7 @@ file:///home/thor/dotfiles/hypr hypr
 file:///home/thor/dotfiles/waybar waybar
 file:///home/thor/dotfiles/waybar/themes/ml4w-bottom/light waybar-light
 file:///home/thor/dotfiles/scripts scripts
-file:///home/thor/dotfiles/dunst dunst
+file:///home/thor/dotfiles/swaync swaync
 file:///home/thor/dotfiles/rofi rofi
 file:///home/thor/.config .config
 file:///home/thor/.config/autostart autostart

@@ -7,14 +7,14 @@ PLAYER="spotify"
 increase_volume() {
     	playerctl --player="$PLAYER" volume 0.05+
 	VOLUME=$(playerctl volume --player $PLAYER)
-	dunstify -a Spotify -r 2 -t 1500 -i /usr/share/icons/Tela-circle-black/scalable/apps/com.spotify.Client.svg "Volume increased" "$VOLUME"
+	notify-send -a Spotify -h string:x-canonical-private-synchronous:spotify-volume -u low -i /usr/share/icons/Tela-circle-black/scalable/apps/com.spotify.Client.svg "Volume increased" "$VOLUME"
 }
 
 # function to decrease Spotify volume
 decrease_volume() {
     	playerctl --player="$PLAYER" volume 0.05-
 	VOLUME=$(playerctl volume --player $PLAYER)
-        dunstify -a Spotify -r 2 -t 1500 -i /usr/share/icons/Tela-circle-black/scalable/apps/com.spotify.Client.svg "Volume decreased" "$VOLUME"
+        notify-send -a Spotify -h string:x-canonical-private-synchronous:spotify-volume -u low -i /usr/share/icons/Tela-circle-black/scalable/apps/com.spotify.Client.svg "Volume decreased" "$VOLUME"
 }
 
 # check for the argument and perform the corresponding action

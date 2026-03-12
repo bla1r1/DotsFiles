@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+﻿#!/usr/bin/env sh
 
 ScrDir=`dirname "$(realpath "$0")"`
 source $ScrDir/globalcontrol.sh
@@ -68,12 +68,12 @@ fnt_override="configuration {font: \"Futura Bk BT ${fnt_override}\";}"
 # clipboard action
 
 case $1 in
-    c)  cliphist list | rofi -dmenu -theme-str "entry { placeholder: \"Suchen...\";} ${pos} ${r_override}" -theme-str "${fnt_override}" -config $roconf | cliphist decode | wl-copy
+    c)  cliphist list | rofi -dmenu -theme-str "entry { placeholder: \"Search...\";} ${pos} ${r_override}" -theme-str "${fnt_override}" -config $roconf | cliphist decode | wl-copy
     ydotool key 42:1 110:1 110:0 42:0
         ;;
-    d)  cliphist list | rofi -dmenu -theme-str "entry { placeholder: \"Löschen...\";} ${pos} ${r_override}" -theme-str "${fnt_override}" -config $roconf | cliphist delete
+    d)  cliphist list | rofi -dmenu -theme-str "entry { placeholder: \"Delete...\";} ${pos} ${r_override}" -theme-str "${fnt_override}" -config $roconf | cliphist delete
         ;;
-    w)  if [ `echo -e "Yes\nNo" | rofi -dmenu -theme-str "entry { placeholder: \"Zwischenspeicher säubern?\";} ${pos} ${r_override}" -theme-str "${fnt_override}" -config $roconf` == "Yes" ] ; then
+    w)  if [ `echo -e "Yes\nNo" | rofi -dmenu -theme-str "entry { placeholder: \"Clear clipboard?\";} ${pos} ${r_override}" -theme-str "${fnt_override}" -config $roconf` == "Yes" ] ; then
             cliphist wipe
         fi
         ;;
@@ -84,3 +84,5 @@ case $1 in
         exit 1
         ;;
 esac
+
+

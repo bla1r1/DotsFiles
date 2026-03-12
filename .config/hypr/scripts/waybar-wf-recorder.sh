@@ -25,7 +25,7 @@ toggle_recording() {
     if [ -e "$pid_file" ]; then
         pid=$(awk 'NR==1' "$pid_file")
         kill "$pid"
-        wait "$pid" 2>/dev/null  # Warten, bis der Prozess beendet ist
+        wait "$pid" 2>/dev/null  # Wait until the process exits
         rm "$pid_file"
     else
         start_recording "$1"
@@ -67,9 +67,9 @@ case "$1" in
 esac
 
 
-#~ # Erstelle einen Dateinamen mit dem aktuellen Datum und Uhrzeit
+#~ # Create a filename with the current date and time
 #~ current_datetime=$(date +"%Y-%m-%d_%H%M%S")
 #~ output_file="$HOME/Medien/Screencasts/${current_datetime}.mp4"
 
-        #~ # Führe wf-recorder mit den angegebenen Parametern aus
+        #~ # Run wf-recorder with the specified parameters
         #~ wf-recorder -a --file="$output_file"

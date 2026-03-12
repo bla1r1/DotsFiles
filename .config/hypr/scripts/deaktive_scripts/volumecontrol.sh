@@ -26,16 +26,16 @@ function notify_vol
     angle="$(( (($vol+2)/5) * 5 ))"
     ico="${icodir}/vol-${angle}.svg"
     bar=$(seq -s "." $(($vol / 15)) | sed 's/[0-9]//g')
-    dunstify "t2" -a "$vol$bar" "$nsink" -i $ico -r 91190 -t 800
+    notify-send "t2" -a "$vol$bar" "$nsink" -i $ico -r 91190 -t 800
 }
 
 function notify_mute
 {
     mute=`pamixer $srce --get-mute | cat`
     if [ "$mute" == "true" ] ; then
-        dunstify "t2" -a "muted" "$nsink" -i ${icodir}/muted-${dvce}.svg -r 91190 -t 800
+        notify-send "t2" -a "muted" "$nsink" -i ${icodir}/muted-${dvce}.svg -r 91190 -t 800
     else
-        dunstify "t2" -a "unmuted" "$nsink" -i ${icodir}/unmuted-${dvce}.svg -r 91190 -t 800
+        notify-send "t2" -a "unmuted" "$nsink" -i ${icodir}/unmuted-${dvce}.svg -r 91190 -t 800
     fi
 }
 
@@ -63,7 +63,7 @@ fi
 
 shift $((OPTIND -1))
 step="${2:-5}"
-icodir="~/.config/dunst/icons/vol"
+icodir="~/.config/swaync/icons/vol"
 
 case $1 in
     i) pamixer $srce -i ${step}
