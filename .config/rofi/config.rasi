@@ -1,0 +1,13 @@
+configuration {
+    show-icons: true;
+    icon-theme: "Papirus";
+
+    modi: "drun,run,window,filebrowser";
+    combi-modi: "drun,run,window";
+
+    terminal: "alacritty";
+
+    drun-display-format: "{icon}  {name}";
+}
+
+@theme "~/.config/rofi/spotlight.rasi"

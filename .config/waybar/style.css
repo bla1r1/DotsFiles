@@ -1,0 +1,408 @@
+@import '../../.cache/wal/colors-waybar.css';
+
+/*
+    ┓ ┏┏┓┓┏┓┳┓┏┓┳┓
+    ┃┃┃┣┫┗┫┣┫┣┫┣┫┣┫
+    ┗┻┛┛┗┗┛┛┗┛┗┛┗┛┗
+    Tokyo Night × Hyprland
+*/
+
+/* ── Tokyo Night color tokens ── */
+@define-color tn-bg         rgba(26, 27, 38, 0.88);
+@define-color tn-bg-dark    rgba(16, 16, 20, 0.94);
+@define-color tn-bg-float   rgba(36, 40, 59, 0.80);
+@define-color tn-blue       #7aa2f7;
+@define-color tn-purple     #bb9af7;
+@define-color tn-cyan       #7dcfff;
+@define-color tn-green      #73daca;
+@define-color tn-red        #f7768e;
+@define-color tn-yellow     #e0af68;
+@define-color tn-fg         rgba(192, 202, 245, 0.95);
+@define-color tn-fg-dim     rgba(169, 177, 214, 0.60);
+@define-color tn-border     rgba(122, 162, 247, 0.22);
+@define-color tn-comment    rgba(65, 72, 104, 0.80);
+
+/* ── Waybar area colors ── */
+@define-color apps          rgba(26, 27, 38, 0.90);
+@define-color quicklinks    rgba(22, 22, 30, 0.80);
+@define-color workspaces    rgba(26, 27, 38, 0.90);
+@define-color taskbar       rgba(22, 22, 30, 0.80);
+@define-color clock         @tn-blue;
+@define-color misc          rgba(22, 22, 30, 0.80);
+@define-color timer         rgba(22, 22, 30, 0.80);
+@define-color devices       rgba(26, 27, 38, 0.90);
+@define-color system        rgba(22, 22, 30, 0.80);
+
+/* ── Workspace text colors ── */
+@define-color workspace_fg  @tn-fg-dim;
+@define-color act_wrk_fg    rgba(16, 16, 20, 1);
+@define-color use_wrk_fg    @tn-purple;
+
+/* ── Workspace button bg ── */
+@define-color workspace_bg  rgba(36, 40, 59, 0.60);
+@define-color act_wrk_bg    @tn-blue;
+
+/* ── Taskbar button bg ── */
+@define-color taskbar_bg    rgba(122, 162, 247, 0.18);
+
+/* ── Updates colors ── */
+@define-color updates_green  @tn-green;
+@define-color updates_yellow @tn-yellow;
+@define-color updates_red    @tn-red;
+
+/*
+    ┏┓┏┓┳┓┏┓┳┓┏┓┓
+    ┃┓┣ ┃┃┣ ┣┫┣┫┃
+    ┗┛┗┛┛┗┗┛┛┗┛┗┗┛
+*/
+
+* {
+    font-family: "Fira Sans SemiBold", "Noto Sans", sans-serif;
+    font-weight: 600;
+    font-size: 12px;
+    min-height: 16px;
+}
+
+window#waybar {
+    color: @tn-fg;
+    background: transparent;
+}
+
+tooltip {
+    background: @tn-bg-dark;
+    color: @tn-fg;
+    border-radius: 8px;
+    border: 1px solid @tn-border;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+/*
+    ┓ ┏┏┓┳┓┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓
+    ┃┃┃┃┃┣┫┃┫ ┗┓┃┃┣┫┃ ┣ ┗┓
+    ┗┻┛┗┛┛┗┛┗┛┗┛┣┛┛┗┗┛┗┛┗┛
+*/
+
+#workspaces {
+    padding: 4px 10px;
+}
+
+#workspaces button {
+    color: @workspace_fg;
+    background: @workspace_bg;
+    padding: 1px 5px;
+    margin: 1px 3px;
+    border-radius: 5px;
+    border: 1px solid rgba(65, 72, 104, 0.4);
+    transition: all 0.25s ease;
+}
+
+#workspaces button:hover {
+    background: rgba(122, 162, 247, 0.15);
+    border-color: @tn-border;
+    color: @tn-blue;
+    box-shadow: 0 0 8px rgba(122, 162, 247, 0.2);
+}
+
+#workspaces button.active {
+    color: @act_wrk_fg;
+    background: @act_wrk_bg;
+    border: none;
+    padding: 1px 5px;
+    margin: 1px 3px;
+    border-radius: 5px;
+    box-shadow: 0 0 12px rgba(122, 162, 247, 0.4);
+    transition: all 0.25s ease;
+}
+
+#workspaces button:not(.empty):not(.active) {
+    color: @use_wrk_fg;
+    border-color: rgba(187, 154, 247, 0.3);
+}
+
+/*
+   ┏┳┓┏┓┏┓┓┏┓┳┓┏┓┳┓
+    ┃ ┣┫┗┓┃┫ ┣┫┣┫┣┫
+    ┻ ┛┗┗┛┛┗┛┻┛┛┗┛┗
+*/
+
+#taskbar {
+    padding: 4px 10px;
+}
+
+#taskbar button {
+    padding: 1px 4px;
+    margin: 0px 3px;
+    color: @tn-fg-dim;
+    transition: all 0.25s ease;
+    border-radius: 5px;
+}
+
+#taskbar button.active {
+    background: @taskbar_bg;
+    border-radius: 5px;
+    color: @tn-fg;
+    border: 1px solid @tn-border;
+    box-shadow: 0 0 8px rgba(122, 162, 247, 0.15);
+    transition: all 0.25s ease;
+}
+
+#taskbar button:hover {
+    background: rgba(122, 162, 247, 0.10);
+    border-radius: 5px;
+    color: @tn-blue;
+    transition: all 0.25s ease;
+}
+
+/*
+    ┏┓┏┳┓┓┏┏┓┳┓
+    ┃┃ ┃ ┣┫┣ ┣┫
+    ┗┛ ┻ ┛┗┗┛┛┗
+*/
+
+#clock {
+    font-family: "Fira Sans SemiBold";
+    font-weight: 700;
+    font-size: 13px;
+    color: @tn-blue;
+    padding: 2px 12px 0px 12px;
+    text-shadow: 0 0 12px rgba(122, 162, 247, 0.5);
+    opacity: 1;
+}
+
+#custom-timer {
+    padding: 2px 10px 0px 10px;
+    min-width: 30px;
+    color: @tn-fg-dim;
+}
+
+#custom-updates.yellow {
+    color: @updates_yellow;
+    text-shadow: 0 0 8px rgba(224, 175, 104, 0.4);
+}
+
+#custom-updates.red {
+    color: @updates_red;
+    text-shadow: 0 0 8px rgba(247, 118, 142, 0.4);
+}
+
+/*
+    ┏┓┏┓┳┳┓┳┳┓┏┓┳┓  ┏┓┏┓┳┓┳┓┳┳┓┏┓  ┳┳┓┏┓┳┓┏┓┳┳┓
+    ┃ ┃┃┃┃┃┃┃┃┃┃┃┃  ┃┃┣┫┃┃┃┃┃┃┃┃┓  ┃┃┃┣┫┣┫┃┓┃┃┃
+    ┗┛┗┛┛ ┗┛ ┗┗┛┛┗  ┣┛┛┗┻┛┻┛┻┛┗┗┛  ┛ ┗┛┗┛┗┗┛┻┛┗
+*/
+
+#cpu, #memory, #mpris, #custom-spotify, #custom-mode, #custom-gpuinfo, #custom-ddcutil,
+#custom-updates, #custom-power, #custom-copyq, #custom-mako,
+#bluetooth, #pulseaudio, #wireplumber, #network, #custom-ddc_brightness, #custom-screenrecorder,
+#custom-misc, #idle_inhibitor,
+#custom-filemanager, #custom-browser, #custom-terminal, #custom-editor, #custom-obsidian,
+#custom-appmenu, #quicklinks, #window, #misc, #devices, #system,
+#language {
+    padding: 0px 10px;
+    color: @tn-fg;
+    transition: color 0.2s ease;
+}
+
+#bluetooth,
+#pulseaudio,
+#wireplumber,
+#network {
+    color: @tn-fg-dim;
+}
+
+#bluetooth:hover,
+#pulseaudio:hover,
+#wireplumber:hover,
+#network:hover {
+    color: @tn-cyan;
+    text-shadow: 0 0 8px rgba(125, 207, 255, 0.4);
+}
+
+/*
+    ┏┓┏┓┓ ┏┏┓┳┓┓ ┳┳┓┏┓  ┳┳┓┏┓┳┓┳┳
+    ┃┃┃┃┃┃┃┣ ┣┫┃  ┃┃┃┣   ┃┃┃┣ ┃┃┃┃
+    ┣┛┗┛┗┻┛┗┛┛┗┗┛┻┛┗┗┛  ┛ ┗┗┛┛┗┗┛
+*/
+
+#l-apps, #r-apps, #l-quicklinks, #r-quicklinks,
+#l-workspaces, #r-workspaces, #l-taskbar, #r-taskbar,
+#l-misc, #r-misc, #l-timer, #r-timer,
+#l-devices, #r-devices, #l-system, #r-system {
+    background: transparent;
+    min-height: 0px;
+}
+
+/*
+    ┏┓┏┓┏┓┏┓
+    ┣┫┃┃┃┃┗┓
+    ┛┗┣┛┣┛┗┛
+*/
+
+#l-apps {
+    border-left: 15px solid transparent;
+    border-bottom: 30px solid @apps;
+    margin-left: 0;
+}
+
+#r-apps {
+    border-left: 15px solid @apps;
+    border-bottom: 30px solid transparent;
+    margin-right: -15px;
+}
+
+#custom-appmenu {
+    background: @apps;
+    color: @tn-blue;
+    font-weight: 700;
+    text-shadow: 0 0 10px rgba(122, 162, 247, 0.4);
+}
+
+/*
+    ┏┓┳┳┳┏┓┓┏┓┓ ┳┳┓┓┏┓┏┓
+    ┃┃┃┃┃┃ ┃┫ ┃ ┃┃┃┃┫ ┗┓
+    ┗┻┗┛┻┗┛┛┗┛┗┛┻┛┗┛┗┛┗┛
+*/
+
+#l-quicklinks {
+    border-left: 15px solid transparent;
+    border-bottom: 30px solid @quicklinks;
+    margin-left: 0;
+}
+
+#r-quicklinks {
+    border-left: 15px solid @quicklinks;
+    border-bottom: 30px solid transparent;
+    margin-right: -15px;
+}
+
+#quicklinks {
+    background: @quicklinks;
+}
+
+/*
+    ┓ ┏┏┓┳┓┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓
+    ┃┃┃┃┃┣┫┃┫ ┗┓┃┃┣┫┃ ┣ ┗┓
+    ┗┻┛┗┛┛┗┛┗┛┗┛┣┛┛┗┗┛┗┛┗┛
+*/
+
+#l-workspaces {
+    border-left: 15px solid transparent;
+    border-bottom: 30px solid @workspaces;
+    margin-left: 0;
+}
+
+#r-workspaces {
+    border-left: 15px solid @workspaces;
+    border-bottom: 30px solid transparent;
+    margin-right: -15px;
+}
+
+#workspaces {
+    background: @workspaces;
+}
+
+/*
+   ┏┳┓┏┓┏┓┓┏┓┳┓┏┓┳┓
+    ┃ ┣┫┗┓┃┫ ┣┫┣┫┣┫
+    ┻ ┛┗┗┛┛┗┛┻┛┛┗┛┗
+*/
+
+#l-taskbar {
+    border-left: 15px solid transparent;
+    border-bottom: 30px solid @taskbar;
+    margin-left: 0;
+}
+
+#r-taskbar {
+    border-left: 15px solid @taskbar;
+    border-bottom: 30px solid transparent;
+    margin-right: -15px;
+}
+
+#taskbar {
+    background: @taskbar;
+}
+
+/*
+    ┳┳┓┳┏┓┏┓
+    ┃┃┃┃┗┓┃
+    ┛ ┗┻┗┛┗┛
+*/
+
+#l-misc {
+    border-left: 15px solid transparent;
+    border-bottom: 30px solid @misc;
+    margin-left: 0;
+}
+
+#r-misc {
+    border-left: 15px solid @misc;
+    border-bottom: 30px solid transparent;
+    margin-right: -15px;
+}
+
+#misc {
+    background: @misc;
+}
+
+/*
+   ┏┳┓┳┳┳┓┏┓┳┓
+    ┃ ┃┃┃┃┣ ┣┫
+    ┻ ┻┛ ┗┗┛┛┗
+*/
+
+#l-timer {
+    border-left: 15px solid transparent;
+    border-bottom: 30px solid @timer;
+    margin-left: 0;
+}
+
+#r-timer {
+    border-left: 15px solid @timer;
+    border-bottom: 30px solid transparent;
+    margin-right: -15px;
+}
+
+/*
+    ┳┓┏┓┓┏┳┏┓┏┓┏┓
+    ┃┃┣ ┃┃┃┃ ┣ ┗┓
+    ┻┛┗┛┗┛┻┗┛┗┛┗┛
+*/
+
+#l-devices {
+    border-left: 15px solid transparent;
+    border-bottom: 30px solid @devices;
+    margin-left: 0;
+}
+
+#r-devices {
+    border-left: 15px solid @devices;
+    border-bottom: 30px solid transparent;
+    margin-right: -15px;
+}
+
+#devices {
+    background: @devices;
+}
+
+/*
+    ┏┓┓┏┏┓┏┳┓┏┓┳┳┓
+    ┗┓┗┫┗┓ ┃ ┣ ┃┃┃
+    ┗┛┗┛┗┛ ┻ ┗┛┛ ┗
+*/
+
+#l-system {
+    border-left: 15px solid transparent;
+    border-bottom: 30px solid @system;
+    margin-left: 0;
+}
+
+#r-system {
+    border-left: 15px solid @system;
+    border-bottom: 30px solid transparent;
+    margin-right: -15px;
+}
+
+#system {
+    background: @system;
+}

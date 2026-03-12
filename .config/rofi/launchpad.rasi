@@ -1,0 +1,109 @@
+/*
+    macOS Launchpad style — rofi fullscreen grid
+    Tokyo Night palette — rofi 2.0.0 wayland native
+    argb: AA RRGGBB  (AA = alpha hex, e0=88%, cc=80%, 99=60%)
+*/
+
+configuration {
+    show-icons:         true;
+    icon-theme:         "Papirus";
+    drun-display-format: "{name}";
+}
+
+* {
+    font:               "Fira Sans SemiBold 13";
+    background-color:   argb:e81a1b26;
+    text-color:         #c0caf5;
+    margin:             0px;
+    padding:            0px;
+    spacing:            0px;
+}
+
+window {
+    background-color:   argb:e81a1b26;
+    fullscreen:         true;
+}
+
+mainbox {
+    background-color:   transparent;
+    children:           [ inputbar, listview ];
+    spacing:            40px;
+    padding:            80px 120px 60px 120px;
+}
+
+inputbar {
+    background-color:   argb:cc24283b;
+    border-radius:      14px;
+    padding:            14px 20px;
+    spacing:            14px;
+    children:           [ icon-search, entry ];
+    width:              500px;
+    expand:             false;
+    horizontal-align:   0.5;
+}
+
+icon-search {
+    expand:             false;
+    filename:           "search";
+    size:               24px;
+    vertical-align:     0.5;
+}
+
+entry {
+    font:               "Fira Sans SemiBold 16";
+    placeholder:        "Search apps…";
+    placeholder-color:  argb:80565f89;
+    vertical-align:     0.5;
+    background-color:   transparent;
+    text-color:         #c0caf5;
+}
+
+listview {
+    columns:            7;
+    lines:              4;
+    fixed-columns:      true;
+    fixed-height:       false;
+    flow:               horizontal;
+    spacing:            10px;
+    background-color:   transparent;
+    scrollbar:          false;
+}
+
+element {
+    orientation:        vertical;
+    background-color:   transparent;
+    border-radius:      16px;
+    padding:            18px 10px 14px 10px;
+    spacing:            10px;
+    cursor:             pointer;
+}
+
+element normal normal {
+    background-color:   transparent;
+    text-color:         #c0caf5;
+}
+
+element selected normal,
+element selected active {
+    background-color:   argb:402d3250;
+    text-color:         #ffffff;
+}
+
+element alternate normal {
+    background-color:   transparent;
+    text-color:         #c0caf5;
+}
+
+element-icon {
+    size:               72px;
+    horizontal-align:   0.5;
+    vertical-align:     0.5;
+}
+
+element-text {
+    font:               "Fira Sans SemiBold 11";
+    horizontal-align:   0.5;
+    vertical-align:     0.5;
+    text-color:         inherit;
+    background-color:   transparent;
+}
