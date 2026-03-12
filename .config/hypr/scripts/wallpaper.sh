@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-WALLPAPER_DIR="${WALLPAPER_DIR:-$HOME/.wallpaper}"
+WALLPAPER_DIR="${WALLPAPER_DIR:-$HOME/.wallpapers}"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}"
 CURRENT_WALL="$CACHE_DIR/current_wallpaper.jpg"
 BLUR_WALL="$CACHE_DIR/current_wallpaper.blur"

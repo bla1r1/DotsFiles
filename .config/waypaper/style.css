@@ -1,0 +1,182 @@
+/* ── Waypaper · Tokyo Night — GTK3 full override ────────────────────────── */
+
+* {
+    font-family:      "Fira Sans SemiBold", sans-serif;
+    font-size:        13px;
+    color:            #c0caf5;
+}
+
+/* ── window ──────────────────────────────────────────────────────────────── */
+window, .background {
+    background-color: #1a1b26;
+    border-radius:    16px;
+}
+
+/* ── top bar ─────────────────────────────────────────────────────────────── */
+.options_bar {
+    background-color: #16161e;
+    border-bottom:    1px solid #292e42;
+    padding:          8px 10px;
+    border-radius:    16px 16px 0 0;
+}
+
+/* ── bottom bar ──────────────────────────────────────────────────────────── */
+.fill_options_bar {
+    background-color: #16161e;
+    border-top:       1px solid #292e42;
+    padding:          8px 10px;
+    border-radius:    0 0 16px 16px;
+}
+
+/* ── BUTTONS — must override GTK theme gradients ─────────────────────────── */
+button,
+button.text-button,
+.text-button {
+    background-image:    none;
+    background-color:    #24283b;
+    color:               #c0caf5;
+    border:              1px solid #3b4261;
+    border-radius:       8px;
+    padding:             5px 14px;
+    box-shadow:          none;
+    text-shadow:         none;
+    -gtk-icon-shadow:    none;
+    outline:             none;
+    transition:          background-color 0.15s, border-color 0.15s;
+}
+
+button:hover,
+button.text-button:hover {
+    background-image:    none;
+    background-color:    #2d3250;
+    border-color:        #7aa2f7;
+    color:               #ffffff;
+    box-shadow:          none;
+}
+
+button:active,
+button.text-button:active {
+    background-image:    none;
+    background-color:    #3d59a1;
+    border-color:        #7aa2f7;
+    color:               #ffffff;
+    box-shadow:          none;
+}
+
+button:disabled,
+button.text-button:disabled {
+    background-color:    #1e2030;
+    color:               #565f89;
+    border-color:        #292e42;
+}
+
+/* ── search entry ────────────────────────────────────────────────────────── */
+entry {
+    background-image:    none;
+    background-color:    #24283b;
+    color:               #c0caf5;
+    border:              1px solid #3b4261;
+    border-radius:       8px;
+    padding:             5px 12px;
+    box-shadow:          none;
+    caret-color:         #7aa2f7;
+}
+
+entry:focus {
+    background-color:    #2d3250;
+    border-color:        #7aa2f7;
+    box-shadow:          none;
+}
+
+/* ── dropdowns ───────────────────────────────────────────────────────────── */
+combobox button,
+combobox button.text-button {
+    background-image:    none;
+    background-color:    #24283b;
+    border:              1px solid #3b4261;
+    border-radius:       8px;
+    color:               #c0caf5;
+    box-shadow:          none;
+}
+
+combobox button:hover {
+    background-color:    #2d3250;
+    border-color:        #7aa2f7;
+}
+
+/* dropdown list */
+menu {
+    background-color: #24283b;
+    border:           1px solid #3b4261;
+    border-radius:    8px;
+    padding:          4px;
+}
+
+menuitem {
+    background-color: transparent;
+    color:            #c0caf5;
+    border-radius:    6px;
+    padding:          5px 12px;
+}
+
+menuitem:hover {
+    background-color: #3d59a1;
+    color:            #ffffff;
+}
+
+/* ── scrollbar ───────────────────────────────────────────────────────────── */
+scrolledwindow, viewport {
+    background-color: #1a1b26;
+}
+
+scrollbar {
+    background-color: transparent;
+    min-width:        6px;
+}
+
+scrollbar trough {
+    background-color: #16161e;
+    border-radius:    4px;
+}
+
+scrollbar slider {
+    background-color: #3b4261;
+    border-radius:    4px;
+    min-width:        5px;
+    min-height:       30px;
+    border:           none;
+}
+
+scrollbar slider:hover {
+    background-color: #7aa2f7;
+}
+
+/* ── wallpaper thumbnails ────────────────────────────────────────────────── */
+.thumbnail {
+    border-radius: 10px;
+    border:        2px solid transparent;
+    margin:        5px;
+}
+
+.thumbnail:hover {
+    border-color: #7aa2f7;
+}
+
+.thumbnail:checked,
+.thumbnail:selected {
+    border-color: #7aa2f7;
+    box-shadow:   0 0 0 3px rgba(61, 89, 161, 0.45);
+}
+
+/* ── tooltip ─────────────────────────────────────────────────────────────── */
+tooltip {
+    background-color: #24283b;
+    border:           1px solid #3b4261;
+    border-radius:    8px;
+    padding:          4px 10px;
+}
+
+tooltip label {
+    color:     #c0caf5;
+    font-size: 11px;
+}
