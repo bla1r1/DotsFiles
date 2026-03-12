@@ -45,7 +45,7 @@ install_pacman_packages() {
         base-devel git rsync curl unzip
         hyprland hyprpaper xdg-desktop-portal xdg-desktop-portal-hyprland
         waybar rofi-wayland swaync
-        kitty alacritty firefox nautilus geany
+        kitty alacritty firefox nautilus geany fish fastfetch
         wl-clipboard cliphist grim slurp swappy
         copyq
         pipewire wireplumber pipewire-pulse pavucontrol pavucontrol-qt pamixer playerctl

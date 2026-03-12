@@ -6,9 +6,10 @@ set -euo pipefail
 #   curl -fsSL <raw_url_to_this_file> | bash -s -- <repo_url> [install-arch args...]
 #
 # You can also provide repo URL via env:
-#   DOTFILES_REPO_URL=https://github.com/you/DotsFiles.git
+#   DOTFILES_REPO_URL=https://github.com/bla1r1/DotsFiles.git
 
-REPO_URL="${DOTFILES_REPO_URL:-${1:-}}"
+DEFAULT_REPO_URL="https://github.com/bla1r1/DotsFiles.git"
+REPO_URL="${DOTFILES_REPO_URL:-${1:-$DEFAULT_REPO_URL}}"
 if [[ -n "${1:-}" && "$1" =~ ^https?://|^git@ ]]; then
     shift || true
 fi
@@ -19,7 +20,7 @@ TARGET_DIR="${DOTFILES_TARGET_DIR:-$HOME/.local/src/dotfiles}"
 if [[ -z "$REPO_URL" ]]; then
     echo "Missing repository URL."
     echo "Usage: bash bootstrap-arch.sh <repo_url> [install-arch args...]"
-    echo "Or set DOTFILES_REPO_URL env var."
+    echo "Or set DOTFILES_REPO_URL env var (default: $DEFAULT_REPO_URL)."
     exit 1
 fi
 
