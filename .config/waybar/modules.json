@@ -28,7 +28,7 @@
   "include": ["~/.config/waybar/dcol_modules/clock.json"],
 
   "hyprland/language": {
-    "format": "{}",
+    "format": "󰌌   {}",
     "format-en": "EN",
     "format-uk": "UA",
     "format-de": "DE",
@@ -37,7 +37,7 @@
   },
 
   "custom/copyq": {
-    "format": "CLIP",
+    "format": "󰅍",
     "on-click": "copyq toggle",
     "tooltip": false
   },
@@ -45,26 +45,26 @@
   "bluetooth": {
     "format": "",
     "format-disabled": "",
-    "format-connected": "BT {num_connections}",
+    "format-connected": " {num_connections}",
     "on-click": "blueman-manager",
     "on-click-right": "blueman-manager",
-    "tooltip-format": "{device_alias}",
+    "tooltip-format": " {device_alias}",
     "tooltip-format-connected": "{device_enumerate}",
-    "tooltip-format-enumerate-connected": "{device_alias}"
+    "tooltip-format-enumerate-connected": " {device_alias}"
   },
 
   "custom/filemanager": {
-    "format": "FM",
+    "format": "",
     "on-click": "nautilus",
     "tooltip": false
   },
   "custom/terminal": {
-    "format": "TERM",
+    "format": "",
     "on-click": "kitty",
     "tooltip": false
   },
   "custom/browser": {
-    "format": "WEB",
+    "format": "",
     "on-click": "firefox",
     "tooltip": false
   },
@@ -76,32 +76,32 @@
   },
 
   "network": {
-    "format-wifi": "WIFI {signalStrength}%",
-    "format-ethernet": "ETH",
-    "tooltip-format": "{ipaddr} up {bandwidthUpBytes} down {bandwidthDownBytes}",
-    "format-linked": "ETH {ifname} (No IP)",
-    "format-disconnected": "Disconnected",
-    "format-alt": "WIFI {essid}",
+    "format-wifi": "󰤨 {signalStrength}%",
+    "format-ethernet": "󱘖",
+    "tooltip-format": "󱘖  {ipaddr}  {bandwidthUpBytes}  {bandwidthDownBytes}",
+    "format-linked": "󱘖  {ifname} (No IP)",
+    "format-disconnected": " Disconnected",
+    "format-alt": "󰤨  {essid}",
     "on-click": "networkmanager_dmenu",
     "interval": 5
   },
 
   "pulseaudio": {
     "format": "{icon} {volume}%",
-    "format-muted": "MUTED",
+    "format-muted": "",
     "on-click": "~/.config/hypr/scripts/waybar-vol-progbar.sh --toggle",
     "on-click-right": "pavucontrol-qt",
     "on-scroll-up": "~/.config/hypr/scripts/waybar-vol-progbar.sh --inc",
     "on-scroll-down": "~/.config/hypr/scripts/waybar-vol-progbar.sh --dec",
     "tooltip-format": "{icon} {desc}",
     "format-icons": {
-      "headphone": ["VOL", "VOL", "VOL"],
-      "hands-free": "VOL",
-      "headset": "VOL",
-      "phone": "VOL",
-      "portable": "VOL",
-      "car": "VOL",
-      "default": ["VOL", "VOL", "VOL"]
+      "headphone": ["", "", ""],
+      "hands-free": "",
+      "headset": "",
+      "phone": "",
+      "portable": "",
+      "car": "",
+      "default": ["", "", ""]
     }
   },
 
@@ -130,14 +130,14 @@
     "tooltip": false,
     "format": "{icon} {text}",
     "format-icons": {
-      "notification": "N",
-      "none": "-",
-      "dnd-notification": "DND",
-      "dnd-none": "DND",
-      "inhibited-notification": "N",
-      "inhibited-none": "-",
-      "dnd-inhibited-notification": "DND",
-      "dnd-inhibited-none": "DND"
+      "notification": "󰂚",
+      "none": "󰂜",
+      "dnd-notification": "󰂛",
+      "dnd-none": "󰂛",
+      "inhibited-notification": "󰂚",
+      "inhibited-none": "󰂜",
+      "dnd-inhibited-notification": "󰂛",
+      "dnd-inhibited-none": "󰂛"
     },
     "return-type": "json",
     "exec-if": "which swaync-client",
@@ -148,7 +148,7 @@
   },
 
   "custom/updates": {
-    "format": "UPD {}",
+    "format": "  {}",
     "exec": "~/.config/hypr/scripts/updates.sh",
     "restart-interval": 60,
     "return-type": "json",
@@ -169,14 +169,20 @@
     }
   },
 
-  "group/r-apps": {"orientation": "horizontal", "modules": []},
-  "group/l-quicklinks": {"orientation": "horizontal", "modules": []},
-  "group/r-quicklinks": {"orientation": "horizontal", "modules": []},
-  "group/l-workspaces": {"orientation": "horizontal", "modules": []},
-  "group/r-workspaces": {"orientation": "horizontal", "modules": []},
-  "group/l-taskbar": {"orientation": "horizontal", "modules": []},
-  "group/r-taskbar": {"orientation": "horizontal", "modules": []},
-  "group/l-devices": {"orientation": "horizontal", "modules": []},
-  "group/r-devices": {"orientation": "horizontal", "modules": []},
-  "group/l-system": {"orientation": "horizontal", "modules": []}
+  "group/l-apps":       { "orientation": "horizontal", "modules": [] },
+  "group/r-apps":       { "orientation": "horizontal", "modules": [] },
+  "group/l-quicklinks": { "orientation": "horizontal", "modules": [] },
+  "group/r-quicklinks": { "orientation": "horizontal", "modules": [] },
+  "group/l-workspaces": { "orientation": "horizontal", "modules": [] },
+  "group/r-workspaces": { "orientation": "horizontal", "modules": [] },
+  "group/l-taskbar":    { "orientation": "horizontal", "modules": [] },
+  "group/r-taskbar":    { "orientation": "horizontal", "modules": [] },
+  "group/l-misc":       { "orientation": "horizontal", "modules": [] },
+  "group/r-misc":       { "orientation": "horizontal", "modules": [] },
+  "group/l-timer":      { "orientation": "horizontal", "modules": [] },
+  "group/r-timer":      { "orientation": "horizontal", "modules": [] },
+  "group/l-devices":    { "orientation": "horizontal", "modules": [] },
+  "group/r-devices":    { "orientation": "horizontal", "modules": [] },
+  "group/l-system":     { "orientation": "horizontal", "modules": [] },
+  "group/r-system":     { "orientation": "horizontal", "modules": [] }
 }
