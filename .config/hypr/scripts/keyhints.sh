@@ -72,11 +72,12 @@ GDK_BACKEND=$BACKEND yad \
 " + scroll ↑↓"               "Scroll workspaces"                 "" \
 ""                           ""                                  "" \
 "--- SCREENSHOTS ---"        ""                                  "" \
-" Print"                     "Screenshot now"                    "~/Pictures/Screenshots/" \
-" SHIFT Print"               "Screenshot region"                 "(slurp to select)" \
-" CTRL Print"                "Screenshot in 5 sec"               "" \
-" CTRL SHIFT Print"          "Screenshot in 10 sec"              "" \
-"ALT Print"                  "Screenshot active window"          "" \
+" Print"                     "Screenshot fullscreen"             "всі монітори, saved + CopyQ" \
+" ALT Print"               "Screenshot поточний монітор"       "де курсор, saved + CopyQ" \
+" SHIFT Print"               "Screenshot region"                 "(slurp) saved + copied to CopyQ" \
+"ALT Print"                  "Screenshot active window"          "saved + copied to CopyQ" \
+" CTRL Print"                "Screenshot in 5 sec"               "saved + copied to CopyQ" \
+" CTRL SHIFT Print"          "Screenshot in 10 sec"              "saved + copied to CopyQ" \
 ""                           ""                                  "" \
 "--- SYSTEM ---"             ""                                  "" \
 "CTRL ALT L"                 "Lock screen"                       "(hyprlock)" \
