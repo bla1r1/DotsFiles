@@ -34,10 +34,6 @@ apply_wallpaper() {
         wal -q -i "$resolved_img"
     fi
 
-    if [[ -x "$HOME/.config/hypr/scripts/generate_waybar_contrast.sh" ]]; then
-        "$HOME/.config/hypr/scripts/generate_waybar_contrast.sh" "$resolved_img" >/dev/null 2>&1 || true
-    fi
-
     if command -v hyprctl >/dev/null 2>&1; then
         hyprctl hyprpaper preload "$resolved_img" >/dev/null 2>&1 || true
         hyprctl hyprpaper wallpaper ",$resolved_img" >/dev/null 2>&1 || true

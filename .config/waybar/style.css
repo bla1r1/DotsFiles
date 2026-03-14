@@ -1,4 +1,3 @@
-@import url("contrast.css");
 
 /*
     ┓ ┏┏┓┓┏┓┳┓┏┓┳┓
@@ -406,5 +405,3 @@ tooltip {
 #system {
     background: @system;
 }
-
-
