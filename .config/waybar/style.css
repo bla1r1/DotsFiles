@@ -162,10 +162,11 @@ tooltip {
     font-family: "Fira Sans SemiBold";
     font-weight: 700;
     font-size: 13px;
-    color: @tn-blue;
-    padding: 2px 12px 0px 12px;
-    text-shadow: 0 0 12px rgba(122, 162, 247, 0.5);
-    opacity: 1;
+    color: rgb(255, 255, 255);
+    background: @tn-blue;
+    padding: 2px 16px;
+    border-radius: 999px;
+    margin: 4px 6px;
 }
 
 #custom-timer {
