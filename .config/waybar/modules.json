@@ -43,7 +43,7 @@
   },
 
   "bluetooth": {
-    "format": "",
+    "format": "󰂯",
     "format-disabled": "",
     "format-connected": " {num_connections}",
     "on-click": "blueman-manager",
@@ -76,7 +76,7 @@
   },
 
   "network": {
-    "format-wifi": "󰤨 {signalStrength}%",
+    "format-wifi": "󰤨   {signalStrength}%",
     "format-ethernet": "󱘖",
     "tooltip-format": "󱘖  {ipaddr}  {bandwidthUpBytes}  {bandwidthDownBytes}",
     "format-linked": "󱘖  {ifname} (No IP)",
@@ -87,7 +87,7 @@
   },
 
   "pulseaudio": {
-    "format": "{icon} {volume}%",
+    "format": "{icon}    {volume}%",
     "format-muted": "",
     "on-click": "~/.config/hypr/scripts/waybar-vol-progbar.sh --toggle",
     "on-click-right": "pavucontrol-qt",
