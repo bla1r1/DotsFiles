@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# /* ---- 💫 Hyprland Quick Cheat Sheet 💫 ---- */
+# Hyprland Quick Cheat Sheet
 
 BACKEND=wayland
 
@@ -39,13 +39,13 @@ GDK_BACKEND=$BACKEND yad \
 " CTRL O"                    "Toggle opacity"                    "active window only" \
 ""                           ""                                  "" \
 "--- FOCUS ---"              ""                                  "" \
-" ← → ↑ ↓"                  "Move focus"                        "arrow keys" \
+" arrows"                    "Move focus"                        "arrow keys" \
 "ALT Tab"                    "Cycle windows"                     "bring active to top" \
 ""                           ""                                  "" \
 "--- MOVE & RESIZE ---"      ""                                  "" \
-" CTRL ← → ↑ ↓"             "Move window"                       "arrow keys" \
-" ALT ← → ↑ ↓"              "Swap window"                       "arrow keys" \
-" SHIFT ← → ↑ ↓"            "Resize window"                     "(±50px, repeatable)" \
+" CTRL arrows"               "Move window"                       "arrow keys" \
+" ALT arrows"                "Swap window"                       "arrow keys" \
+" SHIFT arrows"              "Resize window"                     "(+/-50px, repeatable)" \
 " + drag LMB"                "Move window"                       "(mouse)" \
 " + drag RMB"                "Resize window"                     "(mouse)" \
 ""                           ""                                  "" \
@@ -66,15 +66,15 @@ GDK_BACKEND=$BACKEND yad \
 " SHIFT I"                   "Toggle split"                      "(dwindle)" \
 ""                           ""                                  "" \
 "--- WORKSPACES ---"         ""                                  "" \
-" 1 .. 0"                    "Switch to workspace 1–10"          "" \
-" SHIFT 1 .. 0"              "Move window to workspace 1–10"     "" \
+" 1 .. 0"                    "Switch to workspace 1-10"          "" \
+" SHIFT 1 .. 0"              "Move window to workspace 1-10"     "" \
 " S"                         "Toggle scratchpad"                 "(special:magic)" \
-" + scroll ↑↓"               "Scroll workspaces"                 "" \
+" + scroll"                  "Scroll workspaces"                 "" \
 ""                           ""                                  "" \
 "--- SCREENSHOTS ---"        ""                                  "" \
-" Print"                     "Screenshot fullscreen"             "всі монітори, saved + CopyQ" \
-" ALT Print"               "Screenshot поточний монітор"       "де курсор, saved + CopyQ" \
-" SHIFT Print"               "Screenshot region"                 "(slurp) saved + copied to CopyQ" \
+" Print"                     "Screenshot fullscreen"             "all monitors, saved + CopyQ" \
+" ALT Print"                 "Screenshot focused monitor"        "saved + CopyQ" \
+" SHIFT Print"               "Screenshot region"                 "saved + copied to CopyQ" \
 "ALT Print"                  "Screenshot active window"          "saved + copied to CopyQ" \
 " CTRL Print"                "Screenshot in 5 sec"               "saved + copied to CopyQ" \
 " CTRL SHIFT Print"          "Screenshot in 10 sec"              "saved + copied to CopyQ" \
@@ -84,8 +84,8 @@ GDK_BACKEND=$BACKEND yad \
 " M"                         "Exit Hyprland"                     "(hyprctl exit)" \
 ""                           ""                                  "" \
 "--- MEDIA ---"              ""                                  "" \
-"Vol +/-"                    "Volume up / down"                  "(wpctl ±5%)" \
+"Vol +/-"                    "Volume up / down"                  "(wpctl +/-5%)" \
 "Mute"                       "Toggle mute"                       "(wpctl)" \
 "Mic Mute"                   "Toggle mic"                        "(wpctl)" \
-"Brightness +/-"             "Brightness up / down"              "(brightnessctl ±5%)" \
-"Play/Pause/Next/Prev"       "Media controls"                    "(playerctl)" \
+"Brightness +/-"             "Brightness up / down"              "(brightnessctl +/-5%)" \
+"Play/Pause/Next/Prev"       "Media controls"                    "(playerctl)"

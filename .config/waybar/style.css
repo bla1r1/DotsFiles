@@ -345,12 +345,12 @@ tooltip {
     color: @tn-fg;
 }
 
-/* жовте попередження при >60% */
+/* yellow warning when >60% */
 #cpu.warning {
     color: @tn-yellow;
 }
 
-/* червоне при >80% */
+/* red warning when >80% */
 #cpu.critical {
     color: @tn-red;
 }
@@ -424,3 +424,4 @@ tooltip {
     margin: 0;
     border: none;
 }
+
