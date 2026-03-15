@@ -11,8 +11,10 @@
     "orientation": "horizontal",
     "modules": [
       "pulseaudio",
+      "backlight",
       "bluetooth",
-      "network"
+      "network",
+      "battery"
     ]
   },
   "group/system": {
@@ -22,6 +24,14 @@
       "custom/updates",
       "custom/swaync",
       "custom/copyq"
+    ]
+  },
+  "group/stats": {
+    "orientation": "horizontal",
+    "modules": [
+      "cpu",
+      "memory",
+      "temperature"
     ]
   },
 
@@ -103,6 +113,52 @@
       "car": "",
       "default": ["", "", ""]
     }
+  },
+
+  "battery": {
+    "states": {
+      "good": 80,
+      "warning": 30,
+      "critical": 15
+    },
+    "format": "{icon}  {capacity}%",
+    "format-charging": "󰂄  {capacity}%",
+    "format-plugged": "󰚥  {capacity}%",
+    "format-full": "󰁹  Full",
+    "format-icons": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
+    "on-click-right": "gnome-power-statistics",
+    "tooltip-format": "{timeTo} — {power}W",
+    "interval": 30
+  },
+
+  "backlight": {
+    "format": "{icon}  {percent}%",
+    "format-icons": ["󰃞", "󰃟", "󰃠"],
+    "on-scroll-up": "brightnessctl set +5%",
+    "on-scroll-down": "brightnessctl set 5%-",
+    "tooltip": false
+  },
+
+  "cpu": {
+    "format": "    {usage}%",
+    "interval": 2,
+    "on-click": "kitty --title btop -e btop",
+    "tooltip": false
+  },
+
+  "memory": {
+    "format": "󰍛    {used:0.1f}G",
+    "interval": 5,
+    "on-click": "kitty --title btop -e btop",
+    "tooltip-format": "{used:0.1f}G / {total:0.1f}G used\n{avail:0.1f}G available"
+  },
+
+  "temperature": {
+    "critical-threshold": 80,
+    "format": "🌡️   {temperatureC}°C",
+    "format-critical": "🔥   {temperatureC}°C",
+    "interval": 5,
+    "tooltip": false
   },
 
   "wlr/taskbar": {
