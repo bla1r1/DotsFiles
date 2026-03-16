@@ -55,7 +55,8 @@ install_pacman_packages() {
         libnotify
         networkmanager network-manager-applet networkmanager-dmenu blueman
         polkit-kde-agent hyprpolkitagent
-        qt5ct qt6ct kvantum qt6-svg
+        qt5ct qt6ct kvantum qt6-svg qt6-virtualkeyboard
+        yad
         nwg-look nwg-displays
         python python-gobject
         imagemagick
@@ -87,14 +88,39 @@ ensure_aur_helper() {
     fi
 
     log "Installing yay (AUR helper)..."
+
+    # makepkg не може запускатись від root
+    local build_user="${SUDO_USER:-$USER}"
+    if [[ "$EUID" -eq 0 && -z "$SUDO_USER" ]]; then
+        echo "ERROR: Запусти скрипт як звичайний юзер (не root), або через sudo від звичайного юзера."
+        exit 1
+    fi
+
     local tmpdir
     tmpdir="$(mktemp -d)"
+    # Надаємо права на tmpdir для build_user
+    chown "$build_user" "$tmpdir"
+
     git clone https://aur.archlinux.org/yay.git "$tmpdir/yay"
-    (
-        cd "$tmpdir/yay"
-        makepkg -si --noconfirm
-    )
+    chown -R "$build_user" "$tmpdir/yay"
+
+    if [[ "$EUID" -eq 0 ]]; then
+        # Запускаємо makepkg від імені звичайного юзера
+        sudo -u "$build_user" bash -c "cd '$tmpdir/yay' && makepkg -si --noconfirm"
+    else
+        (
+            cd "$tmpdir/yay"
+            makepkg -si --noconfirm
+        )
+    fi
+
     rm -rf "$tmpdir"
+
+    if ! command -v yay >/dev/null 2>&1; then
+        warn "yay не знайдено після збірки. Перевір логи вище."
+        exit 1
+    fi
+
     echo "yay"
 }
 
