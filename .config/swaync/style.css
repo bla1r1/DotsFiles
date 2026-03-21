@@ -92,7 +92,7 @@ notificationwindow, blankwindow {
    ══════════════════════════════════════════════════════ */
 
 .notification-row {
-    background: none;
+    background: transparent;
     outline: none;
     margin: 2px 0;
 }
@@ -102,6 +102,7 @@ notificationwindow, blankwindow {
 }
 
 .notification-row .notification-background {
+    background: transparent;
     padding: 4px 10px;
 }
 
@@ -110,7 +111,7 @@ notificationwindow, blankwindow {
     border-radius: var(--border-radius);
     border: var(--border);
     padding: 0;
-    background: rgba(var(--noti-bg), var(--noti-bg-alpha));
+    background: rgba(36, 40, 59, 0.85);
     transition: var(--hover-tranistion);
     box-shadow: var(--notification-shadow);
 }
@@ -238,7 +239,7 @@ notificationwindow, blankwindow {
 .notification-row .notification-background .notification .notification-action > button {
     border-radius: var(--border-radius);
     color: var(--text-color);
-    background: rgba(var(--noti-bg), var(--noti-bg-alpha));
+    background: rgba(36, 40, 59, 0.85);
     border: var(--border);
 }
 
@@ -281,7 +282,7 @@ notificationwindow, blankwindow {
 
 .inline-reply-button {
     margin-left: 4px;
-    background: rgba(var(--noti-bg), var(--noti-bg-alpha));
+    background: rgba(36, 40, 59, 0.85);
     border: var(--border);
     border-radius: var(--border-radius);
     color: var(--text-color);
@@ -307,13 +308,13 @@ notificationwindow, blankwindow {
     padding: 6px;
     border-radius: var(--border-radius);
     border: var(--border);
-    background: rgba(var(--noti-bg), var(--noti-bg-alpha));
+    background: rgba(36, 40, 59, 0.85);
 }
 
 /* Title */
 .widget-title {
     color: #7aa2f7;
-    background: rgba(var(--noti-bg), var(--noti-bg-alpha));
+    background: rgba(36, 40, 59, 0.85);
     padding: 5px 10px;
     margin: 4px;
     border-radius: var(--border-radius);
@@ -346,7 +347,7 @@ notificationwindow, blankwindow {
 
 /* DND */
 .widget-dnd {
-    background: rgba(var(--noti-bg), var(--noti-bg-alpha));
+    background: rgba(36, 40, 59, 0.85);
     padding: 5px 10px;
     margin: 4px;
     border-radius: var(--border-radius);
@@ -386,7 +387,7 @@ notificationwindow, blankwindow {
     padding: 4px;
     margin: 4px;
     border-radius: var(--border-radius);
-    background: rgba(var(--noti-bg), var(--noti-bg-alpha));
+    background: rgba(36, 40, 59, 0.85);
     border: var(--border);
 }
 
@@ -441,7 +442,7 @@ notificationwindow, blankwindow {
 
 /* Volume */
 .widget-volume {
-    background: rgba(var(--noti-bg), var(--noti-bg-alpha));
+    background: rgba(36, 40, 59, 0.85);
     padding: 6px;
     margin: 4px 4px 2px 4px;
     border-radius: var(--border-radius);
@@ -461,7 +462,7 @@ notificationwindow, blankwindow {
 
 /* Backlight */
 .widget-backlight {
-    background: rgba(var(--noti-bg), var(--noti-bg-alpha));
+    background: rgba(36, 40, 59, 0.85);
     padding: 6px;
     margin: 2px 4px 4px 4px;
     border-radius: var(--border-radius);
@@ -478,4 +479,18 @@ notificationwindow, blankwindow {
 .widget-label > label {
     font-size: 12px;
     color: rgba(169, 177, 214, 0.65);
+}
+
+.floating-notifications.background {
+    background: transparent;
+    box-shadow: none;
+}
+
+.notification-row > revealer > .notification-background {
+    background: transparent;
+}
+
+window.background {
+    background: transparent;
+    background-color: transparent;
 }
