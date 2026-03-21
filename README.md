@@ -1,6 +1,6 @@
 # DotsFiles (Arch Linux)
 
-Quick installer for this Hyprland/Waybar/SwayNC setup on Arch (including fish + fastfetch).
+Quick installer for this swayfx/Waybar/SwayNC setup on Arch (including fish + fastfetch).
 
 ## Direct one-liner
 ```bash
