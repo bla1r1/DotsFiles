@@ -20,7 +20,7 @@
   "group/system": {
     "orientation": "horizontal",
     "modules": [
-      "hyprland/language",
+      "sway/language",
       "custom/updates",
       "custom/swaync",
       "custom/copyq"
@@ -34,24 +34,14 @@
       "temperature"
     ]
   },
-
-  "include": ["~/.config/waybar/dcol_modules/clock.json"],
-
-  "hyprland/language": {
-    "format": "󰌌   {}",
-    "format-en": "EN",
-    "format-uk": "UA",
-    "format-de": "DE",
-    "on-click": "hyprctl switchxkblayout all next",
-    "tooltip": false
-  },
-
+  "include": [
+    "~/.config/waybar/dcol_modules/clock.json"
+  ],
   "custom/copyq": {
     "format": "󰅍",
     "on-click": "copyq toggle",
     "tooltip": false
   },
-
   "bluetooth": {
     "format": "󰂯",
     "format-disabled": "",
@@ -62,7 +52,6 @@
     "tooltip-format-connected": "{device_enumerate}",
     "tooltip-format-enumerate-connected": " {device_alias}"
   },
-
   "custom/filemanager": {
     "format": "",
     "on-click": "nautilus",
@@ -84,7 +73,6 @@
     "on-click-right": "rofi -show drun -theme ~/.config/rofi/spotlight.rasi",
     "tooltip": false
   },
-
   "network": {
     "format-wifi": "󰤨   {signalStrength}%",
     "format-ethernet": "󱘖",
@@ -95,26 +83,32 @@
     "on-click": "networkmanager_dmenu",
     "interval": 5
   },
-
   "pulseaudio": {
     "format": "{icon}    {volume}%",
     "format-muted": "",
-    "on-click": "~/.config/hypr/scripts/waybar-vol-progbar.sh --toggle",
+    "on-click": "~/.config/sway/scripts/waybar-vol-progbar.sh --toggle",
     "on-click-right": "pavucontrol-qt",
-    "on-scroll-up": "~/.config/hypr/scripts/waybar-vol-progbar.sh --inc",
-    "on-scroll-down": "~/.config/hypr/scripts/waybar-vol-progbar.sh --dec",
+    "on-scroll-up": "~/.config/sway/scripts/waybar-vol-progbar.sh --inc",
+    "on-scroll-down": "~/.config/sway/scripts/waybar-vol-progbar.sh --dec",
     "tooltip-format": "{icon} {desc}",
     "format-icons": {
-      "headphone": ["", "", ""],
+      "headphone": [
+        "",
+        "",
+        ""
+      ],
       "hands-free": "",
       "headset": "",
       "phone": "",
       "portable": "",
       "car": "",
-      "default": ["", "", ""]
+      "default": [
+        "",
+        "",
+        ""
+      ]
     }
   },
-
   "battery": {
     "states": {
       "good": 80,
@@ -125,34 +119,45 @@
     "format-charging": "󰂄  {capacity}%",
     "format-plugged": "󰚥  {capacity}%",
     "format-full": "󰁹  Full",
-    "format-icons": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
+    "format-icons": [
+      "󰁺",
+      "󰁻",
+      "󰁼",
+      "󰁽",
+      "󰁾",
+      "󰁿",
+      "󰂀",
+      "󰂁",
+      "󰂂",
+      "󰁹"
+    ],
     "on-click-right": "gnome-power-statistics",
     "tooltip-format": "{timeTo} — {power}W",
     "interval": 30
   },
-
   "backlight": {
     "format": "{icon}  {percent}%",
-    "format-icons": ["󰃞", "󰃟", "󰃠"],
+    "format-icons": [
+      "󰃞",
+      "󰃟",
+      "󰃠"
+    ],
     "on-scroll-up": "brightnessctl set +5%",
     "on-scroll-down": "brightnessctl set 5%-",
     "tooltip": false
   },
-
   "cpu": {
     "format": "    {usage}%",
     "interval": 2,
     "on-click": "kitty --title btop -e btop",
     "tooltip": false
   },
-
   "memory": {
     "format": "󰍛    {used:0.1f}G",
     "interval": 5,
     "on-click": "kitty --title btop -e btop",
     "tooltip-format": "{used:0.1f}G / {total:0.1f}G used\n{avail:0.1f}G available"
   },
-
   "temperature": {
     "critical-threshold": 80,
     "format": "🌡️   {temperatureC}°C",
@@ -160,7 +165,6 @@
     "interval": 5,
     "tooltip": false
   },
-
   "wlr/taskbar": {
     "format": "{icon}",
     "icon-size": {},
@@ -181,7 +185,6 @@
       "firefoxdeveloperedition": "firefox-developer-edition"
     }
   },
-
   "custom/swaync": {
     "tooltip": false,
     "format": "{icon} {text}",
@@ -202,43 +205,95 @@
     "on-click-right": "swaync-client -d -sw",
     "escape": true
   },
-
   "custom/updates": {
     "format": "  {}",
-    "exec": "~/.config/hypr/scripts/updates.sh",
+    "exec": "~/.config/sway/scripts/updates.sh",
     "restart-interval": 60,
     "return-type": "json",
     "escape": true,
-    "on-click": "~/.config/hypr/scripts/updates.sh up",
+    "on-click": "~/.config/sway/scripts/updates.sh up",
     "tooltip-format": "{}",
     "tooltip": true
   },
-
-  "hyprland/workspaces": {
-    "on-scroll-up": "hyprctl dispatch workspace -1",
-    "on-scroll-down": "hyprctl dispatch workspace +1",
+  "group/l-apps": {
+    "orientation": "horizontal",
+    "modules": []
+  },
+  "group/r-apps": {
+    "orientation": "horizontal",
+    "modules": []
+  },
+  "group/l-quicklinks": {
+    "orientation": "horizontal",
+    "modules": []
+  },
+  "group/r-quicklinks": {
+    "orientation": "horizontal",
+    "modules": []
+  },
+  "group/l-workspaces": {
+    "orientation": "horizontal",
+    "modules": []
+  },
+  "group/r-workspaces": {
+    "orientation": "horizontal",
+    "modules": []
+  },
+  "group/l-taskbar": {
+    "orientation": "horizontal",
+    "modules": []
+  },
+  "group/r-taskbar": {
+    "orientation": "horizontal",
+    "modules": []
+  },
+  "group/l-misc": {
+    "orientation": "horizontal",
+    "modules": []
+  },
+  "group/r-misc": {
+    "orientation": "horizontal",
+    "modules": []
+  },
+  "group/l-timer": {
+    "orientation": "horizontal",
+    "modules": []
+  },
+  "group/r-timer": {
+    "orientation": "horizontal",
+    "modules": []
+  },
+  "group/l-devices": {
+    "orientation": "horizontal",
+    "modules": []
+  },
+  "group/r-devices": {
+    "orientation": "horizontal",
+    "modules": []
+  },
+  "group/l-system": {
+    "orientation": "horizontal",
+    "modules": []
+  },
+  "group/r-system": {
+    "orientation": "horizontal",
+    "modules": []
+  },
+  "sway/language": {
+    "format": "󰌌   {}",
+    "format-en": "EN",
+    "format-uk": "UA",
+    "format-de": "DE",
+    "on-click": "swaymsg input type:keyboard xkb_switch_layout next",
+    "tooltip": false
+  },
+  "sway/workspaces": {
+    "on-scroll-up": "swaymsg workspace prev",
+    "on-scroll-down": "swaymsg workspace next",
     "all-outputs": true,
-    "active-only": false,
     "on-click": "activate",
     "persistent-workspaces": {
       "*": 5
     }
-  },
-
-  "group/l-apps":       { "orientation": "horizontal", "modules": [] },
-  "group/r-apps":       { "orientation": "horizontal", "modules": [] },
-  "group/l-quicklinks": { "orientation": "horizontal", "modules": [] },
-  "group/r-quicklinks": { "orientation": "horizontal", "modules": [] },
-  "group/l-workspaces": { "orientation": "horizontal", "modules": [] },
-  "group/r-workspaces": { "orientation": "horizontal", "modules": [] },
-  "group/l-taskbar":    { "orientation": "horizontal", "modules": [] },
-  "group/r-taskbar":    { "orientation": "horizontal", "modules": [] },
-  "group/l-misc":       { "orientation": "horizontal", "modules": [] },
-  "group/r-misc":       { "orientation": "horizontal", "modules": [] },
-  "group/l-timer":      { "orientation": "horizontal", "modules": [] },
-  "group/r-timer":      { "orientation": "horizontal", "modules": [] },
-  "group/l-devices":    { "orientation": "horizontal", "modules": [] },
-  "group/r-devices":    { "orientation": "horizontal", "modules": [] },
-  "group/l-system":     { "orientation": "horizontal", "modules": [] },
-  "group/r-system":     { "orientation": "horizontal", "modules": [] }
+  }
 }

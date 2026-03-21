@@ -1,0 +1,13 @@
+# ############################################################
+# SWAY CONFIG — main file
+# Converted from Hyprland config
+# Docs: https://man.archlinux.org/man/sway.5
+# ############################################################
+include ~/.config/sway/conf.d/variables.conf
+include ~/.config/sway/conf.d/monitors.conf
+include ~/.config/sway/conf.d/env.conf
+include ~/.config/sway/conf.d/autostart.conf
+include ~/.config/sway/conf.d/look-and-feel.conf
+include ~/.config/sway/conf.d/input.conf
+include ~/.config/sway/conf.d/keybinds.conf
+include ~/.config/sway/conf.d/windowrules.conf
