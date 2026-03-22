@@ -40,6 +40,12 @@ ensure_sudo() {
     sudo -v
 }
 
+# ─── Sync package databases before anything else ────────────────────────────
+sync_repos() {
+    log "Syncing pacman repositories..."
+    sudo pacman -Sy --noconfirm
+}
+
 install_pacman_packages() {
     local pkgs=(
         base-devel git rsync curl unzip
@@ -64,6 +70,8 @@ install_pacman_packages() {
         noto-fonts noto-fonts-emoji ttf-jetbrains-mono-nerd ttf-fira-sans
         papirus-icon-theme
         sddm
+        gnome-keyring libsecret
+        snapd
         virt-manager steam discord
     )
 
@@ -133,11 +141,13 @@ ensure_aur_helper() {
 install_aur_packages() {
     local aur_helper="$1"
     local pkgs=(
-        swayfx
-        swaylock-effects
-        catppuccin-cursors-mocha
-        catppuccin-gtk-theme-mocha
-        github-desktop-bin
+        swayfx                        # SwayFX compositor
+        swaylock-effects              # Swaylock with effects
+        catppuccin-cursors-mocha      # Cursors theme
+        catppuccin-gtk-theme-mocha    # GTK theme
+        github-desktop-bin            # GitHub Desktop
+        snap-store                    # Snap Store (GUI for snaps)
+        telegram-desktop              # Telegram (latest via AUR)
     )
 
     log "Installing AUR packages with ${aur_helper}..."
@@ -150,6 +160,7 @@ install_aur_packages() {
         fi
     done
 }
+
 
 deploy_sddm_theme() {
     if [[ -d "$REPO_DIR/usr/share/sddm/themes/blair" ]]; then
@@ -243,14 +254,24 @@ deploy_dotfiles() {
 
 enable_services() {
     log "Enabling system services..."
-    sudo systemctl enable --now NetworkManager || warn "Failed to enable NetworkManager"
-    sudo systemctl enable --now bluetooth || warn "Failed to enable bluetooth"
-    sudo systemctl enable --now sddm || warn "Failed to enable/start sddm"
+    sudo systemctl enable --now NetworkManager   || warn "Failed to enable NetworkManager"
+    sudo systemctl enable --now bluetooth        || warn "Failed to enable bluetooth"
+    sudo systemctl enable --now sddm             || warn "Failed to enable/start sddm"
+
+    # snapd — requires symlink for classic snaps
+    sudo systemctl enable --now snapd            || warn "Failed to enable snapd"
+    sudo systemctl enable --now snapd.apparmor   || warn "Failed to enable snapd.apparmor"
+    if [[ ! -L /snap ]]; then
+        sudo ln -s /var/lib/snapd/snap /snap     || warn "Failed to create /snap symlink"
+    fi
 }
 
 main() {
     require_arch
     ensure_sudo
+
+    # ── Always sync repos first ──────────────────────────────────────────────
+    sync_repos
 
     if [[ "$SKIP_PACKAGES" -eq 0 ]]; then
         install_pacman_packages
@@ -262,6 +283,7 @@ main() {
             warn "Skipping AUR package install (--no-aur)."
             warn "Installed fallback compositor: sway + swaylock (without swayFX effects)."
         fi
+
     else
         warn "Skipping package install (--skip-packages)."
     fi
@@ -281,6 +303,7 @@ main() {
     log "Done."
     echo "Log out/in (or reboot) after installation."
     echo "Note: group membership changes (wallpaper group) require a new login session."
+    echo "Note: for snap classic confinement the /snap symlink requires a reboot or new shell."
 }
 
 main "$@"
