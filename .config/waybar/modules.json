@@ -106,7 +106,7 @@
   "custom/mic": {
     "exec": "bash ~/.config/sway/scripts/mic-control.sh --get-muted | sed 's/true/󰍭/;s/false/󰍬/'",
     "interval": 2,
-    "format": "  {}  ",
+    "format": "{}",
     "on-click": "bash ~/.config/sway/scripts/mic-control.sh --toggle",
     "tooltip-format": "Left click: toggle mic",
     "tooltip": true
@@ -118,14 +118,14 @@
       "critical": 15
     },
     "format": "{icon}  {capacity}%",
-    "format-charging": "󰂄  {capacity}%",
+    "format-charging": "󰂄  {capacity}%  ⬆",
     "format-plugged": "󰚥  {capacity}%",
     "format-full": "󰁹  Full",
     "format-icons": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
     "on-click-right": "gnome-power-statistics",
-    "tooltip-format": "{timeTo} — {power}W",
+    "tooltip-format": "{timeTo} — {power}W  ({capacity}%)",
     "interval": 30
-  },
+},
   "backlight": {
     "format": "{icon}  {percent}%",
     "format-icons": ["󰃞", "󰃟", "󰃠"],

@@ -78,6 +78,7 @@ tooltip {
     border-radius: 10px;
     border: 1px solid @tn-border;
     margin: 4px 4px;
+    min-width: 0;
 }
 
 /*
@@ -219,8 +220,6 @@ tooltip {
     padding: 0px 2px;
 }
 
-
-
 #stats {
     padding: 0px 2px;
 }
@@ -237,6 +236,7 @@ tooltip {
 #bluetooth, #pulseaudio, #wireplumber, #network,
 #custom-misc, #idle_inhibitor,
 #custom-filemanager, #custom-browser, #custom-terminal, #custom-editor,
+#custom-kbd-backlight, #custom-mic,
 #window, #language {
     padding: 0px 10px;
     color: @tn-fg;
@@ -302,7 +302,12 @@ tooltip {
     font-weight: 800;
 }
 
-#battery.charging,
+/* Анимация зарядки — пульсирует цветом */
+#battery.charging {
+    color: @tn-cyan;
+    animation: battery-charging 2s ease-in-out infinite;
+}
+
 #battery.plugged {
     color: @tn-cyan;
 }
@@ -315,7 +320,11 @@ tooltip {
     color: @tn-fg;
 }
 
-
+@keyframes battery-charging {
+    0%   { color: @tn-cyan; }
+    50%  { color: @tn-green; }
+    100% { color: @tn-cyan; }
+}
 
 /*
     ┳┓┏┓┏┓┓┏┓┓ ┳┏┓┓┏┳┓
@@ -332,6 +341,36 @@ tooltip {
 }
 
 /*
+    ┓┏┓┓┏┓  ┳┓┏┓┏┓┓┏┓  ┳┓┏┓┏┓┓┏┓┓ ┳┏┓┓┏┳┓
+    ┃┫ ┣┫   ┣┫┣┫┃ ┃┫    ┣┫┣┫┃  ┃┫ ┃ ┃┃┓┣┫ ┃
+    ┛┗┛┛┗   ┛┗┛┗┗┛┛┗┛   ┻┛┛┗┗┛ ┛┗┛┗┛┻┗┛┛┗ ┻
+*/
+
+/* Клавиатурная подсветка — жёлтый в тон с backlight */
+#custom-kbd-backlight {
+    color: @tn-yellow;
+}
+
+#custom-kbd-backlight:hover {
+    color: @tn-fg;
+}
+
+/*
+    ┳┳┓┳┏┓  ┳┳┓┳┏┓┳┓┏┓┏┓┓┏┓┳┓┏┓
+    ┃┃┃┃┃┓  ┃┃┃┃┃ ┣┫┃┃┃┃┣┫┣┫┣┫┃┃
+    ┛ ┗┻┗┛  ┛ ┗┻┗┛┛┗┣┛┗┛┛┗┻┛┛┗┛┗
+*/
+
+/* Микрофон — dim когда активен, красный когда замьючен */
+#custom-mic {
+    color: @tn-fg-dim;
+}
+
+#custom-mic:hover {
+    color: @tn-red;
+}
+
+/*
     ┳┳┓┏┓┳┓┳┏┳┓┏┓┳┓┳┳┓┏┓
     ┃┃┃┃┃┃┃┃ ┃ ┃┃┣┫┃┃┃┃┓
     ┛ ┗┗┛┛┗┻ ┻ ┗┛┛┗┻┛┗┗┛
@@ -345,12 +384,10 @@ tooltip {
     color: @tn-fg;
 }
 
-/* yellow warning when >60% */
 #cpu.warning {
     color: @tn-yellow;
 }
 
-/* red warning when >80% */
 #cpu.critical {
     color: @tn-red;
 }
@@ -424,4 +461,3 @@ tooltip {
     margin: 0;
     border: none;
 }
-

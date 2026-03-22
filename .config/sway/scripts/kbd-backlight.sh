@@ -3,7 +3,7 @@ set -euo pipefail
 
 ICON_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/swaync/icons"
 SYNC_HINT="string:x-canonical-private-synchronous:sys-notify-kbd"
-DEVICE="apple::kbd_backlight"
+DEVICE=":white:kbd_backlight"
 DEFAULT_STEP=10
 
 die() {
@@ -54,11 +54,11 @@ main() {
             get_percent
             ;;
         --inc)
-            brightnessctl -d "$DEVICE" -e4 -n2 set "${step}%+"
+            brightnessctl -d "$DEVICE"  set "${step}%+"
             notify_kbd
             ;;
         --dec)
-            brightnessctl -d "$DEVICE" -e4 -n2 set "${step}%-"
+            brightnessctl -d "$DEVICE"  set "${step}%-"
             notify_kbd
             ;;
         --set)
