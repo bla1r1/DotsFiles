@@ -159,12 +159,12 @@
     "tooltip-format": "{used:0.1f}G / {total:0.1f}G used\n{avail:0.1f}G available"
   },
   "temperature": {
-    "critical-threshold": 80,
-    "format": "🌡️   {temperatureC}°C",
-    "format-critical": "🔥   {temperatureC}°C",
-    "interval": 5,
-    "tooltip": false
-  },
+  "critical-threshold": 80,
+  "format": "{icon}  {temperatureC}°C",
+  "format-icons": ["","","","",""],
+  "interval": 5,
+  "tooltip": false
+},
   "wlr/taskbar": {
     "format": "{icon}",
     "icon-size": {},
