@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Arch Linux installer for this dotfiles repo.
-# Installs packages, deploys configs (including SDDM theme), and enables services.
-
 REPO_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 BACKUP_DIR="$HOME/.dotfiles-backup-$(date +%Y%m%d-%H%M%S)"
 
@@ -12,22 +9,41 @@ SKIP_DOTFILES=0
 SKIP_SERVICES=0
 NO_AUR=0
 
-for arg in "$@"; do
-    case "$arg" in
-        --skip-packages) SKIP_PACKAGES=1 ;;
-        --skip-dotfiles) SKIP_DOTFILES=1 ;;
-        --skip-services) SKIP_SERVICES=1 ;;
-        --no-aur) NO_AUR=1 ;;
-        *)
-            echo "Unknown option: $arg"
-            echo "Usage: $0 [--skip-packages] [--skip-dotfiles] [--skip-services] [--no-aur]"
-            exit 1
-            ;;
-    esac
-done
-
 log() { printf '\n[INFO] %s\n' "$*"; }
 warn() { printf '\n[WARN] %s\n' "$*" >&2; }
+
+usage() {
+    cat <<EOF
+Usage: $0 [options]
+
+Options:
+  --skip-packages  Skip pacman/AUR package installation
+  --skip-dotfiles  Skip deploying dotfiles, fonts, wallpapers, and SDDM config/theme
+  --skip-services  Skip enabling system services
+  --no-aur         Skip AUR helper/bootstrap and AUR package installation
+  -h, --help       Show this help and exit
+EOF
+}
+
+parse_args() {
+    for arg in "$@"; do
+        case "$arg" in
+            --skip-packages) SKIP_PACKAGES=1 ;;
+            --skip-dotfiles) SKIP_DOTFILES=1 ;;
+            --skip-services) SKIP_SERVICES=1 ;;
+            --no-aur) NO_AUR=1 ;;
+            -h|--help)
+                usage
+                exit 0
+                ;;
+            *)
+                echo "Unknown option: $arg" >&2
+                usage
+                exit 1
+                ;;
+        esac
+    done
+}
 
 require_arch() {
     if [[ ! -f /etc/arch-release ]]; then
@@ -40,7 +56,6 @@ ensure_sudo() {
     sudo -v
 }
 
-# ─── Sync package databases before anything else ────────────────────────────
 sync_repos() {
     log "Syncing pacman repositories..."
     sudo pacman -Sy --noconfirm
@@ -54,6 +69,10 @@ install_pacman_packages() {
         kitty alacritty firefox nautilus geany fish fastfetch btop
         wl-clipboard cliphist grim slurp swappy
         xorg-xwayland
+        autotiling
+        gnome-power-manager
+        starship eza bat ugrep zoxide find-the-command
+        wofi python-pywal
         copyq
         waypaper
         pipewire wireplumber pipewire-pulse pavucontrol pavucontrol-qt pamixer playerctl
@@ -76,7 +95,6 @@ install_pacman_packages() {
     )
 
     if [[ "$NO_AUR" -eq 1 ]]; then
-        # Fallback compositor if AUR install is disabled.
         pkgs+=(sway swaylock)
     fi
 
@@ -103,23 +121,20 @@ ensure_aur_helper() {
 
     log "Installing yay (AUR helper)..."
 
-    # makepkg не може запускатись від root
     local build_user="${SUDO_USER:-$USER}"
     if [[ "$EUID" -eq 0 && -z "$SUDO_USER" ]]; then
-        echo "ERROR: Запусти скрипт як звичайний юзер (не root), або через sudo від звичайного юзера."
+        echo "ERROR: Run this script as a regular user (not root), or via sudo from a regular user."
         exit 1
     fi
 
     local tmpdir
     tmpdir="$(mktemp -d)"
-    # Надаємо права на tmpdir для build_user
     chown "$build_user" "$tmpdir"
 
     git clone https://aur.archlinux.org/yay.git "$tmpdir/yay"
     chown -R "$build_user" "$tmpdir/yay"
 
     if [[ "$EUID" -eq 0 ]]; then
-        # Запускаємо makepkg від імені звичайного юзера
         sudo -u "$build_user" bash -c "cd '$tmpdir/yay' && makepkg -si --noconfirm"
     else
         (
@@ -131,7 +146,7 @@ ensure_aur_helper() {
     rm -rf "$tmpdir"
 
     if ! command -v yay >/dev/null 2>&1; then
-        warn "yay не знайдено після збірки. Перевір логи вище."
+        warn "yay was not found after build. Check logs above."
         exit 1
     fi
 
@@ -141,13 +156,13 @@ ensure_aur_helper() {
 install_aur_packages() {
     local aur_helper="$1"
     local pkgs=(
-        swayfx                        # SwayFX compositor
-        swaylock-effects              # Swaylock with effects
-        catppuccin-cursors-mocha      # Cursors theme
-        catppuccin-gtk-theme-mocha    # GTK theme
-        github-desktop-bin            # GitHub Desktop
-        snap-store                    # Snap Store (GUI for snaps)
-        telegram-desktop              # Telegram (latest via AUR)
+        swayfx
+        swaylock-effects
+        catppuccin-cursors-mocha
+        catppuccin-gtk-theme-mocha
+        github-desktop-bin
+        snap-store
+        telegram-desktop
     )
 
     log "Installing AUR packages with ${aur_helper}..."
@@ -160,7 +175,6 @@ install_aur_packages() {
         fi
     done
 }
-
 
 deploy_sddm_theme() {
     if [[ -d "$REPO_DIR/usr/share/sddm/themes/blair" ]]; then
@@ -258,7 +272,6 @@ enable_services() {
     sudo systemctl enable --now bluetooth        || warn "Failed to enable bluetooth"
     sudo systemctl enable --now sddm             || warn "Failed to enable/start sddm"
 
-    # snapd — requires symlink for classic snaps
     sudo systemctl enable --now snapd            || warn "Failed to enable snapd"
     sudo systemctl enable --now snapd.apparmor   || warn "Failed to enable snapd.apparmor"
     if [[ ! -L /snap ]]; then
@@ -267,10 +280,11 @@ enable_services() {
 }
 
 main() {
+    parse_args "$@"
+
     require_arch
     ensure_sudo
 
-    # ── Always sync repos first ──────────────────────────────────────────────
     sync_repos
 
     if [[ "$SKIP_PACKAGES" -eq 0 ]]; then
@@ -281,9 +295,8 @@ main() {
             install_aur_packages "$aur_helper"
         else
             warn "Skipping AUR package install (--no-aur)."
-            warn "Installed fallback compositor: sway + swaylock (without swayFX effects)."
+            warn "Installed fallback compositor: sway + swaylock (without swayfx effects)."
         fi
-
     else
         warn "Skipping package install (--skip-packages)."
     fi
@@ -307,3 +320,4 @@ main() {
 }
 
 main "$@"
+

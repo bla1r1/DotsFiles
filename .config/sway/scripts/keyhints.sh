@@ -1,91 +1,73 @@
 #!/usr/bin/env bash
-# /* ---- 💫 Hyprland Quick Cheat Sheet 💫 ---- */
+set -euo pipefail
 
-BACKEND=wayland
+backend="wayland"
 
-if pidof rofi > /dev/null; then pkill rofi; fi
-if pidof yad  > /dev/null; then pkill yad;  fi
+if pidof rofi >/dev/null; then pkill rofi; fi
+if pidof yad >/dev/null; then pkill yad; fi
 
-GDK_BACKEND=$BACKEND yad \
+GDK_BACKEND="$backend" yad \
     --center \
-    --width=900 \
-    --height=700 \
-    --title="Hyprland Quick Cheat Sheet" \
+    --width=920 \
+    --height=720 \
+    --title="Sway Key Hints" \
     --no-buttons \
     --list \
     --column=Key: \
     --column=Description: \
     --column=Command: \
     --timeout-indicator=bottom \
-"ESC"                        "Close this window"                 "" \
-" = "                        "SUPER KEY (Windows Key)"           "" \
-""                           ""                                  "" \
-"--- APPS ---"               ""                                  "" \
-" T"                         "Terminal"                          "(kitty)" \
-" E"                         "File Manager"                      "(nautilus)" \
-" F"                         "Browser"                           "(firefox)" \
-" SPACE"                     "Application Launcher"              "(rofi)" \
-" SHIFT SPACE"               "Run as sudo"                       "(rofi + alacritty)" \
-" SHIFT S"                   "Quick Settings Menu"               "(quick-settings.sh)" \
-" H"                         "This cheat sheet"                  "(yad)" \
-" W"                         "Wallpaper picker"                  "(waypaper)" \
-""                           ""                                  "" \
-"--- WINDOWS ---"            ""                                  "" \
-" Q"                         "Close active window"               "" \
-" V"                         "Toggle floating"                   "single window" \
-" ALT SPACE"                 "Float all windows"                 "all windows on workspace" \
-" SHIFT F"                   "Fullscreen"                        "true fullscreen" \
-" CTRL F"                    "Maximize"                          "keeps bar visible" \
-" CTRL O"                    "Toggle opacity"                    "active window only" \
-""                           ""                                  "" \
-"--- FOCUS ---"              ""                                  "" \
-" ← → ↑ ↓"                  "Move focus"                        "arrow keys" \
-"ALT Tab"                    "Cycle windows"                     "bring active to top" \
-""                           ""                                  "" \
-"--- MOVE & RESIZE ---"      ""                                  "" \
-" CTRL ← → ↑ ↓"             "Move window"                       "arrow keys" \
-" ALT ← → ↑ ↓"              "Swap window"                       "arrow keys" \
-" SHIFT ← → ↑ ↓"            "Resize window"                     "(±50px, repeatable)" \
-" + drag LMB"                "Move window"                       "(mouse)" \
-" + drag RMB"                "Resize window"                     "(mouse)" \
-""                           ""                                  "" \
-"--- GROUPS ---"             ""                                  "" \
-" G"                         "Toggle group"                      "" \
-" Tab"                       "Next window in group"              "cycle forward" \
-" SHIFT Tab"                 "Previous window in group"          "cycle backward" \
-" CTRL K"                    "Move window into group (left)"     "" \
-" CTRL L"                    "Move window into group (right)"    "" \
-" CTRL H"                    "Move window out of group"          "" \
-""                           ""                                  "" \
-"--- LAYOUT ---"             ""                                  "" \
-" P"                         "Toggle pseudo tile"                "(dwindle)" \
-" J"                         "Toggle split"                      "(dwindle)" \
-" I"                         "Add master"                        "(master layout)" \
-" CTRL D"                    "Remove master"                     "(master layout)" \
-" CTRL Enter"                "Swap with master"                  "(master layout)" \
-" SHIFT I"                   "Toggle split"                      "(dwindle)" \
-""                           ""                                  "" \
-"--- WORKSPACES ---"         ""                                  "" \
-" 1 .. 0"                    "Switch to workspace 1–10"          "" \
-" SHIFT 1 .. 0"              "Move window to workspace 1–10"     "" \
-" S"                         "Toggle scratchpad"                 "(special:magic)" \
-" + scroll ↑↓"               "Scroll workspaces"                 "" \
-""                           ""                                  "" \
-"--- SCREENSHOTS ---"        ""                                  "" \
-" Print"                     "Screenshot fullscreen"             "всі монітори, saved + CopyQ" \
-" ALT Print"               "Screenshot поточний монітор"       "де курсор, saved + CopyQ" \
-" SHIFT Print"               "Screenshot region"                 "(slurp) saved + copied to CopyQ" \
-"ALT Print"                  "Screenshot active window"          "saved + copied to CopyQ" \
-" CTRL Print"                "Screenshot in 5 sec"               "saved + copied to CopyQ" \
-" CTRL SHIFT Print"          "Screenshot in 10 sec"              "saved + copied to CopyQ" \
-""                           ""                                  "" \
-"--- SYSTEM ---"             ""                                  "" \
-"CTRL ALT L"                 "Lock screen"                       "(hyprlock)" \
-" M"                         "Exit Hyprland"                     "(hyprctl exit)" \
-""                           ""                                  "" \
-"--- MEDIA ---"              ""                                  "" \
-"Vol +/-"                    "Volume up / down"                  "(wpctl ±5%)" \
-"Mute"                       "Toggle mute"                       "(wpctl)" \
-"Mic Mute"                   "Toggle mic"                        "(wpctl)" \
-"Brightness +/-"             "Brightness up / down"              "(brightnessctl ±5%)" \
-"Play/Pause/Next/Prev"       "Media controls"                    "(playerctl)" \
+"ESC"                 "Close this window"                     "" \
+"Super"               "Main modifier key"                     "" \
+""                    ""                                      "" \
+"--- APPS ---"        ""                                      "" \
+"Super+T"             "Terminal"                              "kitty" \
+"Super+E"             "File manager"                          "nautilus" \
+"Super+F"             "Browser"                               "firefox" \
+"Super+Space"         "Application launcher"                  "rofi" \
+"Super+Shift+S"       "Quick settings"                        "quick-settings.sh" \
+"Super+H"             "This help"                             "keyhints.sh" \
+"Super+W"             "Wallpaper picker"                      "waypaper" \
+""                    ""                                      "" \
+"--- WINDOWS ---"     ""                                      "" \
+"Super+Q"             "Close focused window"                  "kill" \
+"Super+Shift+V"       "Toggle floating"                       "floating toggle" \
+"Super+Shift+F"       "Fullscreen"                            "fullscreen toggle" \
+"Super+Ctrl+F"        "Global fullscreen"                     "fullscreen toggle global" \
+""                    ""                                      "" \
+"--- FOCUS ---"       ""                                      "" \
+"Super+Left/Right/Up/Down" "Move focus"                       "focus direction" \
+"Alt+Tab"             "Focus next window"                     "focus next" \
+""                    ""                                      "" \
+"--- MOVE/RESIZE ---" ""                                      "" \
+"Super+Ctrl+Arrows"   "Move focused window"                   "move direction" \
+"Super+Shift+Arrows"  "Resize focused window"                 "resize +/- 50px" \
+"Super+J"             "Toggle split layout"                   "layout toggle split" \
+"Super+Shift+I"       "Toggle split direction"                "split toggle" \
+""                    ""                                      "" \
+"--- WORKSPACES ---"  ""                                      "" \
+"Super+1..0"          "Switch workspace 1..10"                "workspace number" \
+"Super+Shift+1..0"    "Move window to workspace 1..10"        "move container" \
+"Super+MouseWheel"    "Next/prev workspace"                   "workspace next/prev" \
+"Super+Ctrl+S"        "Show scratchpad"                       "scratchpad show" \
+"Super+Ctrl+Shift+S"  "Move to scratchpad"                    "move scratchpad" \
+""                    ""                                      "" \
+"--- SCREENSHOTS ---" ""                                      "" \
+"Super+Print"         "Screenshot full"                       "screenshot.sh full" \
+"Super+Alt+Print"     "Screenshot current output"             "screenshot.sh monitor" \
+"Super+Shift+Print"   "Screenshot region"                     "screenshot.sh region" \
+"Alt+Print"           "Screenshot active window"              "screenshot.sh window" \
+"Super+Ctrl+Print"    "Screenshot in 5s"                      "screenshot.sh delay5" \
+"Super+Ctrl+Shift+Print" "Screenshot in 10s"                  "screenshot.sh delay10" \
+""                    ""                                      "" \
+"--- SYSTEM ---"      ""                                      "" \
+"Ctrl+Alt+L"          "Lock screen"                           "swaylock.sh" \
+"Super+Shift+M"       "Exit sway (with confirmation)"         "swaynag + swaymsg exit" \
+""                    ""                                      "" \
+"--- MEDIA ---"       ""                                      "" \
+"XF86AudioRaise/Lower" "Volume up/down"                       "audio-control.sh" \
+"XF86AudioMute"       "Toggle output mute"                    "audio-control.sh --toggle" \
+"XF86AudioMicMute"    "Toggle mic mute"                       "mic-control.sh --toggle" \
+"XF86MonBrightnessUp/Down" "Screen brightness"                "brightnessctl +/-5%" \
+"XF86KbdBrightnessUp/Down" "Keyboard backlight"               "kbd-backlight.sh" \
+"XF86AudioPlay/Pause/Next/Prev" "Media controls"              "playerctl"
