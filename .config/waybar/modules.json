@@ -1,0 +1,447 @@
+//  __  __           _       _
+// |  \/  | ___   __| |_   _| | ___  ___
+// | |\/| |/ _ \ / _` | | | | |/ _ \/ __|
+// | |  | | (_) | (_| | |_| | |  __/\__ \
+// |_|  |_|\___/ \__,_|\__,_|_|\___||___/
+//
+
+
+{
+
+    // Group Quicklinks
+    "group/quicklinks": {
+        "orientation": "horizontal",
+        "modules": [
+            "custom/filemanager",
+            "custom/browser",
+            "custom/terminal"
+//          "custom/editor",
+//            "custom/obsidian"
+
+         ]
+    },
+
+    // Group Time
+    "group/time": {
+        "orientation": "horizontal",
+        "modules": [
+        "custom/timer"
+         ]
+    },
+
+        // Group Devices
+    "group/devices": {
+        "orientation": "horizontal",
+        "modules": [
+            "pulseaudio",
+            "bluetooth",
+            "network"
+         ]
+    },
+
+        // Group System
+    "group/system": {
+        "orientation": "horizontal",
+        "modules": [
+            "hyprland/language",
+            "custom/updates",
+            "custom/swaync",
+            "custom/copyq"
+         ]
+    },
+
+    "hyprland/language": {
+        "format": "󰌌   {}",
+        "format-en": "EN",
+        "format-uk": "UA",
+        "format-de": "DE",
+        "on-click": "hyprctl switchxkblayout all next",
+        "tooltip": false
+    },
+
+    "bluetooth": {
+        "format": "",
+        "format-disabled": "", // an empty format will hide the module
+        "format-connected": " {num_connections}",
+        "on-click": "blueman-manager",
+        "on-click-right": "blueman-manager",
+        "tooltip-format": " {device_alias}",
+        "tooltip-format-connected": "{device_enumerate}",
+        "tooltip-format-enumerate-connected": " {device_alias}"
+    },
+
+    "custom/cliphist": {
+        "format": "󰅍{}",
+        "exec": "echo ; echo clipboard",
+        "on-click": "sleep 0.1 && ~/.config/hypr/scripts/cliphist.sh c",
+        "on-click-right": "sleep 0.1 && ~/.config/hypr/scripts/cliphist.sh d",
+        "on-click-middle": "sleep 0.1 && ~/.config/hypr/scripts/cliphist.sh w",
+        "interval" : 86400, // once every day
+        "tooltip": true,
+        "on-scroll-up": "dunstctl close",
+        "on-scroll-down": "dunstctl history-pop"
+    },
+
+        "custom/copyq": {
+        "format": "󰅍",
+        "on-click": "copyq toggle",
+        "tooltip": false
+    },
+
+    "include": ["~/.config/waybar/dcol_modules/clock.json"],
+
+    "custom/timer": {
+        "align": 0,
+        "tooltip": false,
+        "exec": "$HOME/.config/hypr/scripts/waybar-timer.sh",
+        "on-click": "date --date='30 minutes' +%s > /var/tmp/waybar_timer",
+        "on-click-right": "echo READY > /var/tmp/waybar_timer",
+        "on-click-middle": "date --date='45 minute' +%s > /var/tmp/waybar_timer",
+        "on-scroll-up": "$HOME/.config/hypr/scripts/waybar-timer-steps.sh up",
+        "on-scroll-down": "$HOME/.config/hypr/scripts/waybar-timer-steps.sh down",
+        "interval": 1
+    },
+
+    "idle_inhibitor": {
+        "format": "{icon}",
+        "format-icons": {
+            "activated": "",
+            "deactivated": ""
+        }
+    },
+
+    "cpu": {
+        "interval": 10,
+        "format": "󰍛 {usage}%",
+        "format-alt": "{icon0}{icon1}{icon2}{icon3}",
+        "format-icons": ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
+    },
+
+    "custom/padd": {
+        "format": "",
+        "interval" : "once",
+        "tooltip": false
+    },
+
+    "custom/gpuinfo": {
+        "exec": " ~/.config/hypr/scripts/gpuinfo.sh",
+        "return-type": "json",
+        "format": " {}",
+        "interval": 5, // once every 5 seconds
+        "tooltip": true,
+        "max-length": 1000
+    },
+
+    "custom/filemanager": {
+        "format": " ",
+        "on-click": "nautilus",
+        "tooltip": false
+    },
+
+     "custom/terminal": {
+        "format": " ",
+        "on-click": "kitty",
+        "tooltip": false
+    },
+
+    "custom/editor": {
+        "format": "",
+        "on-click": "geany",
+        "tooltip": false
+    },
+
+    "custom/browser": {
+        "format": " ",
+        "on-click": "firefox",
+        "tooltip": false
+    },
+    "custom/appmenu": {
+        "format": "APPS",
+        "on-click": "rofi -show drun -theme ~/.config/rofi/launchpad.rasi",
+        "on-click-right": "rofi -show drun -theme ~/.config/rofi/spotlight.rasi",
+        "tooltip": false
+    },
+
+    "memory": {
+        "interval": 30,
+        "format": "{used:0.3f} GB",
+        "format-alt": "󰾆 {percentage}%",
+        "max-length": 10,
+        "tooltip": true,
+        "tooltip-format": "  {used:0.1f}GB / {total:0.1f}GB"
+    },
+
+    "mpris": {
+        "format": "{player_icon} {dynamic}",
+        "format-paused": "{status_icon} <i>{dynamic}</i>",
+        "player-icons": {
+            "default": "▶",
+            "mpv": "🎵"
+        },
+        "status-icons": {
+            "paused": "⏸"
+        },
+        "max-length": 1000,
+        "interval": 1
+    },
+
+    "network": {
+        "format-wifi": "󰤨 {signalStrength}%",
+        "format-ethernet": "󱘖",
+        "tooltip-format": "󱘖  {ipaddr}  {bandwidthUpBytes}  {bandwidthDownBytes}",
+        "format-linked": "󱘖  {ifname} (No IP)",
+        "format-disconnected": "  Disconnected",
+        "format-alt": "󰤨  {essid}",
+        "on-click": "networkmanager_dmenu",
+        "interval": 5
+    },
+
+    "pulseaudio": {
+        "format": "{icon} {volume}%",
+        "format-muted": "",
+        "on-click": "~/.config/hypr/scripts/waybar-vol-progbar.sh --toggle",
+        "on-click-right": "pavucontrol-qt",
+        "on-scroll-up": "~/.config/hypr/scripts/waybar-vol-progbar.sh --inc",
+        "on-scroll-down": "~/.config/hypr/scripts/waybar-vol-progbar.sh --dec",
+        "tooltip-format": "{icon} {desc}",
+        "format-icons": {
+            "headphone": ["", "", ""],
+            "hands-free": "",
+            "headset": "",
+            "phone": "",
+            "portable": "",
+            "car": "",
+            "default": ["", "", ""]
+        }
+    },
+
+    "pulseaudio#microphone": {
+        "format": "{format_source}",
+        "format-source": "",
+        "format-source-muted": "",
+        "on-click": "pavucontrol -t 4",
+        "on-click-middle": "~/.config/hypr/scripts/volumecontrol.sh -i m",
+        "on-scroll-up": "~/.config/hypr/scripts/volumecontrol.sh -i i",
+        "on-scroll-down": "~/.config/hypr/scripts/volumecontrol.sh -i d",
+        "tooltip-format": "{format_source} {source_desc} // {source_volume}%",
+        "scroll-step": 5
+    },
+
+    "custom/spotify": {
+        "exec": "/usr/bin/python3 $HOME/.config/waybar/modules/mediaplayer.py --player spotify",
+        "format": " {}",
+        "return-type": "json",
+        "on-click": "playerctl play-pause --player spotify",
+        "on-click-right": "playerctl next --player spotify",
+        "on-click-middle": "playerctl previous --player spotify",
+        "on-scroll-up": "~/.config/hypr/scripts/spotifyvolumecontrol.sh up",
+        "on-scroll-down": "~/.config/hypr/scripts/spotifyvolumecontrol.sh down",
+        "max-length": 25,
+        "escape": true,
+        "tooltip": true
+    },
+
+	"wlr/taskbar": {
+		"format": "{icon}",
+		"icon-size": {},
+		"icon-theme": "${i_theme}",
+        "spacing": 0,
+		"tooltip-format": "{title}",
+		"on-click": "activate",
+		"on-click-middle": "close",
+		"on-click-right": "fullscreen",
+		"ignore-list": [
+            "com.github.hluk.copyq",
+			"alacritty-dropterm",
+            "feathernotes",
+            "ranger",
+            "org.keepassxc.KeePassXC"
+		],
+		"app_ids-mapping": {
+			"firefoxdeveloperedition": "firefox-developer-edition"
+		}
+	},
+
+    "tray": {
+        "icon-size": {},
+        "spacing": 5
+    },
+
+    "custom/ddcutil": {
+        "format": "{percentage}% {icon}",
+        "interval": 1,
+        "format-icons": ["", "", ""],
+        "exec": "~/.config/hypr/scripts/waybar-ddcutil.py",
+        "return-type": "json"
+    },
+
+    "custom/ddc_brightness": {
+        "format": "{icon} {percentage}%",
+        "format-icons": [""],
+        "exec": "~/.config/hypr/scripts/waybar-ddc-module.sh",
+        "return-type": "json",
+        "on-scroll-up": "echo '+' > /tmp/waybar-ddc-module-rx",
+        "on-scroll-down": "echo '-' > /tmp/waybar-ddc-module-rx",
+        "on-click": "echo 'min' > /tmp/waybar-ddc-module-rx",
+        "on-click-right": "echo 'max' > /tmp/waybar-ddc-module-rx",
+        "tooltip": false,
+    },
+
+    "custom/swaync": {
+        "tooltip": false,
+        "format": "{icon} {text}",
+        "format-icons": {
+            "notification": "󰂚",
+            "none": "󰂜",
+            "dnd-notification": "󰂛",
+            "dnd-none": "󰂛",
+            "inhibited-notification": "󰂚",
+            "inhibited-none": "󰂜",
+            "dnd-inhibited-notification": "󰂛",
+            "dnd-inhibited-none": "󰂛"
+        },
+        "return-type": "json",
+        "exec-if": "which swaync-client",
+        "exec": "swaync-client -swb",
+        "on-click": "swaync-client -t -sw",
+        "on-click-right": "swaync-client -d -sw",
+        "escape": true
+    },
+
+    "custom/updates": {
+        "format": "  {}",
+        "exec": "~/.config/hypr/scripts/updates.sh",
+        "restart-interval": 60,
+        "return-type": "json",
+        "escape": true,
+        "on-click": "~/.config/hypr/scripts/updates.sh up",
+        "tooltip-format": "{}",
+        "tooltip": true
+    },
+
+    "hyprland/window": {
+        "format": "  {}",
+        "separate-outputs": true,
+        "rewrite": {
+            "${USER}@${set_sysname}:(.*)": "$1 ",
+            "(.*) — Mozilla Firefox": "$1 󰈹",
+            "(.*)Mozilla Firefox": "Firefox 󰈹",
+            "(.*) - Visual Studio Code": "$1 󰨞",
+            "(.*)Visual Studio Code": "Code 󰨞",
+            "(.*) — Dolphin": "$1 󰉋",
+            "(.*)Spotify": "Spotify 󰓇",
+            "(.*)Steam": "Steam 󰓓"
+        },
+        "max-length": 1000
+    },
+
+    "hyprland/workspaces": {
+        "on-scroll-up": "hyprctl dispatch workspace -1",
+        "on-scroll-down": "hyprctl dispatch workspace +1",
+        "all-outputs": true,
+        "active-only": false,
+        "on-click": "activate",
+        "persistent-workspaces": {
+            // START WORKSPACES
+    "*": 5
+            // END WORKSPACES
+        }
+    }
+,
+
+    // Spacer group: group/l-apps
+    "group/l-apps": {
+        "orientation": "horizontal",
+        "modules": []
+    },
+
+    // Spacer group: group/r-apps
+    "group/r-apps": {
+        "orientation": "horizontal",
+        "modules": []
+    },
+
+    // Spacer group: group/l-quicklinks
+    "group/l-quicklinks": {
+        "orientation": "horizontal",
+        "modules": []
+    },
+
+    // Spacer group: group/r-quicklinks
+    "group/r-quicklinks": {
+        "orientation": "horizontal",
+        "modules": []
+    },
+
+    // Spacer group: group/l-workspaces
+    "group/l-workspaces": {
+        "orientation": "horizontal",
+        "modules": []
+    },
+
+    // Spacer group: group/r-workspaces
+    "group/r-workspaces": {
+        "orientation": "horizontal",
+        "modules": []
+    },
+
+    // Spacer group: group/l-taskbar
+    "group/l-taskbar": {
+        "orientation": "horizontal",
+        "modules": []
+    },
+
+    // Spacer group: group/r-taskbar
+    "group/r-taskbar": {
+        "orientation": "horizontal",
+        "modules": []
+    },
+
+    // Spacer group: group/l-misc
+    "group/l-misc": {
+        "orientation": "horizontal",
+        "modules": []
+    },
+
+    // Spacer group: group/r-misc
+    "group/r-misc": {
+        "orientation": "horizontal",
+        "modules": []
+    },
+
+    // Spacer group: group/l-timer
+    "group/l-timer": {
+        "orientation": "horizontal",
+        "modules": []
+    },
+
+    // Spacer group: group/r-timer
+    "group/r-timer": {
+        "orientation": "horizontal",
+        "modules": []
+    },
+
+    // Spacer group: group/l-devices
+    "group/l-devices": {
+        "orientation": "horizontal",
+        "modules": []
+    },
+
+    // Spacer group: group/r-devices
+    "group/r-devices": {
+        "orientation": "horizontal",
+        "modules": []
+    },
+
+    // Spacer group: group/l-system
+    "group/l-system": {
+        "orientation": "horizontal",
+        "modules": []
+    },
+
+    // Spacer group: group/r-system
+    "group/r-system": {
+        "orientation": "horizontal",
+        "modules": []
+    }
+}
