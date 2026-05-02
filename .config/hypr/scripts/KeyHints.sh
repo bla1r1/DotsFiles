@@ -28,6 +28,7 @@ GDK_BACKEND=$BACKEND yad \
 " SHIFT SPACE"               "Run as sudo"                       "(rofi + alacritty)" \
 " SHIFT S"                   "Quick Settings Menu"               "(quick-settings.sh)" \
 " H"                         "This cheat sheet"                  "(yad)" \
+" W"                         "Wallpaper picker"                  "(waypaper)" \
 ""                           ""                                  "" \
 "--- WINDOWS ---"            ""                                  "" \
 " Q"                         "Close active window"               "" \

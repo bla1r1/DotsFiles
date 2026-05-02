@@ -10,20 +10,20 @@
 # -----------------------------------------------------
 
 # -----------------------------------------------------
-# Übergebe den ausgewählten Dateinamen als Parameter
+# Pass the selected filename as a parameter
 # -----------------------------------------------------
 selected="$1"
 
 # -----------------------------------------------------
-# Überprüfe, ob die Datei existiert
+# Check whether the file exists
 # -----------------------------------------------------
 if [ ! -f "$selected" ]; then
-    echo "Fehler: Datei '$selected' existiert nicht."
+    echo "Error: File '$selected' does not exist."
     exit 1
 fi
 
 # -----------------------------------------------------
-# Übergebe  Wallpaper an Pywal
+# Pass wallpaper to Pywal
 # -----------------------------------------------------
 wal -q -i "$selected"
 
@@ -66,6 +66,6 @@ swww img $wallpaper \
 # Send notification
 # -----------------------------------------------------
 sleep 1
-notify-send "Farben und Hintergrundbild aktualisiert" "Neues Bild: $newwall"
+notify-send "Colors and wallpaper updated" "New image: $newwall"
 
-echo "ERLEDIGT!"
+echo "DONE!"

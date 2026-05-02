@@ -2,7 +2,7 @@
 
 receive_pipe="/tmp/waybar-ddc-module-rx"
 step=5
-iDIR="$HOME/.config/mako/icons"
+iDIR="$HOME/.config/swaync/icons"
 
 ddcutil_fast() {
     ddcutil --noverify --bus 1 --sleep-multiplier .03 "$@" 2>/dev/null
@@ -34,7 +34,7 @@ notify_user() {
     else
         icon="$iDIR/brightness-100.png"
     fi
-    notify-send -h string:x-canonical-private-synchronous:sys-notify -u low -i "$icon" "Helligkeit: $current%"
+    notify-send -h string:x-canonical-private-synchronous:sys-notify -u low -i "$icon" "Brightness: $current%"
 }
 
 rm -rf $receive_pipe

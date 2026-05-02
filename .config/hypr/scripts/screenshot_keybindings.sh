@@ -9,10 +9,10 @@
 # by Avni Bilgin (2023)
 # -----------------------------------------------------
 
-# Da das Bild an das Grafikbearbeitungstool "Swappy" übergeben wird,
-# ist das Screenshotverzeichnis # des Tools in seiner config-file
-# definiert: "/home/thor/.config/swappy/config"
-# Die hier unten angebenen Orte gelten für die standalone-Nutzung von grim
+# Since the image is passed to the graphics editing tool "Swappy",
+# the tool's screenshot directory is defined in its config file:
+# "/home/thor/.config/swappy/config"
+# The paths below apply to standalone usage of grim
 
 DIR="$HOME/Medien/Screenshots/"
 NAME="screenshot_$(date +%d-%m-%Y_%H%M%S).png"

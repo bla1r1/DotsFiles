@@ -1,24 +1,24 @@
-#!/bin/bash
+﻿#!/bin/bash
 
-# Ziel-Datei, in der alle .jsonc Inhalte zusammengeführt werden sollen
-ZIEL_DATEI="gesamt.json"
+# Target file where all .jsonc contents will be merged
+TARGET_FILE="merged.json"
 
-# Überprüfen und ggf. alte Ziel-Datei löschen
-if [ -e "$ZIEL_DATEI" ]; then
-  rm "$ZIEL_DATEI"
+# Check and remove old target file if needed
+if [ -e "$TARGET_FILE" ]; then
+  rm "$TARGET_FILE"
 fi
 
-# Durchlaufe alle .jsonc Dateien im aktuellen Verzeichnis
-for datei in *.jsonc; do
-  # Überprüfe, ob die Datei existiert und lesbar ist
-  if [ -r "$datei" ]; then
-    # Füge den Inhalt der aktuellen Datei zur Ziel-Datei hinzu
-    cat "$datei" >> "$ZIEL_DATEI"
-    # Füge eine Leerzeile als Trennung hinzu
-    echo >> "$ZIEL_DATEI"
+# Loop through all .jsonc files in the current directory
+for file in *.jsonc; do
+  # Check whether the file exists and is readable
+  if [ -r "$file" ]; then
+    # Append current file contents to the target file
+    cat "$file" >> "$TARGET_FILE"
+    # Add an empty line as separator
+    echo >> "$TARGET_FILE"
   else
-    echo "Fehler: Die Datei $datei konnte nicht gelesen werden."
+    echo "Error: File $file could not be read."
   fi
 done
 
-echo "Der Zusammenführungsprozess ist abgeschlossen. Die Ergebnisse befinden sich in $ZIEL_DATEI."
+echo "Merge process completed. Results are in $TARGET_FILE."

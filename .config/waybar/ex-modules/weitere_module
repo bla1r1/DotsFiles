@@ -210,8 +210,8 @@
         // "timezone": "America/New_York",
         "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>",
         "format-alt": "{:%a, %e. %b. | %R}",
-        "on-scroll-up": "dunstctl close",
-        "on-scroll-down": "dunstctl history-pop"
+        "on-scroll-up": "swaync-client -C",
+        "on-scroll-down": "swaync-client -t -sw"
     },
 
     // System
