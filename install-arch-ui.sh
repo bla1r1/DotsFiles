@@ -30,9 +30,9 @@ confirm() {
 if command -v whiptail >/dev/null 2>&1; then
     CHOICES=$(whiptail --title "DotsFiles Arch Installer" \
         --checklist "Select installation steps:" 18 78 8 \
-        "packages" "Install pacman/AUR packages" ON \
-        "dotfiles" "Deploy dotfiles to ~/.config" ON \
-        "services" "Enable services (NetworkManager, bluetooth)" ON \
+        "packages" "Install pacman/AUR packages (Hyprland + tools)" ON \
+        "dotfiles" "Deploy dotfiles + wallpapers + SDDM theme/config" ON \
+        "services" "Enable services (NetworkManager, bluetooth, sddm)" ON \
         "aur" "Install AUR packages" ON \
         3>&1 1>&2 2>&3) || exit 1
 

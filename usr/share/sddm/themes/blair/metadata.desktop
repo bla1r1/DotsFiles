@@ -1,0 +1,11 @@
+[SddmGreeterTheme]
+Name=blair
+Type=sddm-theme
+Version=1.4.0
+Theme-Id=blair
+Theme-API=2.0
+MainScript=Main.qml
+TranslationsDirectory=translations
+QtVersion=6
+
+ConfigFile=default.conf

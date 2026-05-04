@@ -9,9 +9,9 @@
             "on-scroll": 1,
             "on-click-right": "mode",
             "format": {
-                "months": "<span color='#A5949B'><b>{}</b></span>",
-                "weekdays": "<span color='#D9A99C'><b>{}</b></span>",
-                "today": "<span color='#A5949B'><b>{}</b></span>"
+                "months":   "<span color='#7aa2f7'><b>{}</b></span>",
+                "weekdays": "<span color='#bb9af7'><b>{}</b></span>",
+                "today":    "<span color='#7dcfff'><b><u>{}</u></b></span>"
             }
         },
         "actions": {
@@ -21,5 +21,5 @@
             "on-scroll-up": "shift_up",
             "on-scroll-down": "shift_down"
         }
-    },
+    }
 }
