@@ -64,15 +64,15 @@
             "actions": [
                 {
                     "label": "󰐥",
-                    "command": "wlogout"
+                    "command": "bash $HOME/.config/sway/scripts/logoutlaunch.sh 2"
                 },
                 {
                     "label": "󰌾",
-                    "command": "hyprlock --immediate"
+                    "command": "swaylock"
                 },
                 {
                     "label": "󰍃",
-                    "command": "hyprctl dispatch exit"
+                    "command": "swaymsg exit"
                 },
                 {
                     "label": "󰝟",

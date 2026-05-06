@@ -43,10 +43,11 @@ ensure_sudo() {
 install_pacman_packages() {
     local pkgs=(
         base-devel git rsync curl unzip
-        hyprland hyprpaper hyprlock hypridle xdg-desktop-portal xdg-desktop-portal-hyprland
+        swaybg swayidle xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk
         waybar rofi-wayland swaync wlogout
         kitty alacritty firefox nautilus geany fish fastfetch btop
         wl-clipboard cliphist grim slurp swappy
+        xorg-xwayland
         copyq
         waypaper
         pipewire wireplumber pipewire-pulse pavucontrol pavucontrol-qt pamixer playerctl
@@ -54,8 +55,9 @@ install_pacman_packages() {
         pacman-contrib flatpak
         libnotify
         networkmanager network-manager-applet networkmanager-dmenu blueman
-        polkit-kde-agent hyprpolkitagent
-        qt5ct qt6ct kvantum qt6-svg
+        polkit-gnome
+        qt5ct qt6ct kvantum qt6-svg qt6-virtualkeyboard
+        yad
         nwg-look nwg-displays
         python python-gobject
         imagemagick
@@ -64,6 +66,11 @@ install_pacman_packages() {
         sddm
         virt-manager steam discord
     )
+
+    if [[ "$NO_AUR" -eq 1 ]]; then
+        # Fallback compositor if AUR install is disabled.
+        pkgs+=(sway swaylock)
+    fi
 
     log "Installing pacman packages..."
     for pkg in "${pkgs[@]}"; do
@@ -87,20 +94,47 @@ ensure_aur_helper() {
     fi
 
     log "Installing yay (AUR helper)..."
+
+    # makepkg не може запускатись від root
+    local build_user="${SUDO_USER:-$USER}"
+    if [[ "$EUID" -eq 0 && -z "$SUDO_USER" ]]; then
+        echo "ERROR: Запусти скрипт як звичайний юзер (не root), або через sudo від звичайного юзера."
+        exit 1
+    fi
+
     local tmpdir
     tmpdir="$(mktemp -d)"
+    # Надаємо права на tmpdir для build_user
+    chown "$build_user" "$tmpdir"
+
     git clone https://aur.archlinux.org/yay.git "$tmpdir/yay"
-    (
-        cd "$tmpdir/yay"
-        makepkg -si --noconfirm
-    )
+    chown -R "$build_user" "$tmpdir/yay"
+
+    if [[ "$EUID" -eq 0 ]]; then
+        # Запускаємо makepkg від імені звичайного юзера
+        sudo -u "$build_user" bash -c "cd '$tmpdir/yay' && makepkg -si --noconfirm"
+    else
+        (
+            cd "$tmpdir/yay"
+            makepkg -si --noconfirm
+        )
+    fi
+
     rm -rf "$tmpdir"
+
+    if ! command -v yay >/dev/null 2>&1; then
+        warn "yay не знайдено після збірки. Перевір логи вище."
+        exit 1
+    fi
+
     echo "yay"
 }
 
 install_aur_packages() {
     local aur_helper="$1"
     local pkgs=(
+        swayfx
+        swaylock-effects
         catppuccin-cursors-mocha
         catppuccin-gtk-theme-mocha
         github-desktop-bin
@@ -200,8 +234,8 @@ deploy_dotfiles() {
     deploy_sddm_theme
     setup_sddm_wallpaper_permissions
 
-    if [[ -d "$HOME/.config/hypr/scripts" ]]; then
-        find "$HOME/.config/hypr/scripts" -type f -name "*.sh" -exec chmod +x {} +
+    if [[ -d "$HOME/.config/sway/scripts" ]]; then
+        find "$HOME/.config/sway/scripts" -type f -name "*.sh" -exec chmod +x {} +
     fi
 
     log "Dotfiles installed. Backup saved to: $BACKUP_DIR"
@@ -226,6 +260,7 @@ main() {
             install_aur_packages "$aur_helper"
         else
             warn "Skipping AUR package install (--no-aur)."
+            warn "Installed fallback compositor: sway + swaylock (without swayFX effects)."
         fi
     else
         warn "Skipping package install (--skip-packages)."
