@@ -11,7 +11,9 @@
     "orientation": "horizontal",
     "modules": [
       "pulseaudio",
+      "custom/mic",
       "backlight",
+      "custom/kbd-backlight",
       "bluetooth",
       "network",
       "battery"
@@ -44,7 +46,7 @@
   },
   "bluetooth": {
     "format": "󰂯",
-    "format-disabled": "",
+    "format-disabled": "󰂲",
     "format-connected": " {num_connections}",
     "on-click": "blueman-manager",
     "on-click-right": "blueman-manager",
@@ -86,28 +88,28 @@
   "pulseaudio": {
     "format": "{icon}    {volume}%",
     "format-muted": "",
-    "on-click": "~/.config/sway/scripts/waybar-vol-progbar.sh --toggle",
+    "on-click": "bash ~/.config/sway/scripts/audio-control.sh --toggle",
     "on-click-right": "pavucontrol-qt",
-    "on-scroll-up": "~/.config/sway/scripts/waybar-vol-progbar.sh --inc",
-    "on-scroll-down": "~/.config/sway/scripts/waybar-vol-progbar.sh --dec",
+    "on-scroll-up": "bash ~/.config/sway/scripts/audio-control.sh --inc 5",
+    "on-scroll-down": "bash ~/.config/sway/scripts/audio-control.sh --dec 5",
     "tooltip-format": "{icon} {desc}",
     "format-icons": {
-      "headphone": [
-        "",
-        "",
-        ""
-      ],
+      "headphone": ["", "", ""],
       "hands-free": "",
       "headset": "",
       "phone": "",
       "portable": "",
       "car": "",
-      "default": [
-        "",
-        "",
-        ""
-      ]
+      "default": ["", "", ""]
     }
+  },
+  "custom/mic": {
+    "exec": "bash ~/.config/sway/scripts/mic-control.sh --get-muted | sed 's/true/󰍭/;s/false/󰍬/'",
+    "interval": 2,
+    "format": "  {}  ",
+    "on-click": "bash ~/.config/sway/scripts/mic-control.sh --toggle",
+    "tooltip-format": "Left click: toggle mic",
+    "tooltip": true
   },
   "battery": {
     "states": {
@@ -119,32 +121,27 @@
     "format-charging": "󰂄  {capacity}%",
     "format-plugged": "󰚥  {capacity}%",
     "format-full": "󰁹  Full",
-    "format-icons": [
-      "󰁺",
-      "󰁻",
-      "󰁼",
-      "󰁽",
-      "󰁾",
-      "󰁿",
-      "󰂀",
-      "󰂁",
-      "󰂂",
-      "󰁹"
-    ],
+    "format-icons": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
     "on-click-right": "gnome-power-statistics",
     "tooltip-format": "{timeTo} — {power}W",
     "interval": 30
   },
   "backlight": {
     "format": "{icon}  {percent}%",
-    "format-icons": [
-      "󰃞",
-      "󰃟",
-      "󰃠"
-    ],
+    "format-icons": ["󰃞", "󰃟", "󰃠"],
     "on-scroll-up": "brightnessctl set +5%",
     "on-scroll-down": "brightnessctl set 5%-",
     "tooltip": false
+  },
+  "custom/kbd-backlight": {
+    "exec": "bash ~/.config/sway/scripts/kbd-backlight.sh --get",
+    "interval": 2,
+    "format": "󰌌  {}%",
+    "on-scroll-up": "bash ~/.config/sway/scripts/kbd-backlight.sh --inc",
+    "on-scroll-down": "bash ~/.config/sway/scripts/kbd-backlight.sh --dec",
+    "on-click": "bash ~/.config/sway/scripts/kbd-backlight.sh --off",
+    "tooltip-format": "Scroll: adjust\nClick: turn off",
+    "tooltip": true
   },
   "cpu": {
     "format": "    {usage}%",
@@ -159,12 +156,12 @@
     "tooltip-format": "{used:0.1f}G / {total:0.1f}G used\n{avail:0.1f}G available"
   },
   "temperature": {
-  "critical-threshold": 80,
-  "format": "{icon}  {temperatureC}°C",
-  "format-icons": ["","","","",""],
-  "interval": 5,
-  "tooltip": false
-},
+    "critical-threshold": 80,
+    "format": "{icon}  {temperatureC}°C",
+    "format-icons": ["", "", "", "", ""],
+    "interval": 5,
+    "tooltip": false
+  },
   "wlr/taskbar": {
     "format": "{icon}",
     "icon-size": {},
@@ -214,70 +211,6 @@
     "on-click": "~/.config/sway/scripts/updates.sh up",
     "tooltip-format": "{}",
     "tooltip": true
-  },
-  "group/l-apps": {
-    "orientation": "horizontal",
-    "modules": []
-  },
-  "group/r-apps": {
-    "orientation": "horizontal",
-    "modules": []
-  },
-  "group/l-quicklinks": {
-    "orientation": "horizontal",
-    "modules": []
-  },
-  "group/r-quicklinks": {
-    "orientation": "horizontal",
-    "modules": []
-  },
-  "group/l-workspaces": {
-    "orientation": "horizontal",
-    "modules": []
-  },
-  "group/r-workspaces": {
-    "orientation": "horizontal",
-    "modules": []
-  },
-  "group/l-taskbar": {
-    "orientation": "horizontal",
-    "modules": []
-  },
-  "group/r-taskbar": {
-    "orientation": "horizontal",
-    "modules": []
-  },
-  "group/l-misc": {
-    "orientation": "horizontal",
-    "modules": []
-  },
-  "group/r-misc": {
-    "orientation": "horizontal",
-    "modules": []
-  },
-  "group/l-timer": {
-    "orientation": "horizontal",
-    "modules": []
-  },
-  "group/r-timer": {
-    "orientation": "horizontal",
-    "modules": []
-  },
-  "group/l-devices": {
-    "orientation": "horizontal",
-    "modules": []
-  },
-  "group/r-devices": {
-    "orientation": "horizontal",
-    "modules": []
-  },
-  "group/l-system": {
-    "orientation": "horizontal",
-    "modules": []
-  },
-  "group/r-system": {
-    "orientation": "horizontal",
-    "modules": []
   },
   "sway/language": {
     "format": "󰌌   {}",
