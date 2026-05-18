@@ -1,161 +1,150 @@
 #!/usr/bin/env bash
-# /* ---- 💫 Hyprland Quick Settings 💫 ---- */
-# Rofi menu for Hyprland Quick Settings
-# Bind: bind = $mainMod SHIFT, E, exec, bash ~/.config/hypr/scripts/quick-settings.sh
+set -euo pipefail
 
-# ── Config paths ─────────────────────────────────────────────────
-hyprDir="$HOME/.config/hypr"
+sway_dir="$HOME/.config/sway"
+conf_dir="$sway_dir/conf.d"
 rofi_theme="$HOME/.config/rofi/config.rasi"
-msg=' ⁉️ Choose what to do ⁉️'
+msg='Choose an action'
 
-# Terminal and editor — reads from your hyprland env
-# Override here if needed:
-TERM="${terminal:-kitty}"
-EDIT="${editor:-nano}"
+term_cmd="${terminal:-kitty}"
+edit_cmd="${editor:-nano}"
 
-# ── Notification helper ───────────────────────────────────────────
-show_info() {
-    notify-send "Info" "$1"
+notify_info() {
+    notify-send "Sway" "$1"
 }
 
-show_error() {
-    notify-send "ERROR" "$1"
+notify_error() {
+    notify-send "Sway" "$1"
 }
 
-# ── Game Mode toggle ──────────────────────────────────────────────
-toggle_gamemode() {
-    # Disables blur and animations for better performance
-    local current
-    current=$(hyprctl getoption decoration:blur:enabled | awk 'NR==1{print $2}')
-
-    if [[ "$current" == "1" ]]; then
-        hyprctl --batch "keyword decoration:blur:enabled 0 ; keyword animations:enabled 0"
-        show_info "Game Mode enabled (blur & animations off)"
-    else
-        hyprctl --batch "keyword decoration:blur:enabled 1 ; keyword animations:enabled 1"
-        show_info "Game Mode disabled (blur & animations on)"
+run_or_warn() {
+    local cmd="$1"
+    local hint="$2"
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        notify_error "$hint"
+        return 1
     fi
+    "$cmd"
 }
 
-# ── Reload config ─────────────────────────────────────────────────
-reload_hyprland() {
-    hyprctl reload
-    show_info "Hyprland config reloaded ✓"
+reload_sway() {
+    swaymsg reload >/dev/null
+    notify_info "Sway config reloaded"
 }
 
-# ── Menu ─────────────────────────────────────────────────────────
+exit_sway() {
+    swaymsg exit
+}
+
+open_config_in_editor() {
+    local file="$1"
+    if [[ ! -f "$file" ]]; then
+        notify_error "File not found: $file"
+        return 1
+    fi
+    "$term_cmd" -e "$edit_cmd" "$file"
+}
+
 menu() {
     cat <<EOF
 --- CONFIGS ---
-Edit hyprland.conf
+Edit config
+Edit variables.conf
+Edit monitors.conf
+Edit env.conf
+Edit autostart.conf
+Edit look-and-feel.conf
+Edit input.conf
 Edit keybinds.conf
 Edit windowrules.conf
-Edit look-and-feel.conf
-Edit autostart.conf
-Edit input.conf
-Edit env.conf
-Edit monitors.conf
 --- APPEARANCE ---
 GTK Settings (nwg-look)
-QT Apps Settings (qt6ct)
-QT Apps Settings (qt5ct)
+QT6 Settings (qt6ct)
+QT5 Settings (qt5ct)
 --- SYSTEM ---
 Network Settings
 Audio Settings (pavucontrol)
 Bluetooth (blueman)
-Configure Monitors (nwg-displays)
---- HYPRLAND ---
+Display Settings (nwg-displays)
+Lock Screen
+--- SWAY ---
 Reload Config
-Toggle Game Mode
-Exit Hyprland
+Exit Sway
 EOF
 }
 
-# ── Main ─────────────────────────────────────────────────────────
 main() {
-    if ! command -v rofi &>/dev/null; then
-        show_error "rofi is not installed!"
+    if ! command -v rofi >/dev/null 2>&1; then
+        notify_error "rofi is not installed"
         exit 1
     fi
 
+    local choice
     if [[ -f "$rofi_theme" ]]; then
-        choice=$(menu | rofi -i -dmenu -config "$rofi_theme" -mesg "$msg")
+        choice="$(menu | rofi -i -dmenu -config "$rofi_theme" -mesg "$msg")"
     else
-        choice=$(menu | rofi -i -dmenu -mesg "$msg")
+        choice="$(menu | rofi -i -dmenu -mesg "$msg")"
     fi
 
     [[ -z "$choice" ]] && exit 0
 
     case "$choice" in
-        # ── Configs ──
-        "Edit hyprland.conf")      file="$hyprDir/hyprland.conf" ;;
-        "Edit keybinds.conf")      file="$hyprDir/keybinds.conf" ;;
-        "Edit windowrules.conf")   file="$hyprDir/windowrules.conf" ;;
-        "Edit look-and-feel.conf") file="$hyprDir/look-and-feel.conf" ;;
-        "Edit autostart.conf")     file="$hyprDir/autostart.conf" ;;
-        "Edit input.conf")         file="$hyprDir/input.conf" ;;
-        "Edit env.conf")           file="$hyprDir/env.conf" ;;
-        "Edit monitors.conf")      file="$hyprDir/monitors.conf" ;;
+        "Edit config")           open_config_in_editor "$sway_dir/config" ;;
+        "Edit variables.conf")   open_config_in_editor "$conf_dir/variables.conf" ;;
+        "Edit monitors.conf")    open_config_in_editor "$conf_dir/monitors.conf" ;;
+        "Edit env.conf")         open_config_in_editor "$conf_dir/env.conf" ;;
+        "Edit autostart.conf")   open_config_in_editor "$conf_dir/autostart.conf" ;;
+        "Edit look-and-feel.conf") open_config_in_editor "$conf_dir/look-and-feel.conf" ;;
+        "Edit input.conf")       open_config_in_editor "$conf_dir/input.conf" ;;
+        "Edit keybinds.conf")    open_config_in_editor "$conf_dir/keybinds.conf" ;;
+        "Edit windowrules.conf") open_config_in_editor "$conf_dir/windowrules.conf" ;;
 
-        # ── Appearance ──
-        "GTK Settings (nwg-look)")
-            if ! command -v nwg-look &>/dev/null; then
-                show_error "Install nwg-look first"; exit 1
-            fi
-            nwg-look ;;
-        "QT Apps Settings (qt6ct)")
-            if ! command -v qt6ct &>/dev/null; then
-                show_error "Install qt6ct first"; exit 1
-            fi
-            qt6ct ;;
-        "QT Apps Settings (qt5ct)")
-            if ! command -v qt5ct &>/dev/null; then
-                show_error "Install qt5ct first"; exit 1
-            fi
-            qt5ct ;;
+        "GTK Settings (nwg-look)") run_or_warn nwg-look "Install nwg-look first" ;;
+        "QT6 Settings (qt6ct)")    run_or_warn qt6ct "Install qt6ct first" ;;
+        "QT5 Settings (qt5ct)")    run_or_warn qt5ct "Install qt5ct first" ;;
 
-        # ── System ──
         "Network Settings")
-            if ! command -v nm-connection-editor &>/dev/null; then
-                show_error "Install nm-connection-editor first"; exit 1
+            if ! command -v nm-connection-editor >/dev/null 2>&1; then
+                notify_error "Install network-manager-applet first"
+                exit 1
             fi
-            nm-connection-editor ;;
+            nm-connection-editor
+            ;;
         "Audio Settings (pavucontrol)")
-            if ! command -v pavucontrol &>/dev/null; then
-                show_error "Install pavucontrol first"; exit 1
+            if command -v pavucontrol >/dev/null 2>&1; then
+                pavucontrol
+            elif command -v pavucontrol-qt >/dev/null 2>&1; then
+                pavucontrol-qt
+            else
+                notify_error "Install pavucontrol or pavucontrol-qt first"
+                exit 1
             fi
-            pavucontrol ;;
+            ;;
         "Bluetooth (blueman)")
-            if ! command -v blueman-manager &>/dev/null; then
-                show_error "Install blueman first"; exit 1
+            if ! command -v blueman-manager >/dev/null 2>&1; then
+                notify_error "Install blueman first"
+                exit 1
             fi
-            blueman-manager ;;
-        "Configure Monitors (nwg-displays)")
-            if ! command -v nwg-displays &>/dev/null; then
-                show_error "Install nwg-displays first"; exit 1
+            blueman-manager
+            ;;
+        "Display Settings (nwg-displays)")
+            if ! command -v nwg-displays >/dev/null 2>&1; then
+                notify_error "Install nwg-displays first"
+                exit 1
             fi
-            nwg-displays ;;
+            nwg-displays
+            ;;
+        "Lock Screen")
+            bash "$HOME/.config/sway/scripts/swaylock.sh"
+            ;;
 
-        # ── Hyprland ──
-        "Reload Config")    reload_hyprland ;;
-        "Toggle Game Mode") toggle_gamemode ;;
-        "Exit Hyprland")    hyprctl dispatch exit ;;
-
-        *) return ;;
+        "Reload Config") reload_sway ;;
+        "Exit Sway")     exit_sway ;;
+        *) exit 0 ;;
     esac
-
-    # Open the selected file in terminal with editor
-    if [[ -n "$file" ]]; then
-        if [[ -f "$file" ]]; then
-            $TERM -e $EDIT "$file"
-        else
-            show_error "File not found: $file"
-        fi
-    fi
 }
 
-# If rofi is already running — close it
-if pidof rofi > /dev/null; then
+if pidof rofi >/dev/null; then
     pkill rofi
     exit 0
 fi

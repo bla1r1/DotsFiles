@@ -29,11 +29,11 @@ confirm() {
 
 if command -v whiptail >/dev/null 2>&1; then
     CHOICES=$(whiptail --title "DotsFiles Arch Installer" \
-        --checklist "Select installation steps:" 18 78 8 \
-        "packages" "Install pacman/AUR packages (swayfx + Wayland tools)" ON \
-        "dotfiles" "Deploy dotfiles + wallpapers + SDDM theme/config" ON \
-        "services" "Enable services (NetworkManager, bluetooth, sddm)" ON \
-        "aur" "Install AUR packages" ON \
+        --checklist "Select installation steps:" 18 90 8 \
+        "packages" "Install base packages via pacman" ON \
+        "dotfiles" "Deploy .config, wallpapers, fonts, and SDDM theme/config" ON \
+        "services" "Enable services (NetworkManager, bluetooth, sddm, snapd)" ON \
+        "aur" "Install AUR packages (swayfx, themes, desktop apps)" ON \
         3>&1 1>&2 2>&3) || exit 1
 
     install_packages=0
@@ -51,8 +51,8 @@ if command -v whiptail >/dev/null 2>&1; then
 else
     echo "whiptail not found. Using simple interactive prompts."
     confirm "Install packages?" Y && install_packages=1 || install_packages=0
-    confirm "Deploy dotfiles?" Y && install_dotfiles=1 || install_dotfiles=0
-    confirm "Enable services?" Y && install_services=1 || install_services=0
+    confirm "Deploy dotfiles (config, wallpapers, fonts, SDDM)?" Y && install_dotfiles=1 || install_dotfiles=0
+    confirm "Enable services (NetworkManager, bluetooth, sddm, snapd)?" Y && install_services=1 || install_services=0
     confirm "Install AUR packages?" Y && install_aur=1 || install_aur=0
     echo
     echo "Selected:"
@@ -61,6 +61,11 @@ else
     echo "  services: $install_services"
     echo "  aur:      $install_aur"
     confirm "Proceed?" Y || exit 1
+fi
+
+if [[ "$install_packages" -eq 0 && "$install_aur" -eq 1 ]]; then
+    echo "[WARN] AUR installation requires package installation. Disabling AUR for this run."
+    install_aur=0
 fi
 
 args=()

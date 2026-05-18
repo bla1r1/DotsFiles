@@ -1,25 +1,29 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Online bootstrap installer for Arch Linux.
-# Intended usage:
-#   curl -fsSL <raw_url_to_this_file> | bash -s -- <repo_url> [install-arch args...]
-#
-# You can also provide repo URL via env:
-#   DOTFILES_REPO_URL=https://github.com/bla1r1/DotsFiles.git
-
 DEFAULT_REPO_URL="https://github.com/bla1r1/DotsFiles.git"
 REPO_URL="${DOTFILES_REPO_URL:-${1:-$DEFAULT_REPO_URL}}"
+
 if [[ -n "${1:-}" && "$1" =~ ^https?://|^git@ ]]; then
     shift || true
 fi
 
 BRANCH="${DOTFILES_BRANCH:-main}"
 TARGET_DIR="${DOTFILES_TARGET_DIR:-$HOME/.local/src/dotfiles}"
+INSTALLER="${DOTFILES_INSTALLER:-cli}"
+
+EXTRA_ARGS=()
+for arg in "$@"; do
+    case "$arg" in
+        --ui) INSTALLER="ui" ;;
+        --cli) INSTALLER="cli" ;;
+        *) EXTRA_ARGS+=("$arg") ;;
+    esac
+done
 
 if [[ -z "$REPO_URL" ]]; then
     echo "Missing repository URL."
-    echo "Usage: bash bootstrap-arch.sh <repo_url> [install-arch args...]"
+    echo "Usage: bash bootstrap-arch.sh <repo_url> [install args]"
     echo "Or set DOTFILES_REPO_URL env var (default: $DEFAULT_REPO_URL)."
     exit 1
 fi
@@ -43,9 +47,16 @@ else
     git clone --branch "$BRANCH" "$REPO_URL" "$TARGET_DIR"
 fi
 
-if [[ ! -x "$TARGET_DIR/install-arch.sh" ]]; then
-    chmod +x "$TARGET_DIR/install-arch.sh" || true
+if [[ "$INSTALLER" == "ui" ]]; then
+    if [[ ! -x "$TARGET_DIR/install-arch-ui.sh" ]]; then
+        chmod +x "$TARGET_DIR/install-arch-ui.sh" || true
+    fi
+    echo "[INFO] Running install-arch-ui.sh"
+    "$TARGET_DIR/install-arch-ui.sh"
+else
+    if [[ ! -x "$TARGET_DIR/install-arch.sh" ]]; then
+        chmod +x "$TARGET_DIR/install-arch.sh" || true
+    fi
+    echo "[INFO] Running install-arch.sh ${EXTRA_ARGS[*]:-}"
+    "$TARGET_DIR/install-arch.sh" "${EXTRA_ARGS[@]}"
 fi
-
-echo "[INFO] Running install-arch.sh $*"
-"$TARGET_DIR/install-arch.sh" "$@"
