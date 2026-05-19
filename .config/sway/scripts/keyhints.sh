@@ -16,7 +16,6 @@ GDK_BACKEND="$backend" yad \
     --column=Key: \
     --column=Description: \
     --column=Command: \
-    --timeout-indicator=bottom \
 "ESC"                 "Close this window"                     "" \
 "Super"               "Main modifier key"                     "" \
 ""                    ""                                      "" \
