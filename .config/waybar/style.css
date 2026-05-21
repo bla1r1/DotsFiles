@@ -461,3 +461,16 @@ tooltip {
     margin: 0;
     border: none;
 }
+
+#custom-telegram {
+    color: @tn-cyan;
+}
+
+#custom-telegram.unread {
+    color: @tn-blue;
+    font-weight: 700;
+}
+
+#custom-telegram:hover {
+    color: @tn-fg;
+}

@@ -22,6 +22,7 @@
   "group/system": {
     "orientation": "horizontal",
     "modules": [
+      "custom/telegram",
       "sway/language",
       "custom/updates",
       "custom/swaync",
@@ -228,5 +229,14 @@
     "persistent-workspaces": {
       "*": 5
     }
-  }
+  },
+"custom/telegram": {
+  "exec": "~/.config/sway/scripts/telegram-badge.sh",
+  "interval": 3,
+  "return-type": "json",
+  "format": " 󰍦  {}",
+  "on-click": "swaymsg workspace 3",
+  "escape": true,
+  "tooltip": true
+}
 }
