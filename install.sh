@@ -169,20 +169,96 @@ debian_packages() {
         starship eza bat zoxide
 }
 
+# ── Fedora: official repo packages ───────────────────────────────────────────
+# Verified package names as of Fedora 40/41.
+# Notes on names that differ from Arch:
+#   rofi-wayland      → rofi          (Fedora's rofi already has Wayland support)
+#   swaync            → swaync        (in official repos since F39)
+#   wlogout           → wlogout       (official)
+#   copyq             → copyq         (official)
+#   swappy            → swappy        (official)
+#   ddcutil           → ddcutil       (official)
+#   ugrep             → ugrep         (official)
+#   kvantum           → kvantum-manager (different name)
+#   qt6-svg           → qt6-qtsvg     (official)
+#   qt6-virtualkeyboard → qt6-qtvirtualkeyboard
+#   qt6ct             → qt6ct         (official)
+#   python-gobject    → python3-gobject
+#   libnotify         → libnotify     (official)
+#   polkit-gnome      → polkit-gnome  (official)
+#   find-the-command  → NOT available on Fedora (Arch-only pacman hook)
+#   pacman-contrib    → NOT applicable (Arch-only)
+#   networkmanager-dmenu → NOT in repos, installed via pip below
 fedora_packages() {
     echo \
         git rsync curl unzip \
-        swaybg swayidle xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk \
-        waybar rofi \
+        swaybg swayidle \
+        xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk \
+        waybar rofi swaync wlogout \
         kitty alacritty firefox nautilus geany fish fastfetch btop \
-        wl-clipboard grim slurp xwayland \
+        wl-clipboard grim slurp swappy xwayland \
+        copyq ddcutil ugrep \
         pipewire wireplumber pipewire-pulse pavucontrol pamixer playerctl \
         brightnessctl jq flatpak libnotify \
         NetworkManager NetworkManager-applet blueman polkit-gnome \
-        qt5ct yad python3 python3-gobject ImageMagick \
-        google-noto-fonts-common google-noto-emoji-fonts \
-        papirus-icon-theme sddm gnome-keyring libsecret snapd virt-manager \
-        starship eza bat zoxide
+        qt5ct qt6ct kvantum-manager \
+        qt6-qtsvg qt6-qtvirtualkeyboard qt6-qtmultimedia \
+        yad python3 python3-gobject ImageMagick \
+        google-noto-fonts-common google-noto-emoji-fonts fira-code-fonts \
+        papirus-icon-theme \
+        sddm gnome-keyring libsecret \
+        virt-manager \
+        eza bat zoxide
+}
+
+# ── Fedora COPR repos and their packages ──────────────────────────────────────
+# Repos are enabled only if not already active.
+# Sources:
+#   swayfx/swayfx                    → swayfx (compositor with eye-candy)
+#   solopasha/hyprland               → waypaper, cliphist, swaylock-effects
+#   tofik/nwg-shell                  → nwg-look, nwg-displays
+#   tofik/sway-tools                 → autotiling
+#   maveonair/jetbrains-mono-nerd-fonts → jetbrains-mono-nerd-fonts
+#   snapcore/snapd                   → snapd
+declare -A FEDORA_COPR_REPOS
+FEDORA_COPR_REPOS=(
+    ["swayfx/swayfx"]="swayfx"
+    ["solopasha/hyprland"]="waypaper cliphist swaylock-effects"
+    ["tofik/nwg-shell"]="nwg-look nwg-displays"
+    ["tofik/sway-tools"]="autotiling"
+    ["maveonair/jetbrains-mono-nerd-fonts"]="jetbrains-mono-nerd-fonts"
+    ["snapcore/snapd"]="snapd"
+)
+
+enable_fedora_copr_repos() {
+    log "Ensuring dnf-plugins-core is installed (needed for copr)..."
+    sudo dnf install -y dnf-plugins-core || warn "dnf-plugins-core install failed"
+
+    for repo in "${!FEDORA_COPR_REPOS[@]}"; do
+        # Check if repo is already enabled
+        local repo_id="copr:copr.fedorainfracloud.org:${repo//\//:}"
+        if dnf repolist --enabled 2>/dev/null | grep -q "$repo_id"; then
+            log "COPR $repo already enabled — skipping"
+            continue
+        fi
+        log "Enabling COPR: $repo"
+        sudo dnf copr enable -y "$repo" \
+            || warn "Failed to enable COPR: $repo"
+    done
+}
+
+install_fedora_copr_packages() {
+    for repo in "${!FEDORA_COPR_REPOS[@]}"; do
+        local pkgs="${FEDORA_COPR_REPOS[$repo]}"
+        for pkg in $pkgs; do
+            if rpm -q "$pkg" >/dev/null 2>&1; then
+                log "COPR pkg already installed: $pkg"
+                continue
+            fi
+            log "Installing COPR package: $pkg (from $repo)"
+            sudo dnf install -y "$pkg" || warn "Failed to install COPR pkg: $pkg"
+        done
+    done
 }
 
 # Gentoo atoms — full category/package format.
@@ -257,6 +333,8 @@ install_debian_packages() {
 
 install_fedora_packages() {
     log "Installing packages (fedora)..."
+
+    # ── RPM Fusion (Steam, Discord, multimedia codecs) ────────────────────────
     if ! rpm -q rpmfusion-free-release >/dev/null 2>&1; then
         log "Enabling RPM Fusion (free + nonfree)..."
         sudo dnf install -y \
@@ -264,15 +342,42 @@ install_fedora_packages() {
             "https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm" \
             || warn "RPM Fusion install failed"
     fi
-    if ! rpm -q snapd >/dev/null 2>&1; then
-        sudo dnf copr enable -y snapcore/snapd || warn "Failed to enable snapd Copr"
-    fi
+
+    # ── COPR repos ────────────────────────────────────────────────────────────
+    enable_fedora_copr_repos
+
+    # ── Official packages ─────────────────────────────────────────────────────
     # shellcheck disable=SC2046
     pkg_install $(fedora_packages)
-    pkg_install steam discord || true
 
+    # ── COPR packages (swayfx, waypaper, nerd fonts, snapd) ──────────────────
+    install_fedora_copr_packages
+
+    # ── Steam & Discord via RPM Fusion ────────────────────────────────────────
+    pkg_install steam discord || warn "Steam/Discord install failed — check RPM Fusion"
+
+    # ── starship (not in Fedora repos, use official installer) ──────────────
     if ! command -v starship >/dev/null 2>&1; then
+        log "Installing starship via official installer..."
         curl -sS https://starship.rs/install.sh | sh -s -- --yes || warn "starship install failed"
+    fi
+
+    # ── python-pywal (not packaged for Fedora, use pip) ───────────────────────
+    if ! python3 -c "import pywal" 2>/dev/null; then
+        log "Installing pywal via pip3..."
+        pip3 install --user pywal || warn "pywal pip install failed"
+    fi
+
+    # ── networkmanager-dmenu (not in repos, use pip) ──────────────────────────
+    if ! command -v networkmanager-dmenu >/dev/null 2>&1; then
+        log "Installing networkmanager-dmenu via pip3..."
+        pip3 install --user networkmanager-dmenu || warn "networkmanager-dmenu pip install failed"
+    fi
+
+    # ── zoxide (may not be in older Fedora releases, fallback to installer) ───
+    if ! command -v zoxide >/dev/null 2>&1; then
+        log "Installing zoxide via official installer..."
+        curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash             || warn "zoxide install failed"
     fi
 }
 
