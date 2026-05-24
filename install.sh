@@ -129,7 +129,7 @@ arch_packages() {
         base-devel git rsync curl unzip
         swaybg swayidle xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk
         waybar rofi-wayland swaync wlogout
-        kitty alacritty firefox nautilus geany fish fastfetch btop
+        kitty firefox nautilus geany fish fastfetch btop
         wl-clipboard cliphist grim slurp swappy
         xorg-xwayland autotiling
         gnome-power-manager
@@ -157,7 +157,7 @@ debian_packages() {
         build-essential git rsync curl unzip \
         swaybg swayidle xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk \
         waybar rofi sway-notification-center \
-        kitty alacritty firefox nautilus geany fish btop \
+        kitty firefox nautilus geany fish btop \
         wl-clipboard grim slurp swappy xwayland \
         pipewire wireplumber pipewire-pulse pavucontrol pamixer playerctl \
         brightnessctl jq flatpak libnotify-bin \
@@ -169,33 +169,13 @@ debian_packages() {
         starship eza bat zoxide
 }
 
-# ── Fedora: official repo packages ───────────────────────────────────────────
-# Verified package names as of Fedora 40/41.
-# Notes on names that differ from Arch:
-#   rofi-wayland      → rofi          (Fedora's rofi already has Wayland support)
-#   swaync            → swaync        (in official repos since F39)
-#   wlogout           → wlogout       (official)
-#   copyq             → copyq         (official)
-#   swappy            → swappy        (official)
-#   ddcutil           → ddcutil       (official)
-#   ugrep             → ugrep         (official)
-#   kvantum           → kvantum-manager (different name)
-#   qt6-svg           → qt6-qtsvg     (official)
-#   qt6-virtualkeyboard → qt6-qtvirtualkeyboard
-#   qt6ct             → qt6ct         (official)
-#   python-gobject    → python3-gobject
-#   libnotify         → libnotify     (official)
-#   polkit-gnome      → polkit-gnome  (official)
-#   find-the-command  → NOT available on Fedora (Arch-only pacman hook)
-#   pacman-contrib    → NOT applicable (Arch-only)
-#   networkmanager-dmenu → NOT in repos, installed via pip below
 fedora_packages() {
     echo \
         git rsync curl unzip \
         swaybg swayidle \
         xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk \
         waybar rofi swaync wlogout \
-        kitty alacritty firefox nautilus geany fish fastfetch btop \
+        kitty firefox nautilus geany fish fastfetch btop \
         wl-clipboard grim slurp swappy xwayland \
         copyq ddcutil ugrep \
         pipewire wireplumber pipewire-pulse pavucontrol pamixer playerctl \
@@ -211,22 +191,12 @@ fedora_packages() {
         eza bat zoxide
 }
 
-# ── Fedora COPR repos and their packages ──────────────────────────────────────
-# Repos are enabled only if not already active.
-# Sources:
-#   swayfx/swayfx                    → swayfx (compositor with eye-candy)
-#   solopasha/hyprland               → waypaper, cliphist, swaylock-effects
-#   tofik/nwg-shell                  → nwg-look, nwg-displays
-#   tofik/sway-tools                 → autotiling
-#   maveonair/jetbrains-mono-nerd-fonts → jetbrains-mono-nerd-fonts
-#   snapcore/snapd                   → snapd
 declare -A FEDORA_COPR_REPOS
 FEDORA_COPR_REPOS=(
     ["swayfx/swayfx"]="swayfx"
     ["solopasha/hyprland"]="waypaper cliphist swaylock-effects"
     ["tofik/nwg-shell"]="nwg-look nwg-displays"
     ["tofik/sway-tools"]="autotiling"
-    ["maveonair/jetbrains-mono-nerd-fonts"]="jetbrains-mono-nerd-fonts"
     ["snapcore/snapd"]="snapd"
 )
 
@@ -261,9 +231,6 @@ install_fedora_copr_packages() {
     done
 }
 
-# Gentoo atoms — full category/package format.
-# Packages like autotiling, waypaper, nwg-* live in the GURU overlay.
-# USE flags should be pre-set by the user in /etc/portage/package.use.
 gentoo_packages() {
     echo \
         dev-vcs/git net-misc/rsync net-misc/curl app-arch/unzip \
@@ -271,7 +238,7 @@ gentoo_packages() {
         xdg-base/xdg-desktop-portal xdg-base/xdg-desktop-portal-wlr xdg-base/xdg-desktop-portal-gtk \
         gui-apps/waybar gui-apps/rofi-wayland gui-apps/grim gui-apps/slurp \
         x11-base/xwayland \
-        x11-terms/kitty x11-terms/alacritty \
+        x11-terms/kitty \
         www-client/firefox app-editors/geany app-shells/fish sys-process/btop \
         gui-apps/wl-clipboard gui-apps/swappy \
         media-sound/pipewire media-sound/wireplumber media-sound/pavucontrol \
@@ -296,7 +263,7 @@ opensuse_packages() {
         git rsync curl unzip \
         swaybg swayidle xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk \
         waybar rofi \
-        kitty alacritty MozillaFirefox nautilus geany fish fastfetch btop \
+        kitty MozillaFirefox nautilus geany fish fastfetch btop \
         wl-clipboard grim slurp xwayland \
         pipewire wireplumber pipewire-pulse pavucontrol pamixer playerctl \
         brightnessctl jq flatpak libnotify-tools \
@@ -580,6 +547,24 @@ deploy_dotfiles() {
     if [[ -d "$REPO_DIR/etc/fonts" ]]; then
         log "Installing fontconfig snippets to /etc/fonts..."
         sudo rsync -a "$REPO_DIR/etc/fonts/" "/etc/fonts/"
+        log "Updating font cache..."
+        sudo fc-cache -f || warn "Failed to update font cache"
+    fi
+
+    log "Installing Nerd Fonts..."
+    if ! command -v git >/dev/null 2>&1; then
+        warn "Git not found, skipping Nerd Fonts installation"
+    else
+        local tmpdir; tmpdir="$(mktemp -d)"
+        git clone --depth 1 https://github.com/ryanoasis/nerd-fonts.git "$tmpdir/nerd-fonts" || warn "Failed to clone Nerd Fonts repo"
+        if [[ -f "$tmpdir/nerd-fonts/install.sh" ]]; then
+            chmod +x "$tmpdir/nerd-fonts/install.sh"
+            # Install JetBrainsMono and FiraCode as examples, or all if uncommented
+            "$tmpdir/nerd-fonts/install.sh" || warn "Failed to install Nerd Fonts"
+        fi
+        rm -rf "$tmpdir"
+        log "Nerd Fonts installation completed. Updating font cache again..."
+        sudo fc-cache -f || warn "Failed to update font cache after Nerd Fonts"
     fi
 
     deploy_sddm_theme
@@ -602,6 +587,15 @@ enable_services() {
 
     svc_enable NetworkManager
     svc_enable bluetooth
+
+    # Disable other display managers to avoid conflicts
+    log "Disabling conflicting display managers..."
+    for dm in lightdm gdm gdm3; do
+        if systemctl is-enabled "$dm" 2>/dev/null; then
+            sudo systemctl disable "$dm" || warn "Failed to disable $dm"
+        fi
+    done
+
     svc_enable sddm
 
     svc_enable snapd
@@ -617,7 +611,158 @@ enable_services() {
     [[ ! -L /snap ]] && sudo ln -s /var/lib/snapd/snap /snap || true
 }
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+# ── Verification ──────────────────────────────────────────────────────────────
+verify_packages() {
+    log "Verifying installed packages..."
+
+    local failed=()
+    local all_pkgs=()
+
+    case "$DISTRO" in
+        arch)
+            all_pkgs=($(arch_packages))
+            if [[ "$NO_AUR" -eq 0 ]]; then
+                all_pkgs+=(swayfx swaylock-effects catppuccin-cursors-mocha catppuccin-gtk-theme-mocha github-desktop-bin snap-store telegram-desktop)
+            fi
+            for pkg in "${all_pkgs[@]}"; do
+                if ! pacman -Qi "$pkg" >/dev/null 2>&1; then
+                    failed+=("$pkg")
+                fi
+            done
+            ;;
+        debian)
+            all_pkgs=($(debian_packages))
+            for pkg in "${all_pkgs[@]}"; do
+                if ! dpkg -s "$pkg" >/dev/null 2>&1; then
+                    failed+=("$pkg")
+                fi
+            done
+            # Check additional tools
+            for tool in starship zoxide; do
+                if ! command -v "$tool" >/dev/null 2>&1; then
+                    failed+=("$tool")
+                fi
+            done
+            ;;
+        fedora)
+            all_pkgs=($(fedora_packages))
+            # Add COPR packages
+            for repo in "${!FEDORA_COPR_REPOS[@]}"; do
+                all_pkgs+=(${FEDORA_COPR_REPOS[$repo]})
+            done
+            all_pkgs+=(steam discord)
+            for pkg in "${all_pkgs[@]}"; do
+                if ! rpm -q "$pkg" >/dev/null 2>&1; then
+                    failed+=("$pkg")
+                fi
+            done
+            # Check additional tools
+            for tool in starship zoxide; do
+                if ! command -v "$tool" >/dev/null 2>&1; then
+                    failed+=("$tool")
+                fi
+            done
+            # Check pip installs
+            if ! python3 -c "import pywal" 2>/dev/null; then
+                failed+=(pywal)
+            fi
+            if ! command -v networkmanager-dmenu >/dev/null 2>&1; then
+                failed+=(networkmanager-dmenu)
+            fi
+            ;;
+        gentoo)
+            all_pkgs=($(gentoo_packages))
+            all_pkgs+=(gui-apps/autotiling gui-apps/waypaper gui-apps/nwg-look gui-apps/nwg-displays app-containers/snapd)
+            for pkg in "${all_pkgs[@]}"; do
+                if ! equery list "$pkg" >/dev/null 2>&1; then
+                    failed+=("$pkg")
+                fi
+            done
+            # Check additional tools
+            for tool in starship zoxide; do
+                if ! command -v "$tool" >/dev/null 2>&1; then
+                    failed+=("$tool")
+                fi
+            done
+            ;;
+        opensuse)
+            all_pkgs=($(opensuse_packages))
+            all_pkgs+=(steam discord)
+            for pkg in "${all_pkgs[@]}"; do
+                if ! rpm -q "$pkg" >/dev/null 2>&1; then
+                    failed+=("$pkg")
+                fi
+            done
+            # Check additional tools
+            for tool in starship zoxide; do
+                if ! command -v "$tool" >/dev/null 2>&1; then
+                    failed+=("$tool")
+                fi
+            done
+            ;;
+    esac
+
+    if [[ ${#failed[@]} -eq 0 ]]; then
+        log "All packages verified successfully."
+    else
+        warn "The following packages failed verification: ${failed[*]}"
+    fi
+}
+
+# ── Post-install checks ───────────────────────────────────────────────────────
+post_install_checks() {
+    log "Running post-install checks..."
+
+    local issues=()
+
+    # Check services
+    if [[ "$SKIP_SERVICES" -eq 0 ]]; then
+        for svc in NetworkManager bluetooth sddm snapd; do
+            if ! systemctl is-active --quiet "$svc" 2>/dev/null; then
+                issues+=("Service $svc is not active")
+            fi
+        done
+    fi
+
+    # Check dotfiles
+    if [[ "$SKIP_DOTFILES" -eq 0 ]]; then
+        [[ -d "$HOME/.config/sway" ]] || issues+=("Sway config not found")
+        [[ -d "$HOME/.config/waybar" ]] || issues+=("Waybar config not found")
+        [[ -d "$HOME/.wallpapers" ]] || issues+=("Wallpapers not found")
+        [[ -d "/usr/share/sddm/themes/blair" ]] || issues+=("SDDM theme not installed")
+        [[ -f "/etc/sddm.conf" ]] || issues+=("SDDM config not found")
+        [[ -d "/var/cache/wallpaper" ]] || issues+=("Wallpaper cache dir not created")
+    fi
+
+    # Check snap
+    if command -v snap >/dev/null 2>&1; then
+        if ! snap --version >/dev/null 2>&1; then
+            issues+=("Snap not working properly")
+        fi
+    fi
+
+    # Check key commands
+    for cmd in sway waybar kitty firefox; do
+        if ! command -v "$cmd" >/dev/null 2>&1; then
+            issues+=("Command $cmd not found")
+        fi
+    done
+
+    # Check font cache
+    if ! fc-list | grep -q "JetBrains"; then
+        issues+=("JetBrains fonts not loaded (run fc-cache -f)")
+    fi
+
+    if [[ ${#issues[@]} -eq 0 ]]; then
+        log "All post-install checks passed."
+    else
+        warn "Post-install issues found:"
+        for issue in "${issues[@]}"; do
+            warn "  - $issue"
+        done
+    fi
+}
+
 main() {
     parse_args "$@"
     require_supported_distro
@@ -646,6 +791,10 @@ main() {
 
     [[ "$SKIP_SERVICES" -eq 0 ]] && enable_services \
         || warn "Skipping services (--skip-services)."
+
+    [[ "$SKIP_PACKAGES" -eq 0 ]] && verify_packages
+
+    post_install_checks
 
     log "Done."
     echo "Log out/in or reboot after installation."
