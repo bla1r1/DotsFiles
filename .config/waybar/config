@@ -20,7 +20,6 @@
         "custom/appmenu",
         "group/quicklinks",
         "sway/workspaces",
-        "hyprland/workspaces",
         "wlr/taskbar"
     ],
 

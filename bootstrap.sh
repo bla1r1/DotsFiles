@@ -3,6 +3,8 @@ set -euo pipefail
 
 DEFAULT_REPO_URL="https://github.com/bla1r1/DotsFiles.git"
 REPO_URL="${DOTFILES_REPO_URL:-${1:-$DEFAULT_REPO_URL}}"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PLATFORM_LIB="$SCRIPT_DIR/.config/sway/scripts/lib/platform.sh"
 
 if [[ -n "${1:-}" && "$1" =~ ^https?://|^git@ ]]; then
     shift || true
@@ -23,6 +25,25 @@ done
 
 # ── Distro detection ──────────────────────────────────────────────────────────
 detect_distro() {
+    if [[ -f "$PLATFORM_LIB" ]]; then
+        # shellcheck disable=SC1090
+        source "$PLATFORM_LIB"
+        dotfiles_detect_distro
+        return 0
+    fi
+
+    if [[ -r /etc/os-release ]]; then
+        # shellcheck disable=SC1091
+        . /etc/os-release
+        case "${ID:-}" in
+            arch|artix) echo "arch"; return 0 ;;
+            debian|ubuntu|linuxmint|pop|elementary|kali|neon|zorin) echo "debian"; return 0 ;;
+            fedora|rhel|centos|rocky|almalinux) echo "fedora"; return 0 ;;
+            gentoo) echo "gentoo"; return 0 ;;
+            opensuse*|sles|sled) echo "opensuse"; return 0 ;;
+        esac
+    fi
+
     if [[ -f /etc/arch-release ]]; then
         echo "arch"
     elif [[ -f /etc/debian_version ]]; then

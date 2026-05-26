@@ -5,7 +5,7 @@ configuration {
     modi: "drun,run,window,filebrowser";
     combi-modi: "drun,run,window";
 
-    terminal: "alacritty";
+    terminal: "kitty";
 
     drun-display-format: "{icon}  {name}";
 }

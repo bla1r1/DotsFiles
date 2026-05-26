@@ -165,8 +165,8 @@
   },
   "wlr/taskbar": {
     "format": "{icon}",
-    "icon-size": {},
-    "icon-theme": "${i_theme}",
+    "icon-size": 16,
+    "icon-theme": "Papirus-Dark",
     "spacing": 0,
     "tooltip-format": "{title}",
     "on-click": "activate",
@@ -234,7 +234,8 @@
   "exec": "~/.config/sway/scripts/telegram-badge.sh",
   "interval": 3,
   "return-type": "json",
-  "format": " 󰍦  {}",
+  "format": "󰍦 {}",
+  "format-empty": "",
   "on-click": "swaymsg workspace 3",
   "escape": true,
   "tooltip": true

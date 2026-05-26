@@ -53,8 +53,8 @@ apply_wallpaper() {
         notify_error "SDDM" "/var/cache/wallpaper not found — run install script first"
     fi
 
-    # Restart waybar (if dynamic theming is used)
-    if command -v waybar >/dev/null 2>&1; then
+    # Restart waybar only if it's running (avoid unnecessary restarts)
+    if pgrep -x waybar >/dev/null 2>&1 && command -v waybar >/dev/null 2>&1; then
         pkill -x waybar 2>/dev/null || true
         sleep 0.3
         waybar &>/dev/null &

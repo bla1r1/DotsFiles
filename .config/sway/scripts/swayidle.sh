@@ -16,6 +16,7 @@ exec swayidle -w \
                  resume "$DDCALL undim"               \
     \
     timeout 300  "loginctl lock-session"              \
+                 resume "sleep 1; $DDCALL undim"       \
     \
     timeout 600  "swaymsg 'output * dpms off'"        \
                  resume "swaymsg 'output * dpms on'"  \

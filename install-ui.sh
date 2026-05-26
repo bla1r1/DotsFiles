@@ -5,6 +5,12 @@ set -euo pipefail
 REPO_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_SCRIPT="$REPO_DIR/install.sh"
 LOG="$HOME/.dotfiles-install-$(date +%Y%m%d-%H%M%S).log"
+PLATFORM_LIB="$REPO_DIR/.config/sway/scripts/lib/platform.sh"
+
+if [[ -f "$PLATFORM_LIB" ]]; then
+    # shellcheck disable=SC1090
+    source "$PLATFORM_LIB"
+fi
 
 # ── Colours ───────────────────────────────────────────────────────────────────
 RESET="\e[0m"
@@ -36,32 +42,10 @@ if [[ "$EUID" -eq 0 ]]; then
     exit 1
 fi
 
-if ! command -v whiptail >/dev/null 2>&1; then
-    echo -e "${WARN} whiptail not found — installing..."
-    case "$(detect_distro)" in
-        arch)     sudo pacman -S --needed --noconfirm libnewt ;;
-        debian)   sudo apt-get install -y whiptail ;;
-        fedora)   sudo dnf install -y newt ;;
-        opensuse) sudo zypper --non-interactive install whiptail ;;
-        gentoo)   sudo emerge --ask=n dev-libs/newt ;;
-    esac
-fi
-
 mkdir -p "$(dirname "$LOG")"
 echo "Install log: $LOG" | tee "$LOG"
 
 # ── Distro detection ──────────────────────────────────────────────────────────
-detect_distro() {
-    if   [[ -f /etc/arch-release ]];   then echo "arch"
-    elif [[ -f /etc/debian_version ]]; then echo "debian"
-    elif [[ -f /etc/fedora-release ]]; then echo "fedora"
-    elif [[ -f /etc/gentoo-release ]]; then echo "gentoo"
-    elif [[ -f /etc/SuSE-release ]] || grep -qi opensuse /etc/os-release 2>/dev/null; then
-        echo "opensuse"
-    else echo "unknown"
-    fi
-}
-
 DISTRO=""
 # Accept --distro flag passed from bootstrap.sh
 while [[ $# -gt 0 ]]; do
@@ -71,34 +55,36 @@ while [[ $# -gt 0 ]]; do
         *)          shift ;;
     esac
 done
-[[ -z "$DISTRO" ]] && DISTRO="$(detect_distro)"
+
+if [[ -n "$DISTRO" ]] && declare -F dotfiles_normalize_distro >/dev/null 2>&1; then
+    DISTRO="$(dotfiles_normalize_distro "$DISTRO")"
+fi
+
+if [[ -z "$DISTRO" ]]; then
+    if declare -F dotfiles_detect_distro >/dev/null 2>&1; then
+        DISTRO="$(dotfiles_detect_distro)"
+    else
+        DISTRO="unknown"
+    fi
+fi
 
 if [[ "$DISTRO" == "unknown" ]]; then
-    whiptail --title "Error" --msgbox \
-        "Could not detect your distro.\nSupported: arch, debian, fedora, gentoo, opensuse." \
-        10 60
+    echo -e "${ERR} Could not detect your distro. Supported: arch, debian, fedora, gentoo, opensuse." | tee -a "$LOG"
     exit 1
 fi
 
+if ! command -v whiptail >/dev/null 2>&1; then
+    echo -e "${WARN} whiptail not found — installing..." | tee -a "$LOG"
+    case "$DISTRO" in
+        arch)     sudo pacman -S --needed --noconfirm libnewt ;;
+        debian)   sudo apt-get install -y whiptail ;;
+        fedora)   sudo dnf install -y newt ;;
+        opensuse) sudo zypper --non-interactive install whiptail ;;
+        gentoo)   sudo emerge --ask=n dev-libs/newt ;;
+    esac
+fi
+
 log "Detected distro: ${BOLD}$DISTRO${RESET}"
-
-# ── GPU detection ─────────────────────────────────────────────────────────────
-HAS_NVIDIA=false
-if command -v lspci >/dev/null 2>&1 && lspci | grep -qi nvidia; then
-    HAS_NVIDIA=true
-fi
-
-if $HAS_NVIDIA; then
-    whiptail --title "NVIDIA GPU Detected" --msgbox \
-"An NVIDIA GPU was detected in your system.
-
-If you select the NVIDIA option below, proprietary drivers will be
-installed (exact package depends on your distro).
-
-For RTX 5000+ GPUs: install open drivers MANUALLY before running this
-script — do NOT rely on the automatic option." \
-        14 72
-fi
 
 # ── Welcome banner ────────────────────────────────────────────────────────────
 whiptail --title "DotsFiles Installer" --msgbox \
@@ -135,7 +121,6 @@ SKIP_PACKAGES=0
 SKIP_DOTFILES=0
 SKIP_SERVICES=0
 NO_AUR=0
-INSTALL_NVIDIA=0
 
 while true; do
     # Build checklist items — AUR row only shown on Arch
@@ -147,9 +132,6 @@ while true; do
 
     [[ "$DISTRO" == "arch" ]] && \
         CHECKLIST_ARGS+=("aur" "Install AUR packages (swayfx, catppuccin, themes…)" ON)
-
-    $HAS_NVIDIA && \
-        CHECKLIST_ARGS+=("nvidia" "Install NVIDIA proprietary drivers" OFF)
 
     CHOICES=$(whiptail --title "Select Installation Steps" \
         --checklist \
@@ -170,12 +152,11 @@ while true; do
     fi
 
     # Parse choices
-    SKIP_PACKAGES=1; SKIP_DOTFILES=1; SKIP_SERVICES=1; NO_AUR=1; INSTALL_NVIDIA=0
+    SKIP_PACKAGES=1; SKIP_DOTFILES=1; SKIP_SERVICES=1; NO_AUR=1
     [[ "$CHOICES" == *"packages"* ]] && SKIP_PACKAGES=0
     [[ "$CHOICES" == *"dotfiles"* ]] && SKIP_DOTFILES=0
     [[ "$CHOICES" == *"services"* ]] && SKIP_SERVICES=0
     [[ "$CHOICES" == *"aur"*      ]] && NO_AUR=0
-    [[ "$CHOICES" == *"nvidia"*   ]] && INSTALL_NVIDIA=1
 
     # Warn if dotfiles chosen without packages
     if [[ "$SKIP_DOTFILES" -eq 0 && "$SKIP_PACKAGES" -eq 1 ]]; then
@@ -212,9 +193,6 @@ Would you like to continue without dotfiles, or return to options?" \
     if [[ "$DISTRO" == "arch" ]]; then
         [[ "$NO_AUR" -eq 0 ]] && confirm_msg+="  ✔ Install AUR packages\n" || confirm_msg+="  ✘ Skip AUR\n"
     fi
-    $HAS_NVIDIA && {
-        [[ "$INSTALL_NVIDIA" -eq 1 ]] && confirm_msg+="  ✔ Install NVIDIA drivers\n" || confirm_msg+="  ✘ Skip NVIDIA\n"
-    }
     confirm_msg+="\nDistro : $DISTRO\nLog    : $LOG\n\nProceed?"
 
     if ! whiptail --title "Confirm Your Choices" \
@@ -242,15 +220,12 @@ ARGS=(--distro "$DISTRO")
 [[ "$SKIP_DOTFILES" -eq 1 ]] && ARGS+=(--skip-dotfiles)
 [[ "$SKIP_SERVICES" -eq 1 ]] && ARGS+=(--skip-services)
 [[ "$NO_AUR"        -eq 1 ]] && ARGS+=(--no-aur)
-[[ "$INSTALL_NVIDIA" -eq 1 ]] && ARGS+=(--nvidia)
 
 log "Running: bash $INSTALL_SCRIPT ${ARGS[*]}"
 echo ""
 
-# ── NVIDIA handling ───────────────────────────────────────────────────────────
-# install.sh handles --nvidia per-distro; we just pass the flag.
-# But if SDDM selection conflicts we warn here.
-if [[ "$INSTALL_NVIDIA" -eq 1 ]] && [[ "$SKIP_SERVICES" -eq 0 ]]; then
+# ── Display manager handling ──────────────────────────────────────────────────
+if [[ "$SKIP_SERVICES" -eq 0 ]] && command -v systemctl >/dev/null 2>&1; then
     # Check for conflicting active display managers
     active_dm=()
     for dm in gdm lightdm xdm lxdm; do

@@ -1,6 +1,16 @@
-#!/bin/bash
-# Remove unused Tide item functions
-cd /workspaces/DotsFiles/.config/fish/functions
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+DEFAULT_TARGET="$REPO_DIR/.config/fish/functions"
+TARGET_DIR="${1:-${TIDE_FUNCTIONS_DIR:-$DEFAULT_TARGET}}"
+
+if [[ ! -d "$TARGET_DIR" ]]; then
+    echo "Tide functions directory not found: $TARGET_DIR" >&2
+    exit 1
+fi
+
+cd "$TARGET_DIR"
 
 rm -f _tide_item_aws.fish
 rm -f _tide_item_crystal.fish
@@ -24,5 +34,5 @@ rm -f _tide_item_toolbox.fish
 rm -f _tide_item_vi_mode.fish
 rm -f _tide_item_zig.fish
 
-echo "✅ Cleaned up 21 unused Tide items"
+echo "Cleaned up 21 unused Tide items in $TARGET_DIR"
 echo "Remaining: character, cmd_duration, context, git, go, jobs, os, python, pwd, status, time"

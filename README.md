@@ -1,38 +1,45 @@
-# DotsFiles (Arch Linux)
+# DotsFiles
 
-Quick installer for this swayfx/Waybar/SwayNC setup on Arch (including fish + fastfetch).
+Quick installer for this Sway/Waybar/SwayNC setup with fish + fastfetch.
+
+Supported distros:
+- Arch Linux
+- Debian / Ubuntu-based
+- Fedora
+- Gentoo
+- openSUSE
 
 ## Direct one-liner
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/bla1r1/DotsFiles/main/bootstrap-arch.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/bla1r1/DotsFiles/main/bootstrap.sh)
 ```
 
 ## Links
 - Repo: https://github.com/bla1r1/DotsFiles
-- Bootstrap script: https://raw.githubusercontent.com/bla1r1/DotsFiles/main/bootstrap-arch.sh
+- Bootstrap script: https://raw.githubusercontent.com/bla1r1/DotsFiles/main/bootstrap.sh
 
 ## Local run
 ```bash
 git clone https://github.com/bla1r1/DotsFiles.git ~/DotsFiles
 cd ~/DotsFiles
-bash install-arch.sh
+bash install.sh
 ```
 
 ## Interactive UI run
 ```bash
 git clone https://github.com/bla1r1/DotsFiles.git ~/DotsFiles
 cd ~/DotsFiles
-bash install-arch-ui.sh
+bash install-ui.sh
 ```
 
 ## Online run (curl)
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bla1r1/DotsFiles/main/bootstrap-arch.sh | bash
+curl -fsSL https://raw.githubusercontent.com/bla1r1/DotsFiles/main/bootstrap.sh | bash
 ```
 
 ## Online run (wget)
 ```bash
-wget -qO- https://raw.githubusercontent.com/bla1r1/DotsFiles/main/bootstrap-arch.sh | bash
+wget -qO- https://raw.githubusercontent.com/bla1r1/DotsFiles/main/bootstrap.sh | bash
 ```
 
 ## Useful options
@@ -45,15 +52,15 @@ Pass options after repo URL:
 ... | bash -s -- --skip-services
 ```
 
-`bootstrap-arch.sh` clones/updates this repo, then runs `install-arch.sh`.
+`bootstrap.sh` clones/updates this repo, then runs `install.sh`.
 If needed, you can still pass a custom repo URL:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/bla1r1/DotsFiles/main/bootstrap-arch.sh | bash -s -- https://github.com/other-user/other-dotfiles.git
+curl -fsSL https://raw.githubusercontent.com/bla1r1/DotsFiles/main/bootstrap.sh | bash -s -- https://github.com/other-user/other-dotfiles.git
 ```
 
 To run the UI installer after online bootstrap:
 
 ```bash
-~/.local/src/dotfiles/install-arch-ui.sh
+~/.local/src/dotfiles/install-ui.sh
 ```

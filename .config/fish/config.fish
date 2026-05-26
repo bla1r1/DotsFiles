@@ -2,12 +2,13 @@ if status is-interactive
     set -g fish_greeting "Welcome back, $USER 🐟"
     # Commands to run in interactive sessions can go here
 
-    zoxide init fish | source
+    if type -q zoxide
+        zoxide init fish | source
+    end
 
     # --- Exports ---
     set -x BUN_INSTALL $HOME/.bun
     set -x EDITOR nvim
-    set -x aurhelper yay
 
 # --- Aliases ---
 alias c 'clear'
@@ -17,17 +18,15 @@ alias ll 'eza -lha --icons=auto --sort=name --group-directories-first'
 alias ld 'eza -lhD --icons=auto'
 alias lt 'eza --icons=auto --tree'
 
-alias un '$aurhelper -Rns'
-alias up '$aurhelper -Syu'
-alias pl '$aurhelper -Qs'
-alias pa '$aurhelper -Ss'
-alias pc '$aurhelper -Sc'
-alias po '$aurhelper -Qtdq | $aurhelper -Rns -'
-
 alias vc 'code'
 alias vim 'nvim'
 alias aa 'startx'
-alias rm 'trash -v'
+# rm alias with safety check
+if command -v trash >/dev/null 2>&1
+    alias rm 'trash -v'
+else
+    echo "note: trash not installed, rm alias not created. Install trash-cli to enable safe deletion."
+end
 alias hx 'helix'
 alias ff 'fastfetch'
 
@@ -46,9 +45,165 @@ alias mkdir 'mkdir -p'
 # Left side:  OS icon | current directory | git branch & status | prompt character
 # Right side: command status | execution time | user@host | background jobs | python version | go version | current time
 
+# Cleanup stale Tide universal prompt variables if needed
+# Usage: tide_cleanup
+function tide_cleanup
+    for var in (set -U --names | string match '_tide_prompt_*')
+        set -eU $var
+    end
+    echo "Removed stale Tide prompt universal variables."
+end
+
+function __dotfiles_pkg_backend
+    if type -q yay
+        echo yay
+    else if type -q paru
+        echo paru
+    else if type -q apt-get
+        echo apt-get
+    else if type -q dnf
+        echo dnf
+    else if type -q zypper
+        echo zypper
+    else if type -q emerge
+        echo emerge
+    else if type -q pacman
+        echo pacman
+    end
+end
+
+function up
+    set -l backend (__dotfiles_pkg_backend)
+    switch $backend
+        case yay paru
+            command $backend -Syu
+        case pacman
+            sudo pacman -Syu
+        case apt-get
+            sudo apt-get update; and sudo apt-get upgrade -y
+        case dnf
+            sudo dnf upgrade --refresh -y
+        case zypper
+            sudo zypper refresh; and sudo zypper update -y
+        case emerge
+            sudo emerge --ask --verbose --update --deep --newuse @world
+        case '*'
+            echo "No supported package manager found."
+            return 1
+    end
+end
+
+function un
+    set -l backend (__dotfiles_pkg_backend)
+    switch $backend
+        case yay paru
+            command $backend -Rns $argv
+        case pacman
+            sudo pacman -Rns $argv
+        case apt-get
+            sudo apt-get remove --autoremove $argv
+        case dnf
+            sudo dnf remove -y $argv
+        case zypper
+            sudo zypper remove -y $argv
+        case emerge
+            sudo emerge --ask --depclean $argv
+        case '*'
+            echo "No supported package manager found."
+            return 1
+    end
+end
+
+function pl
+    set -l backend (__dotfiles_pkg_backend)
+    switch $backend
+        case yay paru pacman
+            command $backend -Qs $argv
+        case apt-get
+            dpkg -l | grep -i -- $argv
+        case dnf
+            dnf list installed | grep -i -- $argv
+        case zypper
+            zypper search --installed-only $argv
+        case emerge
+            emerge --search @installed $argv
+        case '*'
+            echo "No supported package manager found."
+            return 1
+    end
+end
+
+function pa
+    set -l backend (__dotfiles_pkg_backend)
+    switch $backend
+        case yay paru pacman
+            command $backend -Ss $argv
+        case apt-get
+            apt-cache search $argv
+        case dnf
+            dnf search $argv
+        case zypper
+            zypper search $argv
+        case emerge
+            emerge --search $argv
+        case '*'
+            echo "No supported package manager found."
+            return 1
+    end
+end
+
+function pc
+    set -l backend (__dotfiles_pkg_backend)
+    switch $backend
+        case yay paru pacman
+            sudo pacman -Sc
+        case apt-get
+            sudo apt-get clean
+        case dnf
+            sudo dnf clean all
+        case zypper
+            sudo zypper clean --all
+        case emerge
+            eclean-dist --deep
+        case '*'
+            echo "No supported package manager found."
+            return 1
+    end
+end
+
+function po
+    set -l backend (__dotfiles_pkg_backend)
+    switch $backend
+        case yay paru
+            set -l orphans (command $backend -Qtdq)
+            test -n "$orphans"; and command $backend -Rns $orphans
+        case pacman
+            set -l orphans (pacman -Qtdq)
+            test -n "$orphans"; and sudo pacman -Rns $orphans
+        case apt-get
+            sudo apt-get autoremove -y
+        case dnf
+            sudo dnf autoremove -y
+        case zypper
+            sudo zypper packages --orphaned
+        case emerge
+            sudo emerge --ask --depclean
+        case '*'
+            echo "No supported package manager found."
+            return 1
+    end
+end
+
 function aur-search
-    # Search AUR packages with fzf preview
-    yay -Slq | fzf --multi --preview 'yay -Sii {1}' --preview-window=down:75% | xargs -ro yay -S
+    # Search Arch AUR packages with fzf preview when an AUR helper is available
+    if type -q yay
+        yay -Slq | fzf --multi --preview 'yay -Sii {1}' --preview-window=down:75% | xargs -ro yay -S
+    else if type -q paru
+        paru -Slq | fzf --multi --preview 'paru -Si {1}' --preview-window=down:75% | xargs -ro paru -S
+    else
+        echo "AUR helper not found. This command is only available on Arch-based systems."
+        return 1
+    end
 end
 
 function git-sync

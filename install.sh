@@ -3,6 +3,12 @@ set -euo pipefail
 
 REPO_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 BACKUP_DIR="$HOME/.dotfiles-backup-$(date +%Y%m%d-%H%M%S)"
+PLATFORM_LIB="$REPO_DIR/.config/sway/scripts/lib/platform.sh"
+
+if [[ -f "$PLATFORM_LIB" ]]; then
+    # shellcheck disable=SC1090
+    source "$PLATFORM_LIB"
+fi
 
 DISTRO=""
 SKIP_PACKAGES=0
@@ -43,17 +49,25 @@ parse_args() {
         esac
     done
 
+    if [[ -n "$DISTRO" ]] && declare -F dotfiles_normalize_distro >/dev/null 2>&1; then
+        DISTRO="$(dotfiles_normalize_distro "$DISTRO")"
+    fi
+
     # Auto-detect if not given
     if [[ -z "$DISTRO" ]]; then
-        if   [[ -f /etc/arch-release ]];   then DISTRO="arch"
-        elif [[ -f /etc/debian_version ]]; then DISTRO="debian"
-        elif [[ -f /etc/fedora-release ]]; then DISTRO="fedora"
-        elif [[ -f /etc/gentoo-release ]]; then DISTRO="gentoo"
-        elif [[ -f /etc/SuSE-release ]] || grep -qi opensuse /etc/os-release 2>/dev/null; then
-            DISTRO="opensuse"
+        if declare -F dotfiles_detect_distro >/dev/null 2>&1; then
+            DISTRO="$(dotfiles_detect_distro)"
         else
-            echo "Cannot detect distro. Pass --distro arch|debian|fedora|gentoo|opensuse" >&2
-            exit 1
+            if   [[ -f /etc/arch-release ]];   then DISTRO="arch"
+            elif [[ -f /etc/debian_version ]]; then DISTRO="debian"
+            elif [[ -f /etc/fedora-release ]]; then DISTRO="fedora"
+            elif [[ -f /etc/gentoo-release ]]; then DISTRO="gentoo"
+            elif [[ -f /etc/SuSE-release ]] || grep -qi opensuse /etc/os-release 2>/dev/null; then
+                DISTRO="opensuse"
+            else
+                echo "Cannot detect distro. Pass --distro arch|debian|fedora|gentoo|opensuse" >&2
+                exit 1
+            fi
         fi
     fi
 }
@@ -156,13 +170,13 @@ debian_packages() {
     echo \
         build-essential git rsync curl unzip \
         swaybg swayidle xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk \
-        waybar rofi sway-notification-center \
+        waybar rofi sway-notification-center swaylock \
         kitty firefox nautilus geany fish btop \
-        wl-clipboard grim slurp swappy xwayland \
+        wl-clipboard grim slurp swappy xwayland copyq \
         pipewire wireplumber pipewire-pulse pavucontrol pamixer playerctl \
         brightnessctl jq flatpak libnotify-bin \
         network-manager network-manager-gnome blueman \
-        policykit-1-gnome qt5ct yad \
+        policykit-1-gnome qt5ct qt6ct yad \
         python3 python3-gi imagemagick \
         fonts-noto fonts-noto-color-emoji fonts-firacode \
         papirus-icon-theme sddm gnome-keyring libsecret-1-0 snapd virt-manager \
@@ -176,7 +190,7 @@ fedora_packages() {
         xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk \
         waybar rofi swaync wlogout \
         kitty firefox nautilus geany fish fastfetch btop \
-        wl-clipboard grim slurp swappy xwayland \
+        wl-clipboard grim slurp swappy xwayland swaylock \
         copyq ddcutil ugrep \
         pipewire wireplumber pipewire-pulse pavucontrol pamixer playerctl \
         brightnessctl jq flatpak libnotify \
@@ -238,9 +252,9 @@ gentoo_packages() {
         xdg-base/xdg-desktop-portal xdg-base/xdg-desktop-portal-wlr xdg-base/xdg-desktop-portal-gtk \
         gui-apps/waybar gui-apps/rofi-wayland gui-apps/grim gui-apps/slurp \
         x11-base/xwayland \
-        x11-terms/kitty \
+        x11-terms/kitty gui-apps/swaylock \
         www-client/firefox app-editors/geany app-shells/fish sys-process/btop \
-        gui-apps/wl-clipboard gui-apps/swappy \
+        gui-apps/wl-clipboard gui-apps/swappy gui-apps/copyq \
         media-sound/pipewire media-sound/wireplumber media-sound/pavucontrol \
         media-sound/pamixer media-sound/playerctl \
         sys-power/brightnessctl app-misc/jq \
@@ -262,13 +276,13 @@ opensuse_packages() {
     echo \
         git rsync curl unzip \
         swaybg swayidle xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk \
-        waybar rofi \
+        waybar rofi swaylock \
         kitty MozillaFirefox nautilus geany fish fastfetch btop \
-        wl-clipboard grim slurp xwayland \
+        wl-clipboard grim slurp xwayland copyq \
         pipewire wireplumber pipewire-pulse pavucontrol pamixer playerctl \
         brightnessctl jq flatpak libnotify-tools \
         NetworkManager NetworkManager-applet blueman polkit-gnome \
-        qt5ct yad python3 python3-gobject ImageMagick \
+        qt5ct qt6ct yad python3 python3-gobject ImageMagick \
         noto-fonts noto-coloremoji-fonts \
         papirus-icon-theme sddm \
         gnome-keyring libsecret-1-0 \
@@ -547,6 +561,14 @@ deploy_dotfiles() {
     if [[ -d "$REPO_DIR/etc/fonts" ]]; then
         log "Installing fontconfig snippets to /etc/fonts..."
         sudo rsync -a "$REPO_DIR/etc/fonts/" "/etc/fonts/"
+    fi
+
+    if [[ -d "$REPO_DIR/usr/share/fontconfig" ]]; then
+        log "Installing fontconfig data to /usr/share/fontconfig..."
+        sudo rsync -a "$REPO_DIR/usr/share/fontconfig/" "/usr/share/fontconfig/"
+    fi
+
+    if [[ -d "$REPO_DIR/etc/fonts" || -d "$REPO_DIR/usr/share/fontconfig" ]]; then
         log "Updating font cache..."
         sudo fc-cache -f || warn "Failed to update font cache"
     fi
@@ -729,6 +751,7 @@ post_install_checks() {
         [[ -d "$HOME/.config/sway" ]] || issues+=("Sway config not found")
         [[ -d "$HOME/.config/waybar" ]] || issues+=("Waybar config not found")
         [[ -d "$HOME/.wallpapers" ]] || issues+=("Wallpapers not found")
+        [[ -d "/usr/share/fontconfig/conf.avail" ]] || issues+=("fontconfig conf.avail not found")
         [[ -d "/usr/share/sddm/themes/blair" ]] || issues+=("SDDM theme not installed")
         [[ -f "/etc/sddm.conf" ]] || issues+=("SDDM config not found")
         [[ -d "/var/cache/wallpaper" ]] || issues+=("Wallpaper cache dir not created")
@@ -742,7 +765,7 @@ post_install_checks() {
     fi
 
     # Check key commands
-    for cmd in sway waybar kitty firefox; do
+    for cmd in sway swaylock waybar kitty firefox; do
         if ! command -v "$cmd" >/dev/null 2>&1; then
             issues+=("Command $cmd not found")
         fi
