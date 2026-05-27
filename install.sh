@@ -159,7 +159,7 @@ arch_packages() {
         python python-gobject imagemagick
         noto-fonts noto-fonts-emoji ttf-jetbrains-mono-nerd ttf-fira-sans
         papirus-icon-theme sddm
-        gnome-keyring libsecret snapd
+        gnome-keyring libsecret
         virt-manager steam discord
     )
     [[ "$NO_AUR" -eq 1 ]] && pkgs+=(sway swaylock)
@@ -179,7 +179,7 @@ debian_packages() {
         policykit-1-gnome qt5ct qt6ct yad \
         python3 python3-gi imagemagick \
         fonts-noto fonts-noto-color-emoji fonts-firacode \
-        papirus-icon-theme sddm gnome-keyring libsecret-1-0 snapd virt-manager \
+        papirus-icon-theme sddm gnome-keyring libsecret-1-0 virt-manager \
         starship eza bat zoxide
 }
 
@@ -211,7 +211,6 @@ FEDORA_COPR_REPOS=(
     ["solopasha/hyprland"]="waypaper cliphist swaylock-effects"
     ["tofik/nwg-shell"]="nwg-look nwg-displays"
     ["tofik/sway-tools"]="autotiling"
-    ["snapcore/snapd"]="snapd"
 )
 
 enable_fedora_copr_repos() {
@@ -286,7 +285,7 @@ opensuse_packages() {
         noto-fonts noto-coloremoji-fonts \
         papirus-icon-theme sddm \
         gnome-keyring libsecret-1-0 \
-        virt-manager snapd
+        virt-manager
 }
 
 # ── Per-distro install functions ──────────────────────────────────────────────
@@ -331,7 +330,7 @@ install_fedora_packages() {
     # shellcheck disable=SC2046
     pkg_install $(fedora_packages)
 
-    # ── COPR packages (swayfx, waypaper, nerd fonts, snapd) ──────────────────
+    # ── COPR packages (swayfx, waypaper, cliphist, swaylock-effects) ─────────
     install_fedora_copr_packages
 
     # ── Steam & Discord via RPM Fusion ────────────────────────────────────────
@@ -365,7 +364,7 @@ install_fedora_packages() {
 install_gentoo_packages() {
     log "Installing packages (gentoo)..."
 
-    # GURU overlay for community packages (autotiling, nwg-*, waypaper, snapd)
+    # GURU overlay for community packages (autotiling, nwg-*, waypaper)
     if ! eselect repository list 2>/dev/null | grep -q guru; then
         log "Enabling GURU overlay..."
         if ! command -v eselect >/dev/null 2>&1 || ! eselect repository list &>/dev/null; then
@@ -379,8 +378,7 @@ install_gentoo_packages() {
     pkg_install $(gentoo_packages)
 
     # GURU-only extras
-    for pkg in gui-apps/autotiling gui-apps/waypaper gui-apps/nwg-look gui-apps/nwg-displays \
-               app-containers/snapd; do
+    for pkg in gui-apps/autotiling gui-apps/waypaper gui-apps/nwg-look gui-apps/nwg-displays; do
         sudo emerge --ask=n --noreplace "$pkg" \
             || warn "GURU package not found: $pkg (try: emerge --sync && re-run)"
     done
@@ -410,15 +408,6 @@ install_opensuse_packages() {
             sudo zypper --non-interactive addrepo --refresh \
                 "https://ftp.gwdg.de/pub/linux/misc/packman/suse/openSUSE_Leap_${ver}/" packman || true
         fi
-        sudo zypper --non-interactive --gpg-auto-import-keys refresh || true
-    fi
-
-    # snapd via OBS
-    if ! rpm -q snapd >/dev/null 2>&1; then
-        log "Adding snapd OBS repository..."
-        sudo zypper --non-interactive addrepo --refresh \
-            https://download.opensuse.org/repositories/system:/snappy/openSUSE_Tumbleweed/ snappy \
-            || warn "snapd repo add failed"
         sudo zypper --non-interactive --gpg-auto-import-keys refresh || true
     fi
 
@@ -477,7 +466,7 @@ install_aur_packages() {
     local pkgs=(
         swayfx swaylock-effects
         catppuccin-cursors-mocha catppuccin-gtk-theme-mocha
-        github-desktop-bin snap-store telegram-desktop
+        github-desktop-bin telegram-desktop
     )
     log "Installing AUR packages with ${aur_helper}..."
     for pkg in "${pkgs[@]}"; do
@@ -620,17 +609,6 @@ enable_services() {
 
     svc_enable sddm
 
-    svc_enable snapd
-    case "$DISTRO" in
-        arch|debian|opensuse|gentoo)
-            # gentoo with systemd profile also uses AppArmor
-            svc_enable snapd.apparmor 2>/dev/null || true
-            ;;
-        fedora)
-            # SELinux — no AppArmor needed
-            ;;
-    esac
-    [[ ! -L /snap ]] && sudo ln -s /var/lib/snapd/snap /snap || true
 }
 
 # ── Verification ──────────────────────────────────────────────────────────────
@@ -644,7 +622,7 @@ verify_packages() {
         arch)
             all_pkgs=($(arch_packages))
             if [[ "$NO_AUR" -eq 0 ]]; then
-                all_pkgs+=(swayfx swaylock-effects catppuccin-cursors-mocha catppuccin-gtk-theme-mocha github-desktop-bin snap-store telegram-desktop)
+                all_pkgs+=(swayfx swaylock-effects catppuccin-cursors-mocha catppuccin-gtk-theme-mocha github-desktop-bin telegram-desktop)
             fi
             for pkg in "${all_pkgs[@]}"; do
                 if ! pacman -Qi "$pkg" >/dev/null 2>&1; then
@@ -694,7 +672,7 @@ verify_packages() {
             ;;
         gentoo)
             all_pkgs=($(gentoo_packages))
-            all_pkgs+=(gui-apps/autotiling gui-apps/waypaper gui-apps/nwg-look gui-apps/nwg-displays app-containers/snapd)
+            all_pkgs+=(gui-apps/autotiling gui-apps/waypaper gui-apps/nwg-look gui-apps/nwg-displays)
             for pkg in "${all_pkgs[@]}"; do
                 if ! equery list "$pkg" >/dev/null 2>&1; then
                     failed+=("$pkg")
@@ -739,7 +717,7 @@ post_install_checks() {
 
     # Check services
     if [[ "$SKIP_SERVICES" -eq 0 ]]; then
-        for svc in NetworkManager bluetooth sddm snapd; do
+        for svc in NetworkManager bluetooth sddm; do
             if ! systemctl is-active --quiet "$svc" 2>/dev/null; then
                 issues+=("Service $svc is not active")
             fi
@@ -755,13 +733,6 @@ post_install_checks() {
         [[ -d "/usr/share/sddm/themes/blair" ]] || issues+=("SDDM theme not installed")
         [[ -f "/etc/sddm.conf" ]] || issues+=("SDDM config not found")
         [[ -d "/var/cache/wallpaper" ]] || issues+=("Wallpaper cache dir not created")
-    fi
-
-    # Check snap
-    if command -v snap >/dev/null 2>&1; then
-        if ! snap --version >/dev/null 2>&1; then
-            issues+=("Snap not working properly")
-        fi
     fi
 
     # Check key commands
@@ -822,7 +793,6 @@ main() {
     log "Done."
     echo "Log out/in or reboot after installation."
     echo "Note: group membership changes (wallpaper) require a new login session."
-    echo "Note: snap classic confinement (/snap symlink) may need a reboot."
 
     if [[ "$DISTRO" == "gentoo" ]]; then
         echo ""
