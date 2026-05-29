@@ -18,6 +18,7 @@ notify_error() {
 # ── Apply wallpaper ───────────────────────────────────────────────────────────
 apply_wallpaper() {
     local img="$1"
+    local mode="${2:-set}"
     local resolved_img="$img"
 
     if [[ ! -f "$img" ]]; then
@@ -35,28 +36,27 @@ apply_wallpaper() {
         cp "$resolved_img" "$CURRENT_WALL"
     fi
 
-    # Pywal — generate color scheme (optional)
-    if command -v wal >/dev/null 2>&1; then
+    # Pywal and UI refresh are useful when changing wallpapers, but too slow
+    # for session startup restore.
+    if [[ "$mode" != "restore" ]] && command -v wal >/dev/null 2>&1; then
         wal -q -i "$resolved_img"
     fi
 
     # Restart swaybg with new wallpaper
     pkill -x swaybg 2>/dev/null || true
-    sleep 0.1
-    swaybg -m fill -i "$resolved_img" &
+    swaybg -m fill -i "$resolved_img" >/dev/null 2>&1 &
 
     # Sync to SDDM
-    if [[ -d /var/cache/wallpaper ]]; then
+    if [[ "$mode" != "restore" && -d /var/cache/wallpaper ]]; then
         cp "$CURRENT_WALL" "$SDDM_WALL" 2>/dev/null \
             || notify_error "SDDM" "Could not copy to /var/cache/wallpaper (check group membership)"
-    else
+    elif [[ "$mode" != "restore" ]]; then
         notify_error "SDDM" "/var/cache/wallpaper not found — run install script first"
     fi
 
     # Restart waybar only if it's running (avoid unnecessary restarts)
-    if pgrep -x waybar >/dev/null 2>&1 && command -v waybar >/dev/null 2>&1; then
+    if [[ "$mode" != "restore" ]] && pgrep -x waybar >/dev/null 2>&1 && command -v waybar >/dev/null 2>&1; then
         pkill -x waybar 2>/dev/null || true
-        sleep 0.3
         waybar &>/dev/null &
     fi
 }
@@ -127,7 +127,7 @@ case "${1:-}" in
         ;;
     restore)
         [[ -f "$CURRENT_WALL" ]] || { notify_error "No cached wallpaper to restore"; exit 1; }
-        apply_wallpaper "$CURRENT_WALL"
+        apply_wallpaper "$CURRENT_WALL" restore
         ;;
     "")
         pick_random "$WALLPAPER_DIR"

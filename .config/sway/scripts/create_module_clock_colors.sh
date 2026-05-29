@@ -1,4 +1,5 @@
-﻿#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
 ##############################################################################
 #                                                                            #
@@ -21,6 +22,9 @@ replacement_file="$HOME/.cache/wal/module-clock.dcol"
 
 # Check whether replacement file exists
 if [ -f "$replacement_file" ]; then
+    tmpfile="$(mktemp)"
+    trap 'rm -f "$tmpfile"' EXIT
+
     # Replace sections in Waybar file
     awk -v replacement_file="$replacement_file" '
       BEGIN {
@@ -62,7 +66,7 @@ if [ -f "$replacement_file" ]; then
       {
         print
       }
-    ' "$waybar_file" > tmpfile && mv tmpfile "$waybar_file"
+    ' "$waybar_file" > "$tmpfile" && mv "$tmpfile" "$waybar_file"
 
     echo "Replacement completed successfully."
 else

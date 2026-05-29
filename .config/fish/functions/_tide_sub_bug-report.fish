@@ -1,5 +1,6 @@
 function _tide_sub_bug-report
     argparse c/clean v/verbose check -- $argv
+    or return
 
     set -l fish_path (status fish-path)
 

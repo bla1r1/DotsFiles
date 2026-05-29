@@ -42,6 +42,7 @@
   ],
   "custom/copyq": {
     "format": "󰅍",
+    "exec-if": "which copyq",
     "on-click": "copyq toggle",
     "tooltip": false
   },
@@ -106,7 +107,7 @@
   },
   "custom/mic": {
     "exec": "bash ~/.config/sway/scripts/mic-control.sh --get-muted | sed 's/true/󰍭/;s/false/󰍬/'",
-    "interval": 2,
+    "interval": 5,
     "format": "{}",
     "on-click": "bash ~/.config/sway/scripts/mic-control.sh --toggle",
     "tooltip-format": "Left click: toggle mic",
@@ -128,15 +129,17 @@
     "interval": 30
 },
   "backlight": {
+    "exec-if": "bash ~/.config/sway/scripts/brightness-control.sh available",
     "format": "{icon}  {percent}%",
     "format-icons": ["󰃞", "󰃟", "󰃠"],
-    "on-scroll-up": "brightnessctl set +5%",
-    "on-scroll-down": "brightnessctl set 5%-",
+    "on-scroll-up": "bash ~/.config/sway/scripts/brightness-control.sh up",
+    "on-scroll-down": "bash ~/.config/sway/scripts/brightness-control.sh down",
     "tooltip": false
   },
   "custom/kbd-backlight": {
+    "exec-if": "bash ~/.config/sway/scripts/kbd-backlight.sh --available",
     "exec": "bash ~/.config/sway/scripts/kbd-backlight.sh --get",
-    "interval": 2,
+    "interval": 10,
     "format": "󰌌  {}%",
     "on-scroll-up": "bash ~/.config/sway/scripts/kbd-backlight.sh --inc",
     "on-scroll-down": "bash ~/.config/sway/scripts/kbd-backlight.sh --dec",
@@ -206,7 +209,7 @@
   "custom/updates": {
     "format": "  {}",
     "exec": "~/.config/sway/scripts/updates.sh",
-    "restart-interval": 60,
+    "restart-interval": 900,
     "return-type": "json",
     "escape": true,
     "on-click": "~/.config/sway/scripts/updates.sh up",
@@ -232,7 +235,7 @@
   },
 "custom/telegram": {
   "exec": "~/.config/sway/scripts/telegram-badge.sh",
-  "interval": 3,
+  "interval": 15,
   "return-type": "json",
   "format": "󰍦 {}",
   "format-empty": "",

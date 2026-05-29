@@ -151,7 +151,7 @@ arch_packages() {
         wofi python-pywal copyq waypaper
         pipewire wireplumber pipewire-pulse pavucontrol pavucontrol-qt pamixer playerctl
         brightnessctl ddcutil jq
-        pacman-contrib flatpak libnotify
+        pacman-contrib flatpak libnotify trash-cli
         networkmanager network-manager-applet networkmanager-dmenu blueman
         polkit-gnome
         qt5ct qt6ct kvantum qt6-svg qt6-virtualkeyboard
@@ -174,7 +174,7 @@ debian_packages() {
         kitty firefox nautilus geany fish btop \
         wl-clipboard grim slurp swappy xwayland copyq \
         pipewire wireplumber pipewire-pulse pavucontrol pamixer playerctl \
-        brightnessctl jq flatpak libnotify-bin \
+        brightnessctl jq flatpak libnotify-bin trash-cli \
         network-manager network-manager-gnome blueman \
         policykit-1-gnome qt5ct qt6ct yad \
         python3 python3-gi imagemagick \
@@ -193,7 +193,7 @@ fedora_packages() {
         wl-clipboard grim slurp swappy xwayland swaylock \
         copyq ddcutil ugrep \
         pipewire wireplumber pipewire-pulse pavucontrol pamixer playerctl \
-        brightnessctl jq flatpak libnotify \
+        brightnessctl jq flatpak libnotify trash-cli \
         NetworkManager NetworkManager-applet blueman polkit-gnome \
         qt5ct qt6ct kvantum-manager \
         qt6-qtsvg qt6-qtvirtualkeyboard qt6-qtmultimedia \
@@ -256,7 +256,7 @@ gentoo_packages() {
         gui-apps/wl-clipboard gui-apps/swappy gui-apps/copyq \
         media-sound/pipewire media-sound/wireplumber media-sound/pavucontrol \
         media-sound/pamixer media-sound/playerctl \
-        sys-power/brightnessctl app-misc/jq \
+        sys-power/brightnessctl app-misc/jq app-misc/trash-cli \
         sys-apps/flatpak x11-libs/libnotify \
         net-misc/networkmanager gnome-extra/nm-applet net-wireless/blueman \
         sys-auth/polkit-gnome \
@@ -279,7 +279,7 @@ opensuse_packages() {
         kitty MozillaFirefox nautilus geany fish fastfetch btop \
         wl-clipboard grim slurp xwayland copyq \
         pipewire wireplumber pipewire-pulse pavucontrol pamixer playerctl \
-        brightnessctl jq flatpak libnotify-tools \
+        brightnessctl jq flatpak libnotify-tools trash-cli \
         NetworkManager NetworkManager-applet blueman polkit-gnome \
         qt5ct qt6ct yad python3 python3-gobject ImageMagick \
         noto-fonts noto-coloremoji-fonts \

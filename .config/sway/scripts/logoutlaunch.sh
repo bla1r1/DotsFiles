@@ -1,16 +1,20 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+layout="${1:-2}"
 
 # set variables
-wLayout="$HOME/.config/wlogout/layout_$1"
-wlTmplt="$HOME/.config/wlogout/style_$1.css"
+wLayout="$HOME/.config/wlogout/layout_$layout"
+wlTmplt="$HOME/.config/wlogout/style_$layout.css"
 
 # set font size
-fntSize=`gsettings get org.gnome.desktop.interface font-name | sed "s/'//g" | awk '{print $2}'`
-export fntSize=$(( fntSize * 2 ))
+fntSize="$(gsettings get org.gnome.desktop.interface font-name 2>/dev/null | sed "s/'//g" | awk '{print $NF}')"
+export fntSize=$(( ${fntSize:-10} * 2 ))
 
 # set scaling as per monitor res
-res=`cat /sys/class/drm/*/modes | head -1 | cut -d 'x' -f 2`
-case $1 in
+res="$(awk -Fx 'NF > 1 { print $2; exit }' /sys/class/drm/*/modes 2>/dev/null || true)"
+res="${res:-1080}"
+case "$layout" in
     1)  wlColms=1
         export mgn=$(( res * 10 / 100 ))
         export hvr=$(( res * 5 / 100 )) ;;
@@ -24,8 +28,7 @@ case $1 in
 esac
 
 # eval config files
-wlStyle=`envsubst < $wlTmplt`
+wlStyle="$(envsubst < "$wlTmplt")"
 
 # launch wlogout
-wlogout -b $wlColms -c 0 -r 0 --layout $wLayout --css <(echo "$wlStyle") --protocol layer-shell
-
+wlogout -b "$wlColms" -c 0 -r 0 --layout "$wLayout" --css <(printf '%s\n' "$wlStyle") --protocol layer-shell

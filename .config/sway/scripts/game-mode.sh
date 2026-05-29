@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 
-used=$(swaymsg -t get_workspaces | jq '[.[].num]')
-num=1
-while echo "$used" | jq -e "contains([$num])" > /dev/null; do
-    ((num++))
-done
+set -euo pipefail
 
-swaymsg move to workspace number $num
-swaymsg workspace number $num
+num="$(
+    swaymsg -t get_workspaces \
+        | jq -r '[.[].num] as $used | first(range(1; 100) | select($used | index(.) | not))'
+)"
+
+swaymsg move to workspace number "$num"
+swaymsg workspace number "$num"
 swaymsg fullscreen toggle

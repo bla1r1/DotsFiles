@@ -1,17 +1,18 @@
-#!/bin/bash
-title=$(swaymsg -t get_tree 2>/dev/null | python3 -c "
-import json, sys, re
-def walk(node):
-    if node.get('app_id') == 'org.telegram.desktop':
-        name = node.get('name', '') or ''
-        m = re.search(r'\((\d+)\)', name)
-        if m:
-            print(m.group(1))
-            return
-    for child in node.get('nodes', []) + node.get('floating_nodes', []):
-        walk(child)
-walk(json.load(sys.stdin))
-" 2>/dev/null)
+#!/usr/bin/env bash
+set -euo pipefail
+
+title="$(
+    swaymsg -t get_tree 2>/dev/null \
+        | jq -r '
+            first(
+                .. | objects
+                | select(.app_id? == "org.telegram.desktop")
+                | (.name // "")
+                | capture("\\((?<count>[0-9]+)\\)")?
+                | .count
+            ) // empty
+        ' 2>/dev/null
+)"
 
 if [ -n "$title" ]; then
     echo "{\"text\": \"$title\", \"class\": \"unread\", \"tooltip\": \"Telegram: $title непрочитанных\"}"

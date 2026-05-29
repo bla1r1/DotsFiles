@@ -17,6 +17,7 @@ end
 function _tide_sub_configure
     set -l choices (path basename (status dirname)/tide/configure/choices/**.fish | path change-extension '')
     argparse auto $choices= -- $argv
+    or return
 
     for var in (set -l --names | string match -e _flag)
         set -x $var $$var
@@ -89,6 +90,7 @@ function _tide_menu -a func
     end
 
     argparse no-restart -- $argv # Add no-restart option for first menu
+    or return
 
     echo
     if not set -q _flag_no_restart

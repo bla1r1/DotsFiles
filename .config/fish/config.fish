@@ -25,7 +25,7 @@ alias aa 'startx'
 if command -v trash >/dev/null 2>&1
     alias rm 'trash -v'
 else
-    echo "note: trash not installed, rm alias not created. Install trash-cli to enable safe deletion."
+    echo "note: trash not installed, rm alias not created. Install trash-cli (or your distro's trash package) to enable safe deletion."
 end
 alias hx 'helix'
 alias ff 'fastfetch'
@@ -94,6 +94,11 @@ function up
 end
 
 function un
+    if test (count $argv) -eq 0
+        echo "Usage: un <package> [package ...]"
+        return 1
+    end
+
     set -l backend (__dotfiles_pkg_backend)
     switch $backend
         case yay paru
@@ -115,6 +120,11 @@ function un
 end
 
 function pl
+    if test (count $argv) -eq 0
+        echo "Usage: pl <search-term> [search-term ...]"
+        return 1
+    end
+
     set -l backend (__dotfiles_pkg_backend)
     switch $backend
         case yay paru pacman
@@ -134,6 +144,11 @@ function pl
 end
 
 function pa
+    if test (count $argv) -eq 0
+        echo "Usage: pa <search-term> [search-term ...]"
+        return 1
+    end
+
     set -l backend (__dotfiles_pkg_backend)
     switch $backend
         case yay paru pacman
@@ -196,10 +211,17 @@ end
 
 function aur-search
     # Search Arch AUR packages with fzf preview when an AUR helper is available
+    if not type -q fzf
+        echo "fzf not found. Install fzf to use aur-search."
+        return 1
+    end
+
     if type -q yay
-        yay -Slq | fzf --multi --preview 'yay -Sii {1}' --preview-window=down:75% | xargs -ro yay -S
+        set -l packages (yay -Slq | fzf --multi --preview 'yay -Sii {1}' --preview-window=down:75%)
+        test (count $packages) -gt 0; and yay -S $packages
     else if type -q paru
-        paru -Slq | fzf --multi --preview 'paru -Si {1}' --preview-window=down:75% | xargs -ro paru -S
+        set -l packages (paru -Slq | fzf --multi --preview 'paru -Si {1}' --preview-window=down:75%)
+        test (count $packages) -gt 0; and paru -S $packages
     else
         echo "AUR helper not found. This command is only available on Arch-based systems."
         return 1
@@ -208,8 +230,13 @@ end
 
 function git-sync
     # Quick: add all, commit with message, push
+    if test (count $argv) -eq 0
+        echo "Usage: git-sync <commit message>"
+        return 1
+    end
+
     git add .
-    git commit -m "$argv"
+    git commit -m (string join ' ' -- $argv)
     git push
 end
 
