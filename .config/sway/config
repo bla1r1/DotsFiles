@@ -1,6 +1,6 @@
 # ############################################################
 # SWAY CONFIG — main file
-# Converted from Hyprland config
+# Modular Sway config with Quickshell panel/popups
 # Docs: https://man.archlinux.org/man/sway.5
 # ############################################################
 include ~/.config/sway/conf.d/variables.conf

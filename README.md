@@ -1,6 +1,6 @@
 # DotsFiles
 
-Quick installer for this Sway/Waybar/SwayNC setup with fish + fastfetch.
+Quick installer for this Sway/Quickshell setup with fish + fastfetch.
 
 Supported distros:
 - Arch Linux

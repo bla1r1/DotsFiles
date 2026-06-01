@@ -107,7 +107,7 @@ if ! groups "$USER" | grep -q '\binput\b'; then
     whiptail --title "Input Group" --msgbox \
 "You are not in the 'input' group.
 
-Adding you now is recommended for Waybar keyboard-state and
+Adding you now is recommended for keyboard state helpers and
 libinput to work correctly. The installer will add you automatically.
 
 You will need to log out and back in after installation." \
@@ -175,7 +175,7 @@ correctly. Continue anyway?" \
         if ! whiptail --title "No Dotfiles Selected" --yesno \
 "You have NOT selected dotfiles.
 
-Without dotfiles, Sway/Hyprland will start with a bare default
+Without dotfiles, Sway will start with a bare default
 configuration and some features may not work out of the box.
 
 Would you like to continue without dotfiles, or return to options?" \
@@ -260,7 +260,7 @@ Log saved to: $LOG
 Next steps:
   • Log out and back in (or reboot) to apply group changes
   • A backup of your old config was saved to ~/.dotfiles-backup-*
-  • On first Sway/Hyprland launch press SUPER+H for a hints menu
+  • On first Sway launch press SUPER+H for the Quickshell guide
   • Check the README for post-install tips
 
 Goodbye and enjoy your setup! 🎉" \

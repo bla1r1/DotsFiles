@@ -1,16 +1,18 @@
 /* MACOS SPOTLIGHT LIKE DARK THEME FOR ROFI  */
 /* Author: Newman Sanchez (https://github.com/newmanls) */
 
+@import "~/.config/rofi/matugen-colors.rasi"
+
 * {
     font:   "Montserrat 12";
 
-    bg0:    #242424E6;
-    bg1:    #7E7E7E80;
-    bg2:    #0860f2E6;
+    bg0:    @matugen-bg0;
+    bg1:    @matugen-bg1;
+    bg2:    @matugen-bg2;
 
-    fg0:    #DEDEDE;
-    fg1:    #FFFFFF;
-    fg2:    #DEDEDE80;
+    fg0:    @matugen-fg0;
+    fg1:    @matugen-fg1;
+    fg2:    @matugen-fg2;
 
     background-color:   transparent;
     text-color:         @fg0;

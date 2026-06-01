@@ -1,8 +1,10 @@
 /*
     macOS Launchpad style — rofi fullscreen grid
-    Tokyo Night palette — rofi 2.0.0 wayland native
+    Matugen palette — rofi 2.0.0 wayland native
     argb: AA RRGGBB  (AA = alpha hex, e0=88%, cc=80%, 99=60%)
 */
+
+@import "~/.config/rofi/matugen-colors.rasi"
 
 configuration {
     show-icons:         true;
@@ -12,15 +14,15 @@ configuration {
 
 * {
     font:               "Fira Sans SemiBold 13";
-    background-color:   argb:e81a1b26;
-    text-color:         #c0caf5;
+    background-color:   @matugen-bg0;
+    text-color:         @matugen-fg0;
     margin:             0px;
     padding:            0px;
     spacing:            0px;
 }
 
 window {
-    background-color:   argb:e81a1b26;
+    background-color:   @matugen-bg0;
     fullscreen:         true;
 }
 
@@ -32,7 +34,7 @@ mainbox {
 }
 
 inputbar {
-    background-color:   argb:cc24283b;
+    background-color:   @matugen-bg1;
     border-radius:      14px;
     padding:            14px 20px;
     spacing:            14px;
@@ -52,10 +54,10 @@ icon-search {
 entry {
     font:               "Fira Sans SemiBold 16";
     placeholder:        "Search apps…";
-    placeholder-color:  argb:80565f89;
+    placeholder-color:  @matugen-fg2;
     vertical-align:     0.5;
     background-color:   transparent;
-    text-color:         #c0caf5;
+    text-color:         @matugen-fg0;
 }
 
 listview {
@@ -80,18 +82,18 @@ element {
 
 element normal normal {
     background-color:   transparent;
-    text-color:         #c0caf5;
+    text-color:         @matugen-fg0;
 }
 
 element selected normal,
 element selected active {
-    background-color:   argb:402d3250;
-    text-color:         #ffffff;
+    background-color:   @matugen-bg3;
+    text-color:         @matugen-fg0;
 }
 
 element alternate normal {
     background-color:   transparent;
-    text-color:         #c0caf5;
+    text-color:         @matugen-fg0;
 }
 
 element-icon {

@@ -142,7 +142,7 @@ arch_packages() {
     local pkgs=(
         base-devel git rsync curl unzip
         swaybg swayidle xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk
-        waybar rofi-wayland swaync wlogout
+        waybar rofi-wayland swaync wlogout quickshell
         kitty firefox nautilus geany fish fastfetch btop
         wl-clipboard cliphist grim slurp swappy
         xorg-xwayland autotiling
@@ -150,7 +150,7 @@ arch_packages() {
         starship eza bat ugrep zoxide find-the-command
         wofi python-pywal copyq waypaper
         pipewire wireplumber pipewire-pulse pavucontrol pavucontrol-qt pamixer playerctl
-        brightnessctl ddcutil jq
+        brightnessctl ddcutil jq inotify-tools socat
         pacman-contrib flatpak libnotify trash-cli
         networkmanager network-manager-applet networkmanager-dmenu blueman
         polkit-gnome
@@ -174,7 +174,7 @@ debian_packages() {
         kitty firefox nautilus geany fish btop \
         wl-clipboard grim slurp swappy xwayland copyq \
         pipewire wireplumber pipewire-pulse pavucontrol pamixer playerctl \
-        brightnessctl jq flatpak libnotify-bin trash-cli \
+        brightnessctl jq inotify-tools socat flatpak libnotify-bin trash-cli \
         network-manager network-manager-gnome blueman \
         policykit-1-gnome qt5ct qt6ct yad \
         python3 python3-gi imagemagick \
@@ -193,7 +193,7 @@ fedora_packages() {
         wl-clipboard grim slurp swappy xwayland swaylock \
         copyq ddcutil ugrep \
         pipewire wireplumber pipewire-pulse pavucontrol pamixer playerctl \
-        brightnessctl jq flatpak libnotify trash-cli \
+        brightnessctl jq inotify-tools socat flatpak libnotify trash-cli \
         NetworkManager NetworkManager-applet blueman polkit-gnome \
         qt5ct qt6ct kvantum-manager \
         qt6-qtsvg qt6-qtvirtualkeyboard qt6-qtmultimedia \
@@ -256,7 +256,7 @@ gentoo_packages() {
         gui-apps/wl-clipboard gui-apps/swappy gui-apps/copyq \
         media-sound/pipewire media-sound/wireplumber media-sound/pavucontrol \
         media-sound/pamixer media-sound/playerctl \
-        sys-power/brightnessctl app-misc/jq app-misc/trash-cli \
+        sys-power/brightnessctl app-misc/jq app-admin/inotify-tools net-misc/socat app-misc/trash-cli \
         sys-apps/flatpak x11-libs/libnotify \
         net-misc/networkmanager gnome-extra/nm-applet net-wireless/blueman \
         sys-auth/polkit-gnome \
@@ -279,7 +279,7 @@ opensuse_packages() {
         kitty MozillaFirefox nautilus geany fish fastfetch btop \
         wl-clipboard grim slurp xwayland copyq \
         pipewire wireplumber pipewire-pulse pavucontrol pamixer playerctl \
-        brightnessctl jq flatpak libnotify-tools trash-cli \
+        brightnessctl jq inotify-tools socat flatpak libnotify-tools trash-cli \
         NetworkManager NetworkManager-applet blueman polkit-gnome \
         qt5ct qt6ct yad python3 python3-gobject ImageMagick \
         noto-fonts noto-coloremoji-fonts \
@@ -582,7 +582,7 @@ deploy_dotfiles() {
     setup_sddm_wallpaper_permissions
 
     if [[ -d "$HOME/.config/sway/scripts" ]]; then
-        find "$HOME/.config/sway/scripts" -type f -name "*.sh" -exec chmod +x {} +
+        find "$HOME/.config/sway/scripts" -type f \( -name "*.sh" -o -name "*.py" \) -exec chmod +x {} +
     fi
 
     log "Dotfiles installed. Backup saved to: $BACKUP_DIR"
@@ -727,7 +727,7 @@ post_install_checks() {
     # Check dotfiles
     if [[ "$SKIP_DOTFILES" -eq 0 ]]; then
         [[ -d "$HOME/.config/sway" ]] || issues+=("Sway config not found")
-        [[ -d "$HOME/.config/waybar" ]] || issues+=("Waybar config not found")
+        [[ -d "$HOME/.config/sway/scripts/quickshell" ]] || issues+=("Quickshell Sway config not found")
         [[ -d "$HOME/.wallpapers" ]] || issues+=("Wallpapers not found")
         [[ -d "/usr/share/fontconfig/conf.avail" ]] || issues+=("fontconfig conf.avail not found")
         [[ -d "/usr/share/sddm/themes/blair" ]] || issues+=("SDDM theme not installed")
@@ -736,7 +736,7 @@ post_install_checks() {
     fi
 
     # Check key commands
-    for cmd in sway swaylock waybar kitty firefox; do
+    for cmd in sway swaylock quickshell kitty firefox; do
         if ! command -v "$cmd" >/dev/null 2>&1; then
             issues+=("Command $cmd not found")
         fi

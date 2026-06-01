@@ -1,0 +1,10 @@
+* {
+    matugen-bg0: #11111BE6;
+    matugen-bg1: #313244CC;
+    matugen-bg2: #89B4FAE6;
+    matugen-bg3: #74C7EC66;
+    matugen-fg0: #CDD6F4;
+    matugen-fg1: #11111B;
+    matugen-fg2: #A6ADC8CC;
+    matugen-border: #585B70;
+}
