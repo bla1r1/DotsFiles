@@ -2,7 +2,6 @@
 
 SETTINGS_FILE="$HOME/.config/sway/settings.json"
 SWAY_INPUT_CONF="$HOME/.config/sway/conf.d/input.conf"
-SWAY_AUTOSTART_CONF="$HOME/.config/sway/conf.d/autostart.conf"
 SWAY_ENV_CONF="$HOME/.config/sway/conf.d/env.conf"
 ZSH_RC="$HOME/.zshrc"
 
@@ -14,7 +13,7 @@ if ! jq empty "$SETTINGS_FILE" >/dev/null 2>&1; then
 {
   "uiScale": 1,
   "openGuideAtStartup": false,
-  "topbarHelpIcon": false,
+  "guideShortcut": true,
   "wallpaperDir": "~/Pictures/Wallpapers",
   "language": "de,ua",
   "kbOptions": "grp:alt_shift_toggle",
@@ -33,7 +32,6 @@ while inotifywait -q -e close_write "$SETTINGS_FILE"; do
     # Removed '// empty' from the boolean to prevent 'false' from evaluating to empty
     LANG=$(jq -r '.language // empty' "$SETTINGS_FILE")
     KB_OPT=$(jq -r '.kbOptions // empty' "$SETTINGS_FILE")
-    GUIDE_STARTUP=$(jq -r '.openGuideAtStartup' "$SETTINGS_FILE")
     WP_DIR=$(jq -r '.wallpaperDir // empty' "$SETTINGS_FILE")
 
     # 1. Update Keyboard Layout & Options
@@ -51,16 +49,7 @@ while inotifywait -q -e close_write "$SETTINGS_FILE"; do
         sed -i "s/^ *xkb_options .*/    xkb_options /" "$SWAY_INPUT_CONF"
     fi
 
-    # 2. Update Guide Autostart (Comment / Uncomment)
-    if [ "$GUIDE_STARTUP" == "true" ]; then
-        # Remove any leading hash/spaces to enable the autostart
-        sed -i 's|^#*[[:space:]]*exec bash \$HOME/.config/sway/scripts/core/qs_manager.sh toggle guide.*|exec bash $HOME/.config/sway/scripts/core/qs_manager.sh toggle guide|' "$SWAY_AUTOSTART_CONF"
-    elif [ "$GUIDE_STARTUP" == "false" ]; then
-        # Add a hash to comment it out if it isn't already
-        sed -i 's|^exec bash \$HOME/.config/sway/scripts/core/qs_manager.sh toggle guide.*|# exec bash $HOME/.config/sway/scripts/core/qs_manager.sh toggle guide|' "$SWAY_AUTOSTART_CONF"
-    fi
-
-    # 3. Update Wallpaper Directory
+    # 2. Update Wallpaper Directory
     if [ -n "$WP_DIR" ] && [ "$WP_DIR" != "null" ]; then
         # We use '|' as the sed delimiter here to prevent path slashes from breaking the command
         if grep -q '^set \$wallpaperDir ' "$SWAY_ENV_CONF"; then

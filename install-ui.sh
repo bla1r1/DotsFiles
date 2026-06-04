@@ -69,7 +69,7 @@ if [[ -z "$DISTRO" ]]; then
 fi
 
 if [[ "$DISTRO" == "unknown" ]]; then
-    echo -e "${ERR} Could not detect your distro. Supported: arch, debian, fedora, gentoo, opensuse." | tee -a "$LOG"
+    echo -e "${ERR} Could not detect your distro. Supported: arch, debian, fedora, gentoo, void, opensuse." | tee -a "$LOG"
     exit 1
 fi
 
@@ -79,8 +79,9 @@ if ! command -v whiptail >/dev/null 2>&1; then
         arch)     sudo pacman -S --needed --noconfirm libnewt ;;
         debian)   sudo apt-get install -y whiptail ;;
         fedora)   sudo dnf install -y newt ;;
-        opensuse) sudo zypper --non-interactive install whiptail ;;
         gentoo)   sudo emerge --ask=n dev-libs/newt ;;
+        void)     sudo xbps-install -Sy newt ;;
+        opensuse) sudo zypper --non-interactive install whiptail ;;
     esac
 fi
 

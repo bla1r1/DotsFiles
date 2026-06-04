@@ -16,7 +16,7 @@ get_icon() {
     else echo "󰤯"; fi
 }
 
-CACHE_DIR="${XDG_RUNTIME_DIR:-$HOME/.cache}/quickshell_network_cache"
+CACHE_DIR="${XDG_RUNTIME_DIR:-$HOME/.cache}/qs_network"
 mkdir -p "$CACHE_DIR"
 
 CURRENT_RAW=$(nmcli -t -f active,ssid,signal,security device wifi | awk -F: '$1=="yes"{print; exit}')

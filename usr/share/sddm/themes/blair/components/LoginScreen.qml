@@ -425,7 +425,14 @@ Item {
     }
 
     MenuArea {}
-    CVKeyboard {}
+    Loader {
+        id: virtualKeyboardLoader
+        anchors.fill: parent
+        active: loginScreen.showKeyboard
+        sourceComponent: Component {
+            CVKeyboard {}
+        }
+    }
 
     Keys.onPressed: function (event) {
         if (event.key === Qt.Key_Escape) {

@@ -10,10 +10,9 @@ RECORD_DIR="${XDG_VIDEOS_DIR:-$HOME/Videos}/Recordings"
 CACHE_DIR="$HOME/.cache/qs_recording_state"
 mkdir -p "$SAVE_DIR" "$RECORD_DIR" "$CACHE_DIR"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BUS_SCRIPT="$SCRIPT_DIR/core/qs_bus.sh"
 
 publish_recording_state() {
-    [ -x "$BUS_SCRIPT" ] && "$BUS_SCRIPT" send recording "$1" 2>/dev/null || true
+    :
 }
 
 # Parse arguments safely upfront
@@ -274,6 +273,9 @@ fi
 # PHASE 2: UI Trigger (Launch Standalone Quickshell Overlay)
 # ---------------------------------------------------------
 QML_PATH="$HOME/.config/sway/scripts/quickshell/ScreenshotOverlay.qml"
+SCRIPT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/sway/scripts"
+QT_ENV="$SCRIPT_DIR/core/qt-env.sh"
+[[ -f "$QT_ENV" ]] && source "$QT_ENV"
 
 if pgrep -f "quickshell -p $QML_PATH" > /dev/null; then
     pkill -f "quickshell -p $QML_PATH"

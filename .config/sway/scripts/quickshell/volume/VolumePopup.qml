@@ -86,6 +86,11 @@ Item {
     property int activeVol: 0
     property bool activeMute: false
     property string activeIcon: "󰓃"
+    property string defaultMicId: ""
+    property string defaultMicName: "No Microphone"
+    property string defaultMicDesc: ""
+    property int defaultMicVol: 0
+    property bool defaultMicMute: false
 
     // Models
     ListModel { id: outputsModel }
@@ -115,8 +120,40 @@ Item {
             syncModel(outputsModel, data.outputs || []);
             syncModel(inputsModel, data.inputs || []);
             syncModel(appsModel, data.apps || []);
+            updateDefaultMicData();
             updateHeroData();
         } catch(e) {}
+    }
+
+    function updateDefaultMicData() {
+        let chosen = null;
+        for (let i = 0; i < inputsModel.count; i++) {
+            let d = inputsModel.get(i);
+            if (d.is_default) {
+                chosen = d;
+                break;
+            }
+        }
+        if (!chosen && inputsModel.count > 0) chosen = inputsModel.get(0);
+
+        if (!chosen) {
+            window.defaultMicId = "";
+            window.defaultMicName = "No Microphone";
+            window.defaultMicDesc = "";
+            if (!window.draggingNodes["__default_mic"]) {
+                window.defaultMicVol = 0;
+                window.defaultMicMute = false;
+            }
+            return;
+        }
+
+        window.defaultMicId = chosen.id;
+        window.defaultMicName = chosen.description;
+        window.defaultMicDesc = chosen.name;
+        if (!window.draggingNodes["__default_mic"]) {
+            window.defaultMicVol = chosen.volume;
+            window.defaultMicMute = chosen.mute;
+        }
     }
 
     function updateHeroData() {
@@ -271,7 +308,7 @@ Item {
                 // ==========================================
                 Item {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: window.s(150)
+                    Layout.preferredHeight: window.s(190)
                     opacity: introHeader
                     transform: Translate { y: window.s(30) * (1.0 - introHeader) }
 
@@ -563,6 +600,143 @@ Item {
                                             masterCmdThrottle.targetPct = pct;
                                             if (!masterCmdThrottle.running) masterCmdThrottle.start();
                                         }
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: window.s(42)
+                                radius: window.s(14)
+                                color: Qt.rgba(window.mauve.r, window.mauve.g, window.mauve.b, micRowMa.containsMouse ? 0.16 : 0.09)
+                                border.color: Qt.rgba(window.mauve.r, window.mauve.g, window.mauve.b, 0.28)
+                                border.width: 1
+                                opacity: window.defaultMicId === "" ? 0.55 : 1.0
+                                Behavior on color { ColorAnimation { duration: 180 } }
+
+                                Timer {
+                                    id: micCmdThrottle
+                                    interval: 50
+                                    property int targetPct: -1
+                                    onTriggered: {
+                                        if (targetPct >= 0 && window.defaultMicId !== "") {
+                                            if (targetPct > 0 && window.defaultMicMute) {
+                                                Quickshell.execDetached(["bash", window.scriptsDir + "/audio_control.sh", "toggle-mute", "source", window.defaultMicId]);
+                                            }
+                                            Quickshell.execDetached(["bash", window.scriptsDir + "/audio_control.sh", "set-volume", "source", window.defaultMicId, targetPct]);
+                                            targetPct = -1;
+                                        }
+                                    }
+                                }
+
+                                RowLayout {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: window.s(12)
+                                    anchors.rightMargin: window.s(12)
+                                    spacing: window.s(10)
+
+                                    Text {
+                                        Layout.preferredWidth: window.s(24)
+                                        horizontalAlignment: Text.AlignHCenter
+                                        font.family: "Iosevka Nerd Font"
+                                        font.pixelSize: window.s(18)
+                                        color: window.defaultMicMute ? window.red : window.mauve
+                                        text: window.defaultMicMute ? "󰍭" : "󰍬"
+                                    }
+
+                                    ColumnLayout {
+                                        Layout.preferredWidth: window.s(118)
+                                        spacing: 0
+                                        Text {
+                                            Layout.fillWidth: true
+                                            elide: Text.ElideRight
+                                            font.family: "JetBrains Mono"
+                                            font.weight: Font.Bold
+                                            font.pixelSize: window.s(12)
+                                            color: window.text
+                                            text: "Microphone"
+                                        }
+                                        Text {
+                                            Layout.fillWidth: true
+                                            elide: Text.ElideRight
+                                            font.family: "JetBrains Mono"
+                                            font.pixelSize: window.s(10)
+                                            color: window.subtext0
+                                            text: window.defaultMicName
+                                        }
+                                    }
+
+                                    Item {
+                                        Layout.fillWidth: true
+                                        height: window.s(14)
+
+                                        Rectangle {
+                                            anchors.fill: parent
+                                            radius: window.s(7)
+                                            color: "#0dffffff"
+                                            border.color: "#1affffff"
+                                            border.width: 1
+                                            clip: true
+
+                                            Rectangle {
+                                                height: parent.height
+                                                width: parent.width * (Math.min(100, window.defaultMicVol) / 100)
+                                                radius: window.s(7)
+                                                opacity: window.defaultMicMute ? 0.28 : 0.8
+                                                color: window.defaultMicMute ? window.surface2 : window.mauve
+                                                Behavior on width { enabled: !window.draggingNodes["__default_mic"]; NumberAnimation { duration: 220; easing.type: Easing.OutQuint } }
+                                                Behavior on color { ColorAnimation { duration: 200 } }
+                                            }
+                                        }
+
+                                        MouseArea {
+                                            id: micSliderMa
+                                            anchors.fill: parent
+                                            hoverEnabled: true
+                                            cursorShape: window.defaultMicId !== "" ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                            onPressed: (mouse) => {
+                                                if (window.defaultMicId === "") return;
+                                                syncDelay.stop();
+                                                window.draggingNodes["__default_mic"] = true;
+                                                updateMicVol(mouse.x);
+                                            }
+                                            onPositionChanged: (mouse) => { if (pressed) updateMicVol(mouse.x); }
+                                            onReleased: {
+                                                syncDelay.restart();
+                                                audioPoller.running = true;
+                                            }
+
+                                            function updateMicVol(mx) {
+                                                if (window.defaultMicId === "") return;
+                                                let pct = Math.max(0, Math.min(100, Math.round((mx / width) * 100)));
+                                                window.defaultMicVol = pct;
+                                                micCmdThrottle.targetPct = pct;
+                                                if (!micCmdThrottle.running) micCmdThrottle.start();
+                                            }
+                                        }
+                                    }
+
+                                    Text {
+                                        Layout.preferredWidth: window.s(36)
+                                        horizontalAlignment: Text.AlignRight
+                                        font.family: "JetBrains Mono"
+                                        font.weight: Font.Bold
+                                        font.pixelSize: window.s(11)
+                                        color: window.subtext0
+                                        text: window.defaultMicVol + "%"
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: micRowMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    acceptedButtons: Qt.RightButton
+                                    cursorShape: window.defaultMicId !== "" ? Qt.PointingHandCursor : Qt.ArrowCursor
+                                    onClicked: {
+                                        if (window.defaultMicId === "") return;
+                                        Quickshell.execDetached(["bash", window.scriptsDir + "/audio_control.sh", "toggle-mute", "source", window.defaultMicId]);
+                                        audioPoller.running = true;
                                     }
                                 }
                             }

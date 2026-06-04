@@ -5,6 +5,8 @@ import Quickshell.Io
 Item {
     id: root
 
+    property bool active: true
+
     // Explicitly typed as 'color' for strict QML binding
     property color base: "#1e1e2e"
     property color mantle: "#181825"
@@ -66,36 +68,9 @@ Item {
     Process {
         id: initialThemeReader
         command: ["cat", "/tmp/qs_colors.json"]
-        running: true
+        running: root.active
         stdout: StdioCollector {
             onStreamFinished: root.applyTheme(this.text)
         }
-    }
-
-    Process {
-        id: themeReader
-        command: ["bash", "-c",
-            "touch /tmp/qs_colors.json; " +
-            "if command -v inotifywait >/dev/null 2>&1; then " +
-            "  inotifywait -qq -e close_write,modify,create,move /tmp/qs_colors.json 2>/dev/null; " +
-            "else " +
-            "  sleep 5; " +
-            "fi; " +
-            "cat /tmp/qs_colors.json"
-        ]
-        running: true
-        onExited: themeRestartTimer.start()
-        stdout: StdioCollector {
-            onStreamFinished: {
-                root.applyTheme(this.text);
-            }
-        }
-    }
-
-    Timer {
-        id: themeRestartTimer
-        interval: 50
-        repeat: false
-        onTriggered: themeReader.running = true
     }
 }

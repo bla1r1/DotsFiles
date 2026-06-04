@@ -31,10 +31,6 @@
 /* ── Taskbar ── */
 @define-color taskbar_bg    rgba(122, 162, 247, 0.18);
 
-/* ── Updates ── */
-@define-color updates_yellow @tn-yellow;
-@define-color updates_red    @tn-red;
-
 /*
     ┏┓┏┓┳┓┏┓┳┓┏┓┓
     ┃┓┣ ┃┃┣ ┣┫┣┫┃
@@ -70,14 +66,15 @@ tooltip {
 #quicklinks,
 #workspaces,
 #taskbar,
+#quickshell,
 #devices,
 #system,
 #media,
 #stats {
-    background: @tn-bg-island;
+    background: rgba(26, 27, 38, 0.78);
     border-radius: 10px;
     border: 1px solid @tn-border;
-    margin: 4px 4px;
+    margin: 4px 6px;
     min-width: 0;
 }
 
@@ -212,6 +209,10 @@ tooltip {
     padding: 0px 2px;
 }
 
+#quickshell {
+    padding: 0px 2px;
+}
+
 #system {
     padding: 0px 2px;
 }
@@ -232,55 +233,125 @@ tooltip {
 
 #cpu, #memory, #temperature, #mpris, #backlight, #battery,
 #custom-spotify, #custom-mode,
-#custom-updates, #custom-copyq, #custom-swaync,
-#bluetooth, #pulseaudio, #wireplumber, #network,
+#custom-copyq, #custom-swaync,
+#custom-qs-settings, #custom-qs-music,
+#custom-qs-monitors, #custom-qs-guide,
+#custom-player,
+#bluetooth, #pulseaudio, #wireplumber, #custom-wifi,
 #custom-misc, #idle_inhibitor,
 #custom-filemanager, #custom-browser, #custom-terminal, #custom-editor,
 #custom-kbd-backlight, #custom-mic,
 #window, #language {
-    padding: 0px 10px;
+    padding: 0px 9px;
+    margin: 3px 2px;
+    border-radius: 7px;
+    background: transparent;
     color: @tn-fg;
-    transition: color 0.2s ease;
+    transition: color 0.2s ease, background 0.2s ease;
 }
 
 #bluetooth,
 #pulseaudio,
 #wireplumber,
-#network {
+#custom-wifi {
     color: @tn-fg-dim;
 }
 
 #bluetooth:hover,
 #pulseaudio:hover,
 #wireplumber:hover,
-#network:hover {
+#custom-wifi:hover {
     color: @tn-cyan;
+    background: rgba(125, 207, 255, 0.10);
 }
 
 #language {
     color: @tn-fg-dim;
 }
 
-#custom-updates {
-    color: @tn-fg-dim;
-}
-
-#custom-updates.yellow {
-    color: @updates_yellow;
-}
-
-#custom-updates.red {
-    color: @updates_red;
-}
-
 #custom-swaync {
     color: @tn-fg-dim;
 }
 
+#custom-qs-settings {
+    color: @tn-purple;
+}
+
+#custom-qs-music {
+    color: @tn-green;
+}
+
+#custom-qs-monitors {
+    color: @tn-cyan;
+}
+
+#custom-qs-guide {
+    color: @tn-yellow;
+}
+
 #custom-swaync:hover,
 #custom-copyq:hover,
+#custom-qs-settings:hover,
+#custom-qs-music:hover,
+#custom-qs-monitors:hover,
+#custom-qs-guide:hover,
 #language:hover {
     color: @tn-fg;
+    background: rgba(192, 202, 245, 0.08);
+}
+
+#custom-player {
+    color: @tn-fg;
+    min-width: 150px;
+}
+
+#custom-player.playing {
+    color: @tn-green;
+    background: rgba(115, 218, 202, 0.10);
+}
+
+#custom-player.paused {
+    color: @tn-yellow;
+    background: rgba(224, 175, 104, 0.10);
+}
+
+#custom-player.offline,
+#custom-player.stopped {
+    color: @tn-fg-dim;
+    opacity: 0.38;
+}
+
+#custom-player:hover {
+    color: @tn-fg;
+    background: rgba(115, 218, 202, 0.14);
+    opacity: 1.0;
+}
+
+#custom-wifi.off,
+#custom-wifi.offline,
+#custom-wifi.disconnected,
+#bluetooth.disabled,
+#bluetooth.off,
+#custom-swaync.none,
+#custom-swaync.dnd-none,
+#custom-swaync.inhibited-none,
+#custom-swaync.dnd-inhibited-none {
+    opacity: 0.38;
+}
+
+#custom-wifi.connected,
+#bluetooth.connected,
+#custom-swaync.notification,
+#custom-swaync.dnd-notification,
+#custom-swaync.inhibited-notification,
+#custom-swaync.dnd-inhibited-notification {
+    opacity: 1.0;
+}
+
+#custom-wifi:hover,
+#bluetooth:hover,
+#custom-swaync:hover {
+    opacity: 1.0;
 }
 
 /*
@@ -300,12 +371,11 @@ tooltip {
 #battery.critical {
     color: @tn-red;
     font-weight: 800;
+    background: transparent;
 }
 
-/* Анимация зарядки — пульсирует цветом */
 #battery.charging {
     color: @tn-cyan;
-    animation: battery-charging 2s ease-in-out infinite;
 }
 
 #battery.plugged {
@@ -318,12 +388,6 @@ tooltip {
 
 #battery:hover {
     color: @tn-fg;
-}
-
-@keyframes battery-charging {
-    0%   { color: @tn-cyan; }
-    50%  { color: @tn-green; }
-    100% { color: @tn-cyan; }
 }
 
 /*
@@ -453,7 +517,8 @@ tooltip {
 #l-workspaces, #r-workspaces, #l-taskbar, #r-taskbar,
 #l-misc, #r-misc, #l-timer, #r-timer,
 #l-devices, #r-devices, #l-system, #r-system,
-#l-media, #r-media, #l-stats, #r-stats {
+#l-media, #r-media, #l-stats, #r-stats,
+#l-quickshell, #r-quickshell {
     background: transparent;
     min-height: 0;
     min-width: 0;
@@ -473,4 +538,45 @@ tooltip {
 
 #custom-telegram:hover {
     color: @tn-fg;
+}
+/*
+    ┳┳┓┏┓┏┓┏┳┓┏┓┏┓
+    ┃┃┃┃┃┃┃ ┃ ┣ ┗┓
+    ┛ ┗┗┛┣┛ ┻ ┗┛┗┛
+*/
+
+#custom-updates {
+    color: @tn-yellow;
+}
+
+#custom-updates:hover {
+    color: @tn-fg;
+    background: rgba(224, 175, 104, 0.10);
+}
+
+/* когда обновлений нет — dim */
+#custom-updates.up-to-date {
+    color: @tn-fg-dim;
+    opacity: 0.5;
+}
+
+/* много обновлений — красный акцент */
+#custom-updates.critical {
+    color: @tn-red;
+    font-weight: 800;
+}
+
+/*
+    ┏┓┏┓┏┓┓┏┏┓
+    ┃ ┃┃┃┃┗┫┃┃
+    ┗┛┗┛┣┛┗┛┗┛
+*/
+
+#custom-copyq {
+    color: @tn-purple;
+}
+
+#custom-copyq:hover {
+    color: @tn-fg;
+    background: rgba(187, 154, 247, 0.12);
 }

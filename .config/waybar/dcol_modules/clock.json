@@ -1,6 +1,8 @@
 {
     "clock": {
         "format": "{:%R}",
+        "on-click": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleCalendar",
+        "on-click-middle": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleFocusTime",
 
         "tooltip-format": "<tt>{calendar}</tt>",
         "calendar": {

@@ -39,22 +39,4 @@ Item {
             }
         }
     }
-
-    // EVENT-DRIVEN WATCHER
-    Process {
-        id: scaleWatcher
-        // -qq keeps it completely silent. It waits for the file to exist, listens for a write, and then exits.
-        command: ["bash", "-c", "while [ ! -f ~/.config/sway/settings.json ]; do sleep 1; done; inotifywait -qq -e modify,close_write ~/.config/sway/settings.json"]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: {
-                // 1. Read the new data
-                scaleReader.running = false;
-                scaleReader.running = true;
-                // 2. Restart the watcher for the next event
-                scaleWatcher.running = false;
-                scaleWatcher.running = true;
-            }
-        }
-    }
 }

@@ -93,7 +93,7 @@ Item {
     Keys.onReturnPressed: {
         if (currentTab === 3) { 
             let target = modulesDataModel.get(selectedModuleIndex).target;
-            Quickshell.execDetached(["bash", root.scriptDir + "/core/qs_manager.sh", "toggle", target]);
+            root.toggleModule(target);
             event.accepted = true;
         }
     }
@@ -140,6 +140,27 @@ Item {
     property string remoteVersion: ""
     property bool updateAvailable: false
     readonly property string scriptDir: Quickshell.env("QS_SCRIPT_DIR") || (Quickshell.env("HOME") + "/.config/sway/scripts")
+    readonly property string mainQmlPath: scriptDir + "/quickshell/Main.qml"
+
+    function ipc(method) {
+        Quickshell.execDetached(["qs", "-p", root.mainQmlPath, "ipc", "call", "main", method]);
+    }
+
+    function toggleModule(target) {
+        const methods = {
+            "battery": "toggleBattery",
+            "network": "toggleNetwork",
+            "monitors": "toggleMonitors",
+            "guide": "toggleGuide",
+            "settings": "toggleSettings",
+            "focustime": "toggleFocusTime",
+            "calendar": "toggleCalendar",
+            "music": "toggleMusic",
+            "volume": "toggleVolume"
+        };
+        if (methods[target])
+            root.ipc(methods[target]);
+    }
 
     onDotsVersionChanged: {
         if (remoteVersion !== "" && dotsVersion !== "Loading...") {
@@ -404,7 +425,6 @@ Item {
         ListElement { title: "Network Hub"; target: "network"; icon: "󰤨"; desc: "Wi-Fi and Bluetooth connection \nmanagement via nmcli/bluez."; preview: "previews/preview_network.png" }
         ListElement { title: "FocusTime"; target: "focustime"; icon: "󰄉"; desc: "Built-in Pomodoro timer daemon \nwith session tracking."; preview: "previews/preview_focustime.png" }
         ListElement { title: "Volume Mixer"; target: "volume"; icon: "󰕾"; desc: "Pipewire integration for I/O \nvolume and stream routing."; preview: "previews/preview_volume.png" }
-        ListElement { title: "Wallpaper Picker"; target: "wallpaper"; icon: ""; desc: "Live swww backend rendering \nwith Matugen color generation."; preview: "previews/preview_wallpaper.png" }
         ListElement { title: "Monitors"; target: "monitors"; icon: "󰍹"; desc: "Quick display management."; preview: "previews/preview_monitors.png" }
     }
 
@@ -426,13 +446,13 @@ Item {
             { k1: "SHIFT", k2: "PRINT", action: "Screenshot (Edit)", cmd: "bash ~/.config/sway/scripts/tools/screenshot.sh --edit" },
             { k1: "SUPER", k2: "PRINT", action: "Screenshot (Full)", cmd: "bash ~/.config/sway/scripts/tools/screenshot.sh --full" },
             { k1: "SUPER+SHIFT", k2: "PRINT", action: "Screenshot (Full Edit)", cmd: "bash ~/.config/sway/scripts/tools/screenshot.sh --full --edit" },
-            { k1: "SUPER", k2: "W", action: "Toggle Wallpaper", cmd: "bash ~/.config/sway/scripts/core/qs_manager.sh toggle wallpaper" },
-            { k1: "SUPER", k2: "B", action: "Toggle Battery", cmd: "bash ~/.config/sway/scripts/core/qs_manager.sh toggle battery" },
-            { k1: "SUPER", k2: "N", action: "Toggle Network", cmd: "bash ~/.config/sway/scripts/core/qs_manager.sh toggle network" },
-            { k1: "SUPER", k2: "M", action: "Toggle Monitors", cmd: "bash ~/.config/sway/scripts/core/qs_manager.sh toggle monitors" },
-            { k1: "SUPER", k2: "H", action: "Toggle Guide", cmd: "bash ~/.config/sway/scripts/core/qs_manager.sh toggle guide" },
-            { k1: "SUPER+SHIFT", k2: "S", action: "Toggle Settings", cmd: "bash ~/.config/sway/scripts/core/qs_manager.sh toggle settings" },
-            { k1: "SUPER+SHIFT", k2: "T", action: "Toggle FocusTime", cmd: "bash ~/.config/sway/scripts/core/qs_manager.sh toggle focustime" },
+            { k1: "SUPER", k2: "W", action: "Open Waypaper", cmd: "waypaper" },
+            { k1: "SUPER", k2: "B", action: "Toggle Battery", cmd: "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleBattery" },
+            { k1: "SUPER", k2: "N", action: "Toggle Network", cmd: "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleNetwork" },
+            { k1: "SUPER", k2: "M", action: "Toggle Monitors", cmd: "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleMonitors" },
+            { k1: "SUPER", k2: "H", action: "Toggle Guide", cmd: "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleGuide" },
+            { k1: "SUPER+SHIFT", k2: "S", action: "Toggle Settings", cmd: "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleSettings" },
+            { k1: "SUPER+SHIFT", k2: "T", action: "Toggle FocusTime", cmd: "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleFocusTime" },
             { k1: "SUPER+SHIFT", k2: "G", action: "Toggle Game Mode", cmd: "bash ~/.config/sway/scripts/tools/game-mode.sh" },
             { k1: "SUPER+SHIFT", k2: "V", action: "Toggle Floating", cmd: "swaymsg floating toggle" },
             { k1: "SUPER+SHIFT", k2: "F", action: "Toggle Fullscreen", cmd: "swaymsg fullscreen toggle" },
@@ -517,7 +537,7 @@ Item {
             easing.type: Easing.InQuart 
         }
         ScriptAction { 
-            script: Quickshell.execDetached(["bash", root.scriptDir + "/core/qs_manager.sh", "close"]) 
+            script: root.ipc("close")
         }
     }
 
@@ -708,7 +728,7 @@ Item {
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 if (index === 1) { // 1 = Settings Tab
-                                    Quickshell.execDetached(["bash", root.scriptDir + "/core/qs_manager.sh", "toggle", "settings"]);
+                                    root.ipc("toggleSettings");
                                 } else {
                                     root.currentTab = index;
                                 }
@@ -1164,7 +1184,7 @@ Item {
                                     cursorShape: Qt.PointingHandCursor
                                     onClicked: {
                                         if (modelData.isToggle) {
-                                            Quickshell.execDetached(["bash", root.scriptDir + "/core/qs_manager.sh", "toggle", "settings"]);
+                                            root.ipc("toggleSettings");
                                         } else {
                                             root.currentTab = modelData.targetTab;
                                         }
@@ -1694,7 +1714,7 @@ Item {
                                 anchors.fill: parent
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: Quickshell.execDetached(["bash", root.scriptDir + "/core/qs_manager.sh", "toggle", modulesDataModel.get(root.selectedModuleIndex).target]) 
+                                onClicked: root.toggleModule(modulesDataModel.get(root.selectedModuleIndex).target)
                             }
                         }
                     }
@@ -1823,7 +1843,7 @@ Item {
                                 }
                                 onDoubleClicked: { 
                                     root.selectedModuleIndex = index; 
-                                    Quickshell.execDetached(["bash", root.scriptDir + "/core/qs_manager.sh", "toggle", model.target]) 
+                                    root.toggleModule(model.target)
                                 } 
                             }
                         }
@@ -1896,7 +1916,7 @@ Item {
                                             border.color: wsMa.containsMouse ? root.peach : "transparent"
                                             border.width: 1
                                             Text { anchors.centerIn: parent; text: parent.wsNum; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(12); color: root.peach }
-                                            MouseArea { id: wsMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Quickshell.execDetached(["bash", root.scriptDir + "/core/qs_manager.sh", wsNum.toString()]) }
+                                            MouseArea { id: wsMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Quickshell.execDetached(["swaymsg", "workspace", "number", wsNum.toString()]) }
                                         }
                                     }
                                 }

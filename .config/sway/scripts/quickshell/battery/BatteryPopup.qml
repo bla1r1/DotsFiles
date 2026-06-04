@@ -24,7 +24,11 @@ Item {
         return scaler.s(val); 
     }
     readonly property string scriptDir: Quickshell.env("QS_SCRIPT_DIR") || (Quickshell.env("HOME") + "/.config/sway/scripts")
-    readonly property string busScript: scriptDir + "/core/qs_bus.sh"
+    readonly property string mainQmlPath: scriptDir + "/quickshell/Main.qml"
+
+    function closePanel() {
+        Quickshell.execDetached(["qs", "-p", window.mainQmlPath, "ipc", "call", "main", "close"]);
+    }
 
     // -------------------------------------------------------------------------
     // COLORS (Dynamic Matugen Palette)
@@ -787,7 +791,7 @@ Item {
                             onClicked: { 
                                 exitAnim.start(); // Trigger graceful UI exit
                                 Quickshell.execDetached(["sh", "-c", "loginctl terminate-user $USER"]); 
-                                Quickshell.execDetached(["bash", window.busScript, "send", "close"]); 
+                                window.closePanel();
                             }
                         }
                     }
@@ -1399,7 +1403,7 @@ Item {
 
                                     Timer {
                                         id: exitTimer; interval: 500 
-                                        onTriggered: { Quickshell.execDetached(["sh", "-c", cmd]); Quickshell.execDetached(["bash", window.busScript, "send", "close"]); }
+                                        onTriggered: { Quickshell.execDetached(["sh", "-c", cmd]); window.closePanel(); }
                                     }
                                 }
                             }

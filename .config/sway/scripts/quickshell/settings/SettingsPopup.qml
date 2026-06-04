@@ -21,6 +21,7 @@ Item {
         return scaler.s(val); 
     }
     readonly property string scriptDir: Quickshell.env("QS_SCRIPT_DIR") || (Quickshell.env("HOME") + "/.config/sway/scripts")
+    readonly property string mainQmlPath: scriptDir + "/quickshell/Main.qml"
 
     // -------------------------------------------------------------------------
     // KEYBOARD SHORTCUTS
@@ -68,7 +69,7 @@ Item {
     
     property real setUiScale: 1.0
     property bool setOpenGuideAtStartup: true
-    property bool setTopbarHelpIcon: true
+    property bool setGuideShortcut: true
     property int setWorkspaceCount: 8
     property string setWallpaperDir: {
         const dir = Quickshell.env("WALLPAPER_DIR")
@@ -100,7 +101,7 @@ Item {
         let config = {
             "uiScale": root.setUiScale,
             "openGuideAtStartup": root.setOpenGuideAtStartup,
-            "topbarHelpIcon": root.setTopbarHelpIcon,
+            "guideShortcut": root.setGuideShortcut,
             "wallpaperDir": root.setWallpaperDir,
             "language": root.setLanguage,
             "kbOptions": root.setKbOptions,
@@ -112,13 +113,13 @@ Item {
                   
         Quickshell.execDetached(["bash", "-c", cmd]);
         
-        // ONLY queue a TopBar reload if the workspace count actually changed
         if (root.setWorkspaceCount !== root.initialWorkspaceCount) {
-            Quickshell.execDetached(["qs", "-p", Quickshell.env("HOME") + "/.config/sway/scripts/quickshell/TopBar.qml", "ipc", "call", "topbar", "queueReload"]);
-            
-            // Update the baseline so subsequent saves don't trigger unnecessary reloads
             root.initialWorkspaceCount = root.setWorkspaceCount; 
         }
+    }
+
+    function closePanel() {
+        Quickshell.execDetached(["qs", "-p", root.mainQmlPath, "ipc", "call", "main", "close"]);
     }
     Process {
         id: swayLangReader
@@ -151,7 +152,7 @@ Item {
                         let parsed = JSON.parse(text);
                         if (parsed.uiScale !== undefined) root.setUiScale = parsed.uiScale;
                         if (parsed.openGuideAtStartup !== undefined) root.setOpenGuideAtStartup = parsed.openGuideAtStartup;
-                        if (parsed.topbarHelpIcon !== undefined) root.setTopbarHelpIcon = parsed.topbarHelpIcon;
+                        if (parsed.guideShortcut !== undefined) root.setGuideShortcut = parsed.guideShortcut;
                         if (parsed.wallpaperDir !== undefined) root.setWallpaperDir = parsed.wallpaperDir;
                         if (parsed.language !== undefined && parsed.language !== "") root.setLanguage = parsed.language;
                         if (parsed.kbOptions !== undefined) root.setKbOptions = parsed.kbOptions;
@@ -257,21 +258,12 @@ Item {
             target: root
             property: "introContent"
             to: 0.0
-            duration: 250
+            duration: 80
             easing.type: Easing.InExpo 
         }
         ScriptAction { 
             script: {
-                if (root.requiresReload) {
-                    // Wait for qs_manager.sh to clear the active widget state to prevent TopBar layout jumping
-                    let script = root.scriptDir + "/core/qs_manager.sh close; " +
-                                 "while [ -n \"$(cat /tmp/qs_current_widget 2>/dev/null)\" ]; do sleep 0.1; done; " +
-                                 "sleep 0.2; " + 
-                                 "qs -p \"" + root.scriptDir + "/quickshell/TopBar.qml\" ipc call topbar forceReload";
-                    Quickshell.execDetached(["bash", "-c", script]);
-                } else {
-                    Quickshell.execDetached(["bash", root.scriptDir + "/core/qs_manager.sh", "close"]);
-                }
+                root.closePanel();
             } 
         }
     }
@@ -407,23 +399,23 @@ Item {
                                     spacing: root.s(4)
                                     RowLayout {
                                         Layout.fillWidth: true
-                                        Text { text: "Help icon"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(13); color: root.text; Layout.fillWidth: true }
+                                        Text { text: "Guide shortcut"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(13); color: root.text; Layout.fillWidth: true }
                                         Rectangle {
                                             Layout.alignment: Qt.AlignTop | Qt.AlignRight
                                             Layout.preferredWidth: root.s(40)
                                             Layout.preferredHeight: root.s(24)
                                             radius: root.s(12)
-                                            color: root.setTopbarHelpIcon ? root.blue : root.surface2
+                                            color: root.setGuideShortcut ? root.blue : root.surface2
                                             Behavior on color { ColorAnimation { duration: 200 } }
                                             Rectangle {
                                                 width: root.s(18); height: root.s(18); radius: root.s(9); color: root.base
-                                                y: root.s(3); x: root.setTopbarHelpIcon ? root.s(19) : root.s(3)
+                                                y: root.s(3); x: root.setGuideShortcut ? root.s(19) : root.s(3)
                                                 Behavior on x { NumberAnimation { duration: 250; easing.type: Easing.OutBack } }
                                             }
-                                            MouseArea { anchors.fill: parent; onClicked: root.setTopbarHelpIcon = !root.setTopbarHelpIcon; cursorShape: Qt.PointingHandCursor }
+                                            MouseArea { anchors.fill: parent; onClicked: root.setGuideShortcut = !root.setGuideShortcut; cursorShape: Qt.PointingHandCursor }
                                         }
                                     }
-                                    Text { text: "Show button in topbar"; font.family: "JetBrains Mono"; font.pixelSize: root.s(11); color: root.subtext0; Layout.fillWidth: true }
+                                    Text { text: "Reserved for Waybar/Quickshell launchers"; font.family: "JetBrains Mono"; font.pixelSize: root.s(11); color: root.subtext0; Layout.fillWidth: true }
                                 }
                             }
                         }
@@ -902,7 +894,7 @@ Item {
                                     Layout.alignment: Qt.AlignTop
                                     spacing: root.s(4)
                                     Text { text: "Workspaces"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(13); color: root.text; Layout.fillWidth: true }
-                                    Text { text: "Static count in topbar"; font.family: "JetBrains Mono"; font.pixelSize: root.s(11); color: root.subtext0; Layout.fillWidth: true }
+                                    Text { text: "Static workspace count for helper views"; font.family: "JetBrains Mono"; font.pixelSize: root.s(11); color: root.subtext0; Layout.fillWidth: true }
                                     
                                     RowLayout {
                                         Layout.topMargin: root.s(8)

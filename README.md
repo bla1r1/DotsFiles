@@ -7,6 +7,7 @@ Supported distros:
 - Debian / Ubuntu-based
 - Fedora
 - Gentoo
+- Void Linux
 - openSUSE
 
 ## Direct one-liner

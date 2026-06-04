@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+QT_ENV="$SCRIPT_DIR/core/qt-env.sh"
+MAIN_QML="$SCRIPT_DIR/quickshell/Main.qml"
+SETTINGS_WATCHER="$SCRIPT_DIR/core/settings_watcher.sh"
+SETTINGS_FILE="$HOME/.config/sway/settings.json"
+QS_LOG_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/quickshell"
+GUIDE_STARTUP_MARKER="${XDG_RUNTIME_DIR:-/tmp}/qs-guide-startup-opened"
+
+[[ -f "$QT_ENV" ]] && source "$QT_ENV"
+
+mkdir -p "$QS_LOG_DIR"
+
+start_once() {
+    local pattern="$1"
+    shift
+
+    if ! pgrep -f "$pattern" >/dev/null 2>&1; then
+        "$@" >/dev/null 2>&1 &
+        disown
+    fi
+}
+
+start_once "$SETTINGS_WATCHER" bash "$SETTINGS_WATCHER"
+start_once "quickshell.*Main\.qml" env QS_SCRIPT_DIR="$SCRIPT_DIR" quickshell -p "$MAIN_QML"
+
+if command -v swaync >/dev/null 2>&1; then
+    start_once "swaync$" swaync
+fi
+
+if command -v waybar >/dev/null 2>&1; then
+    start_once "waybar$" waybar
+fi
+
+if command -v jq >/dev/null 2>&1 \
+    && [ -f "$SETTINGS_FILE" ] \
+    && jq -e '.openGuideAtStartup == true' "$SETTINGS_FILE" >/dev/null 2>&1 \
+    && [ ! -e "$GUIDE_STARTUP_MARKER" ]; then
+    : > "$GUIDE_STARTUP_MARKER"
+    (
+        sleep 0.8
+        qs -p "$MAIN_QML" ipc call main toggleGuide
+    ) >/dev/null 2>&1 &
+    disown
+fi

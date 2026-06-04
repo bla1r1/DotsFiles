@@ -28,13 +28,25 @@ PanelWindow {
         function toggle(targetWidget: string, arg: string) {
             masterWindow.handleIpcCommand("toggle:" + targetWidget + ":" + (arg || ""), true)
         }
+
+        function toggleBattery() { masterWindow.handleIpcCommand("toggle:battery:", true) }
+        function toggleVolume() { masterWindow.handleIpcCommand("toggle:volume:", true) }
+        function toggleMusic() { masterWindow.handleIpcCommand("toggle:music:", true) }
+        function toggleMonitors() { masterWindow.handleIpcCommand("toggle:monitors:", true) }
+        function toggleGuide() { masterWindow.handleIpcCommand("toggle:guide:", true) }
+        function toggleSettings() { masterWindow.handleIpcCommand("toggle:settings:", true) }
+        function toggleCalendar() { masterWindow.handleIpcCommand("toggle:calendar:", true) }
+        function toggleFocusTime() { masterWindow.handleIpcCommand("toggle:focustime:", true) }
+        function toggleNetworkWifi() { masterWindow.handleIpcCommand("toggle:network:wifi", true) }
+        function toggleNetworkBt() { masterWindow.handleIpcCommand("toggle:network:bt", true) }
+        function toggleNetwork() { masterWindow.handleIpcCommand("toggle:network:bt", true) }
     }
 
     WlrLayershell.namespace: "qs-master"
     WlrLayershell.layer: WlrLayer.Overlay
     
     exclusionMode: ExclusionMode.Ignore 
-    focusable: true
+    focusable: isVisible
 
     width: Screen.width
     height: Screen.height
@@ -42,8 +54,6 @@ PanelWindow {
     visible: isVisible
     readonly property string scriptDir: Quickshell.env("QS_SCRIPT_DIR") || (Quickshell.env("HOME") + "/.config/sway/scripts")
 
-    mask: Region { item: topBarHole; intersection: Intersection.Xor }
-    
     Item {
         id: topBarHole
         anchors.top: parent.top
@@ -64,16 +74,12 @@ PanelWindow {
 
     property string currentActive: "hidden"
 
-    onCurrentActiveChanged: {
-        // Broadcast active state so TopBar knows when to morph
-        Quickshell.execDetached(["bash", masterWindow.scriptDir + "/core/qs_bus.sh", "send", "widget", currentActive]);
-    }
-
     property bool isVisible: false
     property string activeArg: ""
     property bool disableMorph: false 
-    property int morphDuration: 500
-    property int exitDuration: 300 // Controls how fast the outgoing widget disappears
+    property int morphDuration: 120
+    property int exitDuration: 90 // Controls how fast the outgoing widget disappears
+    property bool firstOpen: false
 
     property real animW: 1
     property real animH: 1
@@ -85,6 +91,7 @@ PanelWindow {
 
     property real globalUiScale: 1.0
     property string lastIpcCommand: ""
+    property string loadedWidget: ""
 
     // Permanent notification history placeholder. The Sway port keeps this
     // passive so Main.qml does not conflict with any existing notification daemon.
@@ -124,21 +131,6 @@ PanelWindow {
         }
     }
 
-    Process {
-        id: settingsWatcher
-        command: ["bash", "-c", "while [ ! -f ~/.config/sway/settings.json ]; do sleep 1; done; inotifywait -qq -e modify,close_write ~/.config/sway/settings.json"]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: {
-                settingsReader.running = false;
-                settingsReader.running = true;
-                
-                settingsWatcher.running = false;
-                settingsWatcher.running = true;
-            }
-        }
-    }
-
     function getLayout(name) {
         return Registry.getLayout(name, 0, 0, Screen.width, Screen.height, masterWindow.globalUiScale);
     }
@@ -173,7 +165,7 @@ PanelWindow {
         width: masterWindow.animW
         height: masterWindow.animH
         clip: true 
-        layer.enabled: true 
+        layer.enabled: masterWindow.isVisible 
 
         // Smoother easing type: OutExpo makes animations feel snappy yet perfectly fluid
         Behavior on x { enabled: !masterWindow.disableMorph; NumberAnimation { duration: masterWindow.morphDuration; easing.type: Easing.OutExpo } }
@@ -182,7 +174,7 @@ PanelWindow {
         Behavior on height { enabled: !masterWindow.disableMorph; NumberAnimation { duration: masterWindow.morphDuration; easing.type: Easing.OutExpo } }
 
         opacity: masterWindow.isVisible ? 1.0 : 0.0
-        Behavior on opacity { NumberAnimation { duration: masterWindow.morphDuration === 500 ? 300 : 200; easing.type: Easing.InOutSine } }
+        Behavior on opacity { NumberAnimation { duration: masterWindow.morphDuration; easing.type: Easing.InOutSine } }
 
         MouseArea {
             anchors.fill: parent
@@ -209,15 +201,15 @@ PanelWindow {
 
                 replaceEnter: Transition {
                     ParallelAnimation {
-                        NumberAnimation { property: "opacity"; from: 0.0; to: 1.0; duration: 400; easing.type: Easing.OutExpo }
-                        NumberAnimation { property: "scale"; from: 0.98; to: 1.0; duration: 400; easing.type: Easing.OutBack }
+                        NumberAnimation { property: "opacity"; from: 0.0; to: 1.0; duration: 120; easing.type: Easing.OutExpo }
+                        NumberAnimation { property: "scale"; from: 0.98; to: 1.0; duration: 120; easing.type: Easing.OutCubic }
                     }
                 }
                 replaceExit: Transition {
                     ParallelAnimation {
                         // Uses the dynamically set exitDuration
-                        NumberAnimation { property: "opacity"; from: 1.0; to: 0.0; duration: masterWindow.exitDuration; easing.type: Easing.InExpo }
-                        NumberAnimation { property: "scale"; from: 1.0; to: 1.02; duration: masterWindow.exitDuration; easing.type: Easing.InExpo }
+                        NumberAnimation { property: "opacity"; from: 1.0; to: 0.0; duration: masterWindow.exitDuration; easing.type: Easing.InCubic }
+                        NumberAnimation { property: "scale"; from: 1.0; to: 1.01; duration: masterWindow.exitDuration; easing.type: Easing.InCubic }
                     }
                 }
             }
@@ -229,11 +221,12 @@ PanelWindow {
 
         prepTimer.stop();
         delayedClear.stop();
+        cacheExpireTimer.stop();
 
         if (newWidget === "hidden") {
             if (currentActive !== "hidden") {
-                masterWindow.morphDuration = 250; 
-                masterWindow.exitDuration = 250;
+                masterWindow.morphDuration = 120;
+                masterWindow.exitDuration = 90;
                 masterWindow.disableMorph = false;
                 
                 masterWindow.animW = 1;
@@ -244,27 +237,30 @@ PanelWindow {
             }
         } else {
             if (currentActive === "hidden") {
-                masterWindow.morphDuration = 250;
-                masterWindow.exitDuration = 300;
-                masterWindow.disableMorph = false;
+                masterWindow.morphDuration = 80;
+                masterWindow.exitDuration = 60;
+                masterWindow.disableMorph = true;
+                masterWindow.firstOpen = true;
                 
                 let t = getLayout(newWidget);
                 masterWindow.animX = t.rx;
                 masterWindow.animY = t.ry;
-                masterWindow.animW = 1;
-                masterWindow.animH = 1;
+                masterWindow.animW = t.w;
+                masterWindow.animH = t.h;
+                masterWindow.targetW = t.w;
+                masterWindow.targetH = t.h;
+                masterWindow.isVisible = true;
 
                 prepTimer.newWidget = newWidget;
                 prepTimer.newArg = arg;
                 prepTimer.start();
                 
             } else {
-                // Morphing directly between widgets (including wallpaper)
-                masterWindow.morphDuration = 500;
+                // Morphing directly between widgets
+                masterWindow.morphDuration = 120;
                 masterWindow.disableMorph = false;
                 
-                // If transitioning to wallpaper, make the previous widget disappear significantly faster
-                masterWindow.exitDuration = (newWidget === "wallpaper") ? 100 : 300;
+                masterWindow.exitDuration = 90;
                 
                 executeSwitch(newWidget, arg, false);
             }
@@ -273,7 +269,7 @@ PanelWindow {
 
     Timer {
         id: prepTimer
-        interval: 50
+        interval: 0
         property string newWidget: ""
         property string newArg: ""
         onTriggered: executeSwitch(newWidget, newArg, false)
@@ -293,15 +289,29 @@ PanelWindow {
         masterWindow.animH = t.h;
         masterWindow.targetW = t.w;
         masterWindow.targetH = t.h;
-        
-        let props = newWidget === "wallpaper" ? { "widgetArg": arg } : {};
-        props["notifModel"] = masterWindow.notifModel;
 
-        if (immediate) {
+        if (masterWindow.loadedWidget === newWidget && widgetStack.currentItem) {
+            if (arg !== "" && widgetStack.currentItem.activeMode !== undefined)
+                widgetStack.currentItem.activeMode = arg;
+            masterWindow.isVisible = true;
+            masterWindow.firstOpen = false;
+            masterWindow.disableMorph = false;
+            widgetStack.currentItem.forceActiveFocus();
+            return;
+        }
+        
+        let props = { "notifModel": masterWindow.notifModel };
+        if (newWidget === "network" && (arg === "wifi" || arg === "bt"))
+            props["activeMode"] = arg;
+
+        if (immediate || masterWindow.firstOpen) {
             widgetStack.replace(t.comp, props, StackView.Immediate);
+            masterWindow.firstOpen = false;
+            masterWindow.disableMorph = false;
         } else {
             widgetStack.replace(t.comp, props);
         }
+        masterWindow.loadedWidget = newWidget;
         
         masterWindow.isVisible = true;
     }
@@ -361,32 +371,25 @@ PanelWindow {
         }
     }
 
-    Process {
-        id: ipcWatcher
-        command: ["bash", masterWindow.scriptDir + "/core/qs_bus.sh", "listen"]
-        running: true
-        onExited: ipcRestartTimer.start()
-        stdout: StdioCollector {
-            onStreamFinished: {
-                handleIpcCommand(this.text, true);
-            }
-        }
-    }
-
-    Timer {
-        id: ipcRestartTimer
-        interval: 20
-        repeat: false
-        onTriggered: ipcWatcher.running = true
-    }
-
     Timer {
         id: delayedClear
         interval: masterWindow.morphDuration 
         onTriggered: {
             masterWindow.currentActive = "hidden";
-            widgetStack.clear();
             masterWindow.disableMorph = false;
+            cacheExpireTimer.start();
+        }
+    }
+
+    Timer {
+        id: cacheExpireTimer
+        interval: 60000
+        repeat: false
+        onTriggered: {
+            if (masterWindow.currentActive === "hidden") {
+                widgetStack.clear();
+                masterWindow.loadedWidget = "";
+            }
         }
     }
 }

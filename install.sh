@@ -22,10 +22,10 @@ warn() { printf '\n[WARN] %s\n' "$*" >&2; }
 # ── Usage ─────────────────────────────────────────────────────────────────────
 usage() {
     cat <<EOF
-Usage: $0 --distro <arch|debian|fedora|gentoo|opensuse> [options]
+Usage: $0 --distro <arch|debian|fedora|gentoo|void|opensuse> [options]
 
 Options:
-  --distro <n>     Target distro: arch, debian, fedora, gentoo, opensuse  (required)
+  --distro <n>     Target distro: arch, debian, fedora, gentoo, void, opensuse
   --skip-packages  Skip package installation
   --skip-dotfiles  Skip deploying dotfiles, fonts, wallpapers, and SDDM config
   --skip-services  Skip enabling system services
@@ -62,10 +62,11 @@ parse_args() {
             elif [[ -f /etc/debian_version ]]; then DISTRO="debian"
             elif [[ -f /etc/fedora-release ]]; then DISTRO="fedora"
             elif [[ -f /etc/gentoo-release ]]; then DISTRO="gentoo"
+            elif [[ -f /etc/void-release ]]; then DISTRO="void"
             elif [[ -f /etc/SuSE-release ]] || grep -qi opensuse /etc/os-release 2>/dev/null; then
                 DISTRO="opensuse"
             else
-                echo "Cannot detect distro. Pass --distro arch|debian|fedora|gentoo|opensuse" >&2
+                echo "Cannot detect distro. Pass --distro arch|debian|fedora|gentoo|void|opensuse" >&2
                 exit 1
             fi
         fi
@@ -75,9 +76,9 @@ parse_args() {
 # ── Distro validation ─────────────────────────────────────────────────────────
 require_supported_distro() {
     case "$DISTRO" in
-        arch|debian|fedora|gentoo|opensuse) ;;
+        arch|debian|fedora|gentoo|void|opensuse) ;;
         *)
-            echo "Unsupported distro: $DISTRO. Choose arch, debian, fedora, gentoo, or opensuse." >&2
+            echo "Unsupported distro: $DISTRO. Choose arch, debian, fedora, gentoo, void, or opensuse." >&2
             exit 1
             ;;
     esac
@@ -760,6 +761,20 @@ post_install_checks() {
 main() {
     parse_args "$@"
     require_supported_distro
+
+    if [[ "$DISTRO" == "void" ]]; then
+        local void_installer="$REPO_DIR/install-void.sh"
+        [[ -x "$void_installer" ]] || chmod +x "$void_installer"
+
+        local void_args=()
+        [[ "$SKIP_PACKAGES" -eq 1 ]] && void_args+=(--skip-packages)
+        [[ "$SKIP_DOTFILES" -eq 1 ]] && void_args+=(--skip-dotfiles)
+        [[ "$SKIP_SERVICES" -eq 1 ]] && void_args+=(--skip-services)
+        [[ "$NO_AUR" -eq 1 ]] && warn "--no-aur has no effect on Void Linux."
+
+        exec "$void_installer" "${void_args[@]}"
+    fi
+
     ensure_sudo
     sync_repos
 

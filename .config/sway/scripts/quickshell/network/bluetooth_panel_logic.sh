@@ -7,7 +7,7 @@ STRICT_SPAM_FILTER=true
 # ---------------------
 
 # Use XDG_RUNTIME_DIR if available for ram-backed speed, else fallback to ~/.cache
-CACHE_DIR="${XDG_RUNTIME_DIR:-$HOME/.cache}/quickshell_network_cache"
+CACHE_DIR="${XDG_RUNTIME_DIR:-$HOME/.cache}/qs_network"
 mkdir -p "$CACHE_DIR"
 PID_FILE="$CACHE_DIR/bt_scan_pid"
 

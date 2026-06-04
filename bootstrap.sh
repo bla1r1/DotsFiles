@@ -40,6 +40,7 @@ detect_distro() {
             debian|ubuntu|linuxmint|pop|elementary|kali|neon|zorin) echo "debian"; return 0 ;;
             fedora|rhel|centos|rocky|almalinux) echo "fedora"; return 0 ;;
             gentoo) echo "gentoo"; return 0 ;;
+            void) echo "void"; return 0 ;;
             opensuse*|sles|sled) echo "opensuse"; return 0 ;;
         esac
     fi
@@ -52,6 +53,8 @@ detect_distro() {
         echo "fedora"
     elif [[ -f /etc/gentoo-release ]]; then
         echo "gentoo"
+    elif [[ -f /etc/void-release ]]; then
+        echo "void"
     elif [[ -f /etc/SuSE-release ]] || grep -qi opensuse /etc/os-release 2>/dev/null; then
         echo "opensuse"
     else
@@ -62,7 +65,7 @@ detect_distro() {
 DISTRO="$(detect_distro)"
 
 if [[ "$DISTRO" == "unknown" ]]; then
-    echo "Unsupported distribution. Supported: Arch, Debian/Ubuntu, Fedora, Gentoo, openSUSE."
+    echo "Unsupported distribution. Supported: Arch, Debian/Ubuntu, Fedora, Gentoo, Void, openSUSE."
     exit 1
 fi
 
@@ -85,6 +88,9 @@ case "$DISTRO" in
         # On Gentoo git is almost always present; emerge if not
         command -v git   >/dev/null 2>&1 || sudo emerge --ask=n dev-vcs/git
         command -v rsync >/dev/null 2>&1 || sudo emerge --ask=n net-misc/rsync
+        ;;
+    void)
+        sudo xbps-install -Sy git rsync
         ;;
     opensuse)
         sudo zypper --non-interactive install git rsync
