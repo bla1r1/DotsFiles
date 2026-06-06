@@ -37,26 +37,11 @@ detect_distro() {
         . /etc/os-release
         case "${ID:-}" in
             arch|artix) echo "arch"; return 0 ;;
-            debian|ubuntu|linuxmint|pop|elementary|kali|neon|zorin) echo "debian"; return 0 ;;
-            fedora|rhel|centos|rocky|almalinux) echo "fedora"; return 0 ;;
-            gentoo) echo "gentoo"; return 0 ;;
-            void) echo "void"; return 0 ;;
-            opensuse*|sles|sled) echo "opensuse"; return 0 ;;
         esac
     fi
 
     if [[ -f /etc/arch-release ]]; then
         echo "arch"
-    elif [[ -f /etc/debian_version ]]; then
-        echo "debian"
-    elif [[ -f /etc/fedora-release ]]; then
-        echo "fedora"
-    elif [[ -f /etc/gentoo-release ]]; then
-        echo "gentoo"
-    elif [[ -f /etc/void-release ]]; then
-        echo "void"
-    elif [[ -f /etc/SuSE-release ]] || grep -qi opensuse /etc/os-release 2>/dev/null; then
-        echo "opensuse"
     else
         echo "unknown"
     fi
@@ -65,7 +50,7 @@ detect_distro() {
 DISTRO="$(detect_distro)"
 
 if [[ "$DISTRO" == "unknown" ]]; then
-    echo "Unsupported distribution. Supported: Arch, Debian/Ubuntu, Fedora, Gentoo, Void, openSUSE."
+    echo "Unsupported distribution. Supported: Arch Linux only."
     exit 1
 fi
 
@@ -73,29 +58,7 @@ echo "[INFO] Detected distro: $DISTRO"
 
 # ── Install base tools ────────────────────────────────────────────────────────
 echo "[INFO] Installing base tools (git, rsync)..."
-case "$DISTRO" in
-    arch)
-        sudo pacman -S --needed --noconfirm git rsync
-        ;;
-    debian)
-        sudo apt-get update -qq
-        sudo apt-get install -y --no-install-recommends git rsync
-        ;;
-    fedora)
-        sudo dnf install -y git rsync
-        ;;
-    gentoo)
-        # On Gentoo git is almost always present; emerge if not
-        command -v git   >/dev/null 2>&1 || sudo emerge --ask=n dev-vcs/git
-        command -v rsync >/dev/null 2>&1 || sudo emerge --ask=n net-misc/rsync
-        ;;
-    void)
-        sudo xbps-install -Sy git rsync
-        ;;
-    opensuse)
-        sudo zypper --non-interactive install git rsync
-        ;;
-esac
+sudo pacman -S --needed --noconfirm git rsync
 
 # ── Clone / update repo ───────────────────────────────────────────────────────
 if [[ -z "$REPO_URL" ]]; then

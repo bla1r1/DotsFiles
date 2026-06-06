@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-PLATFORM_LIB="$SCRIPT_DIR/lib/platform.sh"
+PLATFORM_LIB="$SCRIPT_DIR/../lib/platform.sh"
 
 if [[ -f "$PLATFORM_LIB" ]]; then
     # shellcheck disable=SC1090
@@ -62,44 +62,6 @@ count_arch_updates() {
     printf '%s %s\n' "$official" "$extra"
 }
 
-count_debian_updates() {
-    local official=0
-    if has_cmd apt; then
-        official="$(apt list --upgradable 2>/dev/null | awk 'NR > 1 && NF {count++} END {print count + 0}')"
-    elif has_cmd apt-get; then
-        official="$(apt-get -s upgrade 2>/dev/null | awk '/^Inst / {count++} END {print count + 0}')"
-    fi
-
-    printf '%s 0\n' "$official"
-}
-
-count_fedora_updates() {
-    local official=0
-    if has_cmd dnf; then
-        official="$(dnf -q check-update --refresh 2>/dev/null | awk '$1 ~ /^[[:alnum:]_.+-]+\.[[:alnum:]_]+$/ {count++} END {print count + 0}')"
-    fi
-
-    printf '%s 0\n' "$official"
-}
-
-count_gentoo_updates() {
-    local official=0
-    if has_cmd emerge; then
-        official="$(emerge -puDN @world 2>/dev/null | awk '/^\[ebuild/ {count++} END {print count + 0}')"
-    fi
-
-    printf '%s 0\n' "$official"
-}
-
-count_opensuse_updates() {
-    local official=0
-    if has_cmd zypper; then
-        official="$(zypper -q list-updates 2>/dev/null | awk '$1 == "v" {count++} END {print count + 0}')"
-    fi
-
-    printf '%s 0\n' "$official"
-}
-
 count_flatpak_updates() {
     if has_cmd flatpak; then
         flatpak remote-ls --updates 2>/dev/null | wc -l | tr -d ' '
@@ -109,38 +71,18 @@ count_flatpak_updates() {
 }
 
 build_upgrade_command() {
-    local distro="$1"
     local aur_helper flatpak_cmd=""
 
     if has_cmd flatpak; then
         flatpak_cmd='; flatpak update -y'
     fi
 
-    case "$distro" in
-        arch)
-            aur_helper="$(detect_aur_helper)"
-            if [[ -n "$aur_helper" ]]; then
-                printf '%s\n' "$aur_helper -Syu${flatpak_cmd}"
-            else
-                printf '%s\n' "sudo pacman -Syu${flatpak_cmd}"
-            fi
-            ;;
-        debian)
-            printf '%s\n' "sudo apt-get update && sudo apt-get upgrade -y${flatpak_cmd}"
-            ;;
-        fedora)
-            printf '%s\n' "sudo dnf upgrade --refresh -y${flatpak_cmd}"
-            ;;
-        gentoo)
-            printf '%s\n' "sudo emerge --ask --verbose --update --deep --newuse @world${flatpak_cmd}"
-            ;;
-        opensuse)
-            printf '%s\n' "sudo zypper refresh && sudo zypper update -y${flatpak_cmd}"
-            ;;
-        *)
-            printf '%s\n' ""
-            ;;
-    esac
+    aur_helper="$(detect_aur_helper)"
+    if [[ -n "$aur_helper" ]]; then
+        printf '%s\n' "$aur_helper -Syu${flatpak_cmd}"
+    else
+        printf '%s\n' "sudo pacman -Syu${flatpak_cmd}"
+    fi
 }
 
 launch_upgrade_terminal() {
@@ -192,23 +134,7 @@ launch_upgrade_terminal() {
 
 DISTRO="$(detect_distro)"
 update_counts="0 0"
-case "$DISTRO" in
-    arch)
-        update_counts="$(count_arch_updates)"
-        ;;
-    debian)
-        update_counts="$(count_debian_updates)"
-        ;;
-    fedora)
-        update_counts="$(count_fedora_updates)"
-        ;;
-    gentoo)
-        update_counts="$(count_gentoo_updates)"
-        ;;
-    opensuse)
-        update_counts="$(count_opensuse_updates)"
-        ;;
-esac
+[[ "$DISTRO" == "arch" ]] && update_counts="$(count_arch_updates)"
 
 read -r updates_official updates_extra <<<"$update_counts"
 updates_flatpak="$(count_flatpak_updates)"
@@ -222,14 +148,11 @@ if (( updates_total > threshold_red )); then
     css_class="red"
 fi
 
-extra_label="Extra"
-case "$DISTRO" in
-    arch)   extra_label="AUR" ;;
-    gentoo) extra_label="Overlay" ;;
-esac
+extra_label="AUR"
 
 if [[ "${1:-}" == "up" ]]; then
-    launch_upgrade_terminal "$(build_upgrade_command "$DISTRO")"
+    [[ "$DISTRO" == "arch" ]] || exit 1
+    launch_upgrade_terminal "$(build_upgrade_command)"
     exit 0
 fi
 

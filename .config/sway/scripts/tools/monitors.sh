@@ -1,8 +1,60 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+STATE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/sway/state"
+STATE_FILE="$STATE_DIR/monitors-layout.json"
+
 command -v swaymsg >/dev/null 2>&1 || exit 0
 command -v jq >/dev/null 2>&1 || exit 0
+
+save_layout() {
+    local payload="${1:-}"
+    [[ -n "$payload" ]] || exit 1
+
+    mkdir -p "$STATE_DIR"
+    printf '%s\n' "$payload" | jq '.' > "$STATE_FILE"
+}
+
+restore_saved_layout() {
+    [[ -f "$STATE_FILE" ]] || return 1
+
+    local outputs_json active_names matched_count commands
+    outputs_json="$(swaymsg -t get_outputs 2>/dev/null || true)"
+    [[ -n "$outputs_json" ]] || return 1
+
+    active_names="$(jq -r '[.[] | select(.active == true) | .name] | sort | join("\n")' <<< "$outputs_json")"
+    commands="$(
+        jq -r --arg active_names "$active_names" '
+            [ $active_names | split("\n")[] | select(length > 0) ] as $active
+            | map(select(.name as $name | $active | index($name)))
+            | sort_by(.x, .y, .name)
+            | .[]
+            | "output \(.name) mode \(.resW)x\(.resH)@\(.rate)Hz pos \(.x) \(.y) scale \(.sysScale)"
+        ' "$STATE_FILE"
+    )"
+
+    matched_count="$(printf '%s\n' "$commands" | awk 'NF { count++ } END { print count + 0 }')"
+    [[ "$matched_count" -gt 0 ]] || return 1
+
+    while IFS= read -r cmd; do
+        [[ -n "$cmd" ]] || continue
+        sh -c "swaymsg $cmd" >/dev/null 2>&1 || true
+    done <<< "$commands"
+
+    return 0
+}
+
+case "${1:-}" in
+    save)
+        save_layout "${2:-}"
+        exit 0
+        ;;
+    restore|"")
+        if restore_saved_layout; then
+            exit 0
+        fi
+        ;;
+esac
 
 outputs_json="$(swaymsg -t get_outputs 2>/dev/null || true)"
 [[ -n "$outputs_json" ]] || exit 0

@@ -20,7 +20,8 @@
         "custom/appmenu",
         "group/quicklinks",
         "sway/workspaces",
-        "wlr/taskbar"
+        "wlr/taskbar",
+        "custom/player"
     ],
 
     "modules-center": [

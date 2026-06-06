@@ -12,21 +12,6 @@ dotfiles_normalize_distro() {
         arch|artix)
             printf 'arch\n'
             ;;
-        debian|ubuntu|linuxmint|mint|pop|pop_os|elementary|kali|neon|zorin)
-            printf 'debian\n'
-            ;;
-        fedora|rhel|centos|rocky|almalinux)
-            printf 'fedora\n'
-            ;;
-        gentoo)
-            printf 'gentoo\n'
-            ;;
-        void)
-            printf 'void\n'
-            ;;
-        opensuse|opensuse-tumbleweed|opensuse-leap|sles|sled)
-            printf 'opensuse\n'
-            ;;
         *)
             printf '%s\n' "$raw"
             ;;
@@ -46,7 +31,7 @@ dotfiles_detect_distro() {
     if [[ -n "$id" ]]; then
         local normalized
         normalized="$(dotfiles_normalize_distro "$id")"
-        if [[ "$normalized" != "$id" || "$normalized" =~ ^(arch|debian|fedora|gentoo|void|opensuse)$ ]]; then
+        if [[ "$normalized" == "arch" ]]; then
             printf '%s\n' "$normalized"
             return 0
         fi
@@ -55,7 +40,7 @@ dotfiles_detect_distro() {
     for candidate in $id_like; do
         local normalized
         normalized="$(dotfiles_normalize_distro "$candidate")"
-        if [[ "$normalized" =~ ^(arch|debian|fedora|gentoo|void|opensuse)$ ]]; then
+        if [[ "$normalized" == "arch" ]]; then
             printf '%s\n' "$normalized"
             return 0
         fi
@@ -63,16 +48,6 @@ dotfiles_detect_distro() {
 
     if [[ -f /etc/arch-release ]]; then
         printf 'arch\n'
-    elif [[ -f /etc/debian_version ]]; then
-        printf 'debian\n'
-    elif [[ -f /etc/fedora-release ]]; then
-        printf 'fedora\n'
-    elif [[ -f /etc/gentoo-release ]]; then
-        printf 'gentoo\n'
-    elif [[ -f /etc/void-release ]]; then
-        printf 'void\n'
-    elif [[ -f /etc/SuSE-release ]] || grep -qi opensuse /etc/os-release 2>/dev/null; then
-        printf 'opensuse\n'
     else
         printf 'unknown\n'
     fi
@@ -81,11 +56,6 @@ dotfiles_detect_distro() {
 dotfiles_pretty_distro() {
     case "${1:-}" in
         arch)     printf 'Arch Linux\n' ;;
-        debian)   printf 'Debian/Ubuntu\n' ;;
-        fedora)   printf 'Fedora\n' ;;
-        gentoo)   printf 'Gentoo\n' ;;
-        void)     printf 'Void Linux\n' ;;
-        opensuse) printf 'openSUSE\n' ;;
         *)        printf 'Unknown\n' ;;
     esac
 }

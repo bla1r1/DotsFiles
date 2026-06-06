@@ -2,13 +2,8 @@
 
 Quick installer for this Sway/Quickshell setup with fish + fastfetch.
 
-Supported distros:
+Supported distro:
 - Arch Linux
-- Debian / Ubuntu-based
-- Fedora
-- Gentoo
-- Void Linux
-- openSUSE
 
 ## Direct one-liner
 ```bash

@@ -159,6 +159,10 @@ tooltip {
     padding: 4px 6px;
 }
 
+#taskbar.empty {
+    opacity: 0;
+}
+
 #taskbar button {
     padding: 1px 4px;
     margin: 0px 2px;
@@ -167,6 +171,11 @@ tooltip {
     border-radius: 5px;
     background: transparent;
     border: none;
+}
+
+#taskbar button.empty {
+    color: @tn-fg-dim;
+    opacity: 0;
 }
 
 #taskbar button.active {
@@ -302,7 +311,8 @@ tooltip {
 
 #custom-player {
     color: @tn-fg;
-    min-width: 150px;
+    min-width: 220px;
+    padding-right: 14px;
 }
 
 #custom-player.playing {
@@ -316,9 +326,20 @@ tooltip {
 }
 
 #custom-player.offline,
+#custom-player.empty,
+#custom-player.hidden,
 #custom-player.stopped {
     color: @tn-fg-dim;
     opacity: 0.38;
+}
+
+#custom-player.hidden {
+    min-width: 0;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    opacity: 0;
 }
 
 #custom-player:hover {

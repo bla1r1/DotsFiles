@@ -60,6 +60,7 @@ Item {
     
     property color selectedResAccent: window.mauve
     property color selectedRateAccent: window.blue
+    readonly property string monitorsScriptPath: Quickshell.env("HOME") + "/.config/sway/scripts/tools/monitors.sh"
 
     property real currentSimW: monitorsModel.count > 0 ? monitorsModel.get(0).resW : 1920
     property real currentSimH: monitorsModel.count > 0 ? monitorsModel.get(0).resH : 1080
@@ -1081,9 +1082,19 @@ Item {
 
                         if (monitorsModel.count === 1) {
                             let mon = monitorsModel.get(0);
+                            let savedLayout = [{
+                                name: mon.name,
+                                resW: mon.resW,
+                                resH: mon.resH,
+                                rate: mon.rate,
+                                sysScale: mon.sysScale,
+                                x: 0,
+                                y: 0
+                            }];
                             let monitorCmd = "output " + mon.name + " mode " + mon.resW + "x" + mon.resH + "@" + mon.rate + "Hz pos 0 0 scale " + mon.sysScale;
                             Quickshell.execDetached(["notify-send", "Display Update", "Applied: " + mon.resW + "x" + mon.resH + " @ " + mon.rate + "Hz"]);
                             Quickshell.execDetached(["sh", "-c", "swaymsg " + JSON.stringify(monitorCmd)]);
+                            Quickshell.execDetached(["bash", window.monitorsScriptPath, "save", JSON.stringify(savedLayout)]);
                         } else {
                             let rects = [];
                             for (let i = 0; i < monitorsModel.count; i++) {
@@ -1161,10 +1172,22 @@ Item {
                             }
                             
                             let fullCommand = "swaymsg " + JSON.stringify(batchCmds.join(" ; "));
+                            let saveLayout = rects.map(function(r) {
+                                return {
+                                    name: r.name,
+                                    resW: r.resW,
+                                    resH: r.resH,
+                                    rate: r.rate,
+                                    sysScale: r.sysScale,
+                                    x: r.x,
+                                    y: r.y
+                                };
+                            });
                             
                             let postReloadCmd = "swww kill ; sleep 0.2 ; swww-daemon &";
                             
                             Quickshell.execDetached(["sh", "-c", fullCommand + " ; " + postReloadCmd]);
+                            Quickshell.execDetached(["bash", window.monitorsScriptPath, "save", JSON.stringify(saveLayout)]);
                             Quickshell.execDetached(["notify-send", "Display Update", "Applied layout for: " + summaryString]);
                         }
                     }

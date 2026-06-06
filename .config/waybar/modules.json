@@ -36,17 +36,10 @@
       "temperature"
     ]
   },
-  "group/media": {
-    "orientation": "horizontal",
-    "modules": [
-      "custom/player"
-    ]
-  },
   "group/quickshell": {
     "orientation": "horizontal",
     "modules": [
       "custom/qs-settings",
-      "custom/qs-music",
       "custom/qs-monitors",
       "custom/qs-guide"
     ]
@@ -59,13 +52,13 @@
     "on-click": "copyq toggle",
     "tooltip": false
 },
-    "custom/updates": {
+  "custom/updates": {
     "format": "  {}",
-    "exec": "~/.config/sway/scripts/updates.sh",
+    "exec": "~/.config/sway/scripts/system/updates.sh",
     "restart-interval": 60,
     "return-type": "json",
     "escape": true,
-    "on-click": "~/.config/sway/scripts/updates.sh up",
+    "on-click": "~/.config/sway/scripts/system/updates.sh up",
     "tooltip-format": "{}",
     "tooltip": true
   },
@@ -101,7 +94,7 @@
     "tooltip": false
   },
   "custom/wifi": {
-    "exec": "bash ~/.config/waybar/scripts/wifi-status.sh",
+    "exec": "bash ~/.config/sway/scripts/waybar/network/wifi-status.sh",
     "return-type": "json",
     "interval": 5,
     "format": "{}",
@@ -167,9 +160,9 @@
     "tooltip": true
   },
   "custom/player": {
-    "exec": "bash ~/.config/waybar/scripts/player-status.sh",
+    "exec": "bash ~/.config/sway/scripts/waybar/media/player-status.sh",
     "return-type": "json",
-    "interval": 10,
+    "interval": 2,
     "format": "{}",
     "on-click": "playerctl play-pause",
     "on-click-right": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleMusic",

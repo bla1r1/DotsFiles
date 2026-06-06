@@ -68,21 +68,14 @@ if [[ -z "$DISTRO" ]]; then
     fi
 fi
 
-if [[ "$DISTRO" == "unknown" ]]; then
-    echo -e "${ERR} Could not detect your distro. Supported: arch, debian, fedora, gentoo, void, opensuse." | tee -a "$LOG"
+if [[ "$DISTRO" != "arch" ]]; then
+    echo -e "${ERR} Unsupported distro: ${DISTRO:-unknown}. Supported: arch only." | tee -a "$LOG"
     exit 1
 fi
 
 if ! command -v whiptail >/dev/null 2>&1; then
     echo -e "${WARN} whiptail not found — installing..." | tee -a "$LOG"
-    case "$DISTRO" in
-        arch)     sudo pacman -S --needed --noconfirm libnewt ;;
-        debian)   sudo apt-get install -y whiptail ;;
-        fedora)   sudo dnf install -y newt ;;
-        gentoo)   sudo emerge --ask=n dev-libs/newt ;;
-        void)     sudo xbps-install -Sy newt ;;
-        opensuse) sudo zypper --non-interactive install whiptail ;;
-    esac
+    sudo pacman -S --needed --noconfirm libnewt
 fi
 
 log "Detected distro: ${BOLD}$DISTRO${RESET}"
@@ -132,7 +125,7 @@ while true; do
     )
 
     [[ "$DISTRO" == "arch" ]] && \
-        CHECKLIST_ARGS+=("aur" "Install AUR packages (swayfx, catppuccin, themes…)" ON)
+        CHECKLIST_ARGS+=("aur" "Install AUR packages (swayfx, waypaper, GitHub Desktop…)" ON)
 
     CHOICES=$(whiptail --title "Select Installation Steps" \
         --checklist \
