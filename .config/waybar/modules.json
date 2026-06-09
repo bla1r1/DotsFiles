@@ -40,6 +40,7 @@
     "orientation": "horizontal",
     "modules": [
       "custom/qs-settings",
+      "custom/qs-updater",
       "custom/qs-monitors",
       "custom/qs-guide"
     ]
@@ -151,6 +152,12 @@
     "format": "󰒓",
     "on-click": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleSettings",
     "tooltip-format": "Quickshell settings",
+    "tooltip": true
+  },
+  "custom/qs-updater": {
+    "format": "󰚰",
+    "on-click": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleUpdater",
+    "tooltip-format": "DotsFiles updater",
     "tooltip": true
   },
   "custom/qs-music": {

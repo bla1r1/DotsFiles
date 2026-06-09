@@ -153,6 +153,7 @@ Item {
             "network": "toggleNetwork",
             "monitors": "toggleMonitors",
             "guide": "toggleGuide",
+            "updater": "toggleUpdater",
             "settings": "toggleSettings",
             "focustime": "toggleFocusTime",
             "calendar": "toggleCalendar",
@@ -165,28 +166,14 @@ Item {
 
     Process {
         id: versionReader
-        command: ["bash", root.updaterScriptPath, "status"]
+        command: ["bash", "-c", "repo=\"$HOME/GitHub/DotsFiles\"; if [ -d \"$repo/.git\" ]; then branch=$(git -C \"$repo\" rev-parse --abbrev-ref HEAD 2>/dev/null); hash=$(git -C \"$repo\" rev-parse --short HEAD 2>/dev/null); printf '%s@%s\\n' \"${branch:-local}\" \"${hash:-unknown}\"; git -C \"$repo\" fetch --quiet origin >/dev/null 2>&1 || true; remote=$(git -C \"$repo\" rev-parse --short origin/main 2>/dev/null || true); if [ -n \"$remote\" ] && [ \"$remote\" != \"$hash\" ]; then printf '%s@%s\\n' \"${branch:-local}\" \"$remote\"; fi; fi"]
         running: true
         stdout: StdioCollector {
             onStreamFinished: {
-                try {
-                    let out = this.text ? this.text.trim() : "";
-                    if (!out) return;
-                    let data = JSON.parse(out);
-                    if (!data.ok) {
-                        root.dotsVersion = "local";
-                        root.remoteVersion = "";
-                        root.updateAvailable = false;
-                        return;
-                    }
-                    root.dotsVersion = data.branch + "@" + data.local_hash;
-                    root.remoteVersion = data.remote_hash ? (data.branch + "@" + data.remote_hash) : "";
-                    root.updateAvailable = !!data.update_available;
-                } catch (e) {
-                    root.dotsVersion = "local";
-                    root.remoteVersion = "";
-                    root.updateAvailable = false;
-                }
+                let out = this.text ? this.text.trim().split("\n") : [];
+                root.dotsVersion = out.length > 0 && out[0] !== "" ? out[0] : "local";
+                root.remoteVersion = out.length > 1 ? out[1] : "";
+                root.updateAvailable = root.remoteVersion !== "";
             }
         }
     }
@@ -735,7 +722,7 @@ Item {
                 // --- UPDATE AVAILABLE BUTTON ---
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: root.updateAvailable ? root.s(96) : 0
+                    Layout.preferredHeight: root.updateAvailable ? root.s(50) : 0
                     visible: root.updateAvailable
                     opacity: root.updateAvailable ? 1.0 : 0.0
                     radius: root.s(8)
@@ -752,9 +739,8 @@ Item {
                     Behavior on border.color { ColorAnimation { duration: 150 } }
 
                     ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: root.s(10)
-                        spacing: root.s(8)
+                        anchors.centerIn: parent
+                        spacing: root.s(2)
                         
                         RowLayout {
                             Layout.alignment: Qt.AlignHCenter
@@ -771,34 +757,6 @@ Item {
                             Layout.alignment: Qt.AlignHCenter
                         }
 
-                        Rectangle {
-                            Layout.alignment: Qt.AlignHCenter
-                            Layout.preferredWidth: root.s(140)
-                            Layout.preferredHeight: root.s(30)
-                            radius: root.s(9)
-                            color: runUpdateMa.pressed ? Qt.alpha(root.green, 0.85) : (runUpdateMa.containsMouse ? Qt.alpha(root.green, 0.72) : Qt.alpha(root.green, 0.6))
-                            border.color: Qt.alpha(root.green, 0.9)
-                            border.width: 1
-                            scale: runUpdateMa.pressed ? 0.97 : 1.0
-
-                            Behavior on color { ColorAnimation { duration: 150 } }
-                            Behavior on scale { NumberAnimation { duration: 180; easing.type: Easing.OutBack } }
-
-                            RowLayout {
-                                anchors.centerIn: parent
-                                spacing: root.s(6)
-                                Text { text: "󰑐"; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(13); color: root.crust }
-                                Text { text: "Pull & Apply"; font.family: "JetBrains Mono"; font.weight: Font.Black; font.pixelSize: root.s(11); color: root.crust }
-                            }
-
-                            MouseArea {
-                                id: runUpdateMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: Quickshell.execDetached(["bash", root.updaterScriptPath, "run"])
-                            }
-                        }
                     }
 
                     MouseArea {
@@ -806,7 +764,7 @@ Item {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        acceptedButtons: Qt.NoButton
+                        onClicked: root.ipc("toggleUpdater")
                     }
                 }
 

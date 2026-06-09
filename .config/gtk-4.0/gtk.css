@@ -23,6 +23,7 @@
  * Base States *
  ***************/
 .background {
+  background-color: #222436;
   color: #e9e9ed;
 }
 
@@ -31,6 +32,7 @@
 }
 
 dnd {
+  background-color: #222436;
   color: #e9e9ed;
 }
 
@@ -1842,7 +1844,7 @@ dropdown popover.menu listview > row, combobox popover.menu listview > row {
 
 dropdown popover.menu listview > row:selected, combobox popover.menu listview > row:selected {
   color: #e9e9ed;
-  background-color: alpha(currentColor, 0.06);
+  background-color: rgba(88, 158, 215, 0.18);
 }
 
 dropdown popover.menu .dropdown-searchbar, combobox popover.menu .dropdown-searchbar {
@@ -1971,7 +1973,7 @@ headerbar button:disabled:not(.suggested-action):not(.destructive-action) {
 }
 
 headerbar button:checked:disabled:not(.suggested-action):not(.destructive-action) {
-  background-color: transparent;
+  background-color: rgba(233, 233, 237, 0.04);
   color: rgba(233, 233, 237, 0.5);
 }
 
@@ -1988,10 +1990,12 @@ headerbar button:backdrop:disabled:not(.suggested-action):not(.destructive-actio
 }
 
 headerbar button:backdrop:checked:not(.suggested-action):not(.destructive-action) {
+  background-color: rgba(233, 233, 237, 0.04);
   color: rgba(233, 233, 237, 0.7);
 }
 
 headerbar button:backdrop:checked:disabled:not(.suggested-action):not(.destructive-action) {
+  background-color: rgba(233, 233, 237, 0.04);
   color: rgba(233, 233, 237, 0.32);
 }
 
@@ -2032,7 +2036,7 @@ headerbar entry > image:disabled {
 
 headerbar {
   transition: background-color 75ms cubic-bezier(0, 0, 0.2, 1), color 75ms cubic-bezier(0, 0, 0.2, 1);
-  background-color: transparent;
+  background-color: #222436;
   color: #e9e9ed;
   min-height: 46px;
   border: none;
@@ -2587,7 +2591,7 @@ popover > contents > .view,
 popover > contents > toolbar {
   border-style: none;
   box-shadow: none;
-  background-color: transparent;
+  background-color: #222436;
 }
 
 popover > contents separator {
@@ -3353,7 +3357,7 @@ switch {
   padding: 0;
   border: none;
   border-radius: 9999px;
-  background-color: rgba(233, 233, 237, 0.5);
+  background-color: rgba(233, 233, 237, 0.16);
   background-clip: border-box;
   font-size: 0;
   color: transparent;
@@ -8375,7 +8379,6 @@ read if you used those and something break with a version upgrade you're on your
 @define-color wm_focused_bg #222436;
 @define-color wm_unfocused_bg #222436;
 @define-color wm_button_icon #e9e9ed;
-@define-color wm_button_icon alpha(black, 0.5);
 @define-color wm_button_focused_bg #2e3041;
 @define-color wm_button_unfocused_bg #2e3041;
 @define-color wm_button_hover_fg rgba(34, 36, 54, 0.87);
@@ -8522,3 +8525,299 @@ read if you used those and something break with a version upgrade you're on your
 @define-color popover_fg_color #e9e9ed;
 @define-color shade_color rgba(233, 233, 237, 0.12);
 @define-color scrollbar_outline_color rgba(233, 233, 237, 0.12);
+
+/* Coverage fixes: fill missing container and state styling so widgets
+   don't fall through to white/transparent defaults in mixed GTK apps. */
+window.background,
+window.background > box,
+window.background > box > box,
+dialog.background,
+messagedialog.background,
+.background:not(#desktopwindow) {
+  background-color: #222436;
+  color: #e9e9ed;
+}
+
+popover.background > contents > scrolledwindow,
+popover.background > contents > scrolledwindow > viewport,
+popover.background > scrolledwindow,
+popover.background > scrolledwindow > viewport,
+popover.background > list,
+popover.background > stack,
+dropdown popover.menu scrolledwindow,
+dropdown popover.menu scrolledwindow > viewport,
+combobox popover.menu scrolledwindow,
+combobox popover.menu scrolledwindow > viewport,
+popover.menu contents,
+popover.menu listview {
+  background-color: #222436;
+  color: #e9e9ed;
+}
+
+menu,
+menu > box,
+menu scrolledwindow,
+menu viewport {
+  background-color: #222436;
+  color: #e9e9ed;
+}
+
+menu menuitem:hover,
+menu menuitem:focus,
+popover.menu modelbutton:hover,
+popover.menu modelbutton:focus {
+  background-color: rgba(88, 158, 215, 0.14);
+  color: #e9e9ed;
+}
+
+list > row,
+listview > row,
+row.activatable,
+preferencesgroup listbox row,
+preferencesgroup list row,
+navigation-sidebar row,
+placessidebar row,
+stacksidebar row {
+  background-color: transparent;
+  color: inherit;
+}
+
+list > row:hover:not(:selected):not(:checked),
+listview > row:hover:not(:selected):not(:checked),
+row.activatable:hover:not(:selected):not(:checked),
+navigation-sidebar row:hover:not(:selected):not(:checked),
+placessidebar row:hover:not(:selected):not(:checked),
+stacksidebar row:hover:not(:selected):not(:checked) {
+  background-color: rgba(233, 233, 237, 0.04);
+}
+
+list > row:selected,
+list > row:checked,
+listview > row:selected,
+listview > row:checked,
+row.activatable:selected,
+row.activatable:checked,
+navigation-sidebar row:selected,
+navigation-sidebar row:checked,
+placessidebar row:selected,
+placessidebar row:checked,
+stacksidebar row:selected,
+stacksidebar row:checked {
+  background-color: rgba(88, 158, 215, 0.18);
+  color: #e9e9ed;
+}
+
+notebook > header > tabs > tab:disabled,
+notebook > header > tabs > arrow:disabled {
+  background-color: rgba(233, 233, 237, 0.02);
+  color: rgba(233, 233, 237, 0.4);
+}
+
+notebook > header > tabs > tab:checked:disabled {
+  background-color: rgba(88, 158, 215, 0.12);
+  color: rgba(233, 233, 237, 0.55);
+}
+
+headerbar button.flat:checked,
+button.flat:checked,
+menubutton.flat > button:checked,
+splitbutton.flat > button:checked,
+splitbutton.flat > menubutton > button:checked {
+  background-color: rgba(88, 158, 215, 0.14);
+  color: #e9e9ed;
+}
+
+headerbar button.flat:checked:disabled,
+button.flat:checked:disabled,
+menubutton.flat > button:checked:disabled,
+splitbutton.flat > button:checked:disabled,
+splitbutton.flat > menubutton > button:checked:disabled {
+  background-color: rgba(88, 158, 215, 0.08);
+  color: rgba(233, 233, 237, 0.5);
+}
+
+scrollbar > range > trough {
+  background-color: rgba(233, 233, 237, 0.04);
+  border-radius: 9999px;
+}
+
+scrollbar > range > trough > slider {
+  background-color: rgba(233, 233, 237, 0.28);
+  border-radius: 9999px;
+}
+
+scrollbar:hover > range > trough > slider,
+scrollbar:active > range > trough > slider,
+scrollbar.dragging > range > trough > slider {
+  background-color: rgba(233, 233, 237, 0.42);
+}
+
+check:disabled,
+radio:disabled {
+  color: rgba(233, 233, 237, 0.35);
+}
+
+check:checked:disabled,
+check:indeterminate:disabled,
+radio:checked:disabled,
+radio:indeterminate:disabled {
+  color: rgba(233, 233, 237, 0.55);
+}
+
+/* Transparent bar restore + darker hover states for sidebars/path bars. */
+headerbar,
+headerbar:backdrop,
+box.vertical headerbar {
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+}
+
+.navigation-sidebar > row:hover,
+.navigation-sidebar > row:focus-visible:focus-within,
+placessidebar row:hover,
+placessidebar row:active,
+stacksidebar row:hover:not(:selected):not(:checked),
+navigation-sidebar row:hover:not(:selected):not(:checked),
+placessidebar row:hover:not(:selected):not(:checked) {
+  background-color: rgba(88, 158, 215, 0.08);
+  color: #e9e9ed;
+}
+
+.navigation-sidebar > row:selected,
+placessidebar row:selected,
+stacksidebar row:selected,
+navigation-sidebar row:checked,
+placessidebar row:checked,
+stacksidebar row:checked {
+  background-color: rgba(88, 158, 215, 0.14);
+  color: #e9e9ed;
+}
+
+#NautilusPathButton:hover,
+filechooser #pathbarbox > stack > box > button:hover,
+window.messagedialog .response-area button:hover,
+window.dialog.message .dialog-action-area > button:hover,
+headerbar button:hover:not(.suggested-action):not(.destructive-action),
+headerbar button:focus:not(:hover):not(:active):not(.suggested-action):not(.destructive-action) {
+  background-color: rgba(88, 158, 215, 0.12);
+  color: #e9e9ed;
+}
+
+/* Late sidebar/filechooser overrides: upstream section near the end was
+   reintroducing dark text on dark panels. */
+.sidebar-pane .sidebar > scrolledwindow .dim-label,
+.sidebar-pane toolbarview > scrolledwindow .dim-label,
+.sidebar-pane navigation-view-page stack > scrolledwindow .dim-label,
+.sidebar-pane .dim-label,
+filechooser paned > box .dim-label,
+placessidebar > scrolledwindow .dim-label,
+placessidebar > scrolledwindow row label.subtitle,
+placessidebar > scrolledwindow row.property > box.header > box.title > .title,
+placessidebar > scrolledwindow row.expander image.expander-row-arrow,
+.sidebar-pane row label.subtitle,
+.sidebar-pane row.property > box.header > box.title > .title,
+.sidebar-pane row.expander image.expander-row-arrow {
+  color: rgba(233, 233, 237, 0.62);
+}
+
+placessidebar list.navigation-sidebar > row,
+leaflet.unfolded .contacts-contact-list > scrolledwindow > viewport > .navigation-sidebar > row,
+.sidebar-pane toolbarview > stack > box > widget > widget > scrolledwindow > .navigation-sidebar > row {
+  color: #e9e9ed;
+}
+
+placessidebar list.navigation-sidebar > row:hover,
+leaflet.unfolded .contacts-contact-list > scrolledwindow > viewport > .navigation-sidebar > row:hover,
+.sidebar-pane toolbarview > stack > box > widget > widget > scrolledwindow > .navigation-sidebar > row:hover,
+placessidebar list.navigation-sidebar > row:active,
+leaflet.unfolded .contacts-contact-list > scrolledwindow > viewport > .navigation-sidebar > row:active,
+.sidebar-pane toolbarview > stack > box > widget > widget > scrolledwindow > .navigation-sidebar > row:active,
+placessidebar list.navigation-sidebar > row:focus,
+leaflet.unfolded .contacts-contact-list > scrolledwindow > viewport > .navigation-sidebar > row:focus,
+.sidebar-pane toolbarview > stack > box > widget > widget > scrolledwindow > .navigation-sidebar > row:focus {
+  background-color: rgba(88, 158, 215, 0.08);
+  color: #e9e9ed;
+}
+
+placessidebar list.navigation-sidebar > row:selected,
+leaflet.unfolded .contacts-contact-list > scrolledwindow > viewport > .navigation-sidebar > row:selected,
+.sidebar-pane toolbarview > stack > box > widget > widget > scrolledwindow > .navigation-sidebar > row:selected,
+placessidebar list.navigation-sidebar > row:selected:hover,
+leaflet.unfolded .contacts-contact-list > scrolledwindow > viewport > .navigation-sidebar > row:selected:hover,
+.sidebar-pane toolbarview > stack > box > widget > widget > scrolledwindow > .navigation-sidebar > row:selected:hover,
+placessidebar list.navigation-sidebar > row:selected:focus,
+leaflet.unfolded .contacts-contact-list > scrolledwindow > viewport > .navigation-sidebar > row:selected:focus,
+.sidebar-pane toolbarview > stack > box > widget > widget > scrolledwindow > .navigation-sidebar > row:selected:focus {
+  background-color: rgba(88, 158, 215, 0.14);
+  color: #e9e9ed;
+}
+
+placessidebar list.navigation-sidebar > row:selected label,
+placessidebar list.navigation-sidebar > row:selected image,
+leaflet.unfolded .contacts-contact-list > scrolledwindow > viewport > .navigation-sidebar > row:selected label,
+leaflet.unfolded .contacts-contact-list > scrolledwindow > viewport > .navigation-sidebar > row:selected image,
+.sidebar-pane toolbarview > stack > box > widget > widget > scrolledwindow > .navigation-sidebar > row:selected label,
+.sidebar-pane toolbarview > stack > box > widget > widget > scrolledwindow > .navigation-sidebar > row:selected image {
+  color: #e9e9ed;
+}
+
+row:selected,
+row:selected button image,
+row:selected button label {
+  color: #e9e9ed;
+}
+
+/* Button outline pass: keep controls legible on dark/translucent surfaces. */
+button,
+button.flat,
+menubutton > button,
+splitbutton > button,
+splitbutton > menubutton > button,
+.pathbar button,
+#NautilusPathButton,
+filechooser #pathbarbox > stack > box > button,
+headerbar button:not(.suggested-action):not(.destructive-action):not(.titlebutton),
+popover modelbutton,
+placessidebar list.navigation-sidebar > row button.sidebar-button {
+  border: 1px solid rgba(233, 233, 237, 0.12);
+}
+
+button:hover,
+button:focus,
+button.flat:hover,
+button.flat:focus,
+menubutton > button:hover,
+menubutton > button:focus,
+splitbutton > button:hover,
+splitbutton > button:focus,
+splitbutton > menubutton > button:hover,
+splitbutton > menubutton > button:focus,
+.pathbar button:hover,
+.pathbar button:focus,
+#NautilusPathButton:hover,
+#NautilusPathButton:focus,
+filechooser #pathbarbox > stack > box > button:hover,
+filechooser #pathbarbox > stack > box > button:focus,
+headerbar button:not(.suggested-action):not(.destructive-action):not(.titlebutton):hover,
+headerbar button:not(.suggested-action):not(.destructive-action):not(.titlebutton):focus,
+popover modelbutton:hover,
+popover modelbutton:focus,
+placessidebar list.navigation-sidebar > row button.sidebar-button:hover,
+placessidebar list.navigation-sidebar > row button.sidebar-button:focus {
+  border-color: rgba(88, 158, 215, 0.28);
+}
+
+button:disabled,
+button.flat:disabled,
+menubutton > button:disabled,
+splitbutton > button:disabled,
+splitbutton > menubutton > button:disabled,
+.pathbar button:disabled,
+#NautilusPathButton:disabled,
+filechooser #pathbarbox > stack > box > button:disabled,
+headerbar button:not(.suggested-action):not(.destructive-action):not(.titlebutton):disabled,
+popover modelbutton:disabled,
+placessidebar list.navigation-sidebar > row button.sidebar-button:disabled {
+  border-color: rgba(233, 233, 237, 0.06);
+}

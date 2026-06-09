@@ -34,6 +34,7 @@ PanelWindow {
         function toggleMusic() { masterWindow.handleIpcCommand("toggle:music:", true) }
         function toggleMonitors() { masterWindow.handleIpcCommand("toggle:monitors:", true) }
         function toggleGuide() { masterWindow.handleIpcCommand("toggle:guide:", true) }
+        function toggleUpdater() { masterWindow.handleIpcCommand("toggle:updater:", true) }
         function toggleSettings() { masterWindow.handleIpcCommand("toggle:settings:", true) }
         function toggleCalendar() { masterWindow.handleIpcCommand("toggle:calendar:", true) }
         function toggleFocusTime() { masterWindow.handleIpcCommand("toggle:focustime:", true) }

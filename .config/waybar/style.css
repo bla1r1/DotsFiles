@@ -286,6 +286,10 @@ tooltip {
     color: @tn-purple;
 }
 
+#custom-qs-updater {
+    color: @tn-green;
+}
+
 #custom-qs-music {
     color: @tn-green;
 }
@@ -301,6 +305,7 @@ tooltip {
 #custom-swaync:hover,
 #custom-copyq:hover,
 #custom-qs-settings:hover,
+#custom-qs-updater:hover,
 #custom-qs-music:hover,
 #custom-qs-monitors:hover,
 #custom-qs-guide:hover,
