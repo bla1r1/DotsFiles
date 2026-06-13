@@ -8764,6 +8764,156 @@ placessidebar.sidebar row:disabled {
   color: rgba(233, 233, 237, 0.42);
 }
 
+/* Final text contrast override: force readable text colors on dark list/sidebar surfaces. */
+list row,
+row,
+row label,
+row image,
+row.activatable,
+row.activatable label,
+row.activatable image,
+.sidebar,
+.sidebar label,
+.sidebar image,
+placessidebar,
+placessidebar label,
+placessidebar image,
+stacksidebar,
+stacksidebar label,
+stacksidebar image,
+filechooser placessidebar,
+filechooser placessidebar label,
+filechooser placessidebar image {
+  color: #e9e9ed;
+}
+
+.dim-label,
+label.separator,
+.titlebar .subtitle,
+.titlebar .dim-label,
+row label.subtitle,
+row.property > box.header > box.title > .subtitle,
+placessidebar.sidebar row label.sidebar-label,
+stacksidebar.sidebar row > label {
+  color: rgba(233, 233, 237, 0.72);
+}
+
+row:disabled,
+row:disabled label,
+row:disabled image,
+placessidebar.sidebar row:disabled,
+placessidebar.sidebar row:disabled label,
+placessidebar.sidebar row:disabled image,
+stacksidebar.sidebar row:disabled,
+stacksidebar.sidebar row:disabled label,
+stacksidebar.sidebar row:disabled image {
+  color: rgba(233, 233, 237, 0.48);
+}
+
+row:selected,
+row:selected label,
+row:selected image,
+row:selected button,
+row:selected button label,
+row:selected button image,
+row.activatable:selected,
+row.activatable:selected label,
+row.activatable:selected image,
+row.activatable:checked,
+row.activatable:checked label,
+row.activatable:checked image,
+placessidebar.sidebar row:selected,
+placessidebar.sidebar row:selected label,
+placessidebar.sidebar row:selected image,
+stacksidebar.sidebar row:selected,
+stacksidebar.sidebar row:selected label,
+stacksidebar.sidebar row:selected image,
+treeview.view:selected,
+treeview.view:selected label,
+treeview.view:selected image {
+  color: #e9e9ed;
+}
+
+/* Final sidebar surface override: force dark backgrounds for side lists. */
+.sidebar,
+placessidebar.sidebar,
+stacksidebar.sidebar,
+scrolledwindow.sidebar,
+scrolledwindow.sidebar viewport,
+scrolledwindow.sidebar viewport list,
+scrolledwindow.sidebar viewport treeview,
+placessidebar.sidebar > viewport.frame,
+placessidebar.sidebar list,
+stacksidebar.sidebar list,
+.sidebar list,
+.sidebar treeview,
+.sidebar .view {
+  background-color: #1f2231;
+  color: #e9e9ed;
+}
+
+/* Contrast pass for structural list/sidebar elements. */
+.dim-label,
+label.separator,
+.titlebar .subtitle,
+.titlebar .dim-label,
+row label.subtitle,
+row.property > box.header > box.title > .subtitle,
+placessidebar.sidebar row label.sidebar-label,
+stacksidebar.sidebar row > label {
+  color: rgba(233, 233, 237, 0.68);
+}
+
+separator,
+separator.sidebar,
+.titlebar + separator,
+.titlebar + separator.sidebar,
+preferences stacksidebar.sidebar list separator,
+placessidebar.sidebar list > separator,
+stacksidebar.sidebar + separator.vertical,
+stacksidebar.sidebar separator.horizontal,
+menu separator,
+popover.background separator,
+popover.background list separator {
+  background-color: rgba(233, 233, 237, 0.12);
+}
+
+paned > separator,
+paned > separator.wide,
+filechooser paned > separator,
+.nautilus-window paned > separator,
+.nautilus-window.background.csd > grid.horizontal > paned.horizontal > separator,
+.nautilus-window.background.csd > deck > box.vertical > paned.horizontal > separator {
+  background-color: rgba(233, 233, 237, 0.10);
+}
+
+list row,
+row.activatable,
+treeview.view header button {
+  background-color: rgba(233, 233, 237, 0.03);
+  color: #e9e9ed;
+}
+
+list row:hover:not(:selected):not(:checked),
+row.activatable:hover,
+row.activatable:focus,
+treeview.view header button:hover,
+treeview.view header button:focus {
+  background-color: rgba(88, 158, 215, 0.08);
+  color: #e9e9ed;
+}
+
+list row:selected,
+list row:checked,
+row.activatable:selected,
+row.activatable:checked,
+row:selected,
+treeview.view:selected,
+calendar:selected {
+  background-color: rgba(88, 158, 215, 0.16);
+  color: #e9e9ed;
+}
+
 /* Button outline pass: keep controls legible on dark/translucent surfaces. */
 button,
 button.flat,
@@ -8812,4 +8962,238 @@ popover.background.menu button:disabled,
 popover.background button.model:disabled,
 placessidebar.sidebar row button.sidebar-button:disabled {
   border-color: rgba(233, 233, 237, 0.06);
+}
+
+/* Final app-specific contrast pass: Firefox + dark sidebars/search fields. */
+#MozillaGtkWidget > widget text,
+#MozillaGtkWidget > widget label,
+#MozillaGtkWidget > widget image,
+#MozillaGtkWidget > widget > menubar,
+#MozillaGtkWidget menu {
+  color: #e9e9ed;
+}
+
+#MozillaGtkWidget > widget text:disabled,
+#MozillaGtkWidget > widget label:disabled,
+#MozillaGtkWidget > widget > menubar:disabled {
+  color: rgba(233, 233, 237, 0.48);
+}
+
+#MozillaGtkWidget > widget text:selected {
+  color: #e9e9ed;
+  background-color: rgba(88, 158, 215, 0.18);
+}
+
+#MozillaGtkWidget > widget > entry,
+#MozillaGtkWidget > widget > button > button,
+#MozillaGtkWidget > widget > frame,
+#MozillaGtkWidget > widget > menubar,
+#MozillaGtkWidget menu {
+  background-color: rgba(31, 34, 49, 0.92);
+  color: #e9e9ed;
+  border-color: rgba(233, 233, 237, 0.14);
+}
+
+#MozillaGtkWidget > widget > entry:focus,
+#MozillaGtkWidget > widget > button > button:hover,
+#MozillaGtkWidget > widget > button > button:focus,
+#MozillaGtkWidget > widget > menubar:hover {
+  background-color: rgba(88, 158, 215, 0.14);
+  color: #e9e9ed;
+  border-color: rgba(88, 158, 215, 0.30);
+}
+
+#MozillaGtkWidget > widget > entry:disabled,
+#MozillaGtkWidget > widget > button > button:disabled {
+  color: rgba(233, 233, 237, 0.48);
+  background-color: rgba(31, 34, 49, 0.72);
+}
+
+#MozillaGtkWidget > widget > separator,
+#MozillaGtkWidget menu > separator,
+.sidebar separator,
+scrolledwindow.sidebar separator,
+placessidebar.sidebar list > separator,
+stacksidebar.sidebar separator.horizontal,
+searchbar separator,
+entry.search + separator {
+  background-color: rgba(233, 233, 237, 0.12);
+}
+
+entry,
+entry.search,
+searchbar entry,
+searchbar entry.search,
+.sidebar entry,
+.sidebar entry.search,
+filechooser entry,
+filechooser entry.search,
+.budgie-popover.budgie-menu entry.search,
+.budgie-run-dialog entry.search {
+  color: #e9e9ed;
+  caret-color: #e9e9ed;
+  background-color: rgba(31, 34, 49, 0.92);
+  border-color: rgba(233, 233, 237, 0.14);
+}
+
+entry:focus,
+entry.search:focus,
+searchbar entry:focus,
+searchbar entry.search:focus,
+.sidebar entry:focus,
+.sidebar entry.search:focus,
+filechooser entry:focus,
+filechooser entry.search:focus,
+.budgie-popover.budgie-menu entry.search:focus,
+.budgie-run-dialog entry.search:focus {
+  color: #e9e9ed;
+  background-color: rgba(88, 158, 215, 0.12);
+  border-color: rgba(88, 158, 215, 0.30);
+}
+
+entry:disabled,
+entry.search:disabled,
+searchbar entry:disabled,
+searchbar entry.search:disabled,
+.sidebar entry:disabled,
+.sidebar entry.search:disabled,
+filechooser entry:disabled,
+filechooser entry.search:disabled {
+  color: rgba(233, 233, 237, 0.48);
+  background-color: rgba(31, 34, 49, 0.72);
+}
+
+entry selection,
+entry.search selection,
+searchbar entry selection,
+searchbar entry.search selection {
+  background-color: rgba(88, 158, 215, 0.24);
+  color: #e9e9ed;
+}
+
+.sidebar,
+scrolledwindow.sidebar,
+scrolledwindow.sidebar viewport,
+scrolledwindow.sidebar viewport list,
+scrolledwindow.sidebar viewport treeview,
+placessidebar.sidebar,
+placessidebar.sidebar > viewport.frame,
+placessidebar.sidebar list,
+stacksidebar.sidebar,
+stacksidebar.sidebar list,
+.sidebar treeview,
+.sidebar .view,
+searchbar,
+searchbar > revealer > box {
+  background-color: rgba(31, 34, 49, 0.96);
+  color: #e9e9ed;
+}
+
+.sidebar label,
+.sidebar image,
+placessidebar.sidebar label,
+placessidebar.sidebar image,
+stacksidebar.sidebar label,
+stacksidebar.sidebar image,
+searchbar label,
+searchbar image {
+  color: #e9e9ed;
+}
+
+.sidebar .dim-label,
+placessidebar.sidebar .dim-label,
+stacksidebar.sidebar .dim-label,
+searchbar .dim-label,
+label.separator {
+  color: rgba(233, 233, 237, 0.72);
+}
+
+/* Transparency restore: keep outer chrome translucent, not solid-filled. */
+.sidebar,
+scrolledwindow.sidebar,
+placessidebar.sidebar,
+placessidebar.sidebar > viewport.frame,
+stacksidebar.sidebar,
+searchbar,
+searchbar > revealer > box,
+.nautilus-window.background.csd,
+.nautilus-window.background.csd:not(.unified) notebook,
+.nautilus-window.background.csd:not(.unified) notebook > stack,
+.nautilus-window.background.csd:not(.unified) notebook scrolledwindow,
+.nautilus-window.background.csd:not(.unified) notebook placesview > stack > frame > scrolledwindow > viewport,
+.nautilus-window.background.csd:not(.unified) notebook placesview > actionbar,
+.nautilus-window.background.csd:not(.unified) notebook placesview > actionbar > revealer > box {
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+}
+
+scrolledwindow.sidebar viewport,
+scrolledwindow.sidebar viewport list,
+scrolledwindow.sidebar viewport treeview,
+placessidebar.sidebar list,
+stacksidebar.sidebar list,
+.sidebar treeview,
+.sidebar .view,
+searchbar entry,
+searchbar entry.search,
+entry,
+entry.search {
+  background-color: rgba(31, 34, 49, 0.72);
+}
+
+/* Keep layer-shell surfaces from inheriting generic GTK panel fills. */
+window#waybar,
+window#waybar.background,
+window#waybar > box,
+window#waybar > box > box,
+window#waybar box,
+window#waybar widget,
+window#waybar revealer,
+window#waybar eventbox,
+notificationwindow,
+notificationwindow > box,
+notificationwindow widget,
+blankwindow,
+blankwindow > box,
+.floating-notifications,
+.floating-notifications > box,
+.notification-row,
+.notification-row .notification-background,
+.control-center,
+.control-center > box,
+.control-center .control-center-list {
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+}
+
+/* Final hard override: Nautilus and swaync outer shells stay transparent. */
+.nautilus-window.background.csd,
+.nautilus-window.background.csd:backdrop,
+.nautilus-window.background.csd:not(.unified) notebook,
+.nautilus-window.background.csd:not(.unified) notebook > stack,
+.nautilus-window.background.csd:not(.unified) notebook scrolledwindow,
+.nautilus-window.background.csd:not(.unified) notebook placesview > stack > frame > scrolledwindow > viewport,
+.nautilus-window.background.csd:not(.unified) notebook placesview > actionbar,
+.nautilus-window.background.csd:not(.unified) notebook placesview > actionbar > revealer > box {
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+}
+
+notificationwindow.background,
+notificationwindow.background > box,
+blankwindow.background,
+blankwindow.background > box,
+window.background .control-center,
+window.background .control-center > box,
+window.background .control-center .control-center-list,
+window.background .floating-notifications,
+window.background .floating-notifications > box,
+window.background .notification-row,
+window.background .notification-row .notification-background {
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
 }

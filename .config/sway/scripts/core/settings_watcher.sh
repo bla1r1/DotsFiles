@@ -1,64 +1,51 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+QT_ENV="$SCRIPT_DIR/core/qt-env.sh"
+MAIN_QML="$SCRIPT_DIR/quickshell/Main.qml"
+SETTINGS_WATCHER="$SCRIPT_DIR/core/settings_watcher.sh"
 SETTINGS_FILE="$HOME/.config/sway/settings.json"
-SWAY_INPUT_CONF="$HOME/.config/sway/conf.d/input.conf"
-SWAY_ENV_CONF="$HOME/.config/sway/conf.d/env.conf"
-ZSH_RC="$HOME/.zshrc"
+QS_LOG_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/quickshell"
+GUIDE_STARTUP_MARKER="${XDG_RUNTIME_DIR:-/tmp}/qs-guide-startup-opened"
 
-# Ensure the settings file exists before we try to watch it
-mkdir -p "$(dirname "$SETTINGS_FILE")"
-[ ! -f "$SETTINGS_FILE" ] && echo "{}" > "$SETTINGS_FILE"
-if ! jq empty "$SETTINGS_FILE" >/dev/null 2>&1; then
-    cat > "$SETTINGS_FILE" <<'EOF'
-{
-  "uiScale": 1,
-  "openGuideAtStartup": false,
-  "guideShortcut": true,
-  "wallpaperDir": "~/Pictures/Wallpapers",
-  "language": "de,ua",
-  "kbOptions": "grp:alt_shift_toggle",
-  "workspaceCount": 8
+[[ -f "$QT_ENV" ]] && source "$QT_ENV"
+
+mkdir -p "$QS_LOG_DIR"
+
+start_once() {
+    local pattern="$1"
+    shift
+
+    if ! pgrep -f "$pattern" >/dev/null 2>&1; then
+        "$@" >/dev/null 2>&1 &
+        disown
+    fi
 }
-EOF
+
+start_once "$SETTINGS_WATCHER" bash "$SETTINGS_WATCHER"
+start_once "quickshell.*Main\.qml" env QS_SCRIPT_DIR="$SCRIPT_DIR" quickshell -p "$MAIN_QML"
+
+if command -v swaync >/dev/null 2>&1; then
+    start_once "swaync$" swaync
 fi
 
-echo "Started watching $SETTINGS_FILE for changes..."
+if command -v waybar >/dev/null 2>&1; then
+    start_once "waybar$" waybar
+fi
 
-# Loop endlessly, triggering only when the file is saved (closed after writing)
-while inotifywait -q -e close_write "$SETTINGS_FILE"; do
-    echo "Settings updated! Applying changes..."
+if command -v swayosd-server >/dev/null 2>&1; then
+    start_once "swayosd-server$" swayosd-server
+fi
 
-    # Extract values using jq 
-    # Removed '// empty' from the boolean to prevent 'false' from evaluating to empty
-    LANG=$(jq -r '.language // empty' "$SETTINGS_FILE")
-    KB_OPT=$(jq -r '.kbOptions // empty' "$SETTINGS_FILE")
-    WP_DIR=$(jq -r '.wallpaperDir // empty' "$SETTINGS_FILE")
-
-    # 1. Update Keyboard Layout & Options
-    if [ -n "$LANG" ] && [ "$LANG" != "null" ]; then
-        swaymsg input "type:keyboard" xkb_layout "$LANG" >/dev/null 2>&1 || true
-        sed -i "s/^ *xkb_layout .*/    xkb_layout  $LANG/" "$SWAY_INPUT_CONF"
-    fi
-    
-    if [ -n "$KB_OPT" ] && [ "$KB_OPT" != "null" ]; then
-        swaymsg input "type:keyboard" xkb_options "$KB_OPT" >/dev/null 2>&1 || true
-        sed -i "s/^ *xkb_options .*/    xkb_options $KB_OPT/" "$SWAY_INPUT_CONF"
-    else
-        # If it's explicitly empty/null (No Toggle), clear the value entirely
-        swaymsg input "type:keyboard" xkb_options "" >/dev/null 2>&1 || true
-        sed -i "s/^ *xkb_options .*/    xkb_options /" "$SWAY_INPUT_CONF"
-    fi
-
-    # 2. Update Wallpaper Directory
-    if [ -n "$WP_DIR" ] && [ "$WP_DIR" != "null" ]; then
-        # We use '|' as the sed delimiter here to prevent path slashes from breaking the command
-        if grep -q '^set \$wallpaperDir ' "$SWAY_ENV_CONF"; then
-            sed -i "s|^set \\$wallpaperDir .*|set \\$wallpaperDir $WP_DIR|" "$SWAY_ENV_CONF"
-        fi
-        
-        # Keep ZSH in sync if it exists
-        if [ -f "$ZSH_RC" ]; then
-            sed -i "s|^export WALLPAPER_DIR=.*|export WALLPAPER_DIR=\"$WP_DIR\"|" "$ZSH_RC"
-        fi
-    fi
-done
+if command -v jq >/dev/null 2>&1 \
+    && [ -f "$SETTINGS_FILE" ] \
+    && jq -e '.openGuideAtStartup == true' "$SETTINGS_FILE" >/dev/null 2>&1 \
+    && [ ! -e "$GUIDE_STARTUP_MARKER" ]; then
+    : > "$GUIDE_STARTUP_MARKER"
+    (
+        sleep 0.8
+        qs -p "$MAIN_QML" ipc call main toggleGuide
+    ) >/dev/null 2>&1 &
+    disown
+fi

@@ -8526,18 +8526,6 @@ read if you used those and something break with a version upgrade you're on your
 @define-color shade_color rgba(233, 233, 237, 0.12);
 @define-color scrollbar_outline_color rgba(233, 233, 237, 0.12);
 
-/* Coverage fixes: fill missing container and state styling so widgets
-   don't fall through to white/transparent defaults in mixed GTK apps. */
-window.background,
-window.background > box,
-window.background > box > box,
-dialog.background,
-messagedialog.background,
-.background:not(#desktopwindow) {
-  background-color: #222436;
-  color: #e9e9ed;
-}
-
 popover.background > contents > scrolledwindow,
 popover.background > contents > scrolledwindow > viewport,
 popover.background > scrolledwindow,
@@ -8768,6 +8756,177 @@ row:selected button label {
   color: #e9e9ed;
 }
 
+/* Final text contrast override: force readable text colors on dark list/sidebar surfaces. */
+list row,
+listview row,
+row,
+row label,
+row image,
+row.activatable,
+row.activatable label,
+row.activatable image,
+.sidebar,
+.sidebar label,
+.sidebar image,
+.navigation-sidebar,
+.navigation-sidebar label,
+.navigation-sidebar image,
+placessidebar,
+placessidebar label,
+placessidebar image,
+stacksidebar,
+stacksidebar label,
+stacksidebar image,
+filechooser placessidebar,
+filechooser placessidebar label,
+filechooser placessidebar image,
+.sidebar-pane,
+.sidebar-pane label,
+.sidebar-pane image {
+  color: #e9e9ed;
+}
+
+.dim-label,
+label.separator,
+row label.subtitle,
+row > box.header > box.title > .subtitle,
+row.property > box.header > box.title > .subtitle,
+.navigation-sidebar row.activatable label.dim-label,
+placessidebar > scrolledwindow .dim-label,
+placessidebar > scrolledwindow row label.subtitle,
+.sidebar-pane .dim-label,
+.sidebar-pane row label.subtitle,
+.sidebar-pane row.property > box.header > box.title > .title,
+.sidebar-pane row.expander image.expander-row-arrow,
+placessidebar > scrolledwindow row.expander image.expander-row-arrow,
+headerbar .subtitle,
+headerbar .dim-label,
+headerbar row label.subtitle {
+  color: rgba(233, 233, 237, 0.72);
+}
+
+row:disabled,
+row:disabled label,
+row:disabled image,
+.navigation-sidebar > row:disabled,
+.navigation-sidebar > row:disabled label,
+.navigation-sidebar > row:disabled image,
+placessidebar list.navigation-sidebar > row:disabled,
+placessidebar list.navigation-sidebar > row:disabled label,
+placessidebar list.navigation-sidebar > row:disabled image,
+stacksidebar row:disabled,
+stacksidebar row:disabled label,
+stacksidebar row:disabled image {
+  color: rgba(233, 233, 237, 0.48);
+}
+
+row:selected,
+row:selected label,
+row:selected image,
+row:selected button,
+row:selected button label,
+row:selected button image,
+row.activatable:selected,
+row.activatable:selected label,
+row.activatable:selected image,
+row.activatable:checked,
+row.activatable:checked label,
+row.activatable:checked image,
+.navigation-sidebar > row:selected,
+.navigation-sidebar > row:selected label,
+.navigation-sidebar > row:selected image,
+placessidebar list.navigation-sidebar > row:selected,
+placessidebar list.navigation-sidebar > row:selected label,
+placessidebar list.navigation-sidebar > row:selected image,
+stacksidebar row:selected,
+stacksidebar row:selected label,
+stacksidebar row:selected image,
+treeview.view:selected,
+treeview.view:selected label,
+treeview.view:selected image {
+  color: #e9e9ed;
+}
+
+/* Contrast pass for structural list/sidebar elements. */
+.dim-label,
+label.separator,
+row label.subtitle,
+row > box.header > box.title > .subtitle,
+row.property > box.header > box.title > .subtitle,
+.navigation-sidebar row.activatable label.dim-label,
+placessidebar > scrolledwindow .dim-label,
+placessidebar > scrolledwindow row label.subtitle,
+.sidebar-pane .dim-label,
+.sidebar-pane row label.subtitle,
+.sidebar-pane row.property > box.header > box.title > .title,
+.sidebar-pane row.expander image.expander-row-arrow,
+placessidebar > scrolledwindow row.expander image.expander-row-arrow,
+headerbar .subtitle,
+headerbar .dim-label,
+headerbar row label.subtitle {
+  color: rgba(233, 233, 237, 0.68);
+}
+
+separator,
+separator.sidebar,
+stacksidebar + separator.vertical,
+stacksidebar separator.horizontal,
+headerbar separator:not(.sidebar),
+popover > contents separator,
+popover > contents list separator,
+listview.horizontal row.separator:not(:last-child),
+listview.separators.horizontal > row:not(.separator):not(:last-child),
+list.horizontal row.separator:not(:last-child),
+list.separators.horizontal > row:not(.separator):not(:last-child),
+listview:not(.horizontal) row.separator:not(:last-child),
+listview.separators:not(.horizontal) > row:not(.separator):not(:last-child),
+list:not(.horizontal) row.separator:not(:last-child),
+list.separators:not(.horizontal) > row:not(.separator):not(:last-child),
+.navigation-sidebar > separator,
+placessidebar list.navigation-sidebar > separator {
+  background-color: rgba(233, 233, 237, 0.12);
+}
+
+paned > separator,
+paned > separator.wide,
+filechooser paned > separator,
+.nautilus-window flap > separator {
+  background-color: rgba(233, 233, 237, 0.10);
+}
+
+row.activatable,
+list > row,
+listview > row,
+treeview.view > header > button {
+  background-color: rgba(233, 233, 237, 0.03);
+  color: #e9e9ed;
+}
+
+row.activatable:hover,
+row.activatable:focus,
+list > row:hover:not(:selected):not(:checked),
+listview > row:hover:not(:selected):not(:checked),
+treeview.view > header > button:hover,
+treeview.view > header > button:focus {
+  background-color: rgba(88, 158, 215, 0.08);
+  color: #e9e9ed;
+}
+
+row.activatable:selected,
+row.activatable:checked,
+row:selected,
+list > row:selected,
+list > row:checked,
+listview > row:selected,
+listview > row:checked,
+treeview.view:selected,
+treeview.view:selected:focus,
+calendar:selected,
+calendar > grid > label.day-number:selected {
+  background-color: rgba(88, 158, 215, 0.16);
+  color: #e9e9ed;
+}
+
 /* Button outline pass: keep controls legible on dark/translucent surfaces. */
 button,
 button.flat,
@@ -8821,3 +8980,186 @@ popover modelbutton:disabled,
 placessidebar list.navigation-sidebar > row button.sidebar-button:disabled {
   border-color: rgba(233, 233, 237, 0.06);
 }
+
+/* Final app-specific contrast pass: dark search fields, sidebars and separators. */
+entry,
+entry.search,
+searchbar entry,
+searchbar entry.search,
+searchbar > revealer > box entry,
+.sidebar entry,
+.sidebar entry.search,
+.sidebar-pane entry,
+.sidebar-pane entry.search,
+placessidebar entry,
+placessidebar entry.search,
+filechooser entry,
+filechooser entry.search {
+  color: #e9e9ed;
+  caret-color: #e9e9ed;
+  background-color: rgba(31, 34, 49, 0.92);
+  border-color: rgba(233, 233, 237, 0.14);
+}
+
+entry:focus,
+entry.search:focus,
+searchbar entry:focus,
+searchbar entry.search:focus,
+searchbar > revealer > box entry:focus,
+.sidebar entry:focus,
+.sidebar entry.search:focus,
+.sidebar-pane entry:focus,
+.sidebar-pane entry.search:focus,
+placessidebar entry:focus,
+placessidebar entry.search:focus,
+filechooser entry:focus,
+filechooser entry.search:focus {
+  color: #e9e9ed;
+  background-color: rgba(88, 158, 215, 0.12);
+  border-color: rgba(88, 158, 215, 0.30);
+}
+
+entry:disabled,
+entry.search:disabled,
+searchbar entry:disabled,
+searchbar entry.search:disabled,
+.sidebar entry:disabled,
+.sidebar entry.search:disabled,
+.sidebar-pane entry:disabled,
+.sidebar-pane entry.search:disabled,
+filechooser entry:disabled,
+filechooser entry.search:disabled {
+  color: rgba(233, 233, 237, 0.48);
+  background-color: rgba(31, 34, 49, 0.72);
+}
+
+entry selection,
+entry.search selection,
+searchbar entry selection,
+searchbar entry.search selection {
+  background-color: rgba(88, 158, 215, 0.24);
+  color: #e9e9ed;
+}
+
+.sidebar label,
+.sidebar image,
+.navigation-sidebar label,
+.navigation-sidebar image,
+placessidebar label,
+placessidebar image,
+stacksidebar label,
+stacksidebar image,
+.sidebar-pane label,
+.sidebar-pane image,
+searchbar label,
+searchbar image {
+  color: #e9e9ed;
+}
+
+.sidebar .dim-label,
+.navigation-sidebar row.activatable label.dim-label,
+placessidebar > scrolledwindow .dim-label,
+placessidebar > scrolledwindow row label.subtitle,
+.sidebar-pane .dim-label,
+.sidebar-pane row label.subtitle,
+searchbar .dim-label,
+label.separator {
+  color: rgba(233, 233, 237, 0.72);
+}
+
+separator,
+separator.sidebar,
+.navigation-sidebar > separator,
+placessidebar list.navigation-sidebar > separator,
+searchbar separator,
+searchbar > revealer > box separator,
+paned > separator,
+paned > separator.wide,
+filechooser paned > separator,
+.sidebar-pane separator {
+  background-color: rgba(233, 233, 237, 0.12);
+}
+
+/* Transparency restore: keep outer chrome translucent, not solid-filled. */
+.sidebar,
+.sidebar-pane,
+.navigation-sidebar,
+placessidebar,
+stacksidebar,
+scrolledwindow.sidebar,
+placessidebar > scrolledwindow,
+placessidebar > scrolledwindow > viewport,
+.sidebar-pane > scrolledwindow,
+.sidebar-pane > scrolledwindow > viewport,
+searchbar,
+searchbar > revealer > box,
+.nautilus-window .sidebar-pane,
+.nautilus-window placessidebar > scrolledwindow {
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+}
+
+scrolledwindow.sidebar > viewport > list,
+scrolledwindow.sidebar > viewport > listview,
+placessidebar > scrolledwindow > viewport > list,
+placessidebar > scrolledwindow > viewport > listview,
+.sidebar-pane > scrolledwindow > viewport > list,
+.sidebar-pane > scrolledwindow > viewport > listview,
+.sidebar list,
+.sidebar listview,
+.sidebar .view,
+searchbar entry,
+searchbar entry.search,
+searchbar > revealer > box entry,
+entry,
+entry.search {
+  background-color: rgba(31, 34, 49, 0.72);
+}
+
+/* Keep layer-shell surfaces from inheriting generic GTK panel fills. */
+window#waybar,
+window#waybar.background,
+window#waybar > box,
+window#waybar > box > box,
+window#waybar box,
+window#waybar widget,
+window#waybar revealer,
+notificationwindow,
+notificationwindow > box,
+blankwindow,
+blankwindow > box,
+.floating-notifications,
+.floating-notifications > box,
+.notification-row,
+.notification-row .notification-background,
+.control-center,
+.control-center > box,
+.control-center .control-center-list {
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+}
+
+.nautilus-pathbar {
+  background-color: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.nautilus-path-button {
+  background-color: rgba(233, 233, 237, 0.06);
+  border: 1px solid rgba(233, 233, 237, 0.08);
+  color: #e9e9ed;
+}
+
+.nautilus-path-button.current-dir {
+  background-color: rgba(233, 233, 237, 0.10);
+  border-color: rgba(233, 233, 237, 0.14);
+}
+
+.nautilus-path-button:hover {
+  background-color: rgba(233, 233, 237, 0.14);
+  border-color: rgba(233, 233, 237, 0.20);
+}
+

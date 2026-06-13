@@ -249,7 +249,8 @@ tooltip {
 #bluetooth, #pulseaudio, #wireplumber, #custom-wifi,
 #custom-misc, #idle_inhibitor,
 #custom-filemanager, #custom-browser, #custom-terminal, #custom-editor,
-#custom-kbd-backlight, #custom-mic,
+#custom-kbd-backlight, #custom-mic,#custom-updates,
+#custom-qs-updater,
 #window, #language {
     padding: 0px 9px;
     margin: 3px 2px;
@@ -451,13 +452,17 @@ tooltip {
     ┛ ┗┻┗┛  ┛ ┗┻┗┛┛┗┣┛┗┛┛┗┻┛┛┗┛┗
 */
 
-/* Микрофон — dim когда активен, красный когда замьючен */
 #custom-mic {
-    color: @tn-fg-dim;
+    color: @tn-green;
+}
+
+#custom-mic.muted {
+    color: @tn-red;
 }
 
 #custom-mic:hover {
-    color: @tn-red;
+    background: rgba(122, 162, 247, 0.12);
+    color: @tn-fg;
 }
 
 /*
@@ -577,19 +582,24 @@ tooltip {
 
 #custom-updates:hover {
     color: @tn-fg;
-    background: rgba(224, 175, 104, 0.10);
+    background: rgba(224, 175, 104, 0.18);
+    border-radius: 7px;
+    box-shadow: 0 0 8px rgba(224, 175, 104, 0.25);
 }
 
-/* когда обновлений нет — dim */
 #custom-updates.up-to-date {
     color: @tn-fg-dim;
     opacity: 0.5;
 }
 
-/* много обновлений — красный акцент */
 #custom-updates.critical {
     color: @tn-red;
     font-weight: 800;
+}
+
+#custom-updates.critical:hover {
+    background: rgba(247, 118, 142, 0.20);
+    box-shadow: 0 0 10px rgba(247, 118, 142, 0.35);
 }
 
 /*
@@ -605,4 +615,14 @@ tooltip {
 #custom-copyq:hover {
     color: @tn-fg;
     background: rgba(187, 154, 247, 0.12);
+}
+
+#custom-qs-updater {
+    color: @tn-green;
+}
+
+#custom-qs-updater:hover {
+    color: @tn-fg;
+    background: rgba(115, 218, 202, 0.15);
+    box-shadow: 0 0 8px rgba(115, 218, 202, 0.25);
 }
