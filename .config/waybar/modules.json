@@ -12,6 +12,7 @@
     "modules": [
       "pulseaudio",
       "custom/mic",
+      "custom/monitor-brightness",
       "backlight",
       "custom/kbd-backlight",
       "bluetooth",
@@ -194,9 +195,24 @@
     "exec-if": "bash ~/.config/sway/scripts/controls/brightness-control.sh available",
     "format": "{icon}  {percent}%",
     "format-icons": ["󰃞", "󰃟", "󰃠"],
+    "on-click": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleMonitors",
+    "on-click-right": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleMonitors",
     "on-scroll-up": "bash ~/.config/sway/scripts/controls/brightness-control.sh up",
     "on-scroll-down": "bash ~/.config/sway/scripts/controls/brightness-control.sh down",
-    "tooltip": false
+    "tooltip-format": "Scroll: laptop brightness\nClick: monitor brightness panel",
+    "tooltip": true
+  },
+  "custom/monitor-brightness": {
+    "exec-if": "bash ~/.config/sway/scripts/controls/monitor-brightness.sh has",
+    "exec": "bash ~/.config/sway/scripts/controls/monitor-brightness.sh waybar",
+    "return-type": "json",
+    "interval": 10,
+    "format": "{}",
+    "on-click": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleMonitors",
+    "on-click-right": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleMonitors",
+    "on-scroll-up": "bash ~/.config/sway/scripts/controls/monitor-brightness.sh up",
+    "on-scroll-down": "bash ~/.config/sway/scripts/controls/monitor-brightness.sh down",
+    "tooltip": true
   },
   "custom/kbd-backlight": {
     "exec-if": "bash ~/.config/sway/scripts/controls/kbd-backlight.sh --available",

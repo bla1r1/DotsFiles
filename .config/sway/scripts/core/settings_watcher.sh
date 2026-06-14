@@ -6,6 +6,7 @@ QT_ENV="$SCRIPT_DIR/core/qt-env.sh"
 MAIN_QML="$SCRIPT_DIR/quickshell/Main.qml"
 SETTINGS_WATCHER="$SCRIPT_DIR/core/settings_watcher.sh"
 SETTINGS_FILE="$HOME/.config/sway/settings.json"
+WAYBAR_LAUNCHER="$SCRIPT_DIR/core/waybar.sh"
 QS_LOG_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/quickshell"
 GUIDE_STARTUP_MARKER="${XDG_RUNTIME_DIR:-/tmp}/qs-guide-startup-opened"
 
@@ -31,7 +32,7 @@ if command -v swaync >/dev/null 2>&1; then
 fi
 
 if command -v waybar >/dev/null 2>&1; then
-    start_once "waybar$" waybar
+    start_once "$WAYBAR_LAUNCHER" bash "$WAYBAR_LAUNCHER"
 fi
 
 if command -v swayosd-server >/dev/null 2>&1; then

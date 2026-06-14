@@ -57,13 +57,33 @@ Item {
     ListModel {
         id: monitorsModel
     }
+
+    ListModel {
+        id: brightnessModel
+    }
     
     property color selectedResAccent: window.mauve
     property color selectedRateAccent: window.blue
     readonly property string monitorsScriptPath: Quickshell.env("HOME") + "/.config/sway/scripts/tools/monitors.sh"
+    readonly property string brightnessScriptPath: Quickshell.env("HOME") + "/.config/sway/scripts/controls/monitor-brightness.sh"
 
     property real currentSimW: monitorsModel.count > 0 ? monitorsModel.get(0).resW : 1920
     property real currentSimH: monitorsModel.count > 0 ? monitorsModel.get(0).resH : 1080
+
+    function updateBrightnessModel(text) {
+        try {
+            let data = JSON.parse((text || "").trim() || "[]");
+            brightnessModel.clear();
+            for (let i = 0; i < data.length; i++) {
+                brightnessModel.append({
+                    id: data[i].id || "",
+                    name: data[i].name || "Display",
+                    type: data[i].type || "ddc",
+                    brightness: Math.max(1, Math.min(100, parseInt(data[i].brightness) || 50))
+                });
+            }
+        } catch(e) {}
+    }
 
     property real globalOrbitAngle: 0
     NumberAnimation on globalOrbitAngle {
@@ -82,7 +102,10 @@ Item {
     property real uiYOffset: window.s(25)
     property real screenLight: 0.0
 
-    Component.onCompleted: startupAnim.start()
+    Component.onCompleted: {
+        startupAnim.start();
+        brightnessPoller.running = true;
+    }
 
     ParallelAnimation {
         id: startupAnim
@@ -93,6 +116,8 @@ Item {
     }
     property bool applyHovered: false
     property bool applyPressed: false
+    property bool brightnessDragging: false
+    property int activeTab: 0  // 0 = Display, 1 = Brightness
 
     onActiveEditIndexChanged: {
         menuTransitionAnim.restart();
@@ -243,6 +268,59 @@ Item {
                     
                     window.forceLayoutUpdate();
                 } catch(e) {}
+            }
+        }
+    }
+
+    property bool brightnessUpdatePending: false
+
+    Process {
+        id: brightnessPoller
+        command: ["bash", window.brightnessScriptPath, "list-ddc"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (window.brightnessDragging) {
+                    window.brightnessUpdatePending = false;
+                    return;
+                }
+                window.updateBrightnessModel(this.text);
+                window.brightnessUpdatePending = false;
+            }
+        }
+    }
+
+    Process {
+        id: brightnessRefresher
+        command: ["bash", window.brightnessScriptPath, "refresh-ddc"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                window.updateBrightnessModel(this.text);
+            }
+        }
+    }
+
+    Timer {
+        id: brightnessCooldownTimer
+        interval: 3000
+        repeat: false
+        running: false
+        onTriggered: {
+            if (!brightnessPoller.running && !window.brightnessDragging) {
+                window.brightnessUpdatePending = true;
+                brightnessPoller.running = true;
+            }
+        }
+    }
+
+    Timer {
+        id: brightnessRefreshTimer
+        interval: 15000
+        repeat: true
+        running: true
+        onTriggered: {
+            if (!window.brightnessDragging && !brightnessPoller.running && !window.brightnessUpdatePending) {
+                window.brightnessUpdatePending = true;
+                brightnessPoller.running = true;
             }
         }
     }
@@ -763,7 +841,77 @@ Item {
                 ColumnLayout {
                     id: rightSideContainer
                     anchors.fill: parent
-                    spacing: window.s(12)
+                    spacing: window.s(10)
+
+                    // --- TAB BAR ---
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: window.s(36)
+                        radius: window.s(18)
+                        color: window.mantle
+                        border.color: window.surface0
+                        border.width: 1
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.margins: window.s(3)
+                            spacing: window.s(3)
+
+                            Repeater {
+                                model: [
+                                    { label: "Display",    icon: "󰍹" },
+                                    { label: "Brightness", icon: "󰃠" }
+                                ]
+                                delegate: Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    radius: window.s(15)
+                                    property bool isSel: window.activeTab === index
+                                    color: isSel ? Qt.alpha(index === 0 ? window.selectedResAccent : window.yellow, 0.18) : (tabMa.containsMouse ? window.surface0 : "transparent")
+                                    border.color: isSel ? (index === 0 ? window.selectedResAccent : window.yellow) : "transparent"
+                                    border.width: isSel ? 1 : 0
+                                    Behavior on color { ColorAnimation { duration: 180 } }
+                                    Behavior on border.color { ColorAnimation { duration: 180 } }
+
+                                    RowLayout {
+                                        anchors.centerIn: parent
+                                        spacing: window.s(5)
+                                        Text {
+                                            font.family: "Iosevka Nerd Font"
+                                            font.pixelSize: window.s(14)
+                                            color: isSel ? (index === 0 ? window.selectedResAccent : window.yellow) : window.subtext0
+                                            text: modelData.icon
+                                            Behavior on color { ColorAnimation { duration: 180 } }
+                                        }
+                                        Text {
+                                            font.family: "JetBrains Mono"
+                                            font.weight: isSel ? Font.Bold : Font.Normal
+                                            font.pixelSize: window.s(11)
+                                            color: isSel ? window.text : window.subtext0
+                                            text: modelData.label
+                                            Behavior on color { ColorAnimation { duration: 180 } }
+                                        }
+                                    }
+                                    MouseArea {
+                                        id: tabMa
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: window.activeTab = index
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // --- DISPLAY TAB CONTENT ---
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        spacing: window.s(10)
+                        visible: window.activeTab === 0
+                        opacity: window.activeTab === 0 ? 1.0 : 0.0
+                        Behavior on opacity { NumberAnimation { duration: 180 } }
 
                     // --- RESOLUTION CARDS SECTION ---
                     GridLayout {
@@ -971,13 +1119,212 @@ Item {
                             onCanceled: () => sliderContainer.visualPct = sliderContainer.currentIndex / (sliderContainer.rates.length - 1)
                         }
                     }
-                    
-                    Item { Layout.fillHeight: true } 
-                }
+
+                    Item { Layout.fillHeight: true }
+                    } // end display tab ColumnLayout
+
+                    // --- BRIGHTNESS TAB CONTENT ---
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        spacing: window.s(10)
+                        visible: window.activeTab === 1
+                        opacity: window.activeTab === 1 ? 1.0 : 0.0
+                        Behavior on opacity { NumberAnimation { duration: 180 } }
+
+                        // Empty state
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            visible: brightnessModel.count === 0
+                            ColumnLayout {
+                                anchors.centerIn: parent
+                                spacing: window.s(8)
+                                Text {
+                                    Layout.alignment: Qt.AlignHCenter
+                                    font.family: "Iosevka Nerd Font"
+                                    font.pixelSize: window.s(32)
+                                    color: window.overlay0
+                                    text: "󰃠"
+                                }
+                                Text {
+                                    Layout.alignment: Qt.AlignHCenter
+                                    font.family: "JetBrains Mono"
+                                    font.pixelSize: window.s(11)
+                                    color: window.overlay0
+                                    text: "No DDC brightness"
+                                }
+                            }
+                        }
+
+                        // Reload button row
+                        RowLayout {
+                            Layout.fillWidth: true
+                            visible: brightnessModel.count > 0
+                            spacing: window.s(8)
+                            Item { Layout.fillWidth: true }
+                            Rectangle {
+                                width: window.s(26)
+                                height: window.s(26)
+                                radius: window.s(13)
+                                color: brightnessReloadMa.containsMouse ? window.surface1 : window.surface0
+                                border.color: brightnessReloadMa.containsMouse ? window.yellow : window.surface2
+                                border.width: 1
+                                Text {
+                                    anchors.centerIn: parent
+                                    font.family: "Iosevka Nerd Font"
+                                    font.pixelSize: window.s(13)
+                                    color: window.text
+                                    text: "󰑓"
+                                }
+                                MouseArea {
+                                    id: brightnessReloadMa
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        if (!brightnessRefresher.running) brightnessRefresher.running = true;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Brightness sliders
+                        Repeater {
+                            model: brightnessModel
+                            delegate: ColumnLayout {
+                                id: brightnessRow
+                                Layout.fillWidth: true
+                                spacing: window.s(6)
+
+                                property bool dragging: false
+                                property int pendingBrightness: -1
+                                readonly property string brightnessDeviceId: model.id
+
+                                function sendBrightness(pct) {
+                                    Quickshell.execDetached(["bash", window.brightnessScriptPath, "set", brightnessDeviceId, pct.toString()]);
+                                }
+
+                                Timer {
+                                    id: brightnessSetThrottle
+                                    interval: 140
+                                    repeat: false
+                                    onTriggered: {
+                                        if (brightnessRow.pendingBrightness >= 0) {
+                                            brightnessRow.sendBrightness(brightnessRow.pendingBrightness);
+                                            brightnessRow.pendingBrightness = -1;
+                                        }
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: window.s(8)
+                                    Text {
+                                        font.family: "Iosevka Nerd Font"
+                                        font.pixelSize: window.s(14)
+                                        color: window.yellow
+                                        text: "󰍹"
+                                    }
+                                    Text {
+                                        Layout.fillWidth: true
+                                        elide: Text.ElideRight
+                                        font.family: "JetBrains Mono"
+                                        font.weight: Font.Bold
+                                        font.pixelSize: window.s(11)
+                                        color: window.text
+                                        text: model.name
+                                    }
+                                    Text {
+                                        Layout.preferredWidth: window.s(38)
+                                        horizontalAlignment: Text.AlignRight
+                                        font.family: "JetBrains Mono"
+                                        font.weight: Font.Bold
+                                        font.pixelSize: window.s(13)
+                                        color: window.yellow
+                                        text: model.brightness + "%"
+                                    }
+                                }
+
+                                Item {
+                                    Layout.fillWidth: true
+                                    Layout.preferredHeight: window.s(22)
+
+                                    Rectangle {
+                                        anchors.fill: parent
+                                        radius: window.s(11)
+                                        color: window.surface0
+                                        border.color: window.surface2
+                                        border.width: 1
+                                        clip: true
+
+                                        Rectangle {
+                                            height: parent.height
+                                            width: parent.width * (model.brightness / 100)
+                                            radius: parent.radius
+                                            gradient: Gradient {
+                                                orientation: Gradient.Horizontal
+                                                GradientStop { position: 0.0; color: Qt.alpha(window.yellow, 0.7) }
+                                                GradientStop { position: 1.0; color: window.yellow }
+                                            }
+                                            opacity: brightnessMa2.containsMouse ? 1.0 : 0.82
+                                            Behavior on width { enabled: !brightnessRow.dragging; NumberAnimation { duration: 160; easing.type: Easing.OutQuint } }
+                                            Behavior on opacity { NumberAnimation { duration: 160 } }
+                                        }
+                                    }
+
+                                    MouseArea {
+                                        id: brightnessMa2
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+
+                                        function updateValue(mx, commit) {
+                                            let pct = Math.max(1, Math.min(100, Math.round((mx / width) * 100)));
+                                            brightnessModel.setProperty(index, "brightness", pct);
+                                            if (commit) {
+                                                brightnessSetThrottle.stop();
+                                                brightnessRow.pendingBrightness = -1;
+                                                brightnessRow.sendBrightness(pct);
+                                            } else {
+                                                brightnessRow.pendingBrightness = pct;
+                                                if (!brightnessSetThrottle.running) brightnessSetThrottle.start();
+                                            }
+                                        }
+
+                                        onPressed: (mouse) => {
+                                            brightnessRow.dragging = true;
+                                            window.brightnessDragging = true;
+                                            updateValue(mouse.x, false);
+                                        }
+                                        onPositionChanged: (mouse) => {
+                                            if (pressed) updateValue(mouse.x, false);
+                                        }
+                                        onReleased: (mouse) => {
+                                            updateValue(mouse.x, true);
+                                            brightnessRow.dragging = false;
+                                            window.brightnessDragging = false;
+                                            // Обновить из железа через 3 секунды после отпускания
+                                            brightnessCooldownTimer.restart();
+                                        }
+                                        onCanceled: {
+                                            brightnessSetThrottle.stop();
+                                            brightnessRow.pendingBrightness = -1;
+                                            brightnessRow.dragging = false;
+                                            window.brightnessDragging = false;
+                                            brightnessCooldownTimer.restart();
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Item { Layout.fillHeight: true }
+                    } // end brightness tab ColumnLayout
+
+                } // end rightSideContainer ColumnLayout
             }
 
-            // ==========================================
-            // FLOATING APPLY BUTTON 
             // ==========================================
             Item {
                 id: applyButtonContainer

@@ -249,7 +249,7 @@ tooltip {
 #bluetooth, #pulseaudio, #wireplumber, #custom-wifi,
 #custom-misc, #idle_inhibitor,
 #custom-filemanager, #custom-browser, #custom-terminal, #custom-editor,
-#custom-kbd-backlight, #custom-mic,#custom-updates,
+#custom-monitor-brightness, #custom-kbd-backlight, #custom-mic,#custom-updates,
 #custom-qs-updater,
 #window, #language {
     padding: 0px 9px;
@@ -428,6 +428,14 @@ tooltip {
 }
 
 #backlight:hover {
+    color: @tn-fg;
+}
+
+#custom-monitor-brightness {
+    color: @tn-yellow;
+}
+
+#custom-monitor-brightness:hover {
     color: @tn-fg;
 }
 
