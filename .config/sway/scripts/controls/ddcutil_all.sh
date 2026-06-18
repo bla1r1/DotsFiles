@@ -6,6 +6,7 @@
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/sway"
 DISPLAY_CACHE="$CACHE_DIR/ddc-displays"
 LOCK_FILE="$CACHE_DIR/ddcutil_all.lock"
+STATE_FILE="$CACHE_DIR/ddcutil_all.dimmed"
 DETECT_TTL=600
 EMPTY_DETECT_TTL=30
 DDC_TIMEOUT=2s
@@ -19,6 +20,11 @@ have() {
 
 dim_backlight() {
     have brightnessctl || return 0
+    [[ -f "$STATE_FILE" ]] && {
+        timeout "$DDC_TIMEOUT" brightnessctl -c backlight set 10% >/dev/null 2>&1 || true
+        return 0
+    }
+
     local current tmp
     tmp="$CACHE_DIR/brightness.tmp"
 
@@ -97,6 +103,11 @@ for_each_external() {
             fi
 
             if [[ "$action" == "dim" ]]; then
+                if [[ -f "$STATE_FILE" ]]; then
+                    timeout "$DDC_TIMEOUT" ddcutil setvcp 10 10 "${ddc_target[@]}" --noverify >/dev/null 2>&1 || true
+                    exit 0
+                fi
+
                 current=$(timeout "$DDC_TIMEOUT" ddcutil getvcp 10 "${ddc_target[@]}" --noverify 2>/dev/null \
                     | sed -n 's/.*current value = *\([0-9]\+\).*/\1/p' | head -n1)
                 if [[ -n "$current" ]]; then
@@ -133,12 +144,14 @@ case "$1" in
         flock -n 9 || exit 0
         has_backlight && dim_backlight
         has_external  && for_each_external dim
+        : > "$STATE_FILE"
         ;;
     undim)
         exec 9>"$LOCK_FILE"
         flock -w 5 9 || exit 0
         has_backlight && undim_backlight
         has_external  && for_each_external undim
+        rm -f "$STATE_FILE"
         ;;
     *)
         echo "Usage: $(basename "$0") dim|undim" >&2

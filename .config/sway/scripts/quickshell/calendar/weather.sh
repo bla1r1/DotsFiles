@@ -11,6 +11,7 @@ daily_cache_file="${cache_dir}/daily_weather_cache.json"
 next_day_cache_file="${cache_dir}/next_day_precache.json"
 env_tracker_file="${cache_dir}/.env_tracker"
 ENV_FILE="$(dirname "$0")/.env"
+SETTINGS_LIB="$(cd "$(dirname "$0")/../.." && pwd)/lib/settings.sh"
 
 # API Settings
 # Load environment variables silently
@@ -18,10 +19,21 @@ if [ -f "$ENV_FILE" ]; then
     export $(grep -v '^#' "$ENV_FILE" | xargs)
 fi
 
+if [ -f "$SETTINGS_LIB" ]; then
+    # shellcheck disable=SC1090
+    source "$SETTINGS_LIB"
+fi
+
 # API Settings from .env
-KEY="$OPENWEATHER_KEY"
-ID="$OPENWEATHER_CITY_ID"
+KEY="${OPENWEATHER_KEY:-}"
+ID="${OPENWEATHER_CITY_ID:-}"
 UNIT="${OPENWEATHER_UNIT:-metric}" # Default to metric if not set
+
+if declare -F settings_get >/dev/null 2>&1; then
+    KEY="$(settings_get weather.openWeatherKey "$KEY")"
+    ID="$(settings_get weather.openWeatherCityId "$ID")"
+    UNIT="$(settings_get weather.openWeatherUnit "$UNIT")"
+fi
 
 mkdir -p "${cache_dir}"
 

@@ -11,6 +11,7 @@ Item {
         IconButton {
             id: sessionButton
             property bool showLabel: Config.sessionDisplaySessionName
+            visible: Config.sessionDisplay
             preferredWidth: showLabel ? (Config.sessionButtonWidth === -1 ? undefined : Config.sessionButtonWidth) : Config.menuAreaButtonsSize
             height: Config.menuAreaButtonsSize * Config.generalScale
             iconSize: Config.sessionIconSize
@@ -105,6 +106,7 @@ Item {
 
             property bool showLabel: Config.layoutDisplayLayoutName
 
+            visible: Config.layoutDisplay
             height: Config.menuAreaButtonsSize * Config.generalScale
             icon: Config.getIcon(Config.layoutIcon)
             active: popup.visible
@@ -215,6 +217,7 @@ Item {
         IconButton {
             id: keyboardButton
 
+            visible: Config.keyboardDisplay
             height: Config.menuAreaButtonsSize * Config.generalScale
             width: Config.menuAreaButtonsSize * Config.generalScale
             icon: Config.getIcon(Config.keyboardIcon)
@@ -245,6 +248,7 @@ Item {
         IconButton {
             id: powerButton
 
+            visible: Config.powerDisplay
             height: Config.menuAreaButtonsSize * Config.generalScale
             width: Config.menuAreaButtonsSize * Config.generalScale
             icon: Config.getIcon(Config.powerIcon)
@@ -317,6 +321,75 @@ Item {
 
                 Component.onCompleted: {
                     [x, y] = menuArea.calculatePopupPos(Config.powerPopupDirection, Config.powerPopupAlign, popup, powerButton);
+                }
+            }
+        }
+    }
+
+    Component {
+        id: settingsMenuComponent
+
+        IconButton {
+            id: settingsButton
+
+            visible: Config.settingsDisplay
+            height: Config.menuAreaButtonsSize * Config.generalScale
+            width: Config.menuAreaButtonsSize * Config.generalScale
+            icon: Config.getIcon(Config.settingsIcon)
+            iconSize: Config.settingsIconSize
+            contentColor: Config.settingsContentColor
+            activeContentColor: Config.settingsActiveContentColor
+            fontFamily: Config.menuAreaButtonsFontFamily
+            active: popup.visible
+            borderRadius: Config.menuAreaButtonsBorderRadius
+            borderSize: Config.settingsBorderSize
+            backgroundColor: Config.settingsBackgroundColor
+            backgroundOpacity: Config.settingsBackgroundOpacity
+            activeBackgroundColor: Config.settingsBackgroundColor
+            activeBackgroundOpacity: Config.settingsActiveBackgroundOpacity
+            enabled: loginScreen.state === "normal" || popup.visible
+            activeFocusOnTab: true
+            focus: false
+            onClicked: {
+                popup.open();
+            }
+            tooltipText: "Settings"
+
+            Popup {
+                id: popup
+                parent: menuArea
+                width: Math.max(320 * Config.generalScale, Math.min(Config.settingsPanelWidth * Config.generalScale, menuArea.width - (Config.menuAreaButtonsMarginLeft + Config.menuAreaButtonsMarginRight) * Config.generalScale))
+                height: Math.max(320 * Config.generalScale, Math.min(Config.settingsPanelHeight * Config.generalScale, menuArea.height - (Config.menuAreaButtonsMarginTop + Config.menuAreaButtonsMarginBottom) * Config.generalScale))
+                x: (menuArea.width - width) / 2
+                y: (menuArea.height - height) / 2
+                padding: 0
+                background: Item {}
+                dim: true
+                modal: true
+                popupType: Popup.Item
+                closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+                focus: visible
+
+                Overlay.modal: Rectangle {
+                    color: "#000000"
+                    opacity: 0.18
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: function (event) {
+                            popup.close();
+                            event.accepted = true;
+                        }
+                    }
+                }
+
+                onOpened: loginScreen.safeStateChange("popup")
+                onClosed: loginScreen.safeStateChange("normal")
+
+                SettingsCenter {
+                    anchors.fill: parent
+                    focus: popup.focus
+                    onClose: popup.close()
                 }
             }
         }
@@ -490,6 +563,8 @@ Item {
                 createdObject = keyboardMenuComponent.createObject(pos, {});
             else if (menus[i].name === "power")
                 createdObject = powerMenuComponent.createObject(pos, {});
+            else if (menus[i].name === "settings")
+                createdObject = settingsMenuComponent.createObject(pos, {});
 
             if (createdObject) {
                 createdObjects.push(createdObject);

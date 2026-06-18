@@ -435,6 +435,12 @@ tooltip {
     color: @tn-yellow;
 }
 
+#custom-monitor-brightness.empty {
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+}
+
 #custom-monitor-brightness:hover {
     color: @tn-fg;
 }

@@ -3,6 +3,10 @@ set -euo pipefail
 
 ICON_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/swaync/icons"
 SYNC_HINT="string:x-canonical-private-synchronous:sys-notify-mic"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SETTINGS_LIB="$SCRIPT_DIR/lib/settings.sh"
+
+[[ -f "$SETTINGS_LIB" ]] && source "$SETTINGS_LIB"
 
 die() {
     printf '%s\n' "$*" >&2
@@ -12,6 +16,10 @@ die() {
 notify_msg() {
     local icon="$1"
     local title="$2"
+    if declare -F settings_get_bool >/dev/null 2>&1 \
+        && [[ "$(settings_get_bool controls.audioNotifications true)" != "true" ]]; then
+        return 0
+    fi
     if command -v notify-send >/dev/null 2>&1; then
         notify-send -h "$SYNC_HINT" -u low -i "$icon" "$title"
     fi

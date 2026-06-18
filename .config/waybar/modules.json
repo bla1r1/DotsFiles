@@ -203,11 +203,11 @@
     "tooltip": true
   },
   "custom/monitor-brightness": {
-    "exec-if": "bash ~/.config/sway/scripts/controls/monitor-brightness.sh has",
     "exec": "bash ~/.config/sway/scripts/controls/monitor-brightness.sh waybar",
     "return-type": "json",
     "interval": 10,
     "format": "{}",
+    "hide-empty": true,
     "on-click": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleMonitors",
     "on-click-right": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleMonitors",
     "on-scroll-up": "bash ~/.config/sway/scripts/controls/monitor-brightness.sh up",

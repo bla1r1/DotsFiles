@@ -90,6 +90,151 @@ Item {
         }
     }
 
+    function clearAnchors(item) {
+        item.anchors.top = undefined;
+        item.anchors.right = undefined;
+        item.anchors.bottom = undefined;
+        item.anchors.left = undefined;
+        item.anchors.horizontalCenter = undefined;
+        item.anchors.verticalCenter = undefined;
+        item.anchors.topMargin = 0;
+        item.anchors.rightMargin = 0;
+        item.anchors.bottomMargin = 0;
+        item.anchors.leftMargin = 0;
+    }
+
+    function clearHorizontalAnchors(item) {
+        item.anchors.right = undefined;
+        item.anchors.left = undefined;
+        item.anchors.horizontalCenter = undefined;
+        item.anchors.rightMargin = 0;
+        item.anchors.leftMargin = 0;
+    }
+
+    function alignHorizontal(item) {
+        clearHorizontalAnchors(item);
+
+        if (Config.loginAreaPosition === "left") {
+            item.anchors.left = item.parent.left;
+        } else if (Config.loginAreaPosition === "right") {
+            item.anchors.right = item.parent.right;
+        } else {
+            item.anchors.horizontalCenter = item.parent.horizontalCenter;
+        }
+    }
+
+    function updateLoginContainerAnchors() {
+        clearAnchors(loginContainer);
+
+        if (Config.loginAreaPosition === "left") {
+            loginContainer.anchors.verticalCenter = loginScreen.verticalCenter;
+            if (Config.loginAreaMargin === -1) {
+                loginContainer.anchors.horizontalCenter = loginScreen.horizontalCenter;
+            } else {
+                loginContainer.anchors.left = loginScreen.left;
+                loginContainer.anchors.leftMargin = Config.loginAreaMargin;
+            }
+        } else if (Config.loginAreaPosition === "right") {
+            loginContainer.anchors.verticalCenter = loginScreen.verticalCenter;
+            if (Config.loginAreaMargin === -1) {
+                loginContainer.anchors.horizontalCenter = loginScreen.horizontalCenter;
+            } else {
+                loginContainer.anchors.right = loginScreen.right;
+                loginContainer.anchors.rightMargin = Config.loginAreaMargin;
+            }
+        } else {
+            loginContainer.anchors.horizontalCenter = loginScreen.horizontalCenter;
+            if (Config.loginAreaMargin === -1) {
+                loginContainer.anchors.verticalCenter = loginScreen.verticalCenter;
+            } else {
+                loginContainer.anchors.top = loginScreen.top;
+                loginContainer.anchors.topMargin = Config.loginAreaMargin;
+            }
+        }
+    }
+
+    function updateNoUsersLoginAreaAnchors() {
+        clearAnchors(noUsersLoginArea);
+        noUsersLoginArea.anchors.bottom = loginLayout.top;
+        alignHorizontal(noUsersLoginArea);
+    }
+
+    function updateUserSelectorAnchors() {
+        clearAnchors(userSelector);
+        userSelector.anchors.top = loginContainer.top;
+
+        if (Config.loginAreaPosition === "left") {
+            userSelector.anchors.left = loginContainer.left;
+        } else if (Config.loginAreaPosition === "right") {
+            userSelector.anchors.right = loginContainer.right;
+        }
+    }
+
+    function updateLoginLayoutAnchors() {
+        clearAnchors(loginLayout);
+
+        if (Config.loginAreaPosition === "left") {
+            loginLayout.anchors.verticalCenter = loginContainer.verticalCenter;
+            if (userSelector.visible) {
+                loginLayout.anchors.left = userSelector.right;
+                loginLayout.anchors.leftMargin = Config.usernameMargin;
+            } else {
+                loginLayout.anchors.left = loginContainer.left;
+            }
+        } else if (Config.loginAreaPosition === "right") {
+            loginLayout.anchors.verticalCenter = loginContainer.verticalCenter;
+            if (userSelector.visible) {
+                loginLayout.anchors.right = userSelector.left;
+                loginLayout.anchors.rightMargin = Config.usernameMargin;
+            } else {
+                loginLayout.anchors.right = loginContainer.right;
+            }
+        } else {
+            loginLayout.anchors.top = userSelector.bottom;
+            loginLayout.anchors.topMargin = Config.usernameMargin;
+            loginLayout.anchors.horizontalCenter = loginContainer.horizontalCenter;
+        }
+    }
+
+    function updateLoginContentAnchors() {
+        clearAnchors(activeUserName);
+        activeUserName.anchors.top = loginLayout.top;
+        alignHorizontal(activeUserName);
+
+        clearAnchors(loginArea);
+        loginArea.anchors.top = activeUserName.bottom;
+        loginArea.anchors.topMargin = Config.passwordInputMarginTop;
+        alignHorizontal(loginArea);
+
+        clearAnchors(spinner);
+        spinner.anchors.top = activeUserName.bottom;
+        spinner.anchors.topMargin = Config.passwordInputMarginTop;
+        alignHorizontal(spinner);
+
+        clearAnchors(loginMessage);
+        loginMessage.anchors.top = loginArea.bottom;
+        loginMessage.anchors.topMargin = loginMessage.visible ? Config.warningMessageMarginTop : 0;
+        alignHorizontal(loginMessage);
+    }
+
+    function updateLoginAreaAnchors() {
+        updateLoginContainerAnchors();
+        updateNoUsersLoginAreaAnchors();
+        updateUserSelectorAnchors();
+        updateLoginLayoutAnchors();
+        updateLoginContentAnchors();
+    }
+
+    Connections {
+        target: Config
+        function onLoginAreaPositionChanged() {
+            loginScreen.updateLoginAreaAnchors();
+        }
+        function onLoginAreaMarginChanged() {
+            loginScreen.updateLoginAreaAnchors();
+        }
+    }
+
     Item {
         id: loginContainer
         width: Config.loginAreaPosition === "left" || Config.loginAreaPosition === "right" ? (Config.avatarActiveSize + Config.usernameMargin + loginArea.width) : userSelector.width
@@ -105,36 +250,12 @@ Item {
 
         // LoginArea position
         Component.onCompleted: {
-            if (Config.loginAreaPosition === "left") {
-                anchors.verticalCenter = parent.verticalCenter;
-                if (Config.loginAreaMargin === -1) {
-                    anchors.horizontalCenter = parent.horizontalCenter;
-                } else {
-                    anchors.left = parent.left;
-                    anchors.leftMargin = Config.loginAreaMargin;
-                }
-            } else if (Config.loginAreaPosition === "right") {
-                anchors.verticalCenter = parent.verticalCenter;
-                if (Config.loginAreaMargin === -1) {
-                    anchors.horizontalCenter = parent.horizontalCenter;
-                } else {
-                    anchors.right = parent.right;
-                    anchors.rightMargin = Config.loginAreaMargin;
-                }
-            } else {
-                anchors.horizontalCenter = parent.horizontalCenter;
-                if (Config.loginAreaMargin === -1) {
-                    anchors.verticalCenter = parent.verticalCenter;
-                } else {
-                    anchors.top = parent.top;
-                    anchors.topMargin = Config.loginAreaMargin;
-                }
-            }
-
             if (!loginScreen.foundUsers) {
                 userSelector.visible = false;
                 noUsersLoginArea.visible = true;
             }
+
+            loginScreen.updateLoginAreaAnchors();
         }
 
         Item {

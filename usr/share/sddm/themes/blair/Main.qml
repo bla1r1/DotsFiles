@@ -23,6 +23,17 @@ Item {
         loginScreen.updateCapsLock();
     }
 
+    function selectedScreenIndex() {
+        var primary = screenModel && screenModel.primary !== undefined ? screenModel.primary : 0;
+        if (Config.displayScreenTarget !== "index")
+            return primary;
+
+        var index = Math.max(0, Config.displayScreenIndex);
+        if (screenModel && screenModel.count !== undefined && index >= screenModel.count)
+            return primary;
+        return index;
+    }
+
     states: [
         State {
             name: "lockState"
@@ -89,7 +100,8 @@ Item {
 
     Item {
         id: mainFrame
-        property variant geometry: screenModel.geometry(screenModel.primary)
+        property int selectedScreen: root.selectedScreenIndex()
+        property variant geometry: screenModel.geometry(selectedScreen)
         x: geometry.x
         y: geometry.y
         width: geometry.width

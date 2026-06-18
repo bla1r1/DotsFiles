@@ -13,6 +13,10 @@ QtObject {
     property string animatedBackgroundPlaceholder: config.stringValue("animated-background-placeholder") // @possible:File in `backgrounds/` @desc:An image file to be used as a placeholder for the animated background while it loads.
     property string backgroundFillMode: config.stringValue("background-fill-mode") || "fill" // @possible:'fill' | 'fit' | 'stretch' @desc:Fill mode for <a href="#lockscreenbackground">LockScreen/background</a> and <a href="#loginscreenbackground">LoginScreen/background</a>.<br/><table><tr><th>Value</th><th>QML equivalent</th><th>Description</th></tr><tr><td>fit</td><td><a href="https://doc.qt.io/qt-6/qml-qtquick-image.html#fillMode-prop">Image.PreserveAspectFit</a> and <a href="https://doc.qt.io/qt-6/qml-qtmultimedia-video.html#fillMode-prop">VideoOutput.PreserveAspectFit</a></td><td>The image/video is scaled uniformly to fit without cropping.</td></tr><tr><td>fill</td><td><a href="https://doc.qt.io/qt-6/qml-qtquick-image.html#fillMode-prop">Image.PreserveAspectCrop</a> and <a href="https://doc.qt.io/qt-6/qml-qtmultimedia-video.html#fillMode-prop">VideoOutput.PreserveAspectCrop</a></td><td>The image/video is scaled uniformly to fill, cropping if necessary.</td></tr><tr><td>stretch</td><td><a href="https://doc.qt.io/qt-6/qml-qtquick-image.html#fillMode-prop">Image.Stretch</a> and <a href="https://doc.qt.io/qt-6/qml-qtmultimedia-video.html#fillMode-prop">VideoOutput.Stretch</a></td><td>The image/video is scaled to fit, stretching if necessary.</td></tr></table>
 
+    // [Displays]
+    property string displayScreenTarget: config.stringValue("Displays/target") || "primary" // @possible:'primary' | 'index' @desc:Which monitor should host the theme frame.
+    property int displayScreenIndex: config.intValue("Displays/index") // @desc:Monitor index used when target is set to index.
+
     // [LockScreen]
     property bool lockScreenDisplay: config['LockScreen/display'] === "false" ? false : true // @desc:Whether or not to display the lock screen. If false, the theme will load straight to the login screen.
     property int lockScreenPaddingTop: config.intValue("LockScreen/padding-top") // @desc:Top padding of the lock screen. <br/>See also: <a href="#clockposition">Clock/position</a>, <a href="#lockmessageposition">Message/position</a>.
@@ -60,6 +64,23 @@ QtObject {
     property color lockMessageColor: config.stringValue("LockScreen.Message/color") || "#FFFFFF" // @desc:Color of the custom message.
     property bool lockMessagePaintIcon: config['LockScreen.Message/paint-icon'] === "false" ? false : true // @desc:Whether or not to paint the icon with the same color as the text.
     property int lockMessageSpacing: config.intValue("LockScreen.Message/spacing") // @desc:Spacing between the icon and the text in the custom message.
+
+    // [LockScreen.Info]
+    property bool infoBlockDisplay: config.boolValue("LockScreen.Info/display") // @desc:Whether or not to display the lock-screen info block.
+    property string infoBlockPosition: config.stringValue("LockScreen.Info/position") || "center-right" // @possible:'top-left' | 'top-center' | 'top-right' | 'center-left' | 'center' | 'center-right' | 'bottom-left' | 'bottom-center' | 'bottom-right' @desc:Position of the lock-screen info block.
+    property string infoBlockAlign: config.stringValue("LockScreen.Info/align") || "left" // @possible:'left' | 'center' | 'right' @desc:Text alignment of the lock-screen info block.
+    property bool infoBlockDateDisplay: config["LockScreen.Info/display-date"] === "false" ? false : true // @desc:Whether or not to display the date in the info block.
+    property bool infoBlockWeatherDisplay: config["LockScreen.Info/display-weather"] === "false" ? false : true // @desc:Whether or not to display the weather placeholder in the info block.
+    property string infoBlockWeatherLocation: config.stringValue("LockScreen.Info/weather-location") || "Berlin" // @desc:Location label used by the weather placeholder.
+    property string infoBlockWeatherUnits: config.stringValue("LockScreen.Info/weather-units") || "C" // @possible:'C' | 'F' @desc:Weather units used by the weather placeholder.
+    property string infoBlockWeatherText: config.stringValue("LockScreen.Info/weather-text") || "Weather provider not connected" // @desc:Weather placeholder text.
+    property string infoBlockFontFamily: config.stringValue("LockScreen.Info/font-family") || "RedHatDisplay" // @desc:Font family used for the lock-screen info block.
+    property int infoBlockTitleFontSize: config.intValue("LockScreen.Info/title-font-size") || 14 // @desc:Title font size of the lock-screen info block.
+    property int infoBlockFontSize: config.intValue("LockScreen.Info/font-size") || 11 // @desc:Body font size of the lock-screen info block.
+    property int infoBlockFontWeight: config.intValue("LockScreen.Info/font-weight") || 500 // @desc:Font weight of the lock-screen info block.
+    property color infoBlockColor: config.stringValue("LockScreen.Info/color") || "#FFFFFF" // @desc:Text color of the lock-screen info block.
+    property color infoBlockMutedColor: config.stringValue("LockScreen.Info/muted-color") || "#D8D8D8" // @desc:Secondary text color of the lock-screen info block.
+    property int infoBlockSpacing: config.intValue("LockScreen.Info/spacing") || 4 // @desc:Spacing inside the lock-screen info block.
 
     // [LoginScreen]
     property string loginScreenBackground: config.stringValue("LoginScreen/background") || "default.jpg" // @possible:File in `backgrounds/` @desc:Background of the login screen.<br/>Supported formats: jpg, png, avi, mp4, mov, mkv, m4v, webm. <strong>.gifs are not supported as they may cause SDDM to crash.</strong> <br/>See also: <a href="#animatedbackgroundplaceholder">animated-background-placeholder</a>
@@ -243,6 +264,38 @@ QtObject {
     property string powerIcon: config.stringValue("LoginScreen.MenuArea.Power/icon") || "power.svg" // @possible:File in `icons/` @desc:Icon in the power button.
     property int powerIconSize: config.intValue("LoginScreen.MenuArea.Power/icon-size") || 16 // @desc:Size of the icon in the power button.
 
+    // [LoginScreen.MenuArea.Settings]
+    property bool settingsDisplay: config["LoginScreen.MenuArea.Settings/display"] === "false" ? false : true // @desc:Whether or not to display the settings button.
+    property string settingsPosition: config.stringValue("LoginScreen.MenuArea.Settings/position") // @possible:'top-left' | 'top-center' | 'top-right' | 'center-left' | 'center-right' | 'bottom-left' | 'bottom-center' | 'bottom-right' @default:bottom-right @desc:Position of the settings button.
+    property int settingsIndex: config.intValue("LoginScreen.MenuArea.Settings/index") // @default:4 @desc:This number is used to sort menu buttons placed in the same position.
+    property string settingsIcon: config.stringValue("LoginScreen.MenuArea.Settings/icon") || "settings.svg" // @possible:File in `icons/` @desc:Icon in the settings button.
+    property int settingsIconSize: config.intValue("LoginScreen.MenuArea.Settings/icon-size") || 16 // @desc:Size of the icon in the settings button.
+    property color settingsBackgroundColor: config.stringValue("LoginScreen.MenuArea.Settings/background-color") || "#FFFFFF" // @desc:Background color of the settings button.
+    property real settingsBackgroundOpacity: config.realValue("LoginScreen.MenuArea.Settings/background-opacity") // @possible:0.0 ≤ R ≤ 1.0 @desc:Opacity of the background of the settings button.
+    property real settingsActiveBackgroundOpacity: config.realValue("LoginScreen.MenuArea.Settings/active-background-opacity") // @possible:0.0 ≤ R ≤ 1.0 @desc:Opacity of the background of the settings button when hovered/focused.
+    property color settingsContentColor: config.stringValue("LoginScreen.MenuArea.Settings/content-color") || "#FFFFFF" // @desc:Color of the icon in the settings button.
+    property color settingsActiveContentColor: config.stringValue("LoginScreen.MenuArea.Settings/active-content-color") || "#FFFFFF" // @desc:Color of the icon in the settings button when hovered/focused.
+    property int settingsBorderSize: config.intValue("LoginScreen.MenuArea.Settings/border-size") // @desc:Border size of the settings button. The color of the border is defined by 'content-color' and 'active-content-color'.
+
+    // [LoginScreen.SettingsPanel]
+    property int settingsPanelWidth: config.intValue("LoginScreen.SettingsPanel/width") || 760 // @desc:Width of the central settings panel.
+    property int settingsPanelHeight: config.intValue("LoginScreen.SettingsPanel/height") || 500 // @desc:Height of the central settings panel.
+    property int settingsPanelPadding: config.intValue("LoginScreen.SettingsPanel/padding") || 18 // @desc:Padding inside the central settings panel.
+    property int settingsPanelBorderRadius: config.intValue("LoginScreen.SettingsPanel/border-radius") || 8 // @desc:Border radius of the central settings panel.
+    property color settingsPanelBackgroundColor: config.stringValue("LoginScreen.SettingsPanel/background-color") || "#FFFFFF" // @desc:Background color of the central settings panel.
+    property real settingsPanelBackgroundOpacity: config.realValue("LoginScreen.SettingsPanel/background-opacity") || 0.16 // @possible:0.0 ≤ R ≤ 1.0 @desc:Opacity of the central settings panel.
+    property color settingsPanelBorderColor: config.stringValue("LoginScreen.SettingsPanel/border-color") || "#FFFFFF" // @desc:Border color of the central settings panel.
+    property real settingsPanelBorderOpacity: config.realValue("LoginScreen.SettingsPanel/border-opacity") || 0.18 // @possible:0.0 ≤ R ≤ 1.0 @desc:Opacity of the central settings panel border.
+    property int settingsPanelBorderSize: config.intValue("LoginScreen.SettingsPanel/border-size") || 1 // @desc:Border size of the central settings panel.
+    property color settingsPanelContentColor: config.stringValue("LoginScreen.SettingsPanel/content-color") || "#FFFFFF" // @desc:Primary text color inside the central settings panel.
+    property color settingsPanelMutedColor: config.stringValue("LoginScreen.SettingsPanel/muted-color") || "#D8D8D8" // @desc:Secondary text color inside the central settings panel.
+    property color settingsPanelActiveBackgroundColor: config.stringValue("LoginScreen.SettingsPanel/active-background-color") || "#FFFFFF" // @desc:Background color for active rows and tabs inside the central settings panel.
+    property real settingsPanelActiveBackgroundOpacity: config.realValue("LoginScreen.SettingsPanel/active-background-opacity") || 0.20 // @possible:0.0 ≤ R ≤ 1.0 @desc:Opacity for active rows and tabs inside the central settings panel.
+    property string settingsPanelFontFamily: config.stringValue("LoginScreen.SettingsPanel/font-family") || "RedHatDisplay" // @desc:Font family inside the central settings panel.
+    property int settingsPanelTitleFontSize: config.intValue("LoginScreen.SettingsPanel/title-font-size") || 18 // @desc:Title font size inside the central settings panel.
+    property int settingsPanelFontSize: config.intValue("LoginScreen.SettingsPanel/font-size") || 12 // @desc:Body font size inside the central settings panel.
+    property int settingsPanelSmallFontSize: config.intValue("LoginScreen.SettingsPanel/small-font-size") || 10 // @desc:Small label font size inside the central settings panel.
+
     // [LoginScreen.VirtualKeyboard]
     property real virtualKeyboardScale: config.realValue("LoginScreen.VirtualKeyboard/scale") || 1.0 // @desc:Scale of the virtual keyboard.
     property string virtualKeyboardPosition: config.stringValue("LoginScreen.VirtualKeyboard/position") || "login" // @possible: 'login' | 'top' | 'bottom' | 'left' | 'right' @desc:Initial position of the virtual keyboard. You can drag the keyboard using the middle mouse button.
@@ -305,6 +358,14 @@ QtObject {
                 index: powerIndex,
                 def_index: 3,
                 position: available_positions.includes(powerPosition) ? powerPosition : "bottom-right"
+            });
+
+        if (settingsDisplay)
+            menus.push({
+                name: "settings",
+                index: settingsIndex,
+                def_index: 4,
+                position: available_positions.includes(settingsPosition) ? settingsPosition : "bottom-right"
             });
 
         // Sort by index or default index if 0

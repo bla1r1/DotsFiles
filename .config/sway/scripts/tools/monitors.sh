@@ -3,6 +3,17 @@ set -euo pipefail
 
 STATE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/sway/state"
 STATE_FILE="$STATE_DIR/monitors-layout.json"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SETTINGS_LIB="$SCRIPT_DIR/lib/settings.sh"
+
+[[ -f "$SETTINGS_LIB" ]] && source "$SETTINGS_LIB"
+
+RESTORE_SAVED_LAYOUT=true
+AUTO_ARRANGE_FALLBACK=true
+if declare -F settings_get_bool >/dev/null 2>&1; then
+    RESTORE_SAVED_LAYOUT="$(settings_get_bool monitors.restoreSavedLayout "$RESTORE_SAVED_LAYOUT")"
+    AUTO_ARRANGE_FALLBACK="$(settings_get_bool monitors.autoArrangeFallback "$AUTO_ARRANGE_FALLBACK")"
+fi
 
 command -v swaymsg >/dev/null 2>&1 || exit 0
 command -v jq >/dev/null 2>&1 || exit 0
@@ -50,11 +61,13 @@ case "${1:-}" in
         exit 0
         ;;
     restore|"")
-        if restore_saved_layout; then
+        if [[ "$RESTORE_SAVED_LAYOUT" == "true" ]] && restore_saved_layout; then
             exit 0
         fi
         ;;
 esac
+
+[[ "$AUTO_ARRANGE_FALLBACK" == "true" ]] || exit 0
 
 outputs_json="$(swaymsg -t get_outputs 2>/dev/null || true)"
 [[ -n "$outputs_json" ]] || exit 0

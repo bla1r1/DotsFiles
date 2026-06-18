@@ -86,10 +86,33 @@ sync_repos() {
     sudo pacman -Sy --noconfirm
 }
 
+enable_multilib_repo() {
+    local conf="/etc/pacman.conf"
+
+    [[ -f "$conf" ]] || {
+        warn "$conf not found; cannot enable multilib."
+        return 0
+    }
+
+    if grep -Eq '^[[:space:]]*\[multilib\]' "$conf"; then
+        log "multilib repository already enabled."
+        return 0
+    fi
+
+    log "Enabling pacman multilib repository..."
+    sudo cp -n "$conf" "$conf.dotfiles-bak" 2>/dev/null || true
+
+    if grep -Eq '^[[:space:]]*#[[:space:]]*\[multilib\]' "$conf"; then
+        sudo sed -i '/^[[:space:]]*#[[:space:]]*\[multilib\]/,+1 s/^[[:space:]]*#[[:space:]]*//' "$conf"
+    else
+        printf '\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n' | sudo tee -a "$conf" >/dev/null
+    fi
+}
+
 arch_packages() {
     local pkgs=(
         base-devel git rsync curl unzip
-        swaybg swayidle xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk
+        swaybg swayidle swaylock xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk
         waybar rofi-wayland swaync wlogout quickshell
         kitty firefox nautilus geany fish fastfetch btop telegram-desktop
         wl-clipboard cliphist grim slurp swappy
@@ -111,7 +134,7 @@ arch_packages() {
         virt-manager steam discord
     )
 
-    [[ "$NO_AUR" -eq 1 ]] && pkgs+=(sway swaylock)
+    [[ "$NO_AUR" -eq 1 ]] && pkgs+=(sway)
     echo "${pkgs[@]}"
 }
 
@@ -406,6 +429,7 @@ main() {
     parse_args "$@"
     require_supported_distro
     ensure_sudo
+    [[ "$SKIP_PACKAGES" -eq 0 ]] && enable_multilib_repo
     sync_repos
 
     if [[ "$SKIP_PACKAGES" -eq 0 ]]; then

@@ -3,6 +3,8 @@
 # Не запускать второй экземпляр если уже заблокировано
 pgrep -x swaylock > /dev/null && exit 0
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DDCALL="$SCRIPT_DIR/controls/ddcutil_all.sh"
 help_text="$(swaylock --help 2>&1 || true)"
 
 supports() {
@@ -14,7 +16,6 @@ args=(
     --color 1a1b26
 )
 
-supports '--daemonize'          && args+=(--daemonize)
 supports '--indicator'          && args+=(--indicator)
 supports '--indicator-radius'   && args+=(--indicator-radius 100)
 supports '--indicator-thickness' && args+=(--indicator-thickness 7)
@@ -54,4 +55,11 @@ if supports '--effect-dim'; then
     args+=(--effect-dim 0.25)
 fi
 
-exec swaylock "${args[@]}"
+cleanup() {
+    bash "$DDCALL" undim >/dev/null 2>&1 || true
+}
+
+bash "$DDCALL" dim >/dev/null 2>&1 || true
+trap cleanup EXIT INT TERM
+
+swaylock "${args[@]}"
