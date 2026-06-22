@@ -510,7 +510,7 @@ Item {
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {
                                     let type = window.activeTab === "inputs" ? "source" : "sink";
-                                    Quickshell.execDetached(["bash", window.scriptsDir + "/audio_control.sh", "toggle-mute", type, window.activeId]);
+                                    Quickshell.execDetached([window.scriptsDir + "/audio_control.sh", "toggle-mute", type, window.activeId]);
                                     audioPoller.running = true;
                                 }
                             }
@@ -557,9 +557,9 @@ Item {
                                             if (targetPct >= 0) {
                                                 let type = window.activeTab === "inputs" ? "source" : "sink";
                                                 if (targetPct > 0 && window.activeMute) {
-                                                    Quickshell.execDetached(["bash", window.scriptsDir + "/audio_control.sh", "toggle-mute", type, window.activeId]);
+                                                    Quickshell.execDetached([window.scriptsDir + "/audio_control.sh", "toggle-mute", type, window.activeId]);
                                                 }
-                                                Quickshell.execDetached(["bash", window.scriptsDir + "/audio_control.sh", "set-volume", type, window.activeId, targetPct]);
+                                                Quickshell.execDetached([window.scriptsDir + "/audio_control.sh", "set-volume", type, window.activeId, targetPct]);
                                                 targetPct = -1;
                                             }
                                         }
@@ -621,9 +621,9 @@ Item {
                                     onTriggered: {
                                         if (targetPct >= 0 && window.defaultMicId !== "") {
                                             if (targetPct > 0 && window.defaultMicMute) {
-                                                Quickshell.execDetached(["bash", window.scriptsDir + "/audio_control.sh", "toggle-mute", "source", window.defaultMicId]);
+                                                Quickshell.execDetached([window.scriptsDir + "/audio_control.sh", "toggle-mute", "source", window.defaultMicId]);
                                             }
-                                            Quickshell.execDetached(["bash", window.scriptsDir + "/audio_control.sh", "set-volume", "source", window.defaultMicId, targetPct]);
+                                            Quickshell.execDetached([window.scriptsDir + "/audio_control.sh", "set-volume", "source", window.defaultMicId, targetPct]);
                                             targetPct = -1;
                                         }
                                     }
@@ -735,7 +735,7 @@ Item {
                                     cursorShape: window.defaultMicId !== "" ? Qt.PointingHandCursor : Qt.ArrowCursor
                                     onClicked: {
                                         if (window.defaultMicId === "") return;
-                                        Quickshell.execDetached(["bash", window.scriptsDir + "/audio_control.sh", "toggle-mute", "source", window.defaultMicId]);
+                                        Quickshell.execDetached([window.scriptsDir + "/audio_control.sh", "toggle-mute", "source", window.defaultMicId]);
                                         audioPoller.running = true;
                                     }
                                 }
@@ -904,7 +904,7 @@ Item {
                                 onClicked: {
                                     if (window.activeTab !== "apps" && !model.is_default) {
                                         let type = window.activeTab === "outputs" ? "sink" : "source";
-                                        Quickshell.execDetached(["bash", window.scriptsDir + "/audio_control.sh", "set-default", type, model.name]);
+                                        Quickshell.execDetached([window.scriptsDir + "/audio_control.sh", "set-default", type, model.name]);
                                         audioPoller.running = true;
                                     }
                                 }
@@ -981,7 +981,7 @@ Item {
                                                 let type = "sink";
                                                 if (window.activeTab === "inputs") type = "source";
                                                 if (window.activeTab === "apps") type = "sink-input";
-                                                Quickshell.execDetached(["bash", window.scriptsDir + "/audio_control.sh", "toggle-mute", type, model.id]);
+                                                Quickshell.execDetached([window.scriptsDir + "/audio_control.sh", "toggle-mute", type, model.id]);
                                                 audioPoller.running = true;
                                             }
                                         }
@@ -1003,9 +1003,9 @@ Item {
                                                     if (window.activeTab === "apps") type = "sink-input";
                                                     
                                                     if (targetPct > 0 && model.mute) {
-                                                        Quickshell.execDetached(["bash", window.scriptsDir + "/audio_control.sh", "toggle-mute", type, model.id]);
+                                                        Quickshell.execDetached([window.scriptsDir + "/audio_control.sh", "toggle-mute", type, model.id]);
                                                     }
-                                                    Quickshell.execDetached(["bash", window.scriptsDir + "/audio_control.sh", "set-volume", type, model.id, targetPct]);
+                                                    Quickshell.execDetached([window.scriptsDir + "/audio_control.sh", "set-volume", type, model.id, targetPct]);
                                                     targetPct = -1;
                                                 }
                                             }

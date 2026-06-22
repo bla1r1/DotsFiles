@@ -35,7 +35,15 @@ cache_is_fresh() {
     [[ $((now - mtime)) -lt "$ttl" ]]
 }
 
-json_escape() { local s="${1//\\/\\\\}"; printf '%s' "${s//\"/\\\"}"; }
+json_escape() {
+    local s="$1"
+    s=${s//\\/\\\\}
+    s=${s//\"/\\\"}
+    s=${s//$'\n'/\\n}
+    s=${s//$'\r'/}
+    s=${s//$'\t'/\\t}
+    printf '%s' "$s"
+}
 cache_key() { local s="$1"; printf '%s' "${s//[^[:alnum:]_.-]/_}"; }
 
 cached_percent() {
@@ -185,15 +193,24 @@ print_json() {
 }
 
 print_waybar_json() {
-    local devices avg tooltip
-    devices="$("$0" list 2>/dev/null || printf '[]')"
-    if [[ "$devices" == "[]" ]]; then
+    local id label pct count=0 sum=0 tooltip=""
+
+    while IFS=$'\t' read -r id label; do
+        [[ -n "$id" ]] || continue
+        pct="$(get_ddc_percent "$id" 2>/dev/null || true)"
+        [[ "$pct" =~ ^[0-9]+$ ]] || pct=50
+        count=$((count + 1))
+        sum=$((sum + pct))
+        tooltip+="${label}  ${pct}%"$'\n'
+    done < <(ddc_displays)
+
+    if (( count == 0 )); then
         printf '{"text":"","tooltip":"No DDC brightness controls found","class":"empty"}\n'
         return 0
     fi
 
-    avg="$(jq '[.[].brightness] | add / length | floor' <<<"$devices")"
-    tooltip="$(jq -r '[.[] | "\(.name)  \(.brightness)%"] | join("\\n")' <<<"$devices")"
+    local avg=$((sum / count))
+    tooltip="${tooltip%$'\n'}"
     printf '{"text":"󰃠  %s%%","tooltip":"%s","class":"active"}\n' "${avg:-0}" "$(json_escape "${tooltip:-Brightness}")"
 }
 

@@ -8,11 +8,6 @@ DEFAULT_STEP=10
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/sway"
 DEVICE_CACHE="$CACHE_DIR/kbd-backlight-device"
 MAX_CACHE="$CACHE_DIR/kbd-backlight-max"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SETTINGS_LIB="$SCRIPT_DIR/lib/settings.sh"
-
-[[ -f "$SETTINGS_LIB" ]] && source "$SETTINGS_LIB"
-declare -F settings_get_int >/dev/null 2>&1 && DEFAULT_STEP="$(settings_get_int controls.keyboardBacklightStep "$DEFAULT_STEP" 1 50)"
 
 die() {
     printf '%s\n' "$*" >&2

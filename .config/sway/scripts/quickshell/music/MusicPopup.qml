@@ -284,7 +284,7 @@ Item {
     Process {
         id: musicProc
         running: true
-        command: ["bash", "-c", "$HOME/.config/sway/scripts/quickshell/music/music_info.sh"]
+        command: [Quickshell.env("HOME") + "/.config/sway/scripts/quickshell/music/music_info.sh"]
         stdout: StdioCollector {
             onStreamFinished: {
                 if (this.text) {
@@ -306,7 +306,7 @@ Item {
     Process {
         id: eqProc
         running: true
-        command: ["bash", "-c", "$HOME/.config/sway/scripts/quickshell/music/equalizer.sh get"]
+        command: [Quickshell.env("HOME") + "/.config/sway/scripts/quickshell/music/equalizer.sh", "get"]
         stdout: StdioCollector {
             onStreamFinished: {
                 if (this.text) {

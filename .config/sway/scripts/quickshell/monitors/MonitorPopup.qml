@@ -1438,10 +1438,8 @@ Item {
                                 x: 0,
                                 y: 0
                             }];
-                            let monitorCmd = "output " + mon.name + " mode " + mon.resW + "x" + mon.resH + "@" + mon.rate + "Hz pos 0 0 scale " + mon.sysScale;
                             Quickshell.execDetached(["notify-send", "Display Update", "Applied: " + mon.resW + "x" + mon.resH + " @ " + mon.rate + "Hz"]);
-                            Quickshell.execDetached(["sh", "-c", "swaymsg " + JSON.stringify(monitorCmd)]);
-                            Quickshell.execDetached(["bash", window.monitorsScriptPath, "save", JSON.stringify(savedLayout)]);
+                            Quickshell.execDetached(["bash", window.monitorsScriptPath, "apply", JSON.stringify(savedLayout)]);
                         } else {
                             let rects = [];
                             for (let i = 0; i < monitorsModel.count; i++) {
@@ -1505,7 +1503,6 @@ Item {
                                 if (rects[i].y < finalMinY) finalMinY = rects[i].y;
                             }
                             
-                            let batchCmds = [];
                             let summaryString = "";
                             for (let i = 0; i < rects.length; i++) {
                                 let r = rects[i];
@@ -1514,11 +1511,9 @@ Item {
                                 r.x = Math.round(r.x - finalMinX);
                                 r.y = Math.round(r.y - finalMinY);
                                 
-                                batchCmds.push("output " + r.name + " mode " + r.resW + "x" + r.resH + "@" + r.rate + "Hz pos " + r.x + " " + r.y + " scale " + r.sysScale);
                                 summaryString += r.name + " ";
                             }
                             
-                            let fullCommand = "swaymsg " + JSON.stringify(batchCmds.join(" ; "));
                             let saveLayout = rects.map(function(r) {
                                 return {
                                     name: r.name,
@@ -1531,10 +1526,7 @@ Item {
                                 };
                             });
                             
-                            let postReloadCmd = "swww kill ; sleep 0.2 ; swww-daemon &";
-                            
-                            Quickshell.execDetached(["sh", "-c", fullCommand + " ; " + postReloadCmd]);
-                            Quickshell.execDetached(["bash", window.monitorsScriptPath, "save", JSON.stringify(saveLayout)]);
+                            Quickshell.execDetached(["bash", window.monitorsScriptPath, "apply", JSON.stringify(saveLayout)]);
                             Quickshell.execDetached(["notify-send", "Display Update", "Applied layout for: " + summaryString]);
                         }
                     }

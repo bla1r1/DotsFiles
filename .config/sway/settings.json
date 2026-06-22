@@ -5,28 +5,5 @@
   "wallpaperDir": "~/Pictures/Wallpapers",
   "language": "de,ua",
   "kbOptions": "grp:alt_shift_toggle",
-  "workspaceCount": 8,
-  "controls": {
-    "audioStep": 5,
-    "brightnessStep": 5,
-    "keyboardBacklightStep": 10,
-    "audioNotifications": true
-  },
-  "session": {
-    "dimOnLock": true,
-    "dimTimeout": 300,
-    "lockTimeout": 600,
-    "dpmsTimeout": 900,
-    "autoSuspend": true,
-    "suspendTimeout": 1200
-  },
-  "weather": {
-    "openWeatherKey": "",
-    "openWeatherCityId": "",
-    "openWeatherUnit": "metric"
-  },
-  "monitors": {
-    "restoreSavedLayout": true,
-    "autoArrangeFallback": true
-  }
+  "workspaceCount": 8
 }

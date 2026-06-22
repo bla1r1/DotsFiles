@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
-POWER=$(nmcli radio wifi)
+POWER="$(nmcli radio wifi 2>/dev/null || printf disabled)"
 
 if [[ "$POWER" == "disabled" ]]; then
     echo '{ "power": "off", "connected": null, "networks": [] }'
@@ -28,13 +29,20 @@ if [[ -n "$CURRENT_RAW" ]]; then
     SAFE_SSID="${ssid//[^a-zA-Z0-9]/_}"
     CACHE_FILE="$CACHE_DIR/wifi_$SAFE_SSID"
     
-    if [ -f "$CACHE_FILE" ]; then
-        source "$CACHE_FILE"
+    if [[ -f "$CACHE_FILE" ]]; then
+        while IFS='=' read -r key value; do
+            value="${value%\"}"
+            value="${value#\"}"
+            case "$key" in
+                IP) IP="$value" ;;
+                FREQ) FREQ="$value" ;;
+            esac
+        done < "$CACHE_FILE"
     fi
     
     if [ -z "$IP" ] || [ "$IP" == "No IP" ] || [ -z "$FREQ" ]; then
         IFACE=$(nmcli -t -f DEVICE,TYPE d | awk -F: '$2=="wifi"{print $1;exit}')
-        IP=$(ip -4 addr show dev "$IFACE" 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -n1)
+        IP=$(ip -4 -o addr show dev "$IFACE" 2>/dev/null | awk '{ sub(/\/.*/, "", $4); print $4; exit }')
         [ -z "$IP" ] && IP="No IP"
         
         FREQ=$(iw dev "$IFACE" link 2>/dev/null | awk '/freq:/ {print $2}')

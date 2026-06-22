@@ -18,14 +18,23 @@ if [ "$radio" != "enabled" ]; then
     exit 0
 fi
 
-line="$(nmcli -t -f IN-USE,SSID,SIGNAL device wifi list 2>/dev/null | awk -F: '$1=="*" {print; exit}')"
+line="$(nmcli -t -f IN-USE,SIGNAL device wifi list 2>/dev/null)"
+while IFS=: read -r in_use signal; do
+    if [ "$in_use" = "*" ]; then
+        break
+    fi
+    signal=""
+done <<< "$line"
+
 if [ -z "$line" ]; then
     emit "󰤯" "disconnected"
     exit 0
 fi
 
-signal="$(printf '%s\n' "$line" | awk -F: '{print $3}')"
-ssid="$(printf '%s\n' "$line" | awk -F: '{print $2}')"
+if [ -z "${signal:-}" ]; then
+    emit "󰤯" "disconnected"
+    exit 0
+fi
 
 if [ "${signal:-0}" -ge 80 ]; then
     icon="󰤨"

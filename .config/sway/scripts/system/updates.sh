@@ -12,6 +12,15 @@ fi
 threshold_green=0
 threshold_yellow=0
 threshold_red=50
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/sway"
+CACHE_FILE="$CACHE_DIR/updates-waybar.json"
+CACHE_TTL="${UPDATES_CACHE_TTL:-600}"
+
+if ! mkdir -p "$CACHE_DIR" 2>/dev/null; then
+    CACHE_DIR="${TMPDIR:-/tmp}/sway-${UID:-$(id -u)}"
+    mkdir -p "$CACHE_DIR"
+    CACHE_FILE="$CACHE_DIR/updates-waybar.json"
+fi
 
 has_cmd() {
     if declare -F dotfiles_has_cmd >/dev/null 2>&1; then
@@ -133,6 +142,22 @@ launch_upgrade_terminal() {
 }
 
 DISTRO="$(detect_distro)"
+
+if [[ "${1:-}" != "up" && -s "$CACHE_FILE" ]]; then
+    cache_mtime="$(stat -c %Y "$CACHE_FILE" 2>/dev/null || stat -f %m "$CACHE_FILE" 2>/dev/null || printf 0)"
+    now="$(date +%s)"
+    if [[ $((now - cache_mtime)) -lt "$CACHE_TTL" ]]; then
+        cat "$CACHE_FILE"
+        exit 0
+    fi
+fi
+
+if [[ "${1:-}" == "up" ]]; then
+    [[ "$DISTRO" == "arch" ]] || exit 1
+    launch_upgrade_terminal "$(build_upgrade_command)"
+    exit 0
+fi
+
 update_counts="0 0"
 [[ "$DISTRO" == "arch" ]] && update_counts="$(count_arch_updates)"
 
@@ -150,15 +175,13 @@ fi
 
 extra_label="AUR"
 
-if [[ "${1:-}" == "up" ]]; then
-    [[ "$DISTRO" == "arch" ]] || exit 1
-    launch_upgrade_terminal "$(build_upgrade_command)"
-    exit 0
+if (( updates_total > threshold_green )); then
+    output="$(printf '{"text":"%s","alt":"%s","tooltip":"%s System | %s %s | %s Flatpak","class":"%s"}' \
+        "$updates_total" "$updates_total" "$updates_official" "$updates_extra" "$extra_label" "$updates_flatpak" "$css_class"
+    )"
+else
+    output='{"text":"0","alt":"0","tooltip":"Packages are up to date","class":"green"}'
 fi
 
-if (( updates_total > threshold_green )); then
-    printf '{"text":"%s","alt":"%s","tooltip":"%s System | %s %s | %s Flatpak","class":"%s"}' \
-        "$updates_total" "$updates_total" "$updates_official" "$updates_extra" "$extra_label" "$updates_flatpak" "$css_class"
-else
-    printf '{"text":"0","alt":"0","tooltip":"Packages are up to date","class":"green"}'
-fi
+printf '%s\n' "$output" > "$CACHE_FILE"
+printf '%s' "$output"

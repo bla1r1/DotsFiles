@@ -2,11 +2,6 @@
 set -euo pipefail
 
 STEP="${BRIGHTNESS_STEP:-5}"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SETTINGS_LIB="$SCRIPT_DIR/lib/settings.sh"
-
-[[ -f "$SETTINGS_LIB" ]] && source "$SETTINGS_LIB"
-declare -F settings_get_int >/dev/null 2>&1 && STEP="$(settings_get_int controls.brightnessStep "$STEP" 1 25)"
 
 available() {
     command -v brightnessctl >/dev/null 2>&1 || return 1

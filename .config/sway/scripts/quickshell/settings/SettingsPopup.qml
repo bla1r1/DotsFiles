@@ -79,21 +79,6 @@ Item {
     }
     property string setLanguage: ""
     property string setKbOptions: "grp:alt_shift_toggle"
-    property int setAudioStep: 5
-    property int setBrightnessStep: 5
-    property int setKeyboardBacklightStep: 10
-    property bool setAudioNotifications: true
-    property bool setDimOnLock: true
-    property int setDimTimeout: 300
-    property int setLockTimeout: 600
-    property int setDpmsTimeout: 900
-    property bool setAutoSuspend: true
-    property int setSuspendTimeout: 1200
-    property string setOpenWeatherKey: ""
-    property string setOpenWeatherCityId: ""
-    property string setOpenWeatherUnit: "metric"
-    property bool setRestoreMonitorLayout: true
-    property bool setAutoArrangeMonitors: true
 
     property var kbToggleModelArr: [
         { label: "Alt + Shift", val: "grp:alt_shift_toggle" },
@@ -112,10 +97,6 @@ Item {
         return "Alt + Shift";
     }
 
-    function shellQuote(text) {
-        return "'" + String(text).replace(/'/g, "'\\''") + "'";
-    }
-
     function saveAppSettings() {
         let config = {
             "uiScale": root.setUiScale,
@@ -124,34 +105,11 @@ Item {
             "wallpaperDir": root.setWallpaperDir,
             "language": root.setLanguage,
             "kbOptions": root.setKbOptions,
-            "workspaceCount": root.setWorkspaceCount,
-            "controls": {
-                "audioStep": root.setAudioStep,
-                "brightnessStep": root.setBrightnessStep,
-                "keyboardBacklightStep": root.setKeyboardBacklightStep,
-                "audioNotifications": root.setAudioNotifications
-            },
-            "session": {
-                "dimOnLock": root.setDimOnLock,
-                "dimTimeout": root.setDimTimeout,
-                "lockTimeout": root.setLockTimeout,
-                "dpmsTimeout": root.setDpmsTimeout,
-                "autoSuspend": root.setAutoSuspend,
-                "suspendTimeout": root.setSuspendTimeout
-            },
-            "weather": {
-                "openWeatherKey": root.setOpenWeatherKey,
-                "openWeatherCityId": root.setOpenWeatherCityId,
-                "openWeatherUnit": root.setOpenWeatherUnit
-            },
-            "monitors": {
-                "restoreSavedLayout": root.setRestoreMonitorLayout,
-                "autoArrangeFallback": root.setAutoArrangeMonitors
-            }
+            "workspaceCount": root.setWorkspaceCount
         };
         let jsonString = JSON.stringify(config, null, 2);
-
-        let cmd = "mkdir -p ~/.config/sway/ && printf '%s\\n' " + root.shellQuote(jsonString) + " > ~/.config/sway/settings.json && notify-send 'Quickshell' 'Settings Applied Successfully!'";
+        
+        let cmd = "mkdir -p ~/.config/sway/ && echo '" + jsonString + "' > ~/.config/sway/settings.json && notify-send 'Quickshell' 'Settings Applied Successfully!'";
                   
         Quickshell.execDetached(["bash", "-c", cmd]);
         
@@ -201,29 +159,6 @@ Item {
                         if (parsed.workspaceCount !== undefined) {
                             root.setWorkspaceCount = parsed.workspaceCount;
                             root.initialWorkspaceCount = parsed.workspaceCount; // TRACK BASELINE
-                        }
-                        if (parsed.controls !== undefined) {
-                            if (parsed.controls.audioStep !== undefined) root.setAudioStep = parsed.controls.audioStep;
-                            if (parsed.controls.brightnessStep !== undefined) root.setBrightnessStep = parsed.controls.brightnessStep;
-                            if (parsed.controls.keyboardBacklightStep !== undefined) root.setKeyboardBacklightStep = parsed.controls.keyboardBacklightStep;
-                            if (parsed.controls.audioNotifications !== undefined) root.setAudioNotifications = parsed.controls.audioNotifications;
-                        }
-                        if (parsed.session !== undefined) {
-                            if (parsed.session.dimOnLock !== undefined) root.setDimOnLock = parsed.session.dimOnLock;
-                            if (parsed.session.dimTimeout !== undefined) root.setDimTimeout = parsed.session.dimTimeout;
-                            if (parsed.session.lockTimeout !== undefined) root.setLockTimeout = parsed.session.lockTimeout;
-                            if (parsed.session.dpmsTimeout !== undefined) root.setDpmsTimeout = parsed.session.dpmsTimeout;
-                            if (parsed.session.autoSuspend !== undefined) root.setAutoSuspend = parsed.session.autoSuspend;
-                            if (parsed.session.suspendTimeout !== undefined) root.setSuspendTimeout = parsed.session.suspendTimeout;
-                        }
-                        if (parsed.weather !== undefined) {
-                            if (parsed.weather.openWeatherKey !== undefined) root.setOpenWeatherKey = parsed.weather.openWeatherKey;
-                            if (parsed.weather.openWeatherCityId !== undefined) root.setOpenWeatherCityId = parsed.weather.openWeatherCityId;
-                            if (parsed.weather.openWeatherUnit !== undefined) root.setOpenWeatherUnit = parsed.weather.openWeatherUnit;
-                        }
-                        if (parsed.monitors !== undefined) {
-                            if (parsed.monitors.restoreSavedLayout !== undefined) root.setRestoreMonitorLayout = parsed.monitors.restoreSavedLayout;
-                            if (parsed.monitors.autoArrangeFallback !== undefined) root.setAutoArrangeMonitors = parsed.monitors.autoArrangeFallback;
                         }
                     } else {
                         root.saveAppSettings();
@@ -994,180 +929,6 @@ Item {
                                         Item { Layout.fillWidth: true }
                                     }
                                 }
-                            }
-                        }
-                    }
-
-                    // Box 6: Script Controls
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: col6.implicitHeight + root.s(32)
-                        radius: root.s(12)
-                        color: Qt.alpha(root.surface0, 0.5)
-                        border.color: root.surface1
-                        border.width: 1
-
-                        ColumnLayout {
-                            id: col6
-                            anchors.top: parent.top
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.margins: root.s(16)
-                            spacing: root.s(14)
-
-                            Text { text: "Controls"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(13); color: root.text; Layout.fillWidth: true }
-
-                            RowLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Volume step"; font.family: "JetBrains Mono"; font.pixelSize: root.s(12); color: root.subtext0; Layout.fillWidth: true }
-                                Rectangle { width: root.s(30); height: root.s(30); radius: root.s(8); color: audioMinusMa.pressed ? root.surface2 : root.surface1; Text { anchors.centerIn: parent; text: "-"; color: root.text; font.family: "JetBrains Mono"; font.weight: Font.Bold } MouseArea { id: audioMinusMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.setAudioStep = Math.max(1, root.setAudioStep - 1) } }
-                                Text { text: root.setAudioStep + "%"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(12); color: root.blue; Layout.minimumWidth: root.s(44); horizontalAlignment: Text.AlignHCenter }
-                                Rectangle { width: root.s(30); height: root.s(30); radius: root.s(8); color: audioPlusMa.pressed ? root.surface2 : root.surface1; Text { anchors.centerIn: parent; text: "+"; color: root.text; font.family: "JetBrains Mono"; font.weight: Font.Bold } MouseArea { id: audioPlusMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.setAudioStep = Math.min(25, root.setAudioStep + 1) } }
-                            }
-
-                            RowLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Brightness step"; font.family: "JetBrains Mono"; font.pixelSize: root.s(12); color: root.subtext0; Layout.fillWidth: true }
-                                Rectangle { width: root.s(30); height: root.s(30); radius: root.s(8); color: brightMinusMa.pressed ? root.surface2 : root.surface1; Text { anchors.centerIn: parent; text: "-"; color: root.text; font.family: "JetBrains Mono"; font.weight: Font.Bold } MouseArea { id: brightMinusMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.setBrightnessStep = Math.max(1, root.setBrightnessStep - 1) } }
-                                Text { text: root.setBrightnessStep + "%"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(12); color: root.yellow; Layout.minimumWidth: root.s(44); horizontalAlignment: Text.AlignHCenter }
-                                Rectangle { width: root.s(30); height: root.s(30); radius: root.s(8); color: brightPlusMa.pressed ? root.surface2 : root.surface1; Text { anchors.centerIn: parent; text: "+"; color: root.text; font.family: "JetBrains Mono"; font.weight: Font.Bold } MouseArea { id: brightPlusMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.setBrightnessStep = Math.min(25, root.setBrightnessStep + 1) } }
-                            }
-
-                            RowLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Keyboard light step"; font.family: "JetBrains Mono"; font.pixelSize: root.s(12); color: root.subtext0; Layout.fillWidth: true }
-                                Rectangle { width: root.s(30); height: root.s(30); radius: root.s(8); color: kbdMinusMa.pressed ? root.surface2 : root.surface1; Text { anchors.centerIn: parent; text: "-"; color: root.text; font.family: "JetBrains Mono"; font.weight: Font.Bold } MouseArea { id: kbdMinusMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.setKeyboardBacklightStep = Math.max(1, root.setKeyboardBacklightStep - 1) } }
-                                Text { text: root.setKeyboardBacklightStep + "%"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(12); color: root.green; Layout.minimumWidth: root.s(44); horizontalAlignment: Text.AlignHCenter }
-                                Rectangle { width: root.s(30); height: root.s(30); radius: root.s(8); color: kbdPlusMa.pressed ? root.surface2 : root.surface1; Text { anchors.centerIn: parent; text: "+"; color: root.text; font.family: "JetBrains Mono"; font.weight: Font.Bold } MouseArea { id: kbdPlusMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.setKeyboardBacklightStep = Math.min(50, root.setKeyboardBacklightStep + 1) } }
-                            }
-
-                            RowLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Audio notifications"; font.family: "JetBrains Mono"; font.pixelSize: root.s(12); color: root.subtext0; Layout.fillWidth: true }
-                                Rectangle {
-                                    Layout.preferredWidth: root.s(40); Layout.preferredHeight: root.s(24); radius: root.s(12)
-                                    color: root.setAudioNotifications ? root.mauve : root.surface2
-                                    Rectangle { width: root.s(18); height: root.s(18); radius: root.s(9); color: root.base; y: root.s(3); x: root.setAudioNotifications ? root.s(19) : root.s(3); Behavior on x { NumberAnimation { duration: 180 } } }
-                                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.setAudioNotifications = !root.setAudioNotifications }
-                                }
-                            }
-                        }
-                    }
-
-                    // Box 7: Lock & Idle
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: col7.implicitHeight + root.s(32)
-                        radius: root.s(12)
-                        color: Qt.alpha(root.surface0, 0.5)
-                        border.color: root.surface1
-                        border.width: 1
-
-                        ColumnLayout {
-                            id: col7
-                            anchors.top: parent.top
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.margins: root.s(16)
-                            spacing: root.s(12)
-
-                            Text { text: "Lock & idle"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(13); color: root.text; Layout.fillWidth: true }
-
-                            GridLayout {
-                                Layout.fillWidth: true
-                                columns: 2
-                                columnSpacing: root.s(12)
-                                rowSpacing: root.s(10)
-
-                                Text { text: "Dim"; color: root.subtext0; font.family: "JetBrains Mono"; font.pixelSize: root.s(11) }
-                                TextInput { text: root.setDimTimeout.toString(); color: root.text; font.family: "JetBrains Mono"; font.pixelSize: root.s(12); validator: IntValidator { bottom: 30; top: 86400 } onTextChanged: root.setDimTimeout = parseInt(text || "300") }
-                                Text { text: "Lock"; color: root.subtext0; font.family: "JetBrains Mono"; font.pixelSize: root.s(11) }
-                                TextInput { text: root.setLockTimeout.toString(); color: root.text; font.family: "JetBrains Mono"; font.pixelSize: root.s(12); validator: IntValidator { bottom: 30; top: 86400 } onTextChanged: root.setLockTimeout = parseInt(text || "600") }
-                                Text { text: "DPMS"; color: root.subtext0; font.family: "JetBrains Mono"; font.pixelSize: root.s(11) }
-                                TextInput { text: root.setDpmsTimeout.toString(); color: root.text; font.family: "JetBrains Mono"; font.pixelSize: root.s(12); validator: IntValidator { bottom: 30; top: 86400 } onTextChanged: root.setDpmsTimeout = parseInt(text || "900") }
-                                Text { text: "Suspend"; color: root.subtext0; font.family: "JetBrains Mono"; font.pixelSize: root.s(11) }
-                                TextInput { text: root.setSuspendTimeout.toString(); enabled: root.setAutoSuspend; opacity: root.setAutoSuspend ? 1.0 : 0.4; color: root.text; font.family: "JetBrains Mono"; font.pixelSize: root.s(12); validator: IntValidator { bottom: 30; top: 86400 } onTextChanged: root.setSuspendTimeout = parseInt(text || "1200") }
-                            }
-
-                            RowLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Dim while locking"; font.family: "JetBrains Mono"; font.pixelSize: root.s(12); color: root.subtext0; Layout.fillWidth: true }
-                                Rectangle { Layout.preferredWidth: root.s(40); Layout.preferredHeight: root.s(24); radius: root.s(12); color: root.setDimOnLock ? root.peach : root.surface2; Rectangle { width: root.s(18); height: root.s(18); radius: root.s(9); color: root.base; y: root.s(3); x: root.setDimOnLock ? root.s(19) : root.s(3); Behavior on x { NumberAnimation { duration: 180 } } } MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.setDimOnLock = !root.setDimOnLock } }
-                            }
-
-                            RowLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Auto suspend"; font.family: "JetBrains Mono"; font.pixelSize: root.s(12); color: root.subtext0; Layout.fillWidth: true }
-                                Rectangle { Layout.preferredWidth: root.s(40); Layout.preferredHeight: root.s(24); radius: root.s(12); color: root.setAutoSuspend ? root.peach : root.surface2; Rectangle { width: root.s(18); height: root.s(18); radius: root.s(9); color: root.base; y: root.s(3); x: root.setAutoSuspend ? root.s(19) : root.s(3); Behavior on x { NumberAnimation { duration: 180 } } } MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.setAutoSuspend = !root.setAutoSuspend } }
-                            }
-                        }
-                    }
-
-                    // Box 8: Weather
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: col8.implicitHeight + root.s(32)
-                        radius: root.s(12)
-                        color: Qt.alpha(root.surface0, 0.5)
-                        border.color: root.surface1
-                        border.width: 1
-
-                        ColumnLayout {
-                            id: col8
-                            anchors.top: parent.top
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.margins: root.s(16)
-                            spacing: root.s(10)
-
-                            Text { text: "Weather"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(13); color: root.text; Layout.fillWidth: true }
-                            TextInput { Layout.fillWidth: true; text: root.setOpenWeatherKey; echoMode: TextInput.Password; color: root.text; font.family: "JetBrains Mono"; font.pixelSize: root.s(12); selectByMouse: true; onTextChanged: root.setOpenWeatherKey = text; Text { text: "OpenWeather API key"; color: root.subtext0; visible: !parent.text; anchors.verticalCenter: parent.verticalCenter; font: parent.font } }
-                            TextInput { Layout.fillWidth: true; text: root.setOpenWeatherCityId; color: root.text; font.family: "JetBrains Mono"; font.pixelSize: root.s(12); selectByMouse: true; onTextChanged: root.setOpenWeatherCityId = text; Text { text: "City ID"; color: root.subtext0; visible: !parent.text; anchors.verticalCenter: parent.verticalCenter; font: parent.font } }
-                            RowLayout {
-                                Layout.fillWidth: true
-                                Repeater {
-                                    model: ["metric", "imperial"]
-                                    Rectangle {
-                                        Layout.fillWidth: true
-                                        Layout.preferredHeight: root.s(30)
-                                        radius: root.s(8)
-                                        color: root.setOpenWeatherUnit === modelData ? Qt.alpha(root.sapphire, 0.25) : root.surface1
-                                        border.color: root.setOpenWeatherUnit === modelData ? root.sapphire : root.surface2
-                                        Text { anchors.centerIn: parent; text: modelData; color: root.text; font.family: "JetBrains Mono"; font.pixelSize: root.s(11) }
-                                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.setOpenWeatherUnit = modelData }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Box 9: Monitors
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: col9.implicitHeight + root.s(32)
-                        radius: root.s(12)
-                        color: Qt.alpha(root.surface0, 0.5)
-                        border.color: root.surface1
-                        border.width: 1
-
-                        ColumnLayout {
-                            id: col9
-                            anchors.top: parent.top
-                            anchors.left: parent.left
-                            anchors.right: parent.right
-                            anchors.margins: root.s(16)
-                            spacing: root.s(12)
-
-                            Text { text: "Monitors"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(13); color: root.text; Layout.fillWidth: true }
-                            RowLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Restore saved layout"; font.family: "JetBrains Mono"; font.pixelSize: root.s(12); color: root.subtext0; Layout.fillWidth: true }
-                                Rectangle { Layout.preferredWidth: root.s(40); Layout.preferredHeight: root.s(24); radius: root.s(12); color: root.setRestoreMonitorLayout ? root.green : root.surface2; Rectangle { width: root.s(18); height: root.s(18); radius: root.s(9); color: root.base; y: root.s(3); x: root.setRestoreMonitorLayout ? root.s(19) : root.s(3); Behavior on x { NumberAnimation { duration: 180 } } } MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.setRestoreMonitorLayout = !root.setRestoreMonitorLayout } }
-                            }
-                            RowLayout {
-                                Layout.fillWidth: true
-                                Text { text: "Auto arrange fallback"; font.family: "JetBrains Mono"; font.pixelSize: root.s(12); color: root.subtext0; Layout.fillWidth: true }
-                                Rectangle { Layout.preferredWidth: root.s(40); Layout.preferredHeight: root.s(24); radius: root.s(12); color: root.setAutoArrangeMonitors ? root.green : root.surface2; Rectangle { width: root.s(18); height: root.s(18); radius: root.s(9); color: root.base; y: root.s(3); x: root.setAutoArrangeMonitors ? root.s(19) : root.s(3); Behavior on x { NumberAnimation { duration: 180 } } } MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.setAutoArrangeMonitors = !root.setAutoArrangeMonitors } }
                             }
                         }
                     }

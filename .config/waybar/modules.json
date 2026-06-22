@@ -125,7 +125,7 @@
     }
   },
   "custom/mic": {
-    "exec": "bash ~/.config/sway/scripts/controls/mic-control.sh --get-muted | sed 's/true/󰍭/;s/false/󰍬/'",
+    "exec": "bash ~/.config/sway/scripts/controls/mic-control.sh --get-waybar",
     "interval": 5,
     "format": "{}",
     "on-click": "bash ~/.config/sway/scripts/controls/mic-control.sh --toggle",

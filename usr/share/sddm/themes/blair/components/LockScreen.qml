@@ -68,13 +68,6 @@ Item {
             time.updateTime();
             date.updateDate();
         }
-
-        Connections {
-            target: Config
-            function onClockPositionChanged() {
-                lockScreen.alignItem(timePositioner, Config.clockPosition);
-            }
-        }
     }
 
     ColumnLayout {
@@ -123,46 +116,9 @@ Item {
             leftMargin: Config.lockScreenPaddingLeft || (lockScreen.height > 0 ? lockScreen.height / 10 : 50)
         }
         Component.onCompleted: lockScreen.alignItem(messagePositioner, Config.lockMessagePosition)
-
-        Connections {
-            target: Config
-            function onLockMessagePositionChanged() {
-                lockScreen.alignItem(messagePositioner, Config.lockMessagePosition);
-            }
-        }
-    }
-
-    InfoBlock {
-        id: infoBlockPositioner
-
-        anchors {
-            topMargin: Config.lockScreenPaddingTop || (lockScreen.height > 0 ? lockScreen.height / 10 : 50)
-            rightMargin: Config.lockScreenPaddingRight || (lockScreen.height > 0 ? lockScreen.height / 10 : 50)
-            bottomMargin: Config.lockScreenPaddingBottom || (lockScreen.height > 0 ? lockScreen.height / 10 : 50)
-            leftMargin: Config.lockScreenPaddingLeft || (lockScreen.height > 0 ? lockScreen.height / 10 : 50)
-        }
-        Component.onCompleted: lockScreen.alignItem(infoBlockPositioner, Config.infoBlockPosition)
-
-        Connections {
-            target: Config
-            function onInfoBlockPositionChanged() {
-                lockScreen.alignItem(infoBlockPositioner, Config.infoBlockPosition);
-            }
-        }
-    }
-
-    function clearAnchors(item) {
-        item.anchors.top = undefined;
-        item.anchors.right = undefined;
-        item.anchors.bottom = undefined;
-        item.anchors.left = undefined;
-        item.anchors.horizontalCenter = undefined;
-        item.anchors.verticalCenter = undefined;
     }
 
     function alignItem(item, pos) {
-        clearAnchors(item);
-
         switch (pos) {
         case "top-left":
             item.anchors.top = lockScreen.top;
