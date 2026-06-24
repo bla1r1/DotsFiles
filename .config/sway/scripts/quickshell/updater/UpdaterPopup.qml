@@ -1,39 +1,14 @@
 import QtQuick
-import QtQuick.Window
 import QtQuick.Effects
 import QtQuick.Layouts
-import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
-import "../"
+import "../Ui"
 
-Item {
+PopupShell {
     id: window
-    focus: true
 
-    Scaler {
-        id: scaler
-        currentWidth: Screen.width
-    }
-
-    function s(val) {
-        return scaler.s(val);
-    }
-
-    MatugenColors { id: _theme }
-
-    readonly property color base: _theme.base
-    readonly property color crust: _theme.crust
-    readonly property color surface0: _theme.surface0
-    readonly property color surface1: _theme.surface1
-    readonly property color surface2: _theme.surface2
-    readonly property color text: _theme.text
-    readonly property color subtext0: _theme.subtext0
-    readonly property color green: _theme.green
-
-    readonly property string scriptDir: Quickshell.env("QS_SCRIPT_DIR") || (Quickshell.env("HOME") + "/.config/sway/scripts")
-    readonly property string mainQmlPath: scriptDir + "/quickshell/Main.qml"
-    readonly property string updaterScriptPath: scriptDir + "/system/dotfiles-update.sh"
+    readonly property string updaterScriptPath: window.scriptDir + "/system/dotfiles-update.sh"
 
     property string localVersion: "..."
     property string remoteVersion: "..."
@@ -42,24 +17,25 @@ Item {
     property string displayedCommitMessage: "Fetching changelog..."
     property int typeIndex: 0
 
-    function closePopup() {
-        Quickshell.execDetached(["qs", "-p", mainQmlPath, "ipc", "call", "main", "close"]);
-    }
-
-    Keys.onEscapePressed: {
-        closePopup();
-        event.accepted = true;
-    }
+    // Durations that are content, not styling — a hold-to-confirm has to feel
+    // long enough to be deliberate, an ambient loop has to feel unhurried.
+    // These are not on the motion scale and should not be.
+    readonly property int holdDuration: 1200
+    readonly property int drainDuration: 800
+    readonly property int glowPeriod: 1500
+    readonly property int wavePeriod: 1000
+    readonly property int typeInterval: 12
 
     Process {
         id: updateStatus
-        command: ["bash", updaterScriptPath, "status"]
+        command: ["bash", window.updaterScriptPath, "status"]
         running: true
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
                     let out = this.text ? this.text.trim() : "";
-                    if (!out) return;
+                    if (!out)
+                        return;
                     let data = JSON.parse(out);
                     if (!data.ok) {
                         window.localVersion = "local";
@@ -102,7 +78,7 @@ Item {
 
     Timer {
         id: commitTypeTimer
-        interval: 12
+        interval: window.typeInterval
         repeat: true
         onTriggered: {
             if (window.typeIndex < window.fullCommitMessage.length) {
@@ -114,303 +90,251 @@ Item {
         }
     }
 
-    Rectangle {
+    ColumnLayout {
         anchors.fill: parent
-        radius: window.s(16)
-        color: window.base
-        border.color: window.surface1
-        border.width: 1
-        clip: true
+        spacing: Design.s(Design.space.xl)
 
-        ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: window.s(25)
-            spacing: window.s(20)
+        Badge {
+            Layout.alignment: Qt.AlignHCenter
+            tone: Design.ok
+            text: window.updateAvailable ? "NEW UPDATE AVAILABLE" : "DOTFILES STATUS"
+        }
 
-            Rectangle {
-                Layout.alignment: Qt.AlignHCenter
-                color: Qt.rgba(window.green.r, window.green.g, window.green.b, 0.1)
-                border.color: Qt.rgba(window.green.r, window.green.g, window.green.b, 0.2)
-                border.width: 1
-                radius: window.s(8)
-                Layout.preferredWidth: headerTxt.implicitWidth + window.s(24)
-                Layout.preferredHeight: headerTxt.implicitHeight + window.s(12)
+        // ── Version transition ────────────────────────────────────────────────
+        Item {
+            id: versionContainer
+            Layout.fillWidth: true
+            Layout.preferredHeight: Design.s(45)
 
-                Text {
-                    id: headerTxt
-                    anchors.centerIn: parent
-                    text: window.updateAvailable ? "NEW UPDATE AVAILABLE" : "DOTFILES STATUS"
-                    font.family: "JetBrains Mono"
-                    font.weight: Font.Bold
-                    font.pixelSize: window.s(11)
-                    color: window.green
-                    opacity: 0.8
+            readonly property real finalNewX: (width - newVer.implicitWidth) / 2
+            readonly property real finalArrowX: finalNewX - arrowIcon.implicitWidth - Design.s(Design.space.xl)
+            readonly property real finalOldX: finalArrowX - oldVer.implicitWidth - Design.s(Design.space.xl)
+            readonly property real initialOldX: (width - oldVer.implicitWidth) / 2
+
+            Label {
+                role: "subhead"
+                id: oldVer
+                text: window.localVersion
+                dim: true
+                anchors.verticalCenter: parent.verticalCenter
+                x: versionContainer.initialOldX
+            }
+
+            Icon {
+                id: arrowIcon
+                text: ""
+                color: Design.active
+                anchors.verticalCenter: parent.verticalCenter
+                x: versionContainer.finalOldX + oldVer.implicitWidth
+                opacity: 0
+            }
+
+            Label {
+                role: "display"
+                id: newVer
+                text: window.remoteVersion
+                font.weight: Design.weight.semibold
+                color: Design.ok
+                anchors.verticalCenter: parent.verticalCenter
+                x: versionContainer.finalNewX
+                opacity: 0
+                scale: 0.9
+            }
+
+            MultiEffect {
+                id: newVerEffect
+                source: newVer
+                anchors.fill: newVer
+                shadowEnabled: true
+                shadowColor: Design.ok
+                shadowBlur: 0.0
+                shadowHorizontalOffset: 0
+                shadowVerticalOffset: 0
+                opacity: newVer.opacity
+            }
+
+            SequentialAnimation {
+                id: versionAnim
+                PauseAnimation { duration: Design.duration.fast }
+                ParallelAnimation {
+                    NumberAnimation { target: oldVer; property: "x"; to: versionContainer.finalOldX; duration: Design.duration.slow; easing.type: Design.easing }
+                    NumberAnimation { target: oldVer; property: "opacity"; to: 0.2; duration: Design.duration.slow; easing.type: Design.easing }
+                }
+                ParallelAnimation {
+                    NumberAnimation { target: arrowIcon; property: "opacity"; to: 1; duration: Design.duration.base }
+                    NumberAnimation { target: arrowIcon; property: "x"; to: versionContainer.finalArrowX; duration: Design.duration.slow; easing.type: Design.easing }
+                }
+                ParallelAnimation {
+                    NumberAnimation { target: newVer; property: "opacity"; to: 1; duration: Design.duration.slow }
+                    NumberAnimation { target: newVer; property: "scale"; to: 1.0; duration: Design.duration.slow; easing.type: Design.easing }
+                    ScriptAction { script: glowAnim.start() }
                 }
             }
 
-            Item {
-                id: versionContainer
-                Layout.fillWidth: true
-                Layout.preferredHeight: window.s(45)
+            SequentialAnimation {
+                id: glowAnim
+                loops: Animation.Infinite
+                NumberAnimation { target: newVerEffect; property: "shadowBlur"; to: 0.8; duration: window.glowPeriod; easing.type: Easing.InOutSine }
+                NumberAnimation { target: newVerEffect; property: "shadowBlur"; to: 0.2; duration: window.glowPeriod; easing.type: Easing.InOutSine }
+            }
 
-                readonly property real finalNewX: (width - newVer.implicitWidth) / 2
-                readonly property real finalArrowX: finalNewX - arrowIcon.implicitWidth - window.s(20)
-                readonly property real finalOldX: finalArrowX - oldVer.implicitWidth - window.s(20)
-                readonly property real initialOldX: (width - oldVer.implicitWidth) / 2
-
-                Text {
-                    id: oldVer
-                    text: window.localVersion
-                    font.family: "JetBrains Mono"
-                    font.pixelSize: window.s(16)
-                    color: window.subtext0
-                    anchors.verticalCenter: parent.verticalCenter
-                    x: versionContainer.initialOldX
+            Connections {
+                target: window
+                function onRemoteVersionChanged() {
+                    if (window.remoteVersion !== "..." && window.remoteVersion !== "")
+                        versionAnim.start();
                 }
+            }
+        }
 
-                Text {
-                    id: arrowIcon
-                    text: ""
-                    font.family: "Iosevka Nerd Font"
-                    font.pixelSize: window.s(16)
-                    color: window.surface2
-                    anchors.verticalCenter: parent.verticalCenter
-                    x: versionContainer.finalOldX + oldVer.implicitWidth
-                    opacity: 0
-                }
+        // ── Changelog ─────────────────────────────────────────────────────────
+        ScrollArea {
+            id: changelog
+            Layout.fillWidth: true
+            Layout.fillHeight: true
 
-                Text {
-                    id: newVer
-                    text: window.remoteVersion
-                    font.family: "JetBrains Mono"
-                    font.weight: Font.Black
-                    font.pixelSize: window.s(28)
-                    color: window.green
-                    anchors.verticalCenter: parent.verticalCenter
-                    x: versionContainer.finalNewX
-                    opacity: 0
-                    scale: 0.9
-                }
+            Label {
+                width: changelog.availableWidth
+                text: window.displayedCommitMessage
+                wrapMode: Text.WordWrap
+                horizontalAlignment: Text.AlignLeft
+                verticalAlignment: Text.AlignTop
+                lineHeight: 1.4
+            }
+        }
 
-                MultiEffect {
-                    id: newVerEffect
-                    source: newVer
-                    anchors.fill: newVer
-                    shadowEnabled: true
-                    shadowColor: window.green
-                    shadowBlur: 0.0
-                    shadowHorizontalOffset: 0
-                    shadowVerticalOffset: 0
-                    opacity: newVer.opacity
-                }
+        // ── Hold to update ────────────────────────────────────────────────────
+        Rectangle {
+            id: updateBtn
+            Layout.fillWidth: true
+            Layout.preferredHeight: Design.s(54)
+            radius: Design.s(Design.radius.card)
+            color: Design.raised
+            border.color: btnMa.containsMouse ? Design.ok : Design.active
+            border.width: btnMa.containsMouse ? Design.s(2) : Design.border
+            clip: true
 
-                SequentialAnimation {
-                    id: versionAnim
-                    PauseAnimation { duration: 150 }
-                    ParallelAnimation {
-                        NumberAnimation { target: oldVer; property: "x"; to: versionContainer.finalOldX; duration: 500; easing.type: Qt.InOutCubic }
-                        NumberAnimation { target: oldVer; property: "opacity"; to: 0.2; duration: 500; easing.type: Qt.InOutCubic }
-                    }
-                    ParallelAnimation {
-                        NumberAnimation { target: arrowIcon; property: "opacity"; to: 1; duration: 300 }
-                        NumberAnimation { target: arrowIcon; property: "x"; to: versionContainer.finalArrowX; duration: 400; easing.type: Qt.OutCubic }
-                    }
-                    ParallelAnimation {
-                        NumberAnimation { target: newVer; property: "opacity"; to: 1; duration: 400 }
-                        NumberAnimation { target: newVer; property: "scale"; to: 1.0; duration: 500; easing.type: Qt.OutCubic }
-                        ScriptAction { script: glowAnim.start() }
-                    }
-                }
+            scale: btnMa.pressed ? 0.98 : (btnMa.containsMouse ? 1.01 : 1.0)
+            Behavior on scale { NumberAnimation { duration: Design.duration.base; easing.type: Design.easing } }
+            Behavior on border.color { ColorAnimation { duration: Design.duration.base } }
 
-                SequentialAnimation {
-                    id: glowAnim
+            property real fillLevel: 0.0
+            property bool triggered: false
+
+            readonly property bool filled: fillLevel > 0.5
+
+            Canvas {
+                id: waveCanvas
+                anchors.fill: parent
+
+                property real wavePhase: 0.0
+                NumberAnimation on wavePhase {
+                    running: updateBtn.fillLevel > 0.0 && updateBtn.fillLevel < 1.0
                     loops: Animation.Infinite
-                    NumberAnimation { target: newVerEffect; property: "shadowBlur"; to: 0.8; duration: 1500; easing.type: Easing.InOutSine }
-                    NumberAnimation { target: newVerEffect; property: "shadowBlur"; to: 0.2; duration: 1500; easing.type: Easing.InOutSine }
+                    from: 0; to: Math.PI * 2
+                    duration: window.wavePeriod
                 }
 
-                Connections {
-                    target: window
-                    function onRemoteVersionChanged() {
-                        if (window.remoteVersion !== "..." && window.remoteVersion !== "") {
-                            versionAnim.start();
-                        }
+                onWavePhaseChanged: requestPaint()
+                Connections { target: updateBtn; function onFillLevelChanged() { waveCanvas.requestPaint() } }
+
+                onPaint: {
+                    var ctx = getContext("2d");
+                    ctx.clearRect(0, 0, width, height);
+                    if (updateBtn.fillLevel <= 0.001)
+                        return;
+
+                    var currentW = width * updateBtn.fillLevel;
+                    var r = Design.s(Design.radius.card);
+
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+
+                    if (updateBtn.fillLevel < 0.99) {
+                        var waveAmp = Design.s(Design.space.sm) * Math.sin(updateBtn.fillLevel * Math.PI);
+                        var cp1x = currentW + Math.sin(wavePhase) * waveAmp;
+                        var cp2x = currentW + Math.cos(wavePhase + Math.PI) * waveAmp;
+
+                        ctx.lineTo(currentW, 0);
+                        ctx.bezierCurveTo(cp2x, height * 0.33, cp1x, height * 0.66, currentW, height);
+                        ctx.lineTo(0, height);
+                    } else {
+                        ctx.lineTo(width, 0);
+                        ctx.lineTo(width, height);
+                        ctx.lineTo(0, height);
+                    }
+                    ctx.closePath();
+                    ctx.clip();
+
+                    ctx.beginPath();
+                    ctx.roundedRect(0, 0, width, height, r, r);
+                    var grad = ctx.createLinearGradient(0, 0, width, 0);
+                    grad.addColorStop(0, Qt.darker(Design.ok, 1.1).toString());
+                    grad.addColorStop(1, Design.ok.toString());
+                    ctx.fillStyle = grad;
+                    ctx.fill();
+
+                    ctx.restore();
+                }
+            }
+
+            RowLayout {
+                anchors.centerIn: parent
+                spacing: Design.s(Design.space.md)
+
+                Icon {
+                    text: "󰚰"
+                    color: updateBtn.filled ? Design.ground : Design.ok
+                    Behavior on color { ColorAnimation { duration: Design.duration.fast } }
+                }
+
+                Label {
+                    text: updateBtn.fillLevel > 0 ? "HOLDING..." : "PULL & APPLY"
+                    font.weight: Design.weight.semibold
+                    color: updateBtn.filled ? Design.ground : Design.ok
+                    Behavior on color { ColorAnimation { duration: Design.duration.fast } }
+                }
+            }
+
+            Clickable {
+                id: btnMa
+                cursorShape: updateBtn.triggered ? Qt.ArrowCursor : Qt.PointingHandCursor
+                onPressed: {
+                    if (!updateBtn.triggered) {
+                        drainAnim.stop();
+                        fillAnim.start();
+                    }
+                }
+                onReleased: {
+                    if (!updateBtn.triggered && updateBtn.fillLevel < 1.0) {
+                        fillAnim.stop();
+                        drainAnim.start();
                     }
                 }
             }
 
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                color: "transparent"
-                border.color: Qt.rgba(window.surface2.r, window.surface2.g, window.surface2.b, 0.4)
-                border.width: 1
-                radius: window.s(12)
-                clip: true
-
-                ScrollView {
-                    id: changelogScroll
-                    anchors.fill: parent
-                    anchors.margins: window.s(15)
-                    clip: true
-                    ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-                    ScrollBar.vertical: ScrollBar {
-                        active: true
-                        policy: ScrollBar.AsNeeded
-                        contentItem: Rectangle { implicitWidth: window.s(3); radius: window.s(1.5); color: window.surface2; opacity: 0.5 }
-                    }
-
-                    Text {
-                        width: changelogScroll.availableWidth
-                        text: window.displayedCommitMessage
-                        font.family: "JetBrains Mono"
-                        font.pixelSize: window.s(13)
-                        color: window.text
-                        wrapMode: Text.WordWrap
-                        horizontalAlignment: Text.AlignLeft
-                        verticalAlignment: Text.AlignTop
-                        lineHeight: 1.4
-                    }
+            NumberAnimation {
+                id: fillAnim
+                target: updateBtn
+                property: "fillLevel"
+                to: 1.0
+                duration: window.holdDuration * (1.0 - updateBtn.fillLevel)
+                easing.type: Easing.InSine
+                onFinished: {
+                    updateBtn.triggered = true;
+                    Quickshell.execDetached(["bash", window.updaterScriptPath, "run"]);
+                    window.close();
                 }
             }
 
-            Rectangle {
-                id: updateBtn
-                Layout.fillWidth: true
-                Layout.preferredHeight: window.s(54)
-                radius: window.s(12)
-                color: window.surface0
-                border.color: btnMa.containsMouse ? window.green : window.surface2
-                border.width: btnMa.containsMouse ? window.s(2) : 1
-                clip: true
-
-                scale: btnMa.pressed ? 0.98 : (btnMa.containsMouse ? 1.01 : 1.0)
-                Behavior on scale { NumberAnimation { duration: 250; easing.type: Easing.OutCubic } }
-                Behavior on border.color { ColorAnimation { duration: 200 } }
-
-                property real fillLevel: 0.0
-                property bool triggered: false
-
-                Canvas {
-                    id: waveCanvas
-                    anchors.fill: parent
-
-                    property real wavePhase: 0.0
-                    NumberAnimation on wavePhase {
-                        running: updateBtn.fillLevel > 0.0 && updateBtn.fillLevel < 1.0
-                        loops: Animation.Infinite
-                        from: 0; to: Math.PI * 2
-                        duration: 1000
-                    }
-
-                    onWavePhaseChanged: requestPaint()
-                    Connections { target: updateBtn; function onFillLevelChanged() { waveCanvas.requestPaint() } }
-
-                    onPaint: {
-                        var ctx = getContext("2d");
-                        ctx.clearRect(0, 0, width, height);
-                        if (updateBtn.fillLevel <= 0.001) return;
-
-                        var currentW = width * updateBtn.fillLevel;
-                        var r = window.s(12);
-
-                        ctx.save();
-                        ctx.beginPath();
-                        ctx.moveTo(0, 0);
-
-                        if (updateBtn.fillLevel < 0.99) {
-                            var waveAmp = window.s(8) * Math.sin(updateBtn.fillLevel * Math.PI);
-                            var cp1x = currentW + Math.sin(wavePhase) * waveAmp;
-                            var cp2x = currentW + Math.cos(wavePhase + Math.PI) * waveAmp;
-
-                            ctx.lineTo(currentW, 0);
-                            ctx.bezierCurveTo(cp2x, height * 0.33, cp1x, height * 0.66, currentW, height);
-                            ctx.lineTo(0, height);
-                        } else {
-                            ctx.lineTo(width, 0);
-                            ctx.lineTo(width, height);
-                            ctx.lineTo(0, height);
-                        }
-                        ctx.closePath();
-                        ctx.clip();
-
-                        ctx.beginPath();
-                        ctx.roundedRect(0, 0, width, height, r, r);
-                        var grad = ctx.createLinearGradient(0, 0, width, 0);
-                        grad.addColorStop(0, Qt.darker(window.green, 1.1).toString());
-                        grad.addColorStop(1, window.green.toString());
-                        ctx.fillStyle = grad;
-                        ctx.fill();
-
-                        ctx.restore();
-                    }
-                }
-
-                RowLayout {
-                    anchors.centerIn: parent
-                    spacing: window.s(10)
-
-                    Text {
-                        text: "󰚰"
-                        font.family: "Iosevka Nerd Font"
-                        font.pixelSize: window.s(18)
-                        color: updateBtn.fillLevel > 0.5 ? window.crust : window.green
-                        Behavior on color { ColorAnimation { duration: 150 } }
-                    }
-
-                    Text {
-                        text: updateBtn.fillLevel > 0 ? "HOLDING..." : "PULL & APPLY"
-                        font.family: "JetBrains Mono"
-                        font.weight: Font.Black
-                        font.pixelSize: window.s(14)
-                        color: updateBtn.fillLevel > 0.5 ? window.crust : window.green
-                        Behavior on color { ColorAnimation { duration: 150 } }
-                    }
-                }
-
-                MouseArea {
-                    id: btnMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: updateBtn.triggered ? Qt.ArrowCursor : Qt.PointingHandCursor
-
-                    onPressed: {
-                        if (!updateBtn.triggered) {
-                            drainAnim.stop();
-                            fillAnim.start();
-                        }
-                    }
-
-                    onReleased: {
-                        if (!updateBtn.triggered && updateBtn.fillLevel < 1.0) {
-                            fillAnim.stop();
-                            drainAnim.start();
-                        }
-                    }
-                }
-
-                NumberAnimation {
-                    id: fillAnim
-                    target: updateBtn
-                    property: "fillLevel"
-                    to: 1.0
-                    duration: 1200 * (1.0 - updateBtn.fillLevel)
-                    easing.type: Easing.InSine
-                    onFinished: {
-                        updateBtn.triggered = true;
-                        Quickshell.execDetached(["bash", updaterScriptPath, "run"]);
-                        window.closePopup();
-                    }
-                }
-
-                NumberAnimation {
-                    id: drainAnim
-                    target: updateBtn
-                    property: "fillLevel"
-                    to: 0.0
-                    duration: 800 * updateBtn.fillLevel
-                    easing.type: Easing.OutCubic
-                }
+            NumberAnimation {
+                id: drainAnim
+                target: updateBtn
+                property: "fillLevel"
+                to: 0.0
+                duration: window.drainDuration * updateBtn.fillLevel
+                easing.type: Design.easing
             }
         }
     }

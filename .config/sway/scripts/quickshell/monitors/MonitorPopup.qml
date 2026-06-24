@@ -3,49 +3,24 @@ import QtQuick.Layouts
 import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
-import "../"
+import "../Ui"
 
-Item {
+PopupShell {
     id: window
 
-    // --- Responsive Scaling Logic ---
-    Scaler {
-        id: scaler
-        currentWidth: Screen.width
-    }
     
-    // Helper function scoped to the root Item
-    function s(val) { 
-        return scaler.s(val); 
-    }
-    
-    // -------------------------------------------------------------------------
-    // COLORS (Dynamic Matugen Palette)
-    // -------------------------------------------------------------------------
-    MatugenColors { id: _theme }
-    readonly property color base: _theme.base
-    readonly property color mantle: _theme.mantle
-    readonly property color crust: _theme.crust
-    readonly property color text: _theme.text
-    readonly property color subtext0: _theme.subtext0
-    readonly property color overlay0: _theme.overlay0
-    readonly property color surface0: _theme.surface0
-    readonly property color surface1: _theme.surface1
-    readonly property color surface2: _theme.surface2
-    
-    readonly property color mauve: _theme.mauve
-    readonly property color blue: _theme.blue
-    readonly property color pink: _theme.pink
-    readonly property color teal: _theme.teal
-    readonly property color yellow: _theme.yellow
-    readonly property color peach: _theme.peach
-    readonly property color green: _theme.green
-    readonly property color red: _theme.red
-    readonly property color sapphire: _theme.sapphire
 
     // -------------------------------------------------------------------------
     // STATE & MATH
     // -------------------------------------------------------------------------
+    // Durations that are choreography, not styling: a staged entrance, ambient
+    // drift and layout settling. Deliberately off the motion scale.
+    readonly property int introDuration: 900
+    readonly property int introSlow: 1500
+    readonly property int tintDuration: 1000
+    readonly property int layoutDuration: 600
+    readonly property int driftPeriod: 90000
+
     property int activeEditIndex: 0
     // Virtual mapping scale (1920px -> 192 virtual units)
     property real uiScale: 0.10 
@@ -62,8 +37,8 @@ Item {
         id: brightnessModel
     }
     
-    property color selectedResAccent: window.mauve
-    property color selectedRateAccent: window.blue
+    property color selectedResAccent: Design.accentAlt
+    property color selectedRateAccent: Design.accent
     readonly property string monitorsScriptPath: Quickshell.env("HOME") + "/.config/sway/scripts/tools/monitors.sh"
     readonly property string brightnessScriptPath: Quickshell.env("HOME") + "/.config/sway/scripts/controls/monitor-brightness.sh"
 
@@ -89,7 +64,7 @@ Item {
     NumberAnimation on globalOrbitAngle {
         from: 0
         to: Math.PI * 2
-        duration: 90000
+        duration: window.driftPeriod
         loops: Animation.Infinite
         running: true
     }
@@ -99,7 +74,7 @@ Item {
     // -------------------------------------------------------------------------
     property real introProgress: 0.0
     property real monitorScale: 0.85
-    property real uiYOffset: window.s(25)
+    property real uiYOffset: Design.s(25)
     property real screenLight: 0.0
 
     Component.onCompleted: {
@@ -109,10 +84,10 @@ Item {
 
     ParallelAnimation {
         id: startupAnim
-        NumberAnimation { target: window; property: "introProgress"; from: 0.0; to: 1.0; duration: 900; easing.type: Easing.OutQuint }
-        NumberAnimation { target: window; property: "monitorScale"; from: 0.85; to: 1.0; duration: 1200; easing.type: Easing.OutQuint }
-        NumberAnimation { target: window; property: "uiYOffset"; from: window.s(25); to: 0; duration: 1800; easing.type: Easing.OutQuint }
-        NumberAnimation { target: window; property: "screenLight"; from: 0.0; to: 1.0; duration: 1500; easing.type: Easing.InOutQuad }
+        NumberAnimation { target: window; property: "introProgress"; from: 0.0; to: 1.0; duration: window.introDuration; easing.type: Easing.OutQuint }
+        NumberAnimation { target: window; property: "monitorScale"; from: 0.85; to: 1.0; duration: window.introSlow; easing.type: Easing.OutQuint }
+        NumberAnimation { target: window; property: "uiYOffset"; from: Design.s(25); to: 0; duration: window.introSlow; easing.type: Easing.OutQuint }
+        NumberAnimation { target: window; property: "screenLight"; from: 0.0; to: 1.0; duration: window.introSlow; easing.type: Easing.InOutQuad }
     }
     property bool applyHovered: false
     property bool applyPressed: false
@@ -335,9 +310,9 @@ Item {
 
         Rectangle {
             anchors.fill: parent
-            radius: window.s(30)
-            color: window.base
-            border.color: window.surface0
+            radius: Design.s(30)
+            color: Design.surface
+            border.color: Design.raised
             border.width: 1
             clip: true
 
@@ -345,21 +320,21 @@ Item {
                 width: parent.width * 0.8
                 height: width
                 radius: width / 2
-                x: (parent.width / 2 - width / 2) + Math.cos(window.globalOrbitAngle * 2) * window.s(150)
-                y: (parent.height / 2 - height / 2) + Math.sin(window.globalOrbitAngle * 2) * window.s(100)
+                x: (parent.width / 2 - width / 2) + Math.cos(window.globalOrbitAngle * 2) * Design.s(150)
+                y: (parent.height / 2 - height / 2) + Math.sin(window.globalOrbitAngle * 2) * Design.s(100)
                 opacity: 0.04
                 color: window.selectedResAccent
-                Behavior on color { ColorAnimation { duration: 1000 } }
+                Behavior on color { ColorAnimation { duration: window.tintDuration } }
             }
             Rectangle {
                 width: parent.width * 0.9
                 height: width
                 radius: width / 2
-                x: (parent.width / 2 - width / 2) + Math.sin(window.globalOrbitAngle * 1.5) * window.s(-150)
-                y: (parent.height / 2 - height / 2) + Math.cos(window.globalOrbitAngle * 1.5) * window.s(-100)
+                x: (parent.width / 2 - width / 2) + Math.sin(window.globalOrbitAngle * 1.5) * Design.s(-150)
+                y: (parent.height / 2 - height / 2) + Math.cos(window.globalOrbitAngle * 1.5) * Design.s(-100)
                 opacity: 0.04
                 color: window.selectedRateAccent
-                Behavior on color { ColorAnimation { duration: 1000 } }
+                Behavior on color { ColorAnimation { duration: window.tintDuration } }
             }
 
             // ==========================================
@@ -367,11 +342,11 @@ Item {
             // ==========================================
             Item {
                 id: leftVisualArea
-                width: window.s(380)
-                height: window.s(300)
+                width: Design.s(380)
+                height: Design.s(300)
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
-                anchors.leftMargin: window.s(20)
+                anchors.leftMargin: Design.s(20)
 
                 // --------------------------------------------------
                 // MODE 1: SINGLE MONITOR
@@ -383,96 +358,96 @@ Item {
                     Item {
                         id: singleMonitorZoom
                         anchors.centerIn: parent
-                        width: window.s(380)
-                        height: window.s(280)
+                        width: Design.s(380)
+                        height: Design.s(280)
                         
                         property real baseScale: Math.min(1.0, 2200 / window.currentSimW)
                         scale: baseScale * window.monitorScale
                         opacity: window.introProgress
-                        Behavior on baseScale { NumberAnimation { duration: 600; easing.type: Easing.OutQuint } }
+                        Behavior on baseScale { NumberAnimation { duration: window.layoutDuration; easing.type: Easing.OutQuint } }
 
                         Rectangle {
                             id: deskSurface
-                            width: window.s(1000)
-                            height: window.s(14)
-                            radius: window.s(6)
+                            width: Design.s(1000)
+                            height: Design.s(14)
+                            radius: Design.s(6)
                             anchors.top: standBase.bottom
                             anchors.horizontalCenter: parent.horizontalCenter
-                            color: window.mantle
-                            border.color: window.surface0
+                            color: Design.sunken
+                            border.color: Design.raised
                             border.width: 1
 
                             Rectangle { 
-                                width: window.s(24)
-                                height: window.s(350)
-                                radius: window.s(4)
-                                color: window.crust
+                                width: Design.s(24)
+                                height: Design.s(350)
+                                radius: Design.s(4)
+                                color: Design.ground
                                 anchors.top: parent.bottom
-                                anchors.topMargin: window.s(-5)
+                                anchors.topMargin: Design.s(-5)
                                 anchors.left: parent.left
-                                anchors.leftMargin: window.s(100)
+                                anchors.leftMargin: Design.s(100)
                                 z: -1 
                             }
                             Rectangle { 
-                                width: window.s(24)
-                                height: window.s(350)
-                                radius: window.s(4)
-                                color: window.crust
+                                width: Design.s(24)
+                                height: Design.s(350)
+                                radius: Design.s(4)
+                                color: Design.ground
                                 anchors.top: parent.bottom
-                                anchors.topMargin: window.s(-5)
+                                anchors.topMargin: Design.s(-5)
                                 anchors.right: parent.right
-                                anchors.rightMargin: window.s(100)
+                                anchors.rightMargin: Design.s(100)
                                 z: -1 
                             }
                         }
 
                         Rectangle {
                             id: standBase
-                            width: window.s(130)
-                            height: window.s(8)
-                            radius: window.s(4)
+                            width: Design.s(130)
+                            height: Design.s(8)
+                            radius: Design.s(4)
                             anchors.bottom: parent.bottom
-                            anchors.bottomMargin: window.s(20)
+                            anchors.bottomMargin: Design.s(20)
                             anchors.horizontalCenter: parent.horizontalCenter
-                            color: window.surface1
+                            color: Design.hover
                         }
                         
                         Rectangle {
                             id: standNeck
-                            width: window.s(34)
-                            height: window.s(70)
+                            width: Design.s(34)
+                            height: Design.s(70)
                             anchors.bottom: standBase.top
                             anchors.horizontalCenter: parent.horizontalCenter
-                            color: window.surface0
+                            color: Design.raised
                             Rectangle { 
-                                width: window.s(10)
-                                height: window.s(30)
-                                radius: window.s(5)
+                                width: Design.s(10)
+                                height: Design.s(30)
+                                radius: Design.s(5)
                                 anchors.centerIn: parent
-                                color: window.base 
+                                color: Design.surface 
                             }
                         }
 
                         Rectangle {
                             id: screenBezel
-                            width: window.s(140) + (window.s(180) * (window.currentSimW / 1920))
-                            height: window.s(90) + (window.s(90) * (window.currentSimH / 1080))
+                            width: Design.s(140) + (Design.s(180) * (window.currentSimW / 1920))
+                            height: Design.s(90) + (Design.s(90) * (window.currentSimH / 1080))
                             anchors.bottom: standNeck.top
-                            anchors.bottomMargin: window.s(-10)
+                            anchors.bottomMargin: Design.s(-10)
                             anchors.horizontalCenter: parent.horizontalCenter
-                            radius: window.s(12)
-                            color: window.crust
-                            border.color: window.surface2
-                            border.width: window.s(2)
+                            radius: Design.s(12)
+                            color: Design.ground
+                            border.color: Design.active
+                            border.width: Design.s(2)
                             
-                            Behavior on width { NumberAnimation { duration: 600; easing.type: Easing.OutQuint } }
-                            Behavior on height { NumberAnimation { duration: 600; easing.type: Easing.OutQuint } }
+                            Behavior on width { NumberAnimation { duration: window.layoutDuration; easing.type: Easing.OutQuint } }
+                            Behavior on height { NumberAnimation { duration: window.layoutDuration; easing.type: Easing.OutQuint } }
 
                             Rectangle {
                                 anchors.fill: parent
-                                anchors.margins: window.s(10)
-                                radius: window.s(6)
-                                color: window.surface0
+                                anchors.margins: Design.s(10)
+                                radius: Design.s(6)
+                                color: Design.raised
                                 clip: true
 
                                 Rectangle {
@@ -484,13 +459,13 @@ Item {
                                         orientation: Gradient.Vertical
                                         GradientStop { 
                                             position: 0.0
-                                            color: Qt.tint(window.surface0, Qt.alpha(window.selectedResAccent, 0.15))
-                                            Behavior on color { ColorAnimation { duration: 400 } } 
+                                            color: Qt.tint(Design.raised, Qt.alpha(window.selectedResAccent, 0.15))
+                                            Behavior on color { ColorAnimation { duration: Design.duration.slow } } 
                                         }
                                         GradientStop { 
                                             position: 1.0
-                                            color: Qt.tint(window.surface0, Qt.alpha(window.selectedRateAccent, 0.1))
-                                            Behavior on color { ColorAnimation { duration: 400 } } 
+                                            color: Qt.tint(Design.raised, Qt.alpha(window.selectedRateAccent, 0.1))
+                                            Behavior on color { ColorAnimation { duration: Design.duration.slow } } 
                                         }
                                     }
                                     
@@ -498,10 +473,10 @@ Item {
                                         anchors.centerIn: parent
                                         rows: 10
                                         columns: 15
-                                        spacing: window.s(20)
+                                        spacing: Design.s(20)
                                         Repeater { 
                                             model: 150
-                                            Rectangle { width: window.s(2); height: window.s(2); radius: window.s(1); color: Qt.alpha(window.text, 0.1) } 
+                                            Rectangle { width: Design.s(2); height: Design.s(2); radius: Design.s(1); color: Qt.alpha(Design.text, 0.1) } 
                                         } 
                                     }
 
@@ -511,29 +486,26 @@ Item {
                                         
                                         ColumnLayout {
                                             anchors.centerIn: parent
-                                            spacing: window.s(4)
+                                            spacing: Design.s(4)
                                             Text { 
                                                 Layout.alignment: Qt.AlignHCenter
-                                                font.family: "Iosevka Nerd Font"
-                                                font.pixelSize: window.s(38)
+                                                font.family: Design.font.icon
+                                                font.pixelSize: Design.s(38)
                                                 color: window.selectedResAccent
                                                 text: "󰍹"
-                                                Behavior on color { ColorAnimation { duration: 400 } } 
+                                                Behavior on color { ColorAnimation { duration: Design.duration.slow } } 
                                             }
-                                            Text { 
+                                            Label {
+                                                role: "subhead"
                                                 Layout.alignment: Qt.AlignHCenter
-                                                font.family: "JetBrains Mono"
-                                                font.weight: Font.Bold
-                                                font.pixelSize: window.s(16)
-                                                color: window.text
-                                                text: monitorsModel.count > 0 ? monitorsModel.get(0).name : "Unknown" 
+                                                font.weight: Design.weight.semibold
+                                                text: monitorsModel.count > 0 ? monitorsModel.get(0).name : "Unknown"
                                             }
-                                            Text { 
+                                            Label {
+                                                role: "caption"
                                                 Layout.alignment: Qt.AlignHCenter
-                                                font.family: "JetBrains Mono"
-                                                font.pixelSize: window.s(12)
-                                                color: window.subtext0
-                                                text: window.currentSimW + "x" + window.currentSimH + " @ " + (monitorsModel.count > 0 ? monitorsModel.get(0).rate : "60") + "Hz" 
+                                                dim: true
+                                                text: window.currentSimW + "x" + window.currentSimH + " @ " + (monitorsModel.count > 0 ? monitorsModel.get(0).rate : "60") + "Hz"
                                             }
                                         }
                                     }
@@ -552,8 +524,8 @@ Item {
 
                     Item {
                         id: multiMonitorView
-                        width: window.s(380)
-                        height: window.s(280)
+                        width: Design.s(380)
+                        height: Design.s(280)
                         anchors.centerIn: parent
                         clip: true 
 
@@ -561,10 +533,10 @@ Item {
                             anchors.centerIn: parent
                             rows: 25
                             columns: 34
-                            spacing: window.s(18)
+                            spacing: Design.s(18)
                             Repeater { 
                                 model: 850
-                                Rectangle { width: window.s(2); height: window.s(2); radius: window.s(1); color: Qt.alpha(window.text, 0.1) } 
+                                Rectangle { width: Design.s(2); height: Design.s(2); radius: Design.s(1); color: Qt.alpha(Design.text, 0.1) } 
                             }
                         }
 
@@ -587,7 +559,7 @@ Item {
                             let requiredW = (maxX - minX) + 80;
                             let requiredH = (maxY - minY) + 80;
                             
-                            return Math.min(1.8 * scaler.baseScale, Math.min(window.s(340) / requiredW, window.s(240) / requiredH));
+                            return Math.min(1.8 * scaler.baseScale, Math.min(Design.s(340) / requiredW, Design.s(240) / requiredH));
                         }
 
                         property real offsetX: {
@@ -603,7 +575,7 @@ Item {
                             }
                             
                             let centerX = minX + (maxX - minX) / 2;
-                            return window.s(190) - (centerX * targetScale);
+                            return Design.s(190) - (centerX * targetScale);
                         }
 
                         property real offsetY: {
@@ -619,7 +591,7 @@ Item {
                             }
                             
                             let centerY = minY + (maxY - minY) / 2;
-                            return window.s(140) - (centerY * targetScale);
+                            return Design.s(140) - (centerY * targetScale);
                         }
 
                         Item {
@@ -629,9 +601,9 @@ Item {
                             scale: multiMonitorView.targetScale
                             transformOrigin: Item.TopLeft
 
-                            Behavior on x { NumberAnimation { duration: 400; easing.type: Easing.OutQuint } }
-                            Behavior on y { NumberAnimation { duration: 400; easing.type: Easing.OutQuint } }
-                            Behavior on scale { NumberAnimation { duration: 400; easing.type: Easing.OutQuint } }
+                            Behavior on x { NumberAnimation { duration: Design.duration.slow; easing.type: Easing.OutQuint } }
+                            Behavior on y { NumberAnimation { duration: Design.duration.slow; easing.type: Easing.OutQuint } }
+                            Behavior on scale { NumberAnimation { duration: Design.duration.slow; easing.type: Easing.OutQuint } }
 
                             Repeater {
                                 id: monitorRepeater
@@ -651,18 +623,18 @@ Item {
                                         height: (model.resH / model.sysScale) * window.uiScale
                                         
                                         radius: 8
-                                        color: isActive ? window.surface1 : window.crust
-                                        border.color: isActive ? window.selectedResAccent : window.surface2
+                                        color: isActive ? Design.hover : Design.ground
+                                        border.color: isActive ? window.selectedResAccent : Design.active
                                         border.width: isActive ? 2 : 1
                                         z: isActive ? 5 : 0
 
-                                        Behavior on x { NumberAnimation { duration: 300; easing.type: Easing.OutQuint } }
-                                        Behavior on y { NumberAnimation { duration: 300; easing.type: Easing.OutQuint } }
+                                        Behavior on x { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutQuint } }
+                                        Behavior on y { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutQuint } }
                                         
-                                        Behavior on border.color { ColorAnimation { duration: 300 } }
-                                        Behavior on color { ColorAnimation { duration: 300 } }
-                                        Behavior on width { NumberAnimation { duration: 400; easing.type: Easing.OutQuint } }
-                                        Behavior on height { NumberAnimation { duration: 400; easing.type: Easing.OutQuint } }
+                                        Behavior on border.color { ColorAnimation { duration: Design.duration.base } }
+                                        Behavior on color { ColorAnimation { duration: Design.duration.base } }
+                                        Behavior on width { NumberAnimation { duration: Design.duration.slow; easing.type: Easing.OutQuint } }
+                                        Behavior on height { NumberAnimation { duration: Design.duration.slow; easing.type: Easing.OutQuint } }
 
                                         Item {
                                             anchors.centerIn: parent
@@ -678,25 +650,25 @@ Item {
                                                 spacing: 2
                                                 Text { 
                                                     Layout.alignment: Qt.AlignHCenter
-                                                    font.family: "Iosevka Nerd Font"
+                                                    font.family: Design.font.icon
                                                     font.pixelSize: 32
-                                                    color: isActive ? window.selectedResAccent : window.text
+                                                    color: isActive ? window.selectedResAccent : Design.text
                                                     text: "󰍹"
-                                                    Behavior on color { ColorAnimation { duration: 300 } } 
+                                                    Behavior on color { ColorAnimation { duration: Design.duration.base } } 
                                                 }
                                                 Text { 
                                                     Layout.alignment: Qt.AlignHCenter
-                                                    font.family: "JetBrains Mono"
-                                                    font.weight: Font.Black
+                                                    font.family: Design.font.mono
+                                                    font.weight: Design.weight.bold
                                                     font.pixelSize: 13
-                                                    color: window.text
+                                                    color: Design.text
                                                     text: model.name 
                                                 }
                                                 Text { 
                                                     Layout.alignment: Qt.AlignHCenter
-                                                    font.family: "JetBrains Mono"
+                                                    font.family: Design.font.mono
                                                     font.pixelSize: 10
-                                                    color: window.subtext0
+                                                    color: Design.textDim
                                                     text: model.resW + "x" + model.resH + " @ " + model.rate + "Hz" 
                                                 }
                                             }
@@ -801,9 +773,9 @@ Item {
                 anchors.left: leftVisualArea.right
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter 
-                anchors.leftMargin: window.s(10)
-                anchors.rightMargin: window.s(30)
-                height: window.s(310)
+                anchors.leftMargin: Design.s(10)
+                anchors.rightMargin: Design.s(30)
+                height: Design.s(310)
 
                 opacity: window.introProgress
                 transform: Translate { y: window.uiYOffset }
@@ -815,7 +787,7 @@ Item {
                             target: rightSideContainer
                             from: 0.99
                             to: 1.0
-                            duration: 200
+                            duration: Design.duration.base
                             easing.type: Easing.OutSine 
                         }
                         NumberAnimation { 
@@ -823,7 +795,7 @@ Item {
                             property: "opacity"
                             from: 0.05
                             to: 0.0
-                            duration: 250
+                            duration: Design.duration.base
                             easing.type: Easing.OutQuad 
                         }
                     }
@@ -832,30 +804,30 @@ Item {
                 Rectangle {
                     id: highlightFlash
                     anchors.fill: rightSideContainer
-                    anchors.margins: window.s(-10)
+                    anchors.margins: Design.s(-10)
                     color: window.selectedResAccent
                     opacity: 0.0
-                    radius: window.s(12)
+                    radius: Design.s(12)
                 }
 
                 ColumnLayout {
                     id: rightSideContainer
                     anchors.fill: parent
-                    spacing: window.s(10)
+                    spacing: Design.s(10)
 
                     // --- TAB BAR ---
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: window.s(36)
-                        radius: window.s(18)
-                        color: window.mantle
-                        border.color: window.surface0
+                        Layout.preferredHeight: Design.s(36)
+                        radius: Design.s(18)
+                        color: Design.sunken
+                        border.color: Design.raised
                         border.width: 1
 
                         RowLayout {
                             anchors.fill: parent
-                            anchors.margins: window.s(3)
-                            spacing: window.s(3)
+                            anchors.margins: Design.s(3)
+                            spacing: Design.s(3)
 
                             Repeater {
                                 model: [
@@ -865,40 +837,32 @@ Item {
                                 delegate: Rectangle {
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
-                                    radius: window.s(15)
+                                    radius: Design.s(15)
                                     property bool isSel: window.activeTab === index
-                                    color: isSel ? Qt.alpha(index === 0 ? window.selectedResAccent : window.yellow, 0.18) : (tabMa.containsMouse ? window.surface0 : "transparent")
-                                    border.color: isSel ? (index === 0 ? window.selectedResAccent : window.yellow) : "transparent"
+                                    color: isSel ? Qt.alpha(index === 0 ? window.selectedResAccent : Design.warn, 0.18) : (tabMa.containsMouse ? Design.raised : "transparent")
+                                    border.color: isSel ? (index === 0 ? window.selectedResAccent : Design.warn) : "transparent"
                                     border.width: isSel ? 1 : 0
-                                    Behavior on color { ColorAnimation { duration: 180 } }
-                                    Behavior on border.color { ColorAnimation { duration: 180 } }
+                                    Behavior on color { ColorAnimation { duration: Design.duration.fast } }
+                                    Behavior on border.color { ColorAnimation { duration: Design.duration.fast } }
 
                                     RowLayout {
                                         anchors.centerIn: parent
-                                        spacing: window.s(5)
-                                        Text {
-                                            font.family: "Iosevka Nerd Font"
-                                            font.pixelSize: window.s(14)
-                                            color: isSel ? (index === 0 ? window.selectedResAccent : window.yellow) : window.subtext0
+                                        spacing: Design.s(5)
+                                        Icon {
+                                            role: "body"
+                                            color: isSel ? (index === 0 ? window.selectedResAccent : Design.warn) : Design.textDim
                                             text: modelData.icon
-                                            Behavior on color { ColorAnimation { duration: 180 } }
+                                            Behavior on color { ColorAnimation { duration: Design.duration.fast } }
                                         }
-                                        Text {
-                                            font.family: "JetBrains Mono"
+                                        Label {
+                                            role: "caption"
                                             font.weight: isSel ? Font.Bold : Font.Normal
-                                            font.pixelSize: window.s(11)
-                                            color: isSel ? window.text : window.subtext0
+                                            color: isSel ? Design.text : Design.textDim
                                             text: modelData.label
-                                            Behavior on color { ColorAnimation { duration: 180 } }
+                                            Behavior on color { ColorAnimation { duration: Design.duration.fast } }
                                         }
                                     }
-                                    MouseArea {
-                                        id: tabMa
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: window.activeTab = index
-                                    }
+                                    Clickable { id: tabMa; onClicked: window.activeTab = index }
                                 }
                             }
                         }
@@ -908,34 +872,34 @@ Item {
                     ColumnLayout {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        spacing: window.s(10)
+                        spacing: Design.s(10)
                         visible: window.activeTab === 0
                         opacity: window.activeTab === 0 ? 1.0 : 0.0
-                        Behavior on opacity { NumberAnimation { duration: 180 } }
+                        Behavior on opacity { NumberAnimation { duration: Design.duration.fast } }
 
                     // --- RESOLUTION CARDS SECTION ---
                     GridLayout {
                         Layout.fillWidth: true
                         columns: 2
-                        columnSpacing: window.s(10)
-                        rowSpacing: window.s(10)
+                        columnSpacing: Design.s(10)
+                        rowSpacing: Design.s(10)
 
                         Repeater {
                             model: [
-                                { resW: 3840, resH: 2160, label: "4K",   accent: window.pink }, 
-                                { resW: 2560, resH: 1440, label: "QHD",  accent: window.mauve },
-                                { resW: 1920, resH: 1080, label: "FHD",  accent: window.blue },
-                                { resW: 1600, resH: 900,  label: "HD+",  accent: window.teal }, 
-                                { resW: 1366, resH: 768,  label: "WXGA", accent: window.yellow }, 
-                                { resW: 1280, resH: 720,  label: "HD",   accent: window.peach }, 
-                                { resW: 1024, resH: 768,  label: "XGA",  accent: window.green }, 
-                                { resW: 800,  resH: 600,  label: "SVGA", accent: window.red } 
+                                { resW: 3840, resH: 2160, label: "4K",   accent: Design.accentAlt }, 
+                                { resW: 2560, resH: 1440, label: "QHD",  accent: Design.accentAlt },
+                                { resW: 1920, resH: 1080, label: "FHD",  accent: Design.accent },
+                                { resW: 1600, resH: 900,  label: "HD+",  accent: Design.ok }, 
+                                { resW: 1366, resH: 768,  label: "WXGA", accent: Design.warn }, 
+                                { resW: 1280, resH: 720,  label: "HD",   accent: Design.warn }, 
+                                { resW: 1024, resH: 768,  label: "XGA",  accent: Design.ok }, 
+                                { resW: 800,  resH: 600,  label: "SVGA", accent: Design.danger } 
                             ]
 
                             delegate: Rectangle {
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: window.s(48)
-                                radius: window.s(12)
+                                Layout.preferredHeight: Design.s(48)
+                                radius: Design.s(12)
                                 
                                 property bool isSel: {
                                     if (monitorsModel.count === 0) return false;
@@ -944,46 +908,41 @@ Item {
                                 }
                                 property color accentColor: modelData.accent
                                 
-                                color: isSel ? Qt.alpha(accentColor, 0.15) : (resMa.containsMouse ? window.surface0 : window.mantle)
-                                border.color: isSel ? accentColor : (resMa.containsMouse ? window.surface1 : "transparent")
+                                color: isSel ? Qt.alpha(accentColor, 0.15) : (resMa.containsMouse ? Design.raised : Design.sunken)
+                                border.color: isSel ? accentColor : (resMa.containsMouse ? Design.hover : "transparent")
                                 border.width: isSel ? 2 : 1
                                 
-                                Behavior on color { ColorAnimation { duration: 200 } }
-                                Behavior on border.color { ColorAnimation { duration: 200 } }
+                                Behavior on color { ColorAnimation { duration: Design.duration.base } }
+                                Behavior on border.color { ColorAnimation { duration: Design.duration.base } }
 
                                 RowLayout {
                                     anchors.fill: parent
-                                    anchors.margins: window.s(12)
-                                    spacing: window.s(8)
+                                    anchors.margins: Design.s(12)
+                                    spacing: Design.s(8)
                                     
-                                    Text { 
-                                        font.family: "JetBrains Mono"
+                                    Label {
+                                        role: "subhead"
                                         font.weight: isSel ? Font.Black : Font.Bold
-                                        font.pixelSize: window.s(16)
-                                        color: isSel ? accentColor : window.text
+                                        color: isSel ? accentColor : Design.text
                                         text: modelData.label
-                                        Behavior on color { ColorAnimation { duration: 200 } } 
+                                        Behavior on color { ColorAnimation { duration: Design.duration.base } }
                                     }
                                     
                                     Item { Layout.fillWidth: true } 
                                     
-                                    Text { 
-                                        font.family: "JetBrains Mono"
-                                        font.pixelSize: window.s(12)
-                                        color: isSel ? window.text : window.overlay0
+                                    Label {
+                                        role: "caption"
+                                        color: isSel ? Design.text : Design.textFaint
                                         text: modelData.resW + "x" + modelData.resH
-                                        Behavior on color { ColorAnimation { duration: 200 } } 
+                                        Behavior on color { ColorAnimation { duration: Design.duration.base } }
                                     }
                                 }
 
                                 scale: resMa.pressed ? 0.96 : 1.0
-                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutSine } }
+                                Behavior on scale { NumberAnimation { duration: Design.duration.fast; easing.type: Easing.OutSine } }
 
-                                MouseArea {
+                                Clickable {
                                     id: resMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
                                     onClicked: {
                                         if (monitorsModel.count > 0) {
                                             window.selectedResAccent = accentColor;
@@ -997,18 +956,18 @@ Item {
                         }
                     }
 
-                    Item { Layout.preferredHeight: window.s(15) } 
+                    Item { Layout.preferredHeight: Design.s(15) } 
 
                     // --- REFRESH RATE SLIDER SECTION ---
                     Item {
                         id: sliderContainer
                         Layout.fillWidth: true
-                        Layout.preferredHeight: window.s(50)
-                        Layout.leftMargin: window.s(10)
-                        Layout.rightMargin: window.s(10)
+                        Layout.preferredHeight: Design.s(50)
+                        Layout.leftMargin: Design.s(10)
+                        Layout.rightMargin: Design.s(10)
                         
                         property var rates: [60, 75, 100, 120, 144, 165, 180, 240, 360]
-                        property var rateColors: [window.red, window.mauve, window.blue, window.sapphire, window.teal, window.pink, window.yellow, window.green, window.peach]
+                        property var rateColors: [Design.danger, Design.accentAlt, Design.accent, Design.accentSoft, Design.ok, Design.accentAlt, Design.warn, Design.ok, Design.warn]
                         
                         property int currentIndex: {
                             if (monitorsModel.count === 0) return 0;
@@ -1036,11 +995,11 @@ Item {
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
-                            anchors.verticalCenterOffset: window.s(-10)
-                            height: window.s(12)
-                            radius: window.s(6)
-                            color: window.mantle
-                            border.color: window.crust
+                            anchors.verticalCenterOffset: Design.s(-10)
+                            height: Design.s(12)
+                            radius: Design.s(6)
+                            color: Design.sunken
+                            border.color: Design.ground
                             border.width: 1
                             
                             Rectangle { 
@@ -1048,7 +1007,7 @@ Item {
                                 height: parent.height
                                 radius: parent.radius
                                 color: window.selectedRateAccent
-                                Behavior on color { ColorAnimation { duration: 200 } } 
+                                Behavior on color { ColorAnimation { duration: Design.duration.base } } 
                             }
                         }
 
@@ -1056,47 +1015,41 @@ Item {
                             model: sliderContainer.rates.length
                             Item {
                                 x: (index / (sliderContainer.rates.length - 1)) * track.width
-                                y: track.y + window.s(20)
+                                y: track.y + Design.s(20)
                                 
-                                Text { 
+                                Label {
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     text: sliderContainer.rates[index]
-                                    font.family: "JetBrains Mono"
-                                    font.pixelSize: window.s(13)
                                     font.weight: sliderContainer.currentIndex === index ? Font.Bold : Font.Normal
-                                    color: sliderContainer.currentIndex === index ? window.selectedRateAccent : window.overlay0
-                                    Behavior on color { ColorAnimation { duration: 200 } } 
+                                    color: sliderContainer.currentIndex === index ? window.selectedRateAccent : Design.textFaint
+                                    Behavior on color { ColorAnimation { duration: Design.duration.base } }
                                 }
                             }
                         }
 
                         Rectangle {
                             id: knob
-                            width: window.s(24)
-                            height: window.s(24)
-                            radius: window.s(12)
-                            color: sliderMa.containsPress ? window.selectedRateAccent : window.text
+                            width: Design.s(24)
+                            height: Design.s(24)
+                            radius: Design.s(12)
+                            color: sliderMa.containsPress ? window.selectedRateAccent : Design.text
                             anchors.verticalCenter: track.verticalCenter
                             x: (sliderContainer.visualPct * track.width) - width / 2
                             
                             Behavior on x { 
                                 enabled: !sliderMa.pressed
-                                NumberAnimation { duration: 250; easing.type: Easing.OutCubic } 
+                                NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutCubic } 
                             }
-                            Behavior on color { ColorAnimation { duration: 150 } }
+                            Behavior on color { ColorAnimation { duration: Design.duration.fast } }
                             
                             border.width: sliderMa.containsMouse ? 4 : 0
                             border.color: Qt.alpha(window.selectedRateAccent, 0.3)
-                            Behavior on border.width { NumberAnimation { duration: 150 } }
+                            Behavior on border.width { NumberAnimation { duration: Design.duration.fast } }
                         }
 
-                        MouseArea {
+                        Clickable {
                             id: sliderMa
-                            anchors.fill: parent
-                            anchors.margins: window.s(-15)
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-
+                            anchors.margins: Design.s(-15)
                             function updateSelection(mouseX, snapToGrid) {
                                 if (monitorsModel.count === 0) return;
                                 let pct = (mouseX - track.x) / track.width;
@@ -1112,7 +1065,6 @@ Item {
                                 monitorsModel.setProperty(window.activeEditIndex, "rate", sliderContainer.rates[idx].toString());
                                 window.selectedRateAccent = sliderContainer.rateColors[idx];
                             }
-
                             onPressed: (mouse) => updateSelection(mouse.x, false)
                             onPositionChanged: (mouse) => { if (pressed) updateSelection(mouse.x, false) }
                             onReleased: (mouse) => updateSelection(mouse.x, true)
@@ -1127,10 +1079,10 @@ Item {
                     ColumnLayout {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        spacing: window.s(10)
+                        spacing: Design.s(10)
                         visible: window.activeTab === 1
                         opacity: window.activeTab === 1 ? 1.0 : 0.0
-                        Behavior on opacity { NumberAnimation { duration: 180 } }
+                        Behavior on opacity { NumberAnimation { duration: Design.duration.fast } }
 
                         // Empty state
                         Item {
@@ -1139,19 +1091,17 @@ Item {
                             visible: brightnessModel.count === 0
                             ColumnLayout {
                                 anchors.centerIn: parent
-                                spacing: window.s(8)
-                                Text {
+                                spacing: Design.s(8)
+                                Icon {
+                                    role: "display"
                                     Layout.alignment: Qt.AlignHCenter
-                                    font.family: "Iosevka Nerd Font"
-                                    font.pixelSize: window.s(32)
-                                    color: window.overlay0
+                                    color: Design.textFaint
                                     text: "󰃠"
                                 }
-                                Text {
+                                Label {
+                                    role: "caption"
                                     Layout.alignment: Qt.AlignHCenter
-                                    font.family: "JetBrains Mono"
-                                    font.pixelSize: window.s(11)
-                                    color: window.overlay0
+                                    color: Design.textFaint
                                     text: "No DDC brightness"
                                 }
                             }
@@ -1161,27 +1111,22 @@ Item {
                         RowLayout {
                             Layout.fillWidth: true
                             visible: brightnessModel.count > 0
-                            spacing: window.s(8)
+                            spacing: Design.s(8)
                             Item { Layout.fillWidth: true }
                             Rectangle {
-                                width: window.s(26)
-                                height: window.s(26)
-                                radius: window.s(13)
-                                color: brightnessReloadMa.containsMouse ? window.surface1 : window.surface0
-                                border.color: brightnessReloadMa.containsMouse ? window.yellow : window.surface2
+                                width: Design.s(26)
+                                height: Design.s(26)
+                                radius: Design.s(13)
+                                color: brightnessReloadMa.containsMouse ? Design.hover : Design.raised
+                                border.color: brightnessReloadMa.containsMouse ? Design.warn : Design.active
                                 border.width: 1
-                                Text {
+                                Icon {
+                                    role: "body"
                                     anchors.centerIn: parent
-                                    font.family: "Iosevka Nerd Font"
-                                    font.pixelSize: window.s(13)
-                                    color: window.text
                                     text: "󰑓"
                                 }
-                                MouseArea {
+                                Clickable {
                                     id: brightnessReloadMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
                                     onClicked: {
                                         if (!brightnessRefresher.running) brightnessRefresher.running = true;
                                     }
@@ -1195,125 +1140,57 @@ Item {
                             delegate: ColumnLayout {
                                 id: brightnessRow
                                 Layout.fillWidth: true
-                                spacing: window.s(6)
+                                spacing: Design.s(6)
 
                                 property bool dragging: false
-                                property int pendingBrightness: -1
                                 readonly property string brightnessDeviceId: model.id
 
                                 function sendBrightness(pct) {
                                     Quickshell.execDetached(["bash", window.brightnessScriptPath, "set", brightnessDeviceId, pct.toString()]);
                                 }
 
-                                Timer {
-                                    id: brightnessSetThrottle
-                                    interval: 140
-                                    repeat: false
-                                    onTriggered: {
-                                        if (brightnessRow.pendingBrightness >= 0) {
-                                            brightnessRow.sendBrightness(brightnessRow.pendingBrightness);
-                                            brightnessRow.pendingBrightness = -1;
-                                        }
-                                    }
-                                }
-
-                                RowLayout {
+                                                                RowLayout {
                                     Layout.fillWidth: true
-                                    spacing: window.s(8)
-                                    Text {
-                                        font.family: "Iosevka Nerd Font"
-                                        font.pixelSize: window.s(14)
-                                        color: window.yellow
+                                    spacing: Design.s(8)
+                                    Icon {
+                                        role: "body"
+                                        color: Design.warn
                                         text: "󰍹"
                                     }
-                                    Text {
+                                    Label {
+                                        role: "caption"
                                         Layout.fillWidth: true
                                         elide: Text.ElideRight
-                                        font.family: "JetBrains Mono"
-                                        font.weight: Font.Bold
-                                        font.pixelSize: window.s(11)
-                                        color: window.text
+                                        font.weight: Design.weight.semibold
                                         text: model.name
                                     }
-                                    Text {
-                                        Layout.preferredWidth: window.s(38)
+                                    Label {
+                                        Layout.preferredWidth: Design.s(38)
                                         horizontalAlignment: Text.AlignRight
-                                        font.family: "JetBrains Mono"
-                                        font.weight: Font.Bold
-                                        font.pixelSize: window.s(13)
-                                        color: window.yellow
+                                        font.weight: Design.weight.semibold
+                                        color: Design.warn
                                         text: model.brightness + "%"
                                     }
                                 }
 
-                                Item {
+                                Slider {
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: window.s(22)
+                                    Layout.preferredHeight: Design.s(22)
 
-                                    Rectangle {
-                                        anchors.fill: parent
-                                        radius: window.s(11)
-                                        color: window.surface0
-                                        border.color: window.surface2
-                                        border.width: 1
-                                        clip: true
+                                    value: model.brightness
+                                    tone: Design.warn
+                                    minimum: 1          // a monitor at 0 is just a black screen
+                                    cornerRadius: Design.radius.pill
 
-                                        Rectangle {
-                                            height: parent.height
-                                            width: parent.width * (model.brightness / 100)
-                                            radius: parent.radius
-                                            gradient: Gradient {
-                                                orientation: Gradient.Horizontal
-                                                GradientStop { position: 0.0; color: Qt.alpha(window.yellow, 0.7) }
-                                                GradientStop { position: 1.0; color: window.yellow }
-                                            }
-                                            opacity: brightnessMa2.containsMouse ? 1.0 : 0.82
-                                            Behavior on width { enabled: !brightnessRow.dragging; NumberAnimation { duration: 160; easing.type: Easing.OutQuint } }
-                                            Behavior on opacity { NumberAnimation { duration: 160 } }
-                                        }
+                                    onMoved: pct => {
+                                        brightnessModel.setProperty(index, "brightness", pct);
+                                        brightnessRow.sendBrightness(pct);
                                     }
 
-                                    MouseArea {
-                                        id: brightnessMa2
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-
-                                        function updateValue(mx, commit) {
-                                            let pct = Math.max(1, Math.min(100, Math.round((mx / width) * 100)));
-                                            brightnessModel.setProperty(index, "brightness", pct);
-                                            if (commit) {
-                                                brightnessSetThrottle.stop();
-                                                brightnessRow.pendingBrightness = -1;
-                                                brightnessRow.sendBrightness(pct);
-                                            } else {
-                                                brightnessRow.pendingBrightness = pct;
-                                                if (!brightnessSetThrottle.running) brightnessSetThrottle.start();
-                                            }
-                                        }
-
-                                        onPressed: (mouse) => {
-                                            brightnessRow.dragging = true;
-                                            window.brightnessDragging = true;
-                                            updateValue(mouse.x, false);
-                                        }
-                                        onPositionChanged: (mouse) => {
-                                            if (pressed) updateValue(mouse.x, false);
-                                        }
-                                        onReleased: (mouse) => {
-                                            updateValue(mouse.x, true);
-                                            brightnessRow.dragging = false;
-                                            window.brightnessDragging = false;
-                                            // Обновить из железа через 3 секунды после отпускания
-                                            brightnessCooldownTimer.restart();
-                                        }
-                                        onCanceled: {
-                                            brightnessSetThrottle.stop();
-                                            brightnessRow.pendingBrightness = -1;
-                                            brightnessRow.dragging = false;
-                                            window.brightnessDragging = false;
-                                            brightnessCooldownTimer.restart();
-                                        }
+                                    onActiveChanged: {
+                                        brightnessRow.dragging = active;
+                                        window.brightnessDragging = active;
+                                        if (!active) brightnessCooldownTimer.restart();
                                     }
                                 }
                             }
@@ -1330,9 +1207,9 @@ Item {
                 id: applyButtonContainer
                 anchors.bottom: parent.bottom
                 anchors.right: parent.right
-                anchors.margins: window.s(30)
-                width: window.s(170)
-                height: window.s(50)
+                anchors.margins: Design.s(30)
+                width: Design.s(170)
+                height: Design.s(50)
                 
                 opacity: window.introProgress
                 transform: Translate { y: window.uiYOffset }
@@ -1344,83 +1221,75 @@ Item {
                     shadowColor: window.selectedRateAccent
                     shadowBlur: window.applyHovered ? 1.2 : 0.6
                     shadowOpacity: window.applyHovered ? 0.6 : 0.2
-                    shadowVerticalOffset: window.s(4)
+                    shadowVerticalOffset: Design.s(4)
                     z: -1
-                    Behavior on shadowBlur { NumberAnimation { duration: 300 } } 
-                    Behavior on shadowOpacity { NumberAnimation { duration: 300 } } 
-                    Behavior on shadowColor { ColorAnimation { duration: 400 } }
+                    Behavior on shadowBlur { NumberAnimation { duration: Design.duration.base } } 
+                    Behavior on shadowOpacity { NumberAnimation { duration: Design.duration.base } } 
+                    Behavior on shadowColor { ColorAnimation { duration: Design.duration.slow } }
                 }
 
                 Rectangle {
                     id: applyBtn
                     anchors.fill: parent
-                    radius: window.s(25)
+                    radius: Design.s(25)
                     
                     gradient: Gradient { 
                         orientation: Gradient.Horizontal
                         GradientStop { 
                             position: 0.0
                             color: window.selectedResAccent
-                            Behavior on color { ColorAnimation { duration: 400 } } 
+                            Behavior on color { ColorAnimation { duration: Design.duration.slow } } 
                         } 
                         GradientStop { 
                             position: 1.0
                             color: window.selectedRateAccent
-                            Behavior on color { ColorAnimation { duration: 400 } } 
+                            Behavior on color { ColorAnimation { duration: Design.duration.slow } } 
                         } 
                     }
                     
                     scale: window.applyPressed ? 0.94 : (window.applyHovered ? 1.04 : 1.0)
-                    Behavior on scale { NumberAnimation { duration: 300; easing.type: Easing.OutBack } }
+                    Behavior on scale { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutBack } }
 
                     Rectangle {
                         id: flashRect
                         anchors.fill: parent
-                        radius: window.s(25)
-                        color: window.text
+                        radius: Design.s(25)
+                        color: Design.text
                         opacity: 0.0
                         PropertyAnimation on opacity { 
                             id: applyFlashAnim
                             to: 0.0
-                            duration: 400
+                            duration: Design.duration.slow
                             easing.type: Easing.OutExpo 
                         }
                     }
 
                     RowLayout {
                         anchors.centerIn: parent
-                        spacing: window.s(8)
+                        spacing: Design.s(8)
                         
-                        Text { 
-                            font.family: "Iosevka Nerd Font"
-                            font.pixelSize: window.s(20)
-                            color: window.crust
-                            text: "󰸵" 
+                        Icon {
+                            role: "title"
+                            color: Design.ground
+                            text: "󰸵"
                         }
                         
-                        Text { 
-                            font.family: "JetBrains Mono"
-                            font.weight: Font.Black
-                            font.pixelSize: window.s(14)
-                            color: window.crust
-                            text: monitorsModel.count > 1 ? "Apply All" : "Apply" 
+                        Label {
+                            font.weight: Design.weight.bold
+                            color: Design.ground
+                            text: monitorsModel.count > 1 ? "Apply All" : "Apply"
                         }
                     }
                 }
 
-                MouseArea {
+                Clickable {
                     id: applyMa
-                    anchors.fill: parent
                     z: 10
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    
                     onEntered: window.applyHovered = true
                     onExited: window.applyHovered = false
                     onPressed: window.applyPressed = true
                     onReleased: window.applyPressed = false
                     onCanceled: window.applyPressed = false
-
                     onClicked: {
                         flashRect.opacity = 0.8; 
                         applyFlashAnim.start();

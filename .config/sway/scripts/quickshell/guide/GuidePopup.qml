@@ -5,21 +5,11 @@ import QtQuick.Layouts
 import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
-import "../"
+import "../Ui"
 
-Item {
+PopupShell {
     id: root
-    focus: true
 
-    // --- Responsive Scaling Logic ---
-    Scaler {
-        id: scaler
-        currentWidth: Screen.width
-    }
-    
-    function s(val) { 
-        return scaler.s(val); 
-    }
 
     // --- Helper Functions ---
     function formatBytes(bytes) {
@@ -99,39 +89,17 @@ Item {
     }
     Keys.onEnterPressed: { Keys.onReturnPressed(event); }
 
-    MatugenColors { id: _theme }
-    // -------------------------------------------------------------------------
-    // COLORS
-    // -------------------------------------------------------------------------
-    readonly property color base: _theme.base
-    readonly property color mantle: _theme.mantle
-    readonly property color crust: _theme.crust
-    readonly property color text: _theme.text
-    readonly property color subtext0: _theme.subtext0
-    readonly property color subtext1: _theme.subtext1
-    readonly property color surface0: _theme.surface0
-    readonly property color surface1: _theme.surface1
-    readonly property color surface2: _theme.surface2
-    readonly property color overlay0: _theme.overlay0
-    readonly property color mauve: _theme.mauve
-    readonly property color pink: _theme.pink
-    readonly property color blue: _theme.blue
-    readonly property color sapphire: _theme.sapphire
-    readonly property color green: _theme.green
-    readonly property color peach: _theme.peach
-    readonly property color yellow: _theme.yellow
-    readonly property color red: _theme.red
 
     property real colorBlend: 0.0
     SequentialAnimation on colorBlend {
         loops: Animation.Infinite
         running: true
-        NumberAnimation { to: 1.0; duration: 15000; easing.type: Easing.InOutSine }
-        NumberAnimation { to: 0.0; duration: 15000; easing.type: Easing.InOutSine }
+        NumberAnimation { to: 1.0; duration: root.driftPeriod; easing.type: Easing.InOutSine }
+        NumberAnimation { to: 0.0; duration: root.driftPeriod; easing.type: Easing.InOutSine }
     }
     
-    property color ambientPurple: Qt.tint(root.mauve, Qt.rgba(root.pink.r, root.pink.g, root.pink.b, colorBlend))
-    property color ambientBlue: Qt.tint(root.blue, Qt.rgba(root.sapphire.r, root.sapphire.g, root.sapphire.b, colorBlend))
+    property color ambientPurple: Qt.tint(Design.accentAlt, Qt.rgba(Design.accentAlt.r, Design.accentAlt.g, Design.accentAlt.b, colorBlend))
+    property color ambientBlue: Qt.tint(Design.accent, Qt.rgba(Design.accentSoft.r, Design.accentSoft.g, Design.accentSoft.b, colorBlend))
 
     // -------------------------------------------------------------------------
     // GLOBALS
@@ -320,7 +288,7 @@ Item {
         property: "displayPing"
         from: 0
         to: root.finalPing
-        duration: 1000
+        duration: root.tintDuration
         easing.type: Easing.OutQuart 
     }
     
@@ -330,7 +298,7 @@ Item {
         property: "displayDown"
         from: 0
         to: root.finalDown
-        duration: 1500
+        duration: root.pulsePeriod
         easing.type: Easing.OutQuart 
     }
     
@@ -340,7 +308,7 @@ Item {
         property: "displayUp"
         from: 0
         to: root.finalUp
-        duration: 1500
+        duration: root.pulsePeriod
         easing.type: Easing.OutQuart 
     }
 
@@ -389,6 +357,14 @@ Item {
     // -------------------------------------------------------------------------
     property int currentTab: 0
     property int selectedModuleIndex: 0
+    // Durations that are choreography, not styling: a staged entrance, ambient
+    // drift and slow tint crossfades. Deliberately off the motion scale.
+    readonly property int introDuration: 900
+    readonly property int introSlow: 1200
+    readonly property int tintDuration: 1000
+    readonly property int pulsePeriod: 1500
+    readonly property int driftPeriod: 20000
+
     property var tabNames: ["System", "Settings", "Resources", "Modules", "Keybinds", "Matugen", "Weather", "Greeter", "About"]
     property var tabIcons: ["", "", "󰣖", "󰣆", "󰌌", "󰏘", "󰖐", "󰍃", ""]
 
@@ -462,29 +438,29 @@ Item {
             property: "introBase"
             from: 0.0
             to: 1.0
-            duration: 900
+            duration: root.introDuration
             easing.type: Easing.OutExpo 
         }
         SequentialAnimation { 
-            PauseAnimation { duration: 150 }
+            PauseAnimation { duration: Design.duration.fast }
             NumberAnimation { 
                 target: root
                 property: "introSidebar"
                 from: 0.0
                 to: 1.0
-                duration: 1000
+                duration: root.tintDuration
                 easing.type: Easing.OutBack
                 easing.overshoot: 1.05 
             } 
         }
         SequentialAnimation { 
-            PauseAnimation { duration: 250 }
+            PauseAnimation { duration: Design.duration.base }
             NumberAnimation { 
                 target: root
                 property: "introContent"
                 from: 0.0
                 to: 1.0
-                duration: 1100
+                duration: root.introSlow
                 easing.type: Easing.OutBack
                 easing.overshoot: 1.02 
             } 
@@ -498,14 +474,14 @@ Item {
                 target: root
                 property: "introContent"
                 to: 0.0
-                duration: 150
+                duration: Design.duration.fast
                 easing.type: Easing.InExpo 
             }
             NumberAnimation { 
                 target: root
                 property: "introSidebar"
                 to: 0.0
-                duration: 150
+                duration: Design.duration.fast
                 easing.type: Easing.InExpo 
             } 
         }
@@ -513,7 +489,7 @@ Item {
             target: root
             property: "introBase"
             to: 0.0
-            duration: 200
+            duration: Design.duration.base
             easing.type: Easing.InQuart 
         }
         ScriptAction { 
@@ -531,9 +507,9 @@ Item {
         
         Rectangle {
             anchors.fill: parent
-            radius: root.s(16)
-            color: root.base
-            border.color: root.surface0
+            radius: Design.s(16)
+            color: Design.surface
+            border.color: Design.raised
             border.width: 1
             clip: true
             
@@ -541,17 +517,17 @@ Item {
             NumberAnimation on time { 
                 from: 0
                 to: Math.PI * 2
-                duration: 20000
+                duration: root.driftPeriod
                 loops: Animation.Infinite
                 running: true 
             }
             
             Rectangle {
-                width: root.s(600)
-                height: root.s(600)
-                radius: root.s(300)
-                x: parent.width * 0.6 + Math.cos(parent.time) * root.s(100)
-                y: parent.height * 0.1 + Math.sin(parent.time * 1.5) * root.s(100)
+                width: Design.s(600)
+                height: Design.s(600)
+                radius: Design.s(300)
+                x: parent.width * 0.6 + Math.cos(parent.time) * Design.s(100)
+                y: parent.height * 0.1 + Math.sin(parent.time * 1.5) * Design.s(100)
                 color: root.ambientPurple
                 opacity: 0.04
                 layer.enabled: true
@@ -559,11 +535,11 @@ Item {
             }
             
             Rectangle {
-                width: root.s(700)
-                height: root.s(700)
-                radius: root.s(350)
-                x: parent.width * 0.1 + Math.sin(parent.time * 0.8) * root.s(150)
-                y: parent.height * 0.4 + Math.cos(parent.time * 1.2) * root.s(100)
+                width: Design.s(700)
+                height: Design.s(700)
+                radius: Design.s(350)
+                x: parent.width * 0.1 + Math.sin(parent.time * 0.8) * Design.s(150)
+                y: parent.height * 0.4 + Math.cos(parent.time * 1.2) * Design.s(100)
                 color: root.ambientBlue
                 opacity: 0.03
                 layer.enabled: true
@@ -577,67 +553,62 @@ Item {
     // -------------------------------------------------------------------------
     RowLayout {
         anchors.fill: parent
-        anchors.margins: root.s(20)
-        spacing: root.s(20)
+        anchors.margins: Design.s(20)
+        spacing: Design.s(20)
 
         // ==========================================
         // SIDEBAR
         // ==========================================
         Rectangle {
             Layout.fillHeight: true
-            Layout.preferredWidth: root.s(220)
-            radius: root.s(12)
-            color: Qt.alpha(root.surface0, 0.4)
-            border.color: root.surface1
+            Layout.preferredWidth: Design.s(220)
+            radius: Design.s(12)
+            color: Qt.alpha(Design.raised, 0.4)
+            border.color: Design.hover
             border.width: 1
             opacity: introSidebar
-            transform: Translate { x: root.s(-30) * (1.0 - introSidebar) }
+            transform: Translate { x: Design.s(-30) * (1.0 - introSidebar) }
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.margins: root.s(15)
-                spacing: root.s(10)
+                anchors.margins: Design.s(15)
+                spacing: Design.s(10)
                 
                 Item {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: root.s(60)
+                    Layout.preferredHeight: Design.s(60)
                     
                     RowLayout {
                         anchors.fill: parent
-                        spacing: root.s(12)
+                        spacing: Design.s(12)
                         
                         Rectangle {
                             Layout.alignment: Qt.AlignVCenter
-                            width: root.s(36)
-                            height: root.s(36)
-                            radius: root.s(10)
+                            width: Design.s(36)
+                            height: Design.s(36)
+                            radius: Design.s(10)
                             color: root.ambientPurple
-                            Text { 
+                            Icon {
+                                role: "title"
                                 anchors.centerIn: parent
                                 text: "󰣇"
-                                font.family: "Iosevka Nerd Font"
-                                font.pixelSize: root.s(20)
-                                color: root.base 
+                                color: Design.surface
                             }
                         }
                         
                         ColumnLayout {
                             Layout.alignment: Qt.AlignVCenter
-                            spacing: root.s(2)
-                            Text { 
+                            spacing: Design.s(2)
+                            Label {
                                 text: "Imperative"
-                                font.family: "JetBrains Mono"
-                                font.weight: Font.Black
-                                font.pixelSize: root.s(15)
-                                color: root.text
-                                Layout.alignment: Qt.AlignLeft 
+                                font.weight: Design.weight.bold
+                                Layout.alignment: Qt.AlignLeft
                             }
-                            Text { 
+                            Label {
+                                role: "caption"
                                 text: "v" + (root.dotsVersion !== "Loading..." ? root.dotsVersion : "...")
-                                font.family: "JetBrains Mono"
-                                font.pixelSize: root.s(11)
-                                color: root.subtext0
-                                Layout.alignment: Qt.AlignLeft 
+                                dim: true
+                                Layout.alignment: Qt.AlignLeft
                             }
                         }
                     }
@@ -646,73 +617,66 @@ Item {
                 Rectangle { 
                     Layout.fillWidth: true
                     height: 1
-                    color: Qt.alpha(root.surface1, 0.5)
-                    Layout.bottomMargin: root.s(10) 
+                    color: Qt.alpha(Design.hover, 0.5)
+                    Layout.bottomMargin: Design.s(10) 
                 }
 
                 Repeater {
                     model: root.tabNames.length
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: root.s(44)
-                        radius: root.s(8)
+                        Layout.preferredHeight: Design.s(44)
+                        radius: Design.s(8)
                         property bool isActive: root.currentTab === index
-                        color: isActive ? root.surface1 : (tabMa.containsMouse ? Qt.alpha(root.surface1, 0.5) : "transparent")
+                        color: isActive ? Design.hover : (tabMa.containsMouse ? Qt.alpha(Design.hover, 0.5) : "transparent")
                         
-                        Behavior on color { ColorAnimation { duration: 150 } }
+                        Behavior on color { ColorAnimation { duration: Design.duration.fast } }
 
                         RowLayout {
                             anchors.fill: parent
-                            anchors.leftMargin: root.s(15)
-                            spacing: root.s(12)
+                            anchors.leftMargin: Design.s(15)
+                            spacing: Design.s(12)
                             
                             Item {
-                                Layout.preferredWidth: root.s(24)
+                                Layout.preferredWidth: Design.s(24)
                                 Layout.alignment: Qt.AlignVCenter
-                                Text { 
+                                Icon {
                                     anchors.centerIn: parent
                                     text: root.tabIcons[index]
-                                    font.family: "Iosevka Nerd Font"
-                                    font.pixelSize: root.s(18)
-                                    color: parent.parent.parent.isActive ? root.ambientPurple : root.subtext0
-                                    Behavior on color { ColorAnimation { duration: 150 } } 
+                                    color: parent.parent.parent.isActive ? root.ambientPurple : Design.textDim
+                                    Behavior on color { ColorAnimation { duration: Design.duration.fast } }
                                 }
                             }
                             
-                            Text { 
+                            Label {
                                 text: root.tabNames[index]
-                                font.family: "JetBrains Mono"
                                 font.weight: parent.parent.isActive ? Font.Bold : Font.Medium
-                                font.pixelSize: root.s(13)
-                                color: parent.parent.isActive ? root.text : root.subtext0
+                                color: parent.parent.isActive ? Design.text : Design.textDim
                                 Layout.fillWidth: true
                                 Layout.alignment: Qt.AlignVCenter
-                                Behavior on color { ColorAnimation { duration: 150 } } 
+                                Behavior on color { ColorAnimation { duration: Design.duration.fast } }
                             }
                         }
                         
                         Rectangle { 
                             anchors.left: parent.left
                             anchors.verticalCenter: parent.verticalCenter
-                            width: root.s(3)
-                            height: parent.isActive ? root.s(20) : 0
-                            radius: root.s(2)
+                            width: Design.s(3)
+                            height: parent.isActive ? Design.s(20) : 0
+                            radius: Design.s(2)
                             color: root.ambientPurple
-                            Behavior on height { NumberAnimation { duration: 250; easing.type: Easing.OutBack } } 
+                            Behavior on height { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutBack } } 
                         }
                         
-                        MouseArea { 
+                        Clickable {
                             id: tabMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 if (index === 1) { // 1 = Settings Tab
                                     root.ipc("toggleSettings");
                                 } else {
                                     root.currentTab = index;
                                 }
-                            } 
+                            }
                         }
                     }
                 }
@@ -722,86 +686,71 @@ Item {
                 // --- UPDATE AVAILABLE BUTTON ---
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: root.updateAvailable ? root.s(50) : 0
+                    Layout.preferredHeight: root.updateAvailable ? Design.s(50) : 0
                     visible: root.updateAvailable
                     opacity: root.updateAvailable ? 1.0 : 0.0
-                    radius: root.s(8)
-                    color: updateHover.containsMouse ? Qt.alpha(root.green, 0.15) : Qt.alpha(root.green, 0.05)
-                    border.color: updateHover.containsMouse ? root.green : Qt.alpha(root.green, 0.4)
+                    radius: Design.s(8)
+                    color: updateHover.containsMouse ? Qt.alpha(Design.ok, 0.15) : Qt.alpha(Design.ok, 0.05)
+                    border.color: updateHover.containsMouse ? Design.ok : Qt.alpha(Design.ok, 0.4)
                     border.width: 1
                     scale: updateHover.pressed ? 0.96 : (updateHover.containsMouse ? 1.02 : 1.0)
                     clip: true
                     
-                    Behavior on Layout.preferredHeight { NumberAnimation { duration: 300; easing.type: Easing.OutQuart } }
-                    Behavior on opacity { NumberAnimation { duration: 300 } }
-                    Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutBack } }
-                    Behavior on color { ColorAnimation { duration: 150 } }
-                    Behavior on border.color { ColorAnimation { duration: 150 } }
+                    Behavior on Layout.preferredHeight { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutQuart } }
+                    Behavior on opacity { NumberAnimation { duration: Design.duration.base } }
+                    Behavior on scale { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutBack } }
+                    Behavior on color { ColorAnimation { duration: Design.duration.fast } }
+                    Behavior on border.color { ColorAnimation { duration: Design.duration.fast } }
 
                     ColumnLayout {
                         anchors.centerIn: parent
-                        spacing: root.s(2)
+                        spacing: Design.s(2)
                         
                         RowLayout {
                             Layout.alignment: Qt.AlignHCenter
-                            spacing: root.s(6)
-                            Text { text: "󰚰"; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(14); color: root.green }
-                            Text { text: "Update Available"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(12); color: root.green }
+                            spacing: Design.s(6)
+                            Icon { role: "body"; text: "󰚰"; color: Design.ok }
+                            Label { role: "caption"; text: "Update Available"; font.weight: Design.weight.semibold; color: Design.ok }
                         }
                         
-                        Text {
+                        Label {
+                            role: "caption"
                             text: root.dotsVersion + "  " + root.remoteVersion
-                            font.family: "JetBrains Mono"
-                            font.pixelSize: root.s(10)
-                            color: root.subtext0
+                            dim: true
                             Layout.alignment: Qt.AlignHCenter
                         }
 
                     }
 
-                    MouseArea {
-                        id: updateHover
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.ipc("toggleUpdater")
-                    }
+                    Clickable { id: updateHover; onClicked: root.ipc("toggleUpdater") }
                 }
 
                 // --- CLOSE BUTTON ---
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: root.s(44)
-                    radius: root.s(8)
-                    color: closeHover.containsMouse ? Qt.alpha(root.red, 0.1) : "transparent"
-                    border.color: closeHover.containsMouse ? root.red : root.surface1
+                    Layout.preferredHeight: Design.s(44)
+                    radius: Design.s(8)
+                    color: closeHover.containsMouse ? Qt.alpha(Design.danger, 0.1) : "transparent"
+                    border.color: closeHover.containsMouse ? Design.danger : Design.hover
                     border.width: 1
                     scale: closeHover.pressed ? 0.95 : (closeHover.containsMouse ? 1.02 : 1.0)
                     
-                    Behavior on scale { NumberAnimation { duration: 250; easing.type: Easing.OutBack } }
-                    Behavior on color { ColorAnimation { duration: 150 } }
-                    Behavior on border.color { ColorAnimation { duration: 150 } }
+                    Behavior on scale { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutBack } }
+                    Behavior on color { ColorAnimation { duration: Design.duration.fast } }
+                    Behavior on border.color { ColorAnimation { duration: Design.duration.fast } }
 
                     Item {
                         anchors.centerIn: parent
                         width: arrowText.implicitWidth
                         height: arrowText.implicitHeight
-                        Text { 
+                        Icon {
                             id: arrowText
                             text: ""
-                            font.family: "Iosevka Nerd Font"
-                            font.pixelSize: root.s(16)
-                            color: closeHover.containsMouse ? root.red : root.subtext0
-                            Behavior on color { ColorAnimation { duration: 150 } } 
+                            color: closeHover.containsMouse ? Design.danger : Design.textDim
+                            Behavior on color { ColorAnimation { duration: Design.duration.fast } }
                         }
                     }
-                    MouseArea { 
-                        id: closeHover
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: closeSequence.start() 
-                    }
+                    Clickable { id: closeHover; onClicked: closeSequence.start() }
                 }
             }
         }
@@ -814,7 +763,7 @@ Item {
             Layout.fillHeight: true
             opacity: introContent
             scale: 0.95 + (0.05 * introContent)
-            transform: Translate { y: root.s(20) * (1.0 - introContent) }
+            transform: Translate { y: Design.s(20) * (1.0 - introContent) }
 
             // ------------------------------------------
             // TAB 0: SYSTEM OVERVIEW
@@ -823,11 +772,11 @@ Item {
                 anchors.fill: parent
                 visible: root.currentTab === 0
                 opacity: visible ? 1.0 : 0.0
-                property real slideY: visible ? 0 : root.s(10)
+                property real slideY: visible ? 0 : Design.s(10)
                 
-                Behavior on slideY { NumberAnimation { duration: 250; easing.type: Easing.OutQuart } }
+                Behavior on slideY { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutQuart } }
                 transform: Translate { y: slideY }
-                Behavior on opacity { NumberAnimation { duration: 250 } }
+                Behavior on opacity { NumberAnimation { duration: Design.duration.base } }
 
                 ListModel {
                     id: systemDataModel
@@ -841,78 +790,78 @@ Item {
 
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.topMargin: root.s(15) // Fixed offset matching the sidebar
-                    anchors.leftMargin: root.s(20)
-                    anchors.rightMargin: root.s(20)
-                    anchors.bottomMargin: root.s(20)
-                    spacing: root.s(20)
+                    anchors.topMargin: Design.s(15) // Fixed offset matching the sidebar
+                    anchors.leftMargin: Design.s(20)
+                    anchors.rightMargin: Design.s(20)
+                    anchors.bottomMargin: Design.s(20)
+                    spacing: Design.s(20)
 
                     // ENHANCED DEVICE INFO BLOCK
                     Rectangle {
                         id: sysBox
                         Layout.fillWidth: true
-                        Layout.preferredHeight: root.s(180)
-                        radius: root.s(16)
-                        color: sysBoxMa.containsMouse ? Qt.alpha(root.surface0, 0.7) : Qt.alpha(root.surface0, 0.4)
-                        border.color: sysBoxMa.containsMouse ? root.ambientBlue : root.surface1
+                        Layout.preferredHeight: Design.s(180)
+                        radius: Design.s(16)
+                        color: sysBoxMa.containsMouse ? Qt.alpha(Design.raised, 0.7) : Qt.alpha(Design.raised, 0.4)
+                        border.color: sysBoxMa.containsMouse ? root.ambientBlue : Design.hover
                         border.width: 1
                         clip: true
                         
-                        Behavior on color { ColorAnimation { duration: 300 } }
-                        Behavior on border.color { ColorAnimation { duration: 300 } }
+                        Behavior on color { ColorAnimation { duration: Design.duration.base } }
+                        Behavior on border.color { ColorAnimation { duration: Design.duration.base } }
 
                         Rectangle {
-                            width: root.s(250)
-                            height: root.s(250)
-                            radius: root.s(125)
+                            width: Design.s(250)
+                            height: Design.s(250)
+                            radius: Design.s(125)
                             color: root.ambientBlue
                             opacity: 0.15
                             x: sysBoxMa.containsMouse ? parent.width * 0.7 : parent.width * 0.8
-                            y: -root.s(50)
+                            y: -Design.s(50)
                             layer.enabled: true
                             layer.effect: MultiEffect { blurEnabled: true; blurMax: 80; blur: 1.0 }
-                            Behavior on x { NumberAnimation { duration: 800; easing.type: Easing.OutExpo } }
+                            Behavior on x { NumberAnimation { duration: root.introDuration; easing.type: Easing.OutExpo } }
                         }
                         
                         Rectangle {
-                            width: root.s(200)
-                            height: root.s(200)
-                            radius: root.s(100)
+                            width: Design.s(200)
+                            height: Design.s(200)
+                            radius: Design.s(100)
                             color: root.ambientPurple
                             opacity: 0.15
-                            x: sysBoxMa.containsMouse ? root.s(50) : -root.s(50)
-                            y: root.s(20)
+                            x: sysBoxMa.containsMouse ? Design.s(50) : -Design.s(50)
+                            y: Design.s(20)
                             layer.enabled: true
                             layer.effect: MultiEffect { blurEnabled: true; blurMax: 80; blur: 1.0 }
-                            Behavior on x { NumberAnimation { duration: 800; easing.type: Easing.OutExpo } }
+                            Behavior on x { NumberAnimation { duration: root.introDuration; easing.type: Easing.OutExpo } }
                         }
 
                         RowLayout {
                             anchors.fill: parent
-                            anchors.margins: root.s(20)
-                            spacing: root.s(30)
+                            anchors.margins: Design.s(20)
+                            spacing: Design.s(30)
 
                             Item {
-                                Layout.preferredWidth: root.s(100)
-                                Layout.preferredHeight: root.s(100)
+                                Layout.preferredWidth: Design.s(100)
+                                Layout.preferredHeight: Design.s(100)
                                 
                                 Rectangle {
                                     anchors.centerIn: parent
-                                    width: root.s(100)
-                                    height: root.s(100)
-                                    radius: root.s(50)
+                                    width: Design.s(100)
+                                    height: Design.s(100)
+                                    radius: Design.s(50)
                                     color: "transparent"
                                     border.color: Qt.alpha(root.ambientPurple, sysBoxMa.containsMouse ? 0.8 : 0.3)
-                                    border.width: root.s(3)
+                                    border.width: Design.s(3)
                                     scale: sysBoxMa.containsMouse ? 1.05 : 1.0
                                     
-                                    Behavior on scale { NumberAnimation { duration: 400; easing.type: Easing.OutBack } }
-                                    Behavior on border.color { ColorAnimation { duration: 300 } }
+                                    Behavior on scale { NumberAnimation { duration: Design.duration.slow; easing.type: Easing.OutBack } }
+                                    Behavior on border.color { ColorAnimation { duration: Design.duration.base } }
                                     
                                     RotationAnimation on rotation { 
                                         from: 0
                                         to: 360
-                                        duration: 15000
+                                        duration: root.driftPeriod
                                         loops: Animation.Infinite
                                         running: true 
                                     }
@@ -920,8 +869,8 @@ Item {
                                 
                                 Item {
                                     anchors.centerIn: parent
-                                    width: root.s(84)
-                                    height: root.s(84)
+                                    width: Design.s(84)
+                                    height: Design.s(84)
                                     
                                     Rectangle { 
                                         id: avatarMaskTab0
@@ -954,18 +903,18 @@ Item {
                                     Rectangle {
                                         anchors.fill: parent
                                         radius: width / 2
-                                        color: root.faceIconPath === "" ? root.surface0 : "transparent"
-                                        border.color: root.surface2
+                                        color: root.faceIconPath === "" ? Design.raised : "transparent"
+                                        border.color: Design.active
                                         border.width: 1
                                         Text { 
                                             anchors.centerIn: parent
                                             text: ""
-                                            font.family: "Iosevka Nerd Font"
-                                            font.pixelSize: root.s(42)
-                                            color: root.text
+                                            font.family: Design.font.icon
+                                            font.pixelSize: Design.s(42)
+                                            color: Design.text
                                             visible: root.faceIconPath === ""
                                             scale: sysBoxMa.containsMouse ? 1.1 : 1.0
-                                            Behavior on scale { NumberAnimation { duration: 300; easing.type: Easing.OutBack } }
+                                            Behavior on scale { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutBack } }
                                         }
                                     }
                                 }
@@ -974,125 +923,116 @@ Item {
                             ColumnLayout {
                                 Layout.fillWidth: true
                                 Layout.alignment: Qt.AlignVCenter
-                                spacing: root.s(8)
+                                spacing: Design.s(8)
                                 
-                                Text { 
+                                Label {
+                                    role: "title"
                                     text: root.sysUser
-                                    font.family: "JetBrains Mono"
-                                    font.weight: Font.Black
-                                    font.pixelSize: root.s(24)
-                                    color: root.text 
+                                    font.weight: Design.weight.bold
                                 }
                                 
-                                Text { 
-                                    text: "@" + root.sysHost
-                                    font.family: "JetBrains Mono"
-                                    font.pixelSize: root.s(14)
-                                    color: root.subtext0 
-                                }
+                                Label { text: "@" + root.sysHost; dim: true }
                                 
                                 Rectangle { 
                                     Layout.fillWidth: true
                                     height: 1
-                                    color: Qt.alpha(root.surface1, 0.5)
-                                    Layout.topMargin: root.s(5)
-                                    Layout.bottomMargin: root.s(5) 
+                                    color: Qt.alpha(Design.hover, 0.5)
+                                    Layout.topMargin: Design.s(5)
+                                    Layout.bottomMargin: Design.s(5) 
                                 }
 
                                 RowLayout {
-                                    spacing: root.s(15)
+                                    spacing: Design.s(15)
                                     RowLayout { 
-                                        spacing: root.s(6)
-                                        Text { text: ""; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(16); color: root.blue } 
-                                        Text { text: root.sysOS; font.family: "JetBrains Mono"; font.weight: Font.Medium; font.pixelSize: root.s(12); color: root.subtext0 } 
+                                        spacing: Design.s(6)
+                                        Icon { text: ""; color: Design.accent } 
+                                        Label { role: "caption"; text: root.sysOS; font.weight: Font.Medium; dim: true } 
                                     }
                                     RowLayout { 
-                                        spacing: root.s(6)
-                                        Text { text: ""; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(16); color: root.peach } 
-                                        Text { text: root.sysKernel; font.family: "JetBrains Mono"; font.weight: Font.Medium; font.pixelSize: root.s(12); color: root.subtext0 } 
+                                        spacing: Design.s(6)
+                                        Icon { text: ""; color: Design.warn } 
+                                        Label { role: "caption"; text: root.sysKernel; font.weight: Font.Medium; dim: true } 
                                     }
                                 }
                                 
                                 RowLayout {
-                                    spacing: root.s(15)
+                                    spacing: Design.s(15)
                                     RowLayout { 
-                                        spacing: root.s(6)
-                                        Text { text: ""; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(16); color: root.green } 
-                                        Text { 
+                                        spacing: Design.s(6)
+                                        Icon { text: ""; color: Design.ok } 
+                                        Label {
+                                            role: "caption"
                                             text: root.sysCPU
-                                            font.family: "JetBrains Mono"
                                             font.weight: Font.Medium
-                                            font.pixelSize: root.s(12)
-                                            color: root.subtext0
+                                            dim: true
                                             elide: Text.ElideRight
-                                            Layout.maximumWidth: root.s(220) 
+                                            Layout.maximumWidth: Design.s(220)
                                         } 
                                     }
                                     RowLayout { 
-                                        spacing: root.s(6)
-                                        Text { text: "󰢮"; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(16); color: root.yellow } 
-                                        Text { 
+                                        spacing: Design.s(6)
+                                        Icon { text: "󰢮"; color: Design.warn } 
+                                        Label {
+                                            role: "caption"
                                             text: root.sysGPU
-                                            font.family: "JetBrains Mono"
                                             font.weight: Font.Medium
-                                            font.pixelSize: root.s(12)
-                                            color: root.subtext0
+                                            dim: true
                                             elide: Text.ElideRight
-                                            Layout.maximumWidth: root.s(220) 
+                                            Layout.maximumWidth: Design.s(220)
                                         } 
                                     }
                                 }
                             }
                         }
-                        MouseArea { id: sysBoxMa; anchors.fill: parent; hoverEnabled: true }
+                        Clickable { id: sysBoxMa }
                     }
 
                     // AUTHOR BLOCK
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: root.s(50)
-                        radius: root.s(10)
-                        color: authorMa.containsMouse ? Qt.alpha(root.surface1, 0.6) : Qt.alpha(root.surface0, 0.4)
-                        border.color: authorMa.containsMouse ? root.mauve : root.surface1
+                        Layout.preferredHeight: Design.s(50)
+                        radius: Design.s(10)
+                        color: authorMa.containsMouse ? Qt.alpha(Design.hover, 0.6) : Qt.alpha(Design.raised, 0.4)
+                        border.color: authorMa.containsMouse ? Design.accentAlt : Design.hover
                         border.width: 1
                         scale: authorMa.pressed ? 0.98 : (authorMa.containsMouse ? 1.01 : 1.0)
                         
-                        Behavior on scale { NumberAnimation { duration: 250; easing.type: Easing.OutBack } }
-                        Behavior on color { ColorAnimation { duration: 200 } }
-                        Behavior on border.color { ColorAnimation { duration: 200 } }
+                        Behavior on scale { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutBack } }
+                        Behavior on color { ColorAnimation { duration: Design.duration.base } }
+                        Behavior on border.color { ColorAnimation { duration: Design.duration.base } }
 
                         RowLayout {
                             anchors.verticalCenter: parent.verticalCenter
                             anchors.left: parent.left
                             anchors.right: parent.right
-                            anchors.margins: root.s(12)
-                            spacing: root.s(15)
+                            anchors.margins: Design.s(12)
+                            spacing: Design.s(15)
                             
                             Rectangle { 
                                 Layout.alignment: Qt.AlignVCenter
-                                width: root.s(32)
-                                height: root.s(32)
-                                radius: root.s(8)
-                                color: root.surface0
-                                border.color: root.surface2
+                                width: Design.s(32)
+                                height: Design.s(32)
+                                radius: Design.s(8)
+                                color: Design.raised
+                                border.color: Design.active
                                 border.width: 1
-                                Text { anchors.centerIn: parent; text: ""; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(20); color: root.text } 
+                                Icon { role: "title"; anchors.centerIn: parent; text: "" } 
                             }
                             
                             Row {
                                 Layout.alignment: Qt.AlignVCenter
-                                spacing: root.s(1)
+                                spacing: Design.s(1)
                                 Repeater {
-                                    model: [ { l: "b", c: root.red }, { l: "l", c: root.peach }, { l: "a", c: root.yellow }, { l: "1", c: root.green }, { l: "r", c: root.sapphire }, { l: "1", c: root.blue } ]
+                                    model: [ { l: "b", c: Design.danger }, { l: "l", c: Design.warn }, { l: "a", c: Design.warn }, { l: "1", c: Design.ok }, { l: "r", c: Design.accentSoft }, { l: "1", c: Design.accent } ]
                                     Text { 
                                         text: modelData.l
-                                        font.family: "JetBrains Mono"
-                                        font.weight: Font.Black
-                                        font.pixelSize: root.s(14)
+                                        font.family: Design.font.mono
+                                        font.weight: Design.weight.bold
+                                        font.pixelSize: Design.s(14)
                                         color: modelData.c
-                                        property real hoverOffset: authorMa.containsMouse ? root.s(-3) : 0
+                                        property real hoverOffset: authorMa.containsMouse ? Design.s(-3) : 0
                                         transform: Translate { y: hoverOffset }
-                                        Behavior on hoverOffset { NumberAnimation { duration: 300 + (index * 35); easing.type: Easing.OutBack } } 
+                                        Behavior on hoverOffset { NumberAnimation { duration: Design.duration.base + (index * 35); easing.type: Easing.OutBack } } 
                                     }
                                 }
                             }
@@ -1101,33 +1041,29 @@ Item {
                             
                             Rectangle { 
                                 Layout.alignment: Qt.AlignVCenter
-                                width: root.s(28)
-                                height: root.s(28)
-                                radius: root.s(6)
-                                color: authorMa.containsMouse ? root.surface1 : "transparent"
-                                Text { 
+                                width: Design.s(28)
+                                height: Design.s(28)
+                                radius: Design.s(6)
+                                color: authorMa.containsMouse ? Design.hover : "transparent"
+                                Icon {
+                                    role: "body"
                                     anchors.centerIn: parent
                                     text: ""
-                                    font.family: "Iosevka Nerd Font"
-                                    font.pixelSize: root.s(14)
-                                    color: authorMa.containsMouse ? root.mauve : root.subtext0
-                                    Behavior on color { ColorAnimation { duration: 150 } } 
+                                    color: authorMa.containsMouse ? Design.accentAlt : Design.textDim
+                                    Behavior on color { ColorAnimation { duration: Design.duration.fast } }
                                 } 
                             }
                         }
-                        MouseArea { 
+                        Clickable {
                             id: authorMa
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: Quickshell.execDetached(["xdg-open", "https://github.com/bla1r1"]) 
+                            onClicked: Quickshell.execDetached(["xdg-open", "https://github.com/bla1r1"])
                         }
                     }
 
                     // MODULES AND QUICK LINKS ROW
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: root.s(15)
+                        spacing: Design.s(15)
                         
                         Repeater {
                             model: [ 
@@ -1138,29 +1074,26 @@ Item {
                             
                             Rectangle {
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: root.s(44)
-                                radius: root.s(8)
-                                color: navBtnMa.containsMouse ? Qt.alpha(root[modelData.color], 0.15) : Qt.alpha(root.surface0, 0.4)
-                                border.color: navBtnMa.containsMouse ? root[modelData.color] : root.surface1
+                                Layout.preferredHeight: Design.s(44)
+                                radius: Design.s(8)
+                                color: navBtnMa.containsMouse ? Qt.alpha(root[modelData.color], 0.15) : Qt.alpha(Design.raised, 0.4)
+                                border.color: navBtnMa.containsMouse ? root[modelData.color] : Design.hover
                                 border.width: 1
                                 scale: navBtnMa.pressed ? 0.95 : 1.0
                                 
-                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutQuart } }
-                                Behavior on color { ColorAnimation { duration: 200 } }
-                                Behavior on border.color { ColorAnimation { duration: 200 } }
+                                Behavior on scale { NumberAnimation { duration: Design.duration.fast; easing.type: Easing.OutQuart } }
+                                Behavior on color { ColorAnimation { duration: Design.duration.base } }
+                                Behavior on border.color { ColorAnimation { duration: Design.duration.base } }
                                 
                                 RowLayout { 
                                     anchors.centerIn: parent
-                                    spacing: root.s(10)
-                                    Text { text: modelData.icon; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(16); color: root[modelData.color] } 
-                                    Text { text: modelData.name; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(13); color: root.text } 
+                                    spacing: Design.s(10)
+                                    Icon { text: modelData.icon; color: root[modelData.color] } 
+                                    Label { text: modelData.name; font.weight: Design.weight.semibold } 
                                 }
                                 
-                                MouseArea { 
+                                Clickable {
                                     id: navBtnMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
                                     onClicked: {
                                         if (modelData.isToggle) {
                                             root.ipc("toggleSettings");
@@ -1173,67 +1106,62 @@ Item {
                         }
                     }
 
-                    Text { 
+                    Label {
+                        role: "title"
                         text: "System Architecture"
-                        font.family: "JetBrains Mono"
-                        font.weight: Font.Black
-                        font.pixelSize: root.s(24)
-                        color: root.text
+                        font.weight: Design.weight.bold
                         Layout.alignment: Qt.AlignVCenter
-                        Layout.topMargin: root.s(5) 
+                        Layout.topMargin: Design.s(5)
                     }
                     
                     GridLayout {
                         Layout.fillWidth: true
                         columns: 2
-                        rowSpacing: root.s(15)
-                        columnSpacing: root.s(15)
+                        rowSpacing: Design.s(15)
+                        columnSpacing: Design.s(15)
                         
                         Repeater {
                             model: systemDataModel
                             Rectangle {
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: root.s(60)
-                                radius: root.s(10)
-                                color: sysCardMa.containsMouse ? Qt.alpha(root[model.clr], 0.1) : Qt.alpha(root.surface0, 0.4)
-                                border.color: sysCardMa.containsMouse ? root[model.clr] : root.surface1
+                                Layout.preferredHeight: Design.s(60)
+                                radius: Design.s(10)
+                                color: sysCardMa.containsMouse ? Qt.alpha(root[model.clr], 0.1) : Qt.alpha(Design.raised, 0.4)
+                                border.color: sysCardMa.containsMouse ? root[model.clr] : Design.hover
                                 border.width: 1
                                 scale: sysCardMa.pressed ? 0.98 : 1.0
                                 
-                                Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutQuart } }
-                                Behavior on color { ColorAnimation { duration: 200 } }
-                                Behavior on border.color { ColorAnimation { duration: 200 } }
+                                Behavior on scale { NumberAnimation { duration: Design.duration.fast; easing.type: Easing.OutQuart } }
+                                Behavior on color { ColorAnimation { duration: Design.duration.base } }
+                                Behavior on border.color { ColorAnimation { duration: Design.duration.base } }
                                 
                                 Item {
                                     anchors.fill: parent
-                                    anchors.margins: root.s(10)
+                                    anchors.margins: Design.s(10)
                                     
                                     Item { 
                                         id: sysIconBox
                                         anchors.left: parent.left
                                         anchors.verticalCenter: parent.verticalCenter
-                                        width: root.s(36)
-                                        height: root.s(36)
-                                        Text { anchors.centerIn: parent; text: model.icon; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(22); color: root[model.clr] } 
+                                        width: Design.s(36)
+                                        height: Design.s(36)
+                                        Icon { role: "title"; anchors.centerIn: parent; text: model.icon; color: root[model.clr] } 
                                     }
                                     
                                     Column { 
                                         anchors.left: sysIconBox.right
-                                        anchors.leftMargin: root.s(15)
+                                        anchors.leftMargin: Design.s(15)
                                         anchors.right: parent.right
                                         anchors.verticalCenter: parent.verticalCenter
-                                        spacing: root.s(2)
-                                        Text { text: model.pkg; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(14); color: root.text } 
-                                        Text { text: model.role; font.family: "JetBrains Mono"; font.pixelSize: root.s(11); color: root.subtext0 } 
+                                        spacing: Design.s(2)
+                                        Label { text: model.pkg; font.weight: Design.weight.semibold } 
+                                        Label { role: "caption"; text: model.role; dim: true } 
                                     }
                                 }
                                 
-                                MouseArea { 
+                                Clickable {
                                     id: sysCardMa
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: Quickshell.execDetached(["xdg-open", model.link]) 
+                                    onClicked: Quickshell.execDetached(["xdg-open", model.link])
                                 }
                             }
                         }
@@ -1249,33 +1177,33 @@ Item {
                 anchors.fill: parent
                 visible: root.currentTab === 2
                 opacity: visible ? 1.0 : 0.0
-                property real slideY: visible ? 0 : root.s(10)
+                property real slideY: visible ? 0 : Design.s(10)
                 
-                Behavior on slideY { NumberAnimation { duration: 250; easing.type: Easing.OutQuart } }
+                Behavior on slideY { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutQuart } }
                 transform: Translate { y: slideY }
-                Behavior on opacity { NumberAnimation { duration: 250 } }
+                Behavior on opacity { NumberAnimation { duration: Design.duration.base } }
 
                 ScrollView {
                     anchors.fill: parent
-                    anchors.topMargin: root.s(15) // Applied safely to ScrollView, preventing crash!
-                    anchors.leftMargin: root.s(20)
-                    anchors.rightMargin: root.s(20)
-                    anchors.bottomMargin: root.s(20)
+                    anchors.topMargin: Design.s(15) // Applied safely to ScrollView, preventing crash!
+                    anchors.leftMargin: Design.s(20)
+                    anchors.rightMargin: Design.s(20)
+                    anchors.bottomMargin: Design.s(20)
                     contentWidth: availableWidth
                     clip: true
                     ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
                     
                     ColumnLayout {
                         width: parent.width
-                        spacing: root.s(15)
+                        spacing: Design.s(15)
 
                         // --- Integrated System Info Grid ---
                         Rectangle {
                             Layout.fillWidth: true
-                            implicitHeight: sysInfoCol.implicitHeight + root.s(40)
-                            radius: root.s(16)
-                            color: Qt.alpha(root.surface0, 0.4)
-                            border.color: root.surface1
+                            implicitHeight: sysInfoCol.implicitHeight + Design.s(40)
+                            radius: Design.s(16)
+                            color: Qt.alpha(Design.raised, 0.4)
+                            border.color: Design.hover
                             border.width: 1
 
                             ColumnLayout {
@@ -1283,52 +1211,52 @@ Item {
                                 anchors.top: parent.top
                                 anchors.left: parent.left
                                 anchors.right: parent.right
-                                anchors.margins: root.s(20)
-                                spacing: root.s(15)
+                                anchors.margins: Design.s(20)
+                                spacing: Design.s(15)
 
                                 RowLayout {
-                                    Text { text: "󰇄"; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(18); color: root.mauve }
-                                    Text { text: "System Specifications"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(14); color: root.text }
+                                    Icon { text: "󰇄"; color: Design.accentAlt }
+                                    Label { text: "System Specifications"; font.weight: Design.weight.semibold }
                                 }
-                                Rectangle { Layout.fillWidth: true; height: 1; color: Qt.alpha(root.surface1, 0.5) }
+                                Rectangle { Layout.fillWidth: true; height: 1; color: Qt.alpha(Design.hover, 0.5) }
 
                                 GridLayout {
                                     Layout.fillWidth: true
                                     columns: 2
-                                    rowSpacing: root.s(15)
-                                    columnSpacing: root.s(30)
+                                    rowSpacing: Design.s(15)
+                                    columnSpacing: Design.s(30)
                                     
                                     RowLayout { 
-                                        spacing: root.s(12)
-                                        Rectangle { width: root.s(36); height: root.s(36); radius: root.s(8); color: Qt.alpha(root.blue, 0.15); Text { anchors.centerIn: parent; text: ""; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(18); color: root.blue } } 
-                                        ColumnLayout { spacing: root.s(2); Text { text: "Operating System"; font.family: "JetBrains Mono"; font.pixelSize: root.s(11); color: root.subtext0 } Text { text: root.sysOS; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(13); color: root.text } } 
+                                        spacing: Design.s(12)
+                                        Rectangle { width: Design.s(36); height: Design.s(36); radius: Design.s(8); color: Qt.alpha(Design.accent, 0.15); Icon { anchors.centerIn: parent; text: ""; color: Design.accent } } 
+                                        ColumnLayout { spacing: Design.s(2); Label { role: "caption"; text: "Operating System"; dim: true } Label { text: root.sysOS; font.weight: Design.weight.semibold } } 
                                     }
                                     RowLayout { 
-                                        spacing: root.s(12)
-                                        Rectangle { width: root.s(36); height: root.s(36); radius: root.s(8); color: Qt.alpha(root.peach, 0.15); Text { anchors.centerIn: parent; text: ""; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(18); color: root.peach } } 
-                                        ColumnLayout { spacing: root.s(2); Text { text: "Kernel Version"; font.family: "JetBrains Mono"; font.pixelSize: root.s(11); color: root.subtext0 } Text { text: root.sysKernel; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(13); color: root.text } } 
+                                        spacing: Design.s(12)
+                                        Rectangle { width: Design.s(36); height: Design.s(36); radius: Design.s(8); color: Qt.alpha(Design.warn, 0.15); Icon { anchors.centerIn: parent; text: ""; color: Design.warn } } 
+                                        ColumnLayout { spacing: Design.s(2); Label { role: "caption"; text: "Kernel Version"; dim: true } Label { text: root.sysKernel; font.weight: Design.weight.semibold } } 
                                     }
                                     RowLayout { 
-                                        spacing: root.s(12)
-                                        Rectangle { width: root.s(36); height: root.s(36); radius: root.s(8); color: Qt.alpha(root.green, 0.15); Text { anchors.centerIn: parent; text: ""; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(18); color: root.green } } 
-                                        ColumnLayout { spacing: root.s(2); Text { text: "Active User"; font.family: "JetBrains Mono"; font.pixelSize: root.s(11); color: root.subtext0 } Text { text: root.sysUser + "@" + root.sysHost; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(13); color: root.text } } 
+                                        spacing: Design.s(12)
+                                        Rectangle { width: Design.s(36); height: Design.s(36); radius: Design.s(8); color: Qt.alpha(Design.ok, 0.15); Icon { anchors.centerIn: parent; text: ""; color: Design.ok } } 
+                                        ColumnLayout { spacing: Design.s(2); Label { role: "caption"; text: "Active User"; dim: true } Label { text: root.sysUser + "@" + root.sysHost; font.weight: Design.weight.semibold } } 
                                     }
                                     RowLayout { 
-                                        spacing: root.s(12)
-                                        Rectangle { width: root.s(36); height: root.s(36); radius: root.s(8); color: Qt.alpha(root.yellow, 0.15); Text { anchors.centerIn: parent; text: "󰔟"; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(18); color: root.yellow } } 
-                                        ColumnLayout { spacing: root.s(2); Text { text: "System Uptime"; font.family: "JetBrains Mono"; font.pixelSize: root.s(11); color: root.subtext0 } Text { text: root.sysUptime; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(13); color: root.text } } 
-                                    }
-                                    RowLayout { 
-                                        Layout.columnSpan: 2
-                                        spacing: root.s(12)
-                                        Rectangle { width: root.s(36); height: root.s(36); radius: root.s(8); color: Qt.alpha(root.sapphire, 0.15); Text { anchors.centerIn: parent; text: ""; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(18); color: root.sapphire } } 
-                                        ColumnLayout { spacing: root.s(2); Text { text: "Processor (CPU)"; font.family: "JetBrains Mono"; font.pixelSize: root.s(11); color: root.subtext0 } Text { text: root.sysCPU; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(13); color: root.text; elide: Text.ElideRight; Layout.maximumWidth: root.s(450) } } 
+                                        spacing: Design.s(12)
+                                        Rectangle { width: Design.s(36); height: Design.s(36); radius: Design.s(8); color: Qt.alpha(Design.warn, 0.15); Icon { anchors.centerIn: parent; text: "󰔟"; color: Design.warn } } 
+                                        ColumnLayout { spacing: Design.s(2); Label { role: "caption"; text: "System Uptime"; dim: true } Label { text: root.sysUptime; font.weight: Design.weight.semibold } } 
                                     }
                                     RowLayout { 
                                         Layout.columnSpan: 2
-                                        spacing: root.s(12)
-                                        Rectangle { width: root.s(36); height: root.s(36); radius: root.s(8); color: Qt.alpha(root.red, 0.15); Text { anchors.centerIn: parent; text: "󰢮"; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(18); color: root.red } } 
-                                        ColumnLayout { spacing: root.s(2); Text { text: "Graphics (GPU)"; font.family: "JetBrains Mono"; font.pixelSize: root.s(11); color: root.subtext0 } Text { text: root.sysGPU; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(13); color: root.text; elide: Text.ElideRight; Layout.maximumWidth: root.s(450) } } 
+                                        spacing: Design.s(12)
+                                        Rectangle { width: Design.s(36); height: Design.s(36); radius: Design.s(8); color: Qt.alpha(Design.accentSoft, 0.15); Icon { anchors.centerIn: parent; text: ""; color: Design.accentSoft } } 
+                                        ColumnLayout { spacing: Design.s(2); Label { role: "caption"; text: "Processor (CPU)"; dim: true } Label { text: root.sysCPU; font.weight: Design.weight.semibold; elide: Text.ElideRight; Layout.maximumWidth: Design.s(450) } } 
+                                    }
+                                    RowLayout { 
+                                        Layout.columnSpan: 2
+                                        spacing: Design.s(12)
+                                        Rectangle { width: Design.s(36); height: Design.s(36); radius: Design.s(8); color: Qt.alpha(Design.danger, 0.15); Icon { anchors.centerIn: parent; text: "󰢮"; color: Design.danger } } 
+                                        ColumnLayout { spacing: Design.s(2); Label { role: "caption"; text: "Graphics (GPU)"; dim: true } Label { text: root.sysGPU; font.weight: Design.weight.semibold; elide: Text.ElideRight; Layout.maximumWidth: Design.s(450) } } 
                                     }
                                 }
                             }
@@ -1338,51 +1266,51 @@ Item {
                         GridLayout {
                             Layout.fillWidth: true
                             columns: 3
-                            columnSpacing: root.s(15)
+                            columnSpacing: Design.s(15)
                             
                             Repeater {
                                 model: 3
                                 Rectangle {
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: root.s(200)
-                                    radius: root.s(16)
+                                    Layout.preferredHeight: Design.s(200)
+                                    radius: Design.s(16)
                                     property real targetValue: index === 0 ? root.cpuUsage : (index === 1 ? root.memUsage : Math.min(root.sysTemp, 100))
                                     property string txtValue: index === 0 ? root.cpuUsage + "%" : (index === 1 ? root.memUsage + "%" : (root.sysTemp > 0 ? root.sysTemp + "°C" : "N/A"))
                                     property string cKey: index === 0 ? "sapphire" : (index === 1 ? "peach" : "red")
                                     property string tTitle: index === 0 ? "CPU LOAD" : (index === 1 ? "MEMORY" : "THERMALS")
                                     property string iIcon: index === 0 ? "" : (index === 1 ? "󰍛" : "")
 
-                                    color: Qt.alpha(root.surface0, 0.4)
+                                    color: Qt.alpha(Design.raised, 0.4)
                                     border.color: Qt.alpha(root[cKey], 0.2)
                                     border.width: 1
                                     clip: true
 
                                     ColumnLayout {
                                         anchors.centerIn: parent
-                                        spacing: root.s(15)
+                                        spacing: Design.s(15)
                                         
                                         Item {
                                             Layout.alignment: Qt.AlignHCenter
-                                            Layout.preferredWidth: root.s(130)
-                                            Layout.preferredHeight: root.s(130)
+                                            Layout.preferredWidth: Design.s(130)
+                                            Layout.preferredHeight: Design.s(130)
                                             
                                             Canvas {
                                                 id: gaugeCanvas
                                                 anchors.fill: parent
                                                 property real animatedValue: targetValue
-                                                Behavior on animatedValue { NumberAnimation { duration: 800; easing.type: Easing.OutCubic } }
+                                                Behavior on animatedValue { NumberAnimation { duration: root.introDuration; easing.type: Easing.OutCubic } }
                                                 onAnimatedValueChanged: requestPaint()
                                                 onPaint: {
                                                     var ctx = getContext("2d"); 
                                                     ctx.clearRect(0, 0, width, height);
                                                     var cx = width / 2; 
                                                     var cy = height / 2; 
-                                                    var r = width / 2 - root.s(8);
+                                                    var r = width / 2 - Design.s(8);
                                                     
                                                     ctx.beginPath(); 
                                                     ctx.arc(cx, cy, r, 0, 2 * Math.PI); 
-                                                    ctx.lineWidth = root.s(12); 
-                                                    ctx.strokeStyle = Qt.alpha(root.surface1, 0.4); 
+                                                    ctx.lineWidth = Design.s(12); 
+                                                    ctx.strokeStyle = Qt.alpha(Design.hover, 0.4); 
                                                     ctx.stroke();
                                                     
                                                     var start = -Math.PI / 2; 
@@ -1390,7 +1318,7 @@ Item {
                                                     
                                                     ctx.beginPath(); 
                                                     ctx.arc(cx, cy, r, start, end); 
-                                                    ctx.lineWidth = root.s(12); 
+                                                    ctx.lineWidth = Design.s(12); 
                                                     ctx.strokeStyle = root[cKey]; 
                                                     ctx.lineCap = "round"; 
                                                     ctx.stroke();
@@ -1399,19 +1327,18 @@ Item {
                                             
                                             ColumnLayout { 
                                                 anchors.centerIn: parent
-                                                spacing: root.s(2)
-                                                Text { text: iIcon; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(26); color: root[cKey]; Layout.alignment: Qt.AlignHCenter } 
-                                                Text { text: txtValue; font.family: "JetBrains Mono"; font.weight: Font.Black; font.pixelSize: root.s(18); color: root.text; Layout.alignment: Qt.AlignHCenter } 
+                                                spacing: Design.s(2)
+                                                Text { text: iIcon; font.family: Design.font.icon; font.pixelSize: Design.s(26); color: root[cKey]; Layout.alignment: Qt.AlignHCenter } 
+                                                Label { role: "subhead"; text: txtValue; font.weight: Design.weight.bold; Layout.alignment: Qt.AlignHCenter } 
                                             }
                                         }
                                         
-                                        Text { 
-                                            text: tTitle; 
-                                            font.family: "JetBrains Mono"; 
-                                            font.weight: Font.Bold; 
-                                            font.pixelSize: root.s(12); 
-                                            color: root.subtext0; 
-                                            Layout.alignment: Qt.AlignHCenter 
+                                        Label {
+                                            role: "caption"
+                                            text: tTitle
+                                            font.weight: Design.weight.semibold
+                                            dim: true
+                                            Layout.alignment: Qt.AlignHCenter
                                         }
                                     }
                                 }
@@ -1421,42 +1348,41 @@ Item {
                         // --- Consolidated Storage Block ---
                         Rectangle {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: root.s(80)
-                            radius: root.s(16)
-                            color: Qt.alpha(root.surface0, 0.4)
-                            border.color: root.surface1
+                            Layout.preferredHeight: Design.s(80)
+                            radius: Design.s(16)
+                            color: Qt.alpha(Design.raised, 0.4)
+                            border.color: Design.hover
                             border.width: 1
                             
                             ColumnLayout {
                                 anchors.fill: parent
-                                anchors.margins: root.s(20)
-                                spacing: root.s(10)
+                                anchors.margins: Design.s(20)
+                                spacing: Design.s(10)
                                 
                                 RowLayout {
-                                    Text { text: "󰋊"; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(16); color: root.mauve }
-                                    Text { text: "Storage"; font.family: "JetBrains Mono"; font.weight: Font.Bold; color: root.text; font.pixelSize: root.s(14) }
+                                    Icon { text: "󰋊"; color: Design.accentAlt }
+                                    Label { text: "Storage"; font.weight: Design.weight.semibold }
                                     Item { Layout.fillWidth: true }
-                                    Text { 
+                                    Label {
+                                        role: "caption"
                                         text: root.formatBytes(root.globalUsedDisk) + " / " + root.formatBytes(root.globalTotalDisk) + " (" + (root.globalTotalDisk > 0 ? Math.round((root.globalUsedDisk / root.globalTotalDisk) * 100) : 0) + "%)"
-                                        font.family: "JetBrains Mono"
-                                        font.pixelSize: root.s(12)
-                                        color: root.subtext0 
+                                        dim: true
                                     }
                                 }
                                 
                                 Rectangle {
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: root.s(8)
-                                    radius: root.s(4)
-                                    color: Qt.alpha(root.surface1, 0.4)
+                                    Layout.preferredHeight: Design.s(8)
+                                    radius: Design.s(4)
+                                    color: Qt.alpha(Design.hover, 0.4)
                                     clip: true
                                     
                                     Rectangle { 
                                         height: parent.height
-                                        radius: root.s(4)
+                                        radius: Design.s(4)
                                         width: root.globalTotalDisk > 0 ? parent.width * (root.globalUsedDisk / root.globalTotalDisk) : 0
-                                        color: root.mauve
-                                        Behavior on width { NumberAnimation { duration: 1000; easing.type: Easing.OutQuart } } 
+                                        color: Design.accentAlt
+                                        Behavior on width { NumberAnimation { duration: root.tintDuration; easing.type: Easing.OutQuart } } 
                                     }
                                 }
                             }
@@ -1466,24 +1392,24 @@ Item {
                         Rectangle {
                             id: netContainer
                             Layout.fillWidth: true
-                            Layout.preferredHeight: root.s(160)
-                            radius: root.s(16)
-                            color: Qt.alpha(root.surface0, 0.4)
-                            border.color: root.surface1
+                            Layout.preferredHeight: Design.s(160)
+                            radius: Design.s(16)
+                            color: Qt.alpha(Design.raised, 0.4)
+                            border.color: Design.hover
                             border.width: 1
                             clip: true
 
                             Rectangle {
                                 id: goBtn
-                                width: root.s(90)
-                                height: root.s(90)
-                                radius: root.s(45)
-                                x: root.netState === 0 ? (parent.width - width) / 2 : root.s(30)
+                                width: Design.s(90)
+                                height: Design.s(90)
+                                radius: Design.s(45)
+                                x: root.netState === 0 ? (parent.width - width) / 2 : Design.s(30)
                                 y: (parent.height - height) / 2
-                                color: Qt.alpha(root.blue, 0.15)
-                                border.color: (root.netState > 0 && root.netState < 4) ? root.blue : root.surface2
-                                border.width: root.s(2)
-                                Behavior on x { NumberAnimation { duration: 600; easing.type: Easing.OutBack; easing.overshoot: 1.1 } }
+                                color: Qt.alpha(Design.accent, 0.15)
+                                border.color: (root.netState > 0 && root.netState < 4) ? Design.accent : Design.active
+                                border.width: Design.s(2)
+                                Behavior on x { NumberAnimation { duration: root.introDuration; easing.type: Easing.OutBack; easing.overshoot: 1.1 } }
 
                                 Rectangle {
                                     anchors.centerIn: parent
@@ -1491,35 +1417,35 @@ Item {
                                     height: parent.height
                                     radius: parent.radius
                                     color: "transparent"
-                                    border.color: root.sapphire
-                                    border.width: root.s(2)
+                                    border.color: Design.accentSoft
+                                    border.width: Design.s(2)
                                     opacity: 0
                                     SequentialAnimation on opacity { 
                                         running: root.netState > 0 && root.netState < 4
                                         loops: Animation.Infinite
-                                        NumberAnimation { from: 1; to: 0; duration: 1000 } 
+                                        NumberAnimation { from: 1; to: 0; duration: root.tintDuration } 
                                     }
                                     SequentialAnimation on scale { 
                                         running: root.netState > 0 && root.netState < 4
                                         loops: Animation.Infinite
-                                        NumberAnimation { from: 1.0; to: 1.5; duration: 1000 } 
+                                        NumberAnimation { from: 1.0; to: 1.5; duration: root.tintDuration } 
                                     }
                                 }
 
                                 ColumnLayout {
                                     anchors.centerIn: parent
-                                    spacing: root.s(2)
+                                    spacing: Design.s(2)
                                     Item {
                                         Layout.alignment: Qt.AlignHCenter
-                                        width: root.s(32)
-                                        height: root.s(32)
+                                        width: Design.s(32)
+                                        height: Design.s(32)
                                         Text { 
                                             anchors.centerIn: parent
                                             text: root.netState === 0 ? "GO" : (root.netState === 4 ? "󰑐" : "󰑮")
                                             font.family: root.netState === 0 ? "JetBrains Mono" : "Iosevka Nerd Font"
-                                            font.weight: Font.Black
-                                            font.pixelSize: root.netState === 0 ? root.s(28) : root.s(32)
-                                            color: (root.netState > 0 && root.netState < 4) ? root.blue : root.text
+                                            font.weight: Design.weight.bold
+                                            font.pixelSize: root.netState === 0 ? Design.s(28) : Design.s(32)
+                                            color: (root.netState > 0 && root.netState < 4) ? Design.accent : Design.text
                                             horizontalAlignment: Text.AlignHCenter
                                             verticalAlignment: Text.AlignVCenter
                                             transformOrigin: Item.Center
@@ -1528,18 +1454,17 @@ Item {
                                                 loops: Animation.Infinite
                                                 from: 0
                                                 to: 360
-                                                duration: 1000 
+                                                duration: root.tintDuration 
                                             } 
                                         }
                                     }
-                                    Text { 
+                                    Label {
+                                        role: "caption"
                                         text: "SPEEDTEST"
-                                        font.family: "JetBrains Mono"
-                                        font.weight: Font.Bold
-                                        font.pixelSize: root.s(9)
-                                        color: root.subtext0
+                                        font.weight: Design.weight.semibold
+                                        dim: true
                                         visible: root.netState === 0
-                                        Layout.alignment: Qt.AlignHCenter 
+                                        Layout.alignment: Qt.AlignHCenter
                                     }
                                 }
                             }
@@ -1565,70 +1490,70 @@ Item {
 
                         RowLayout {
                             id: netResults
-                            x: root.netState === 0 ? parent.width : root.s(150)
+                            x: root.netState === 0 ? parent.width : Design.s(150)
                             y: (parent.height - height) / 2
                             opacity: root.netState === 0 ? 0 : 1
-                            spacing: root.s(40)
-                            Behavior on x { NumberAnimation { duration: 600; easing.type: Easing.OutBack; easing.overshoot: 1.05 } }
-                            Behavior on opacity { NumberAnimation { duration: 400; easing.type: Easing.InOutQuad } }
+                            spacing: Design.s(40)
+                            Behavior on x { NumberAnimation { duration: root.introDuration; easing.type: Easing.OutBack; easing.overshoot: 1.05 } }
+                            Behavior on opacity { NumberAnimation { duration: Design.duration.slow; easing.type: Easing.InOutQuad } }
 
                             ColumnLayout {
-                                spacing: root.s(4)
+                                spacing: Design.s(4)
                                 opacity: root.netState >= 1 ? 1.0 : 0.0
-                                Behavior on opacity { NumberAnimation { duration: 400 } }
+                                Behavior on opacity { NumberAnimation { duration: Design.duration.slow } }
                                 RowLayout { 
-                                    spacing: root.s(6)
+                                    spacing: Design.s(6)
                                     Item { 
-                                        Layout.preferredWidth: root.s(16)
-                                        Layout.preferredHeight: root.s(16)
-                                        Text { anchors.centerIn: parent; text: "󰅸"; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(16); color: root.peach } 
+                                        Layout.preferredWidth: Design.s(16)
+                                        Layout.preferredHeight: Design.s(16)
+                                        Icon { anchors.centerIn: parent; text: "󰅸"; color: Design.warn } 
                                     } 
-                                    Text { text: "PING"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(12); color: root.subtext0 } 
+                                    Label { role: "caption"; text: "PING"; font.weight: Design.weight.semibold; dim: true } 
                                 }
                                 RowLayout { 
-                                    spacing: root.s(4)
-                                    Text { text: root.netState >= 2 ? root.displayPing.toFixed(0) : "..."; font.family: "JetBrains Mono"; font.weight: Font.Black; font.pixelSize: root.s(28); color: root.text } 
-                                    Text { text: "ms"; font.family: "JetBrains Mono"; font.pixelSize: root.s(12); color: root.subtext0; Layout.alignment: Qt.AlignBottom; Layout.bottomMargin: root.s(5); visible: root.netState >= 2 } 
+                                    spacing: Design.s(4)
+                                    Label { role: "display"; text: root.netState >= 2 ? root.displayPing.toFixed(0) : "..."; font.weight: Design.weight.bold } 
+                                    Label { role: "caption"; text: "ms"; dim: true; Layout.alignment: Qt.AlignBottom; Layout.bottomMargin: Design.s(5); visible: root.netState >= 2 } 
                                 }
                             }
                             
                             ColumnLayout {
-                                spacing: root.s(4)
+                                spacing: Design.s(4)
                                 opacity: root.netState >= 2 ? 1.0 : 0.0
-                                Behavior on opacity { NumberAnimation { duration: 400 } }
+                                Behavior on opacity { NumberAnimation { duration: Design.duration.slow } }
                                 RowLayout { 
-                                    spacing: root.s(6)
+                                    spacing: Design.s(6)
                                     Item { 
-                                        Layout.preferredWidth: root.s(16)
-                                        Layout.preferredHeight: root.s(16)
-                                        Text { anchors.centerIn: parent; text: "󰇚"; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(16); color: root.green } 
+                                        Layout.preferredWidth: Design.s(16)
+                                        Layout.preferredHeight: Design.s(16)
+                                        Icon { anchors.centerIn: parent; text: "󰇚"; color: Design.ok } 
                                     } 
-                                    Text { text: "DOWNLOAD"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(12); color: root.subtext0 } 
+                                    Label { role: "caption"; text: "DOWNLOAD"; font.weight: Design.weight.semibold; dim: true } 
                                 }
                                 RowLayout { 
-                                    spacing: root.s(4)
-                                    Text { text: root.netState >= 3 ? root.displayDown.toFixed(1) : "..."; font.family: "JetBrains Mono"; font.weight: Font.Black; font.pixelSize: root.s(28); color: root.green } 
-                                    Text { text: "Mbps"; font.family: "JetBrains Mono"; font.pixelSize: root.s(12); color: root.subtext0; Layout.alignment: Qt.AlignBottom; Layout.bottomMargin: root.s(5); visible: root.netState >= 3 } 
+                                    spacing: Design.s(4)
+                                    Label { role: "display"; text: root.netState >= 3 ? root.displayDown.toFixed(1) : "..."; font.weight: Design.weight.bold; color: Design.ok } 
+                                    Label { role: "caption"; text: "Mbps"; dim: true; Layout.alignment: Qt.AlignBottom; Layout.bottomMargin: Design.s(5); visible: root.netState >= 3 } 
                                 }
                             }
                             
                             ColumnLayout {
-                                spacing: root.s(4)
+                                spacing: Design.s(4)
                                 opacity: root.netState >= 3 ? 1.0 : 0.0
-                                Behavior on opacity { NumberAnimation { duration: 400 } }
+                                Behavior on opacity { NumberAnimation { duration: Design.duration.slow } }
                                 RowLayout { 
-                                    spacing: root.s(6)
+                                    spacing: Design.s(6)
                                     Item { 
-                                        Layout.preferredWidth: root.s(16)
-                                        Layout.preferredHeight: root.s(16)
-                                        Text { anchors.centerIn: parent; text: "󰕒"; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(16); color: root.mauve } 
+                                        Layout.preferredWidth: Design.s(16)
+                                        Layout.preferredHeight: Design.s(16)
+                                        Icon { anchors.centerIn: parent; text: "󰕒"; color: Design.accentAlt } 
                                     } 
-                                    Text { text: "UPLOAD"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(12); color: root.subtext0 } 
+                                    Label { role: "caption"; text: "UPLOAD"; font.weight: Design.weight.semibold; dim: true } 
                                 }
                                 RowLayout { 
-                                    spacing: root.s(4)
-                                    Text { text: root.netState >= 4 ? root.displayUp.toFixed(1) : "..."; font.family: "JetBrains Mono"; font.weight: Font.Black; font.pixelSize: root.s(28); color: root.mauve } 
-                                    Text { text: "Mbps"; font.family: "JetBrains Mono"; font.pixelSize: root.s(12); color: root.subtext0; Layout.alignment: Qt.AlignBottom; Layout.bottomMargin: root.s(5); visible: root.netState >= 4 } 
+                                    spacing: Design.s(4)
+                                    Label { role: "display"; text: root.netState >= 4 ? root.displayUp.toFixed(1) : "..."; font.weight: Design.weight.bold; color: Design.accentAlt } 
+                                    Label { role: "caption"; text: "Mbps"; dim: true; Layout.alignment: Qt.AlignBottom; Layout.bottomMargin: Design.s(5); visible: root.netState >= 4 } 
                                 }
                             }
                         }
@@ -1643,56 +1568,53 @@ Item {
                 anchors.fill: parent
                 visible: root.currentTab === 3
                 opacity: visible ? 1.0 : 0.0
-                property real slideY: visible ? 0 : root.s(10)
+                property real slideY: visible ? 0 : Design.s(10)
                 
-                Behavior on slideY { NumberAnimation { duration: 250; easing.type: Easing.OutQuart } }
+                Behavior on slideY { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutQuart } }
                 transform: Translate { y: slideY }
-                Behavior on opacity { NumberAnimation { duration: 250 } }
+                Behavior on opacity { NumberAnimation { duration: Design.duration.base } }
 
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.topMargin: root.s(15)
-                    anchors.leftMargin: root.s(20)
-                    anchors.rightMargin: root.s(20)
-                    anchors.bottomMargin: root.s(20)
-                    spacing: root.s(20)
+                    anchors.topMargin: Design.s(15)
+                    anchors.leftMargin: Design.s(20)
+                    anchors.rightMargin: Design.s(20)
+                    anchors.bottomMargin: Design.s(20)
+                    spacing: Design.s(20)
 
                     RowLayout {
                         Layout.fillWidth: true
                         
                         ColumnLayout {
                             Layout.fillWidth: true
-                            spacing: root.s(4)
-                            Text { text: "Interactive Modules"; font.family: "JetBrains Mono"; font.weight: Font.Black; font.pixelSize: root.s(28); color: root.text }
-                            Text { text: "Use arrow keys or select below to preview. Double-click or press Enter to toggle."; font.family: "JetBrains Mono"; font.pixelSize: root.s(13); color: root.subtext0 }
+                            spacing: Design.s(4)
+                            Label { role: "display"; text: "Interactive Modules"; font.weight: Design.weight.bold }
+                            Label { text: "Use arrow keys or select below to preview. Double-click or press Enter to toggle."; dim: true }
                         }
                         
                         Item { Layout.fillWidth: true } 
                         
                         Rectangle {
-                            Layout.preferredWidth: root.s(110)
-                            Layout.preferredHeight: root.s(44)
-                            radius: root.s(22)
+                            Layout.preferredWidth: Design.s(110)
+                            Layout.preferredHeight: Design.s(44)
+                            radius: Design.s(22)
                             color: launchMa.containsMouse ? Qt.alpha(root.ambientBlue, 0.9) : Qt.alpha(root.ambientBlue, 0.7)
                             border.color: root.ambientBlue
                             border.width: 1
                             scale: launchMa.pressed ? 0.95 : (launchMa.containsMouse ? 1.05 : 1.0)
                             
-                            Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutBack } }
-                            Behavior on color { ColorAnimation { duration: 150 } }
+                            Behavior on scale { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutBack } }
+                            Behavior on color { ColorAnimation { duration: Design.duration.fast } }
                             
                             RowLayout { 
                                 anchors.centerIn: parent
-                                spacing: root.s(8)
-                                Text { text: "󰐊"; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(20); color: root.base } 
-                                Text { text: "PLAY"; font.family: "JetBrains Mono"; font.weight: Font.Black; font.pixelSize: root.s(14); color: root.base } 
+                                spacing: Design.s(8)
+                                Icon { role: "title"; text: "󰐊"; color: Design.surface } 
+                                Label { text: "PLAY"; font.weight: Design.weight.bold; color: Design.surface } 
                             }
                             
-                            MouseArea { 
+                            Clickable {
                                 id: launchMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
                                 onClicked: root.toggleModule(modulesDataModel.get(root.selectedModuleIndex).target)
                             }
                         }
@@ -1702,9 +1624,9 @@ Item {
                         id: previewContainer
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        radius: root.s(12)
-                        color: root.surface0
-                        border.color: root.surface2
+                        radius: Design.s(12)
+                        color: Design.raised
+                        border.color: Design.active
                         border.width: 1
                         clip: true
                         
@@ -1742,7 +1664,7 @@ Item {
                             NumberAnimation on opacity { 
                                 id: fadeAnim
                                 to: 1.0
-                                duration: 350
+                                duration: Design.duration.base
                                 easing.type: Easing.InOutQuad 
                             } 
                         }
@@ -1751,71 +1673,65 @@ Item {
                     ListView {
                         id: modulesList
                         Layout.fillWidth: true
-                        Layout.preferredHeight: root.s(90)
+                        Layout.preferredHeight: Design.s(90)
                         orientation: ListView.Horizontal
-                        spacing: root.s(15)
+                        spacing: Design.s(15)
                         clip: true
                         model: modulesDataModel
                         currentIndex: root.selectedModuleIndex
                         highlightMoveDuration: 250
                         
                         delegate: Rectangle {
-                            width: root.s(220)
-                            height: root.s(90)
-                            radius: root.s(12)
+                            width: Design.s(220)
+                            height: Design.s(90)
+                            radius: Design.s(12)
                             property bool isSelected: index === root.selectedModuleIndex
-                            color: isSelected ? root.surface1 : (modMa.containsMouse ? Qt.alpha(root.surface1, 0.5) : Qt.alpha(root.surface0, 0.4))
-                            border.color: isSelected ? root.ambientBlue : (modMa.containsMouse ? root.surface2 : root.surface1)
+                            color: isSelected ? Design.hover : (modMa.containsMouse ? Qt.alpha(Design.hover, 0.5) : Qt.alpha(Design.raised, 0.4))
+                            border.color: isSelected ? root.ambientBlue : (modMa.containsMouse ? Design.active : Design.hover)
                             border.width: isSelected ? 2 : 1
                             scale: isSelected ? 1.0 : (modMa.pressed ? 0.96 : (modMa.containsMouse ? 1.02 : 1.0))
                             
-                            Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutBack } }
-                            Behavior on color { ColorAnimation { duration: 200 } }
-                            Behavior on border.color { ColorAnimation { duration: 200 } }
+                            Behavior on scale { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutBack } }
+                            Behavior on color { ColorAnimation { duration: Design.duration.base } }
+                            Behavior on border.color { ColorAnimation { duration: Design.duration.base } }
                             
                             ColumnLayout {
                                 anchors.fill: parent
-                                anchors.margins: root.s(12)
-                                spacing: root.s(5)
+                                anchors.margins: Design.s(12)
+                                spacing: Design.s(5)
                                 RowLayout { 
-                                    spacing: root.s(10)
+                                    spacing: Design.s(10)
                                     Rectangle { 
                                         Layout.alignment: Qt.AlignVCenter
-                                        width: root.s(28)
-                                        height: root.s(28)
-                                        radius: root.s(6)
-                                        color: Qt.alpha(root.base, 0.5)
-                                        Text { anchors.centerIn: parent; text: model.icon; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(14); color: isSelected ? root.ambientBlue : root.text } 
+                                        width: Design.s(28)
+                                        height: Design.s(28)
+                                        radius: Design.s(6)
+                                        color: Qt.alpha(Design.surface, 0.5)
+                                        Icon { role: "body"; anchors.centerIn: parent; text: model.icon; color: isSelected ? root.ambientBlue : Design.text } 
                                     } 
-                                    Text { 
+                                    Label {
+                                        role: "caption"
                                         text: model.title
-                                        font.family: "JetBrains Mono"
-                                        font.weight: Font.Bold
-                                        font.pixelSize: root.s(12)
-                                        color: root.text
+                                        font.weight: Design.weight.semibold
                                         Layout.fillWidth: true
                                         Layout.alignment: Qt.AlignVCenter
-                                        elide: Text.ElideRight 
+                                        elide: Text.ElideRight
                                     } 
                                 }
-                                Text { 
+                                Label {
+                                    role: "caption"
                                     text: model.desc
-                                    font.family: "JetBrains Mono"
-                                    font.pixelSize: root.s(10)
-                                    color: root.subtext0
+                                    dim: true
                                     Layout.alignment: Qt.AlignLeft
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
                                     wrapMode: Text.WordWrap
-                                    elide: Text.ElideRight 
+                                    elide: Text.ElideRight
                                 }
                             }
                             
-                            MouseArea { 
+                            Clickable {
                                 id: modMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
                                 onClicked: { 
                                     root.selectedModuleIndex = index; 
                                     modulesList.positionViewAtIndex(index, ListView.Contain); 
@@ -1823,7 +1739,7 @@ Item {
                                 onDoubleClicked: { 
                                     root.selectedModuleIndex = index; 
                                     root.toggleModule(model.target)
-                                } 
+                                }
                             }
                         }
                     }
@@ -1837,22 +1753,22 @@ Item {
                 anchors.fill: parent
                 visible: root.currentTab === 4
                 opacity: visible ? 1.0 : 0.0
-                property real slideY: visible ? 0 : root.s(10)
+                property real slideY: visible ? 0 : Design.s(10)
                 
-                Behavior on slideY { NumberAnimation { duration: 250; easing.type: Easing.OutQuart } }
+                Behavior on slideY { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutQuart } }
                 transform: Translate { y: slideY }
-                Behavior on opacity { NumberAnimation { duration: 250 } }
+                Behavior on opacity { NumberAnimation { duration: Design.duration.base } }
 
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.topMargin: root.s(15)
-                    anchors.leftMargin: root.s(20)
-                    anchors.rightMargin: root.s(20)
-                    anchors.bottomMargin: root.s(20)
-                    spacing: root.s(20)
+                    anchors.topMargin: Design.s(15)
+                    anchors.leftMargin: Design.s(20)
+                    anchors.rightMargin: Design.s(20)
+                    anchors.bottomMargin: Design.s(20)
+                    spacing: Design.s(20)
 
-                    Text { text: "Navigation & Control"; font.family: "JetBrains Mono"; font.weight: Font.Black; font.pixelSize: root.s(28); color: root.text; Layout.alignment: Qt.AlignVCenter }
-                    Text { text: "Click any row below to instantly execute the keybind command."; font.family: "JetBrains Mono"; font.pixelSize: root.s(14); color: root.subtext0; Layout.alignment: Qt.AlignVCenter }
+                    Label { role: "display"; text: "Navigation & Control"; font.weight: Design.weight.bold; Layout.alignment: Qt.AlignVCenter }
+                    Label { text: "Click any row below to instantly execute the keybind command."; dim: true; Layout.alignment: Qt.AlignVCenter }
                     
                     ScrollView {
                         Layout.fillWidth: true
@@ -1864,38 +1780,38 @@ Item {
                         GridLayout {
                             width: parent.width
                             columns: 2
-                            rowSpacing: root.s(10)
-                            columnSpacing: root.s(15)
+                            rowSpacing: Design.s(10)
+                            columnSpacing: Design.s(15)
                             
                             Rectangle {
                                 Layout.columnSpan: 2
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: root.s(60)
-                                radius: root.s(8)
-                                color: Qt.alpha(root.surface0, 0.4)
-                                border.color: root.surface1
+                                Layout.preferredHeight: Design.s(60)
+                                radius: Design.s(8)
+                                color: Qt.alpha(Design.raised, 0.4)
+                                border.color: Design.hover
                                 border.width: 1
                                 
                                 RowLayout {
                                     anchors.fill: parent
-                                    anchors.margins: root.s(10)
-                                    spacing: root.s(10)
+                                    anchors.margins: Design.s(10)
+                                    spacing: Design.s(10)
                                     
-                                    Text { text: "Workspaces (SUPER + 1-9)"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(13); color: root.text; Layout.alignment: Qt.AlignVCenter }
+                                    Label { text: "Workspaces (SUPER + 1-9)"; font.weight: Design.weight.semibold; Layout.alignment: Qt.AlignVCenter }
                                     Item { Layout.fillWidth: true }
                                     
                                     Repeater {
                                         model: 9
                                         Rectangle {
                                             property int wsNum: index + 1
-                                            Layout.preferredWidth: root.s(32)
-                                            Layout.preferredHeight: root.s(32)
-                                            radius: root.s(6)
-                                            color: wsMa.containsMouse ? root.surface1 : root.surface0
-                                            border.color: wsMa.containsMouse ? root.peach : "transparent"
+                                            Layout.preferredWidth: Design.s(32)
+                                            Layout.preferredHeight: Design.s(32)
+                                            radius: Design.s(6)
+                                            color: wsMa.containsMouse ? Design.hover : Design.raised
+                                            border.color: wsMa.containsMouse ? Design.warn : "transparent"
                                             border.width: 1
-                                            Text { anchors.centerIn: parent; text: parent.wsNum; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(12); color: root.peach }
-                                            MouseArea { id: wsMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Quickshell.execDetached(["swaymsg", "workspace", "number", wsNum.toString()]) }
+                                            Label { role: "caption"; anchors.centerIn: parent; text: parent.wsNum; font.weight: Design.weight.semibold; color: Design.warn }
+                                            Clickable { id: wsMa; onClicked: Quickshell.execDetached(["swaymsg", "workspace", "number", wsNum.toString()]) }
                                         }
                                     }
                                 }
@@ -1905,76 +1821,70 @@ Item {
                                 model: dynamicKeybindsModel
                                 Rectangle {
                                     Layout.fillWidth: true
-                                    Layout.preferredHeight: root.s(46)
-                                    radius: root.s(8)
-                                    color: bindMa.containsMouse ? root.surface1 : Qt.alpha(root.surface0, 0.4)
-                                    border.color: bindMa.containsMouse ? root.peach : "transparent"
+                                    Layout.preferredHeight: Design.s(46)
+                                    radius: Design.s(8)
+                                    color: bindMa.containsMouse ? Design.hover : Qt.alpha(Design.raised, 0.4)
+                                    border.color: bindMa.containsMouse ? Design.warn : "transparent"
                                     border.width: 1
                                     scale: bindMa.pressed ? 0.98 : 1.0
                                     
-                                    Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutQuart } }
-                                    Behavior on color { ColorAnimation { duration: 150 } }
-                                    Behavior on border.color { ColorAnimation { duration: 150 } }
+                                    Behavior on scale { NumberAnimation { duration: Design.duration.fast; easing.type: Easing.OutQuart } }
+                                    Behavior on color { ColorAnimation { duration: Design.duration.fast } }
+                                    Behavior on border.color { ColorAnimation { duration: Design.duration.fast } }
 
                                     RowLayout {
                                         anchors.fill: parent
-                                        anchors.margins: root.s(10)
-                                        spacing: root.s(15)
+                                        anchors.margins: Design.s(10)
+                                        spacing: Design.s(15)
                                         
                                         Item {
-                                            Layout.preferredWidth: root.s(220)
-                                            Layout.minimumWidth: root.s(220)
-                                            Layout.maximumWidth: root.s(220)
+                                            Layout.preferredWidth: Design.s(220)
+                                            Layout.minimumWidth: Design.s(220)
+                                            Layout.maximumWidth: Design.s(220)
                                             Layout.fillHeight: true
                                             
                                             Row { 
                                                 anchors.verticalCenter: parent.verticalCenter
-                                                spacing: root.s(8)
+                                                spacing: Design.s(8)
                                                 
                                                 Rectangle { 
-                                                    width: k1Text.implicitWidth + root.s(16)
-                                                    height: root.s(26)
-                                                    radius: root.s(4)
-                                                    color: root.surface0
-                                                    border.color: root.surface2
+                                                    width: k1Text.implicitWidth + Design.s(16)
+                                                    height: Design.s(26)
+                                                    radius: Design.s(4)
+                                                    color: Design.raised
+                                                    border.color: Design.active
                                                     border.width: 1
-                                                    Text { id: k1Text; anchors.centerIn: parent; text: model.k1; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(11); color: root.peach } 
+                                                    Label { role: "caption"; id: k1Text; anchors.centerIn: parent; text: model.k1; font.weight: Design.weight.semibold; color: Design.warn } 
                                                 } 
                                                 
-                                                Text { text: "+"; font.family: "JetBrains Mono"; font.pixelSize: root.s(12); color: root.overlay0; visible: model.k2 !== ""; anchors.verticalCenter: parent.verticalCenter } 
+                                                Label { role: "caption"; text: "+"; color: Design.textFaint; visible: model.k2 !== ""; anchors.verticalCenter: parent.verticalCenter } 
                                                 
                                                 Rectangle { 
-                                                    width: k2Text.implicitWidth + root.s(16)
-                                                    height: root.s(26)
-                                                    radius: root.s(4)
-                                                    color: root.surface0
-                                                    border.color: root.surface2
+                                                    width: k2Text.implicitWidth + Design.s(16)
+                                                    height: Design.s(26)
+                                                    radius: Design.s(4)
+                                                    color: Design.raised
+                                                    border.color: Design.active
                                                     border.width: 1
                                                     visible: model.k2 !== ""
-                                                    Text { id: k2Text; anchors.centerIn: parent; text: model.k2; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(11); color: root.peach } 
+                                                    Label { role: "caption"; id: k2Text; anchors.centerIn: parent; text: model.k2; font.weight: Design.weight.semibold; color: Design.warn } 
                                                 } 
                                             }
                                         }
                                         
-                                        Text { 
+                                        Label {
                                             text: model.action
-                                            font.family: "JetBrains Mono"
-                                            font.pixelSize: root.s(13)
-                                            color: root.text
                                             Layout.fillWidth: true
                                             Layout.alignment: Qt.AlignVCenter
                                             horizontalAlignment: Text.AlignLeft
                                             elide: Text.ElideRight
-                                            clip: true 
+                                            clip: true
                                         }
                                     }
                                     
-                                    MouseArea { 
+                                    Clickable {
                                         id: bindMa
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: Quickshell.execDetached(["bash", "-c", model.cmd]) 
+                                        onClicked: Quickshell.execDetached(["bash", "-c", model.cmd])
                                     }
                                 }
                             }
@@ -1990,54 +1900,54 @@ Item {
                 anchors.fill: parent
                 visible: root.currentTab === 5
                 opacity: visible ? 1.0 : 0.0
-                property real slideY: visible ? 0 : root.s(10)
+                property real slideY: visible ? 0 : Design.s(10)
                 
-                Behavior on slideY { NumberAnimation { duration: 250; easing.type: Easing.OutQuart } }
+                Behavior on slideY { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutQuart } }
                 transform: Translate { y: slideY }
-                Behavior on opacity { NumberAnimation { duration: 250 } }
+                Behavior on opacity { NumberAnimation { duration: Design.duration.base } }
 
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.topMargin: root.s(15)
-                    anchors.leftMargin: root.s(20)
-                    anchors.rightMargin: root.s(20)
-                    anchors.bottomMargin: root.s(20)
-                    spacing: root.s(20)
+                    anchors.topMargin: Design.s(15)
+                    anchors.leftMargin: Design.s(20)
+                    anchors.rightMargin: Design.s(20)
+                    anchors.bottomMargin: Design.s(20)
+                    spacing: Design.s(20)
 
-                    Text { text: "Theming Engine"; font.family: "JetBrains Mono"; font.weight: Font.Black; font.pixelSize: root.s(28); color: root.text; Layout.alignment: Qt.AlignVCenter }
+                    Label { role: "display"; text: "Theming Engine"; font.weight: Design.weight.bold; Layout.alignment: Qt.AlignVCenter }
                     
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: root.s(160)
-                        radius: root.s(12)
-                        color: Qt.alpha(root.surface0, 0.4)
+                        Layout.preferredHeight: Design.s(160)
+                        radius: Design.s(12)
+                        color: Qt.alpha(Design.raised, 0.4)
                         border.color: root.ambientPurple
                         border.width: 1
                         
                         RowLayout {
                             anchors.fill: parent
-                            anchors.margins: root.s(20)
-                            spacing: root.s(20)
+                            anchors.margins: Design.s(20)
+                            spacing: Design.s(20)
                             
                             Item { Layout.fillWidth: true } 
                             
                             ColumnLayout { 
                                 Layout.alignment: Qt.AlignVCenter
-                                spacing: root.s(8)
+                                spacing: Design.s(8)
                                 Rectangle { 
                                     Layout.alignment: Qt.AlignHCenter
-                                    width: root.s(60)
-                                    height: root.s(60)
-                                    radius: root.s(10)
-                                    color: root.surface1
-                                    Text { anchors.centerIn: parent; text: ""; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(28); color: root.text } 
+                                    width: Design.s(60)
+                                    height: Design.s(60)
+                                    radius: Design.s(10)
+                                    color: Design.hover
+                                    Icon { role: "display"; anchors.centerIn: parent; text: "" } 
                                 } 
-                                Text { text: "Wallpaper"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(12); color: root.text; Layout.alignment: Qt.AlignHCenter } 
+                                Label { role: "caption"; text: "Wallpaper"; font.weight: Design.weight.semibold; Layout.alignment: Qt.AlignHCenter } 
                             }
                             
                             Item { 
-                                Layout.preferredWidth: root.s(60)
-                                Layout.preferredHeight: root.s(20)
+                                Layout.preferredWidth: Design.s(60)
+                                Layout.preferredHeight: Design.s(20)
                                 Layout.alignment: Qt.AlignVCenter
                                 Repeater { 
                                     model: 3
@@ -2045,24 +1955,24 @@ Item {
                                         width: parent.width
                                         height: parent.height
                                         Rectangle { 
-                                            width: root.s(6)
-                                            height: root.s(6)
-                                            radius: root.s(3)
-                                            color: [root.mauve, root.peach, root.blue][index]
-                                            y: parent.height / 2 - root.s(3)
+                                            width: Design.s(6)
+                                            height: Design.s(6)
+                                            radius: Design.s(3)
+                                            color: [Design.accentAlt, Design.warn, Design.accent][index]
+                                            y: parent.height / 2 - Design.s(3)
                                             SequentialAnimation on x { 
                                                 loops: Animation.Infinite
                                                 running: root.currentTab === 5
                                                 PauseAnimation { duration: index * 400 }
-                                                NumberAnimation { from: 0; to: parent.width; duration: 1200; easing.type: Easing.InOutSine } 
+                                                NumberAnimation { from: 0; to: parent.width; duration: root.pulsePeriod; easing.type: Easing.InOutSine } 
                                             } 
                                             SequentialAnimation on opacity { 
                                                 loops: Animation.Infinite
                                                 running: root.currentTab === 5
                                                 PauseAnimation { duration: index * 400 }
-                                                NumberAnimation { from: 0; to: 1; duration: 300 }
-                                                PauseAnimation { duration: 600 }
-                                                NumberAnimation { from: 1; to: 0; duration: 300 } 
+                                                NumberAnimation { from: 0; to: 1; duration: Design.duration.base }
+                                                PauseAnimation { duration: root.introDuration }
+                                                NumberAnimation { from: 1; to: 0; duration: Design.duration.base } 
                                             } 
                                         } 
                                     } 
@@ -2070,42 +1980,42 @@ Item {
                             }
                             
                             Rectangle {
-                                width: root.s(180)
-                                height: root.s(90)
-                                radius: root.s(12)
-                                color: root.base
+                                width: Design.s(180)
+                                height: Design.s(90)
+                                radius: Design.s(12)
+                                color: Design.surface
                                 border.color: root.ambientPurple
                                 Layout.alignment: Qt.AlignVCenter
                                 
                                 SequentialAnimation on border.width { 
                                     loops: Animation.Infinite
                                     running: root.currentTab === 5
-                                    NumberAnimation { from: root.s(1); to: root.s(4); duration: 1000; easing.type: Easing.InOutSine }
-                                    NumberAnimation { from: root.s(4); to: root.s(1); duration: 1000; easing.type: Easing.InOutSine } 
+                                    NumberAnimation { from: Design.s(1); to: Design.s(4); duration: root.tintDuration; easing.type: Easing.InOutSine }
+                                    NumberAnimation { from: Design.s(4); to: Design.s(1); duration: root.tintDuration; easing.type: Easing.InOutSine } 
                                 }
                                 
                                 ColumnLayout { 
                                     anchors.centerIn: parent
-                                    spacing: root.s(8)
-                                    Text { text: "Matugen Core"; font.family: "JetBrains Mono"; font.weight: Font.Black; font.pixelSize: root.s(15); color: root.ambientPurple; Layout.alignment: Qt.AlignHCenter } 
+                                    spacing: Design.s(8)
+                                    Label { text: "Matugen Core"; font.weight: Design.weight.bold; color: root.ambientPurple; Layout.alignment: Qt.AlignHCenter } 
                                     RowLayout { 
-                                        spacing: root.s(4)
+                                        spacing: Design.s(4)
                                         Layout.alignment: Qt.AlignHCenter
                                         Repeater { 
-                                            model: [root.red, root.peach, root.yellow, root.green, root.blue, root.mauve]
+                                            model: [Design.danger, Design.warn, Design.warn, Design.ok, Design.accent, Design.accentAlt]
                                             Rectangle { 
                                                 Layout.alignment: Qt.AlignVCenter
-                                                width: root.s(12)
-                                                height: root.s(12)
-                                                radius: root.s(6)
+                                                width: Design.s(12)
+                                                height: Design.s(12)
+                                                radius: Design.s(6)
                                                 color: modelData
                                                 SequentialAnimation on scale { 
                                                     loops: Animation.Infinite
                                                     running: root.currentTab === 5
                                                     PauseAnimation { duration: index * 150 }
-                                                    NumberAnimation { to: 1.3; duration: 300; easing.type: Easing.OutQuart }
-                                                    NumberAnimation { to: 1.0; duration: 400; easing.type: Easing.OutQuart }
-                                                    PauseAnimation { duration: 1000 } 
+                                                    NumberAnimation { to: 1.3; duration: Design.duration.base; easing.type: Easing.OutQuart }
+                                                    NumberAnimation { to: 1.0; duration: Design.duration.slow; easing.type: Easing.OutQuart }
+                                                    PauseAnimation { duration: root.tintDuration } 
                                                 } 
                                             } 
                                         } 
@@ -2114,8 +2024,8 @@ Item {
                             }
                             
                             Item { 
-                                Layout.preferredWidth: root.s(60)
-                                Layout.preferredHeight: root.s(20)
+                                Layout.preferredWidth: Design.s(60)
+                                Layout.preferredHeight: Design.s(20)
                                 Layout.alignment: Qt.AlignVCenter
                                 Repeater { 
                                     model: 3
@@ -2123,24 +2033,24 @@ Item {
                                         width: parent.width
                                         height: parent.height
                                         Rectangle { 
-                                            width: root.s(6)
-                                            height: root.s(6)
-                                            radius: root.s(3)
-                                            color: [root.green, root.yellow, root.pink][index]
-                                            y: parent.height / 2 - root.s(3)
+                                            width: Design.s(6)
+                                            height: Design.s(6)
+                                            radius: Design.s(3)
+                                            color: [Design.ok, Design.warn, Design.accentAlt][index]
+                                            y: parent.height / 2 - Design.s(3)
                                             SequentialAnimation on x { 
                                                 loops: Animation.Infinite
                                                 running: root.currentTab === 5
                                                 PauseAnimation { duration: index * 400 }
-                                                NumberAnimation { from: 0; to: parent.width; duration: 1200; easing.type: Easing.InOutSine } 
+                                                NumberAnimation { from: 0; to: parent.width; duration: root.pulsePeriod; easing.type: Easing.InOutSine } 
                                             } 
                                             SequentialAnimation on opacity { 
                                                 loops: Animation.Infinite
                                                 running: root.currentTab === 5
                                                 PauseAnimation { duration: index * 400 }
-                                                NumberAnimation { from: 0; to: 1; duration: 300 }
-                                                PauseAnimation { duration: 600 }
-                                                NumberAnimation { from: 1; to: 0; duration: 300 } 
+                                                NumberAnimation { from: 0; to: 1; duration: Design.duration.base }
+                                                PauseAnimation { duration: root.introDuration }
+                                                NumberAnimation { from: 1; to: 0; duration: Design.duration.base } 
                                             } 
                                         } 
                                     } 
@@ -2149,29 +2059,29 @@ Item {
                             
                             ColumnLayout { 
                                 Layout.alignment: Qt.AlignVCenter
-                                spacing: root.s(8)
+                                spacing: Design.s(8)
                                 Rectangle { 
                                     Layout.alignment: Qt.AlignHCenter
-                                    width: root.s(60)
-                                    height: root.s(60)
-                                    radius: root.s(10)
-                                    color: root.surface1
-                                    Text { anchors.centerIn: parent; text: "󰏘"; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(28); color: root.text } 
+                                    width: Design.s(60)
+                                    height: Design.s(60)
+                                    radius: Design.s(10)
+                                    color: Design.hover
+                                    Icon { role: "display"; anchors.centerIn: parent; text: "󰏘" } 
                                 } 
-                                Text { text: "Templates"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(12); color: root.text; Layout.alignment: Qt.AlignHCenter } 
+                                Label { role: "caption"; text: "Templates"; font.weight: Design.weight.semibold; Layout.alignment: Qt.AlignHCenter } 
                             }
                             Item { Layout.fillWidth: true } 
                         }
                     }
 
-                    Text { text: "When you change wallpapers, Matugen extracts the dominant colors and writes the shared palette used by these configs:"; font.family: "JetBrains Mono"; font.pixelSize: root.s(13); color: root.subtext0; Layout.fillWidth: true; wrapMode: Text.WordWrap; Layout.alignment: Qt.AlignVCenter }
+                    Label { text: "When you change wallpapers, Matugen extracts the dominant colors and writes the shared palette used by these configs:"; dim: true; Layout.fillWidth: true; wrapMode: Text.WordWrap; Layout.alignment: Qt.AlignVCenter }
 
                     GridLayout {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         columns: 3
-                        rowSpacing: root.s(10)
-                        columnSpacing: root.s(10)
+                        rowSpacing: Design.s(10)
+                        columnSpacing: Design.s(10)
                         
                         Repeater {
                             model: [ 
@@ -2185,27 +2095,27 @@ Item {
                             
                             Rectangle {
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: root.s(45)
-                                radius: root.s(8)
-                                color: tplMa.containsMouse ? Qt.alpha(root[modelData.c], 0.1) : root.surface0
+                                Layout.preferredHeight: Design.s(45)
+                                radius: Design.s(8)
+                                color: tplMa.containsMouse ? Qt.alpha(root[modelData.c], 0.1) : Design.raised
                                 border.color: tplMa.containsMouse ? root[modelData.c] : "transparent"
                                 border.width: 1
                                 
-                                Behavior on color { ColorAnimation { duration: 150 } }
-                                Behavior on border.color { ColorAnimation { duration: 150 } }
+                                Behavior on color { ColorAnimation { duration: Design.duration.fast } }
+                                Behavior on border.color { ColorAnimation { duration: Design.duration.fast } }
                                 
                                 RowLayout { 
                                     anchors.fill: parent
-                                    anchors.margins: root.s(10)
-                                    spacing: root.s(10)
+                                    anchors.margins: Design.s(10)
+                                    spacing: Design.s(10)
                                     Item { 
-                                        Layout.preferredWidth: root.s(24)
+                                        Layout.preferredWidth: Design.s(24)
                                         Layout.alignment: Qt.AlignVCenter
-                                        Text { anchors.centerIn: parent; text: modelData.i; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(16); color: root[modelData.c] } 
+                                        Icon { anchors.centerIn: parent; text: modelData.i; color: root[modelData.c] } 
                                     } 
-                                    Text { text: modelData.f; font.family: "JetBrains Mono"; font.weight: Font.Medium; font.pixelSize: root.s(12); color: root.text; Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter } 
+                                    Label { role: "caption"; text: modelData.f; font.weight: Font.Medium; Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter } 
                                 }
-                                MouseArea { id: tplMa; anchors.fill: parent; hoverEnabled: true }
+                                Clickable { id: tplMa }
                             }
                         }
                     }
@@ -2220,11 +2130,11 @@ Item {
                 anchors.fill: parent
                 visible: root.currentTab === 6
                 opacity: visible ? 1.0 : 0.0
-                property real slideY: visible ? 0 : root.s(10)
+                property real slideY: visible ? 0 : Design.s(10)
                 
-                Behavior on slideY { NumberAnimation { duration: 250; easing.type: Easing.OutQuart } }
+                Behavior on slideY { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutQuart } }
                 transform: Translate { y: slideY }
-                Behavior on opacity { NumberAnimation { duration: 250 } }
+                Behavior on opacity { NumberAnimation { duration: Design.duration.base } }
 
                 property string selectedUnit: "metric"
                 property bool apiKeyVisible: false
@@ -2247,112 +2157,109 @@ Item {
 
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.topMargin: root.s(15)
-                    anchors.leftMargin: root.s(20)
-                    anchors.rightMargin: root.s(20)
-                    anchors.bottomMargin: root.s(20)
-                    spacing: root.s(15)
+                    anchors.topMargin: Design.s(15)
+                    anchors.leftMargin: Design.s(20)
+                    anchors.rightMargin: Design.s(20)
+                    anchors.bottomMargin: Design.s(20)
+                    spacing: Design.s(15)
 
-                    Text { text: "Weather Configuration"; font.family: "JetBrains Mono"; font.weight: Font.Black; font.pixelSize: root.s(28); color: root.text; Layout.alignment: Qt.AlignVCenter }
-                    Text { text: "To use the weather widget, please enter your OpenWeatherMap API Key.\nThen, search for your city's exact City ID on OpenWeatherMap and enter it below."; font.family: "JetBrains Mono"; font.pixelSize: root.s(13); color: root.subtext0; Layout.fillWidth: true; wrapMode: Text.WordWrap; Layout.alignment: Qt.AlignVCenter }
+                    Label { role: "display"; text: "Weather Configuration"; font.weight: Design.weight.bold; Layout.alignment: Qt.AlignVCenter }
+                    Label { text: "To use the weather widget, please enter your OpenWeatherMap API Key.\nThen, search for your city's exact City ID on OpenWeatherMap and enter it below."; dim: true; Layout.fillWidth: true; wrapMode: Text.WordWrap; Layout.alignment: Qt.AlignVCenter }
                     
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: root.s(46)
-                        radius: root.s(8)
-                        color: root.surface0
-                        border.color: apiKeyInput.activeFocus ? root.blue : root.surface2
+                        Layout.preferredHeight: Design.s(46)
+                        radius: Design.s(8)
+                        color: Design.raised
+                        border.color: apiKeyInput.activeFocus ? Design.accent : Design.active
                         border.width: 1
-                        Behavior on border.color { ColorAnimation { duration: 150 } }
+                        Behavior on border.color { ColorAnimation { duration: Design.duration.fast } }
                         
                         RowLayout {
                             anchors.fill: parent
-                            anchors.margins: root.s(10)
-                            spacing: root.s(10)
-                            Text { text: "󰌆"; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(18); color: root.subtext0 }
+                            anchors.margins: Design.s(10)
+                            spacing: Design.s(10)
+                            Icon { text: "󰌆"; dim: true }
                             TextInput { 
                                 id: apiKeyInput
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
                                 verticalAlignment: TextInput.AlignVCenter
-                                font.family: "JetBrains Mono"
-                                font.pixelSize: root.s(13)
-                                color: root.text
+                                font.family: Design.font.mono
+                                font.pixelSize: Design.s(13)
+                                color: Design.text
                                 clip: true
                                 selectByMouse: true
                                 echoMode: weatherTab.apiKeyVisible ? TextInput.Normal : TextInput.Password
                                 passwordCharacter: "•"
-                                Text { text: "Enter OpenWeather API Key..."; color: root.subtext0; visible: !parent.text && !parent.activeFocus; font: parent.font; anchors.verticalCenter: parent.verticalCenter } 
+                                Text { text: "Enter OpenWeather API Key..."; color: Design.textDim; visible: !parent.text && !parent.activeFocus; font: parent.font; anchors.verticalCenter: parent.verticalCenter } 
                             }
                             Rectangle { 
-                                width: root.s(26)
-                                height: root.s(26)
-                                radius: root.s(4)
+                                width: Design.s(26)
+                                height: Design.s(26)
+                                radius: Design.s(4)
                                 color: "transparent"
-                                Text { 
+                                Icon {
                                     anchors.centerIn: parent
                                     text: weatherTab.apiKeyVisible ? "󰈈" : "󰈉"
-                                    font.family: "Iosevka Nerd Font"
-                                    font.pixelSize: root.s(18)
-                                    color: eyeMa.containsMouse ? root.blue : root.subtext0
-                                    Behavior on color { ColorAnimation { duration: 150 } } 
+                                    color: eyeMa.containsMouse ? Design.accent : Design.textDim
+                                    Behavior on color { ColorAnimation { duration: Design.duration.fast } }
                                 } 
-                                MouseArea { id: eyeMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: weatherTab.apiKeyVisible = !weatherTab.apiKeyVisible } 
+                                Clickable { id: eyeMa; onClicked: weatherTab.apiKeyVisible = !weatherTab.apiKeyVisible } 
                             }
                         }
                     }
 
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: root.s(46)
-                        radius: root.s(8)
-                        Layout.topMargin: root.s(10)
-                        color: root.surface0
-                        border.color: cityIdInput.activeFocus ? root.peach : root.surface2
+                        Layout.preferredHeight: Design.s(46)
+                        radius: Design.s(8)
+                        Layout.topMargin: Design.s(10)
+                        color: Design.raised
+                        border.color: cityIdInput.activeFocus ? Design.warn : Design.active
                         border.width: 1
-                        Behavior on border.color { ColorAnimation { duration: 150 } }
+                        Behavior on border.color { ColorAnimation { duration: Design.duration.fast } }
                         
                         TextInput { 
                             id: cityIdInput
                             anchors.fill: parent
-                            anchors.margins: root.s(10)
+                            anchors.margins: Design.s(10)
                             verticalAlignment: TextInput.AlignVCenter
-                            font.family: "JetBrains Mono"
-                            font.pixelSize: root.s(13)
-                            color: root.text
+                            font.family: Design.font.mono
+                            font.pixelSize: Design.s(13)
+                            color: Design.text
                             clip: true
                             selectByMouse: true
-                            Text { text: "City ID (e.g. 2624652)"; color: root.subtext0; visible: !parent.text && !parent.activeFocus; font: parent.font; anchors.verticalCenter: parent.verticalCenter } 
+                            Text { text: "City ID (e.g. 2624652)"; color: Design.textDim; visible: !parent.text && !parent.activeFocus; font: parent.font; anchors.verticalCenter: parent.verticalCenter } 
                         }
                     }
 
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: root.s(15)
-                        Layout.topMargin: root.s(10)
-                        Text { text: "Units:"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(13); color: root.text }
+                        spacing: Design.s(15)
+                        Layout.topMargin: Design.s(10)
+                        Label { text: "Units:"; font.weight: Design.weight.semibold }
                         
                         RowLayout {
-                            spacing: root.s(5)
+                            spacing: Design.s(5)
                             Repeater {
                                 model: ["metric", "imperial", "standard"]
                                 Rectangle {
-                                    Layout.preferredWidth: root.s(80)
-                                    Layout.preferredHeight: root.s(32)
-                                    radius: root.s(6)
-                                    color: weatherTab.selectedUnit === modelData ? Qt.alpha(root.mauve, 0.2) : "transparent"
-                                    border.color: weatherTab.selectedUnit === modelData ? root.mauve : root.surface1
+                                    Layout.preferredWidth: Design.s(80)
+                                    Layout.preferredHeight: Design.s(32)
+                                    radius: Design.s(6)
+                                    color: weatherTab.selectedUnit === modelData ? Qt.alpha(Design.accentAlt, 0.2) : "transparent"
+                                    border.color: weatherTab.selectedUnit === modelData ? Design.accentAlt : Design.hover
                                     border.width: 1
-                                    Behavior on color { ColorAnimation { duration: 150 } }
-                                    Behavior on border.color { ColorAnimation { duration: 150 } }
+                                    Behavior on color { ColorAnimation { duration: Design.duration.fast } }
+                                    Behavior on border.color { ColorAnimation { duration: Design.duration.fast } }
 
-                                    Text { 
+                                    Label {
+                                        role: "caption"
                                         anchors.centerIn: parent
                                         text: modelData
-                                        font.family: "JetBrains Mono"
-                                        font.pixelSize: root.s(11)
                                         font.capitalization: Font.Capitalize
-                                        color: weatherTab.selectedUnit === modelData ? root.mauve : root.subtext0 
+                                        color: weatherTab.selectedUnit === modelData ? Design.accentAlt : Design.textDim
                                     }
                                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: weatherTab.selectedUnit = modelData }
                                 }
@@ -2367,29 +2274,23 @@ Item {
                         Item { Layout.fillWidth: true }
                         
                         Rectangle {
-                            Layout.preferredWidth: root.s(160)
-                            Layout.preferredHeight: root.s(46)
-                            radius: root.s(8)
-                            color: saveMa.containsMouse ? Qt.alpha(root.green, 0.8) : root.green
+                            Layout.preferredWidth: Design.s(160)
+                            Layout.preferredHeight: Design.s(46)
+                            radius: Design.s(8)
+                            color: saveMa.containsMouse ? Qt.alpha(Design.ok, 0.8) : Design.ok
                             scale: saveMa.pressed ? 0.95 : (saveMa.containsMouse ? 1.02 : 1.0)
                             
-                            Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutBack } }
-                            Behavior on color { ColorAnimation { duration: 150 } }
+                            Behavior on scale { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutBack } }
+                            Behavior on color { ColorAnimation { duration: Design.duration.fast } }
                             
                             RowLayout { 
                                 anchors.centerIn: parent
-                                spacing: root.s(8)
-                                Text { text: "󰆓"; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(18); color: root.base } 
-                                Text { text: "Save Config"; font.family: "JetBrains Mono"; font.weight: Font.Black; font.pixelSize: root.s(14); color: root.base } 
+                                spacing: Design.s(8)
+                                Icon { text: "󰆓"; color: Design.surface } 
+                                Label { text: "Save Config"; font.weight: Design.weight.bold; color: Design.surface } 
                             }
                             
-                            MouseArea { 
-                                id: saveMa
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: weatherTab.saveWeatherConfig() 
-                            }
+                            Clickable { id: saveMa; onClicked: weatherTab.saveWeatherConfig() }
                         }
                     }
                 }
@@ -2402,18 +2303,17 @@ Item {
                 anchors.fill: parent
                 visible: root.currentTab === 7
                 opacity: visible ? 1.0 : 0.0
-                property real slideY: visible ? 0 : root.s(10)
+                property real slideY: visible ? 0 : Design.s(10)
                 
-                Behavior on slideY { NumberAnimation { duration: 250; easing.type: Easing.OutQuart } }
+                Behavior on slideY { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutQuart } }
                 transform: Translate { y: slideY }
-                Behavior on opacity { NumberAnimation { duration: 250 } }
+                Behavior on opacity { NumberAnimation { duration: Design.duration.base } }
 
-                Text {
+                Label {
+                    role: "title"
                     anchors.centerIn: parent
                     text: "coming soon"
-                    font.family: "JetBrains Mono"
-                    font.pixelSize: root.s(24)
-                    color: root.subtext0
+                    dim: true
                 }
             }
 
@@ -2424,18 +2324,17 @@ Item {
                 anchors.fill: parent
                 visible: root.currentTab === 8
                 opacity: visible ? 1.0 : 0.0
-                property real slideY: visible ? 0 : root.s(10)
+                property real slideY: visible ? 0 : Design.s(10)
                 
-                Behavior on slideY { NumberAnimation { duration: 250; easing.type: Easing.OutQuart } }
+                Behavior on slideY { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutQuart } }
                 transform: Translate { y: slideY }
-                Behavior on opacity { NumberAnimation { duration: 250 } }
+                Behavior on opacity { NumberAnimation { duration: Design.duration.base } }
 
-                Text {
+                Label {
+                    role: "title"
                     anchors.centerIn: parent
                     text: "coming soon"
-                    font.family: "JetBrains Mono"
-                    font.pixelSize: root.s(24)
-                    color: root.subtext0
+                    dim: true
                 }
             }
         }

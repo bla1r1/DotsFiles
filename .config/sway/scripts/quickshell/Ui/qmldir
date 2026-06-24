@@ -1,0 +1,24 @@
+module Ui
+
+singleton Design 1.0 Design.qml
+
+# frame
+PopupShell 1.0 PopupShell.qml
+Card       1.0 Card.qml
+ScrollArea 1.0 ScrollArea.qml
+
+# primitives
+Label      1.0 Label.qml
+Icon       1.0 Icon.qml
+Clickable  1.0 Clickable.qml
+
+# controls
+Slider     1.0 Slider.qml
+Field      1.0 Field.qml
+Toggle     1.0 Toggle.qml
+Pill       1.0 Pill.qml
+Stepper    1.0 Stepper.qml
+
+# rows
+Badge      1.0 Badge.qml
+DeviceRow  1.0 DeviceRow.qml

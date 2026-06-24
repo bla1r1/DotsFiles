@@ -4,57 +4,15 @@ import QtQuick.Window
 import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
-import "../"
+import "../Ui"
 
-Item {
+PopupShell {
     id: window
 
     // --- RECEIVE THE DBUS LIST FROM MAIN.QML ---
     property var notifModel
 
-    // --- Responsive Scaling Logic ---
-    Scaler {
-        id: scaler
-        // Uses the physical screen width so the popup scales synchronously with the TopBar
-        currentWidth: Screen.width
-    }
-    
-    // Helper function scoped to the root Item for easy access in deeply nested elements and Canvases
-    function s(val) { 
-        return scaler.s(val); 
-    }
-    readonly property string scriptDir: Quickshell.env("QS_SCRIPT_DIR") || (Quickshell.env("HOME") + "/.config/sway/scripts")
-    readonly property string mainQmlPath: scriptDir + "/quickshell/Main.qml"
 
-    function closePanel() {
-        Quickshell.execDetached(["qs", "-p", window.mainQmlPath, "ipc", "call", "main", "close"]);
-    }
-
-    // -------------------------------------------------------------------------
-    // COLORS (Dynamic Matugen Palette)
-    // -------------------------------------------------------------------------
-    MatugenColors { id: _theme }
-    readonly property color base: _theme.base
-    readonly property color mantle: _theme.mantle
-    readonly property color crust: _theme.crust
-    readonly property color text: _theme.text
-    readonly property color subtext0: _theme.subtext0
-    readonly property color overlay0: _theme.overlay0
-    readonly property color overlay1: _theme.overlay1
-    readonly property color surface0: _theme.surface0
-    readonly property color surface1: _theme.surface1
-    readonly property color surface2: _theme.surface2
-    
-    readonly property color mauve: _theme.mauve
-    readonly property color pink: _theme.pink
-    readonly property color red: _theme.red
-    readonly property color maroon: _theme.maroon
-    readonly property color peach: _theme.peach
-    readonly property color yellow: _theme.yellow
-    readonly property color green: _theme.green
-    readonly property color teal: _theme.teal
-    readonly property color sapphire: _theme.sapphire
-    readonly property color blue: _theme.blue
 
     // -------------------------------------------------------------------------
     // STATE & POLLING
@@ -87,43 +45,54 @@ Item {
         return collapsedGroups[groupName] === true;
     }
 
-    // Anti-Jitter Sync States
+    // Durations that are choreography, not styling: a staged entrance, ambient
+    // breathing and a hold-to-confirm. Deliberately off the motion scale.
+    // The pulses ran at 600 / 800 / 1200 / 1600 simultaneously — four rhythms
+    // at once read as noise, so they share one period now.
+    readonly property int introDuration: 800
+    readonly property int introPause: 550
+    readonly property int tintDuration: 1000
+    readonly property int pulsePeriod: 1200
+    readonly property int gaugeDuration: 1200
+    readonly property int holdDuration: 1500
+    readonly property int driftPeriod: 90000
+
+    // Anti-jitter sync states — the poller must not yank a control mid-drag.
     property bool isDraggingVol: false
     property bool isDraggingBri: false
 
     Timer { id: volSyncDelay; interval: 800; onTriggered: window.isDraggingVol = false; triggeredOnStart: true; }
-    Timer { id: briSyncDelay; interval: 800; onTriggered: window.isDraggingBri = false; triggeredOnStart: true; }
 
     readonly property bool isCharging: batStatus === "Charging"
 
     // Unified hue for Battery
     readonly property color batColorStart: {
-        if (isCharging) return window.green;
-        if (batCapacity >= 70) return window.blue;
-        if (batCapacity >= 30) return window.yellow;
-        return window.red;
+        if (isCharging) return Design.ok;
+        if (batCapacity >= 70) return Design.accent;
+        if (batCapacity >= 30) return Design.warn;
+        return Design.danger;
     }
     readonly property color batColorEnd: Qt.lighter(batColorStart, 1.15)
 
     // Unified hue for Performance Profile
     readonly property color profileStart: {
-        if (powerProfile === "performance") return window.red;
-        if (powerProfile === "power-saver") return window.green;
-        return window.blue;
+        if (powerProfile === "performance") return Design.danger;
+        if (powerProfile === "power-saver") return Design.ok;
+        return Design.accent;
     }
     readonly property color profileEnd: Qt.lighter(profileStart, 1.15)
 
     // Ambient Blobs - Based strictly on aesthetic pairs derived from battery state
     readonly property color ambientPrimary: window.batColorStart
     readonly property color ambientSecondary: {
-        if (isCharging) return window.sapphire;
-        if (batCapacity >= 70) return window.mauve;
-        if (batCapacity >= 30) return window.peach;
-        return window.maroon; 
+        if (isCharging) return Design.accentSoft;
+        if (batCapacity >= 70) return Design.accentAlt;
+        if (batCapacity >= 30) return Design.warn;
+        return Design.danger; 
     }
 
     property real animCapacity: 0
-    Behavior on animCapacity { NumberAnimation { duration: 1200; easing.type: Easing.OutQuint } }
+    Behavior on animCapacity { NumberAnimation { duration: window.gaugeDuration; easing.type: Easing.OutQuint } }
     
     onAnimCapacityChanged: batCanvas.requestPaint()
     onBatColorStartChanged: batCanvas.requestPaint()
@@ -199,7 +168,7 @@ Item {
 
     property real globalOrbitAngle: 0
     NumberAnimation on globalOrbitAngle {
-        from: 0; to: Math.PI * 2; duration: 90000; loops: Animation.Infinite; running: true
+        from: 0; to: Math.PI * 2; duration: window.driftPeriod; loops: Animation.Infinite; running: true
     }
 
     // --- ENHANCED STARTUP ANIMATION STATES ---
@@ -215,54 +184,54 @@ Item {
         running: true
 
         // Base window fades, scales, and lifts
-        NumberAnimation { target: window; property: "introMain"; from: 0; to: 1.0; duration: 800; easing.type: Easing.OutQuart }
+        NumberAnimation { target: window; property: "introMain"; from: 0; to: 1.0; duration: window.introDuration; easing.type: Easing.OutQuart }
 
         // Top bar drops in
         SequentialAnimation {
-            PauseAnimation { duration: 100 }
-            NumberAnimation { target: window; property: "introTop"; from: 0; to: 1.0; duration: 800; easing.type: Easing.OutBack; easing.overshoot: 1.0 }
+            PauseAnimation { duration: Design.duration.fast }
+            NumberAnimation { target: window; property: "introTop"; from: 0; to: 1.0; duration: window.introDuration; easing.type: Easing.OutBack; easing.overshoot: 1.0 }
         }
 
         // Notification List cascades in smoothly
         SequentialAnimation {
-            PauseAnimation { duration: 150 }
-            NumberAnimation { target: window; property: "introNotifs"; from: 0; to: 1.0; duration: 850; easing.type: Easing.OutQuart }
+            PauseAnimation { duration: Design.duration.fast }
+            NumberAnimation { target: window; property: "introNotifs"; from: 0; to: 1.0; duration: window.introDuration; easing.type: Easing.OutQuart }
         }
 
         // Central core pops out and breathes
         SequentialAnimation {
-            PauseAnimation { duration: 250 }
-            NumberAnimation { target: window; property: "introCore"; from: 0; to: 1.0; duration: 900; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
+            PauseAnimation { duration: Design.duration.base }
+            NumberAnimation { target: window; property: "introCore"; from: 0; to: 1.0; duration: window.introDuration; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
         }
 
         // Hardware sliders slide up
         SequentialAnimation {
-            PauseAnimation { duration: 350 }
-            NumberAnimation { target: window; property: "introSliders"; from: 0; to: 1.0; duration: 800; easing.type: Easing.OutQuart }
+            PauseAnimation { duration: Design.duration.base }
+            NumberAnimation { target: window; property: "introSliders"; from: 0; to: 1.0; duration: window.introDuration; easing.type: Easing.OutQuart }
         }
 
         // Actions waterfall
         SequentialAnimation {
-            PauseAnimation { duration: 450 }
-            NumberAnimation { target: window; property: "introActions"; from: 0; to: 1.0; duration: 800; easing.type: Easing.OutExpo }
+            PauseAnimation { duration: Design.duration.slow }
+            NumberAnimation { target: window; property: "introActions"; from: 0; to: 1.0; duration: window.introDuration; easing.type: Easing.OutExpo }
         }
 
         // Power profiles finish the wave
         SequentialAnimation {
-            PauseAnimation { duration: 550 }
-            NumberAnimation { target: window; property: "introProfiles"; from: 0; to: 1.0; duration: 850; easing.type: Easing.OutBack; easing.overshoot: 0.8 }
+            PauseAnimation { duration: window.introPause }
+            NumberAnimation { target: window; property: "introProfiles"; from: 0; to: 1.0; duration: window.introDuration; easing.type: Easing.OutBack; easing.overshoot: 0.8 }
         }
     }
 
     ParallelAnimation {
         id: exitAnim
-        NumberAnimation { target: window; property: "introMain"; to: 0; duration: 400; easing.type: Easing.InQuart }
-        NumberAnimation { target: window; property: "introTop"; to: 0; duration: 300; easing.type: Easing.InQuart }
-        NumberAnimation { target: window; property: "introNotifs"; to: 0; duration: 300; easing.type: Easing.InQuart }
-        NumberAnimation { target: window; property: "introCore"; to: 0; duration: 350; easing.type: Easing.InQuart }
-        NumberAnimation { target: window; property: "introSliders"; to: 0; duration: 250; easing.type: Easing.InQuart }
-        NumberAnimation { target: window; property: "introActions"; to: 0; duration: 200; easing.type: Easing.InQuart }
-        NumberAnimation { target: window; property: "introProfiles"; to: 0; duration: 150; easing.type: Easing.InQuart }
+        NumberAnimation { target: window; property: "introMain"; to: 0; duration: Design.duration.slow; easing.type: Easing.InQuart }
+        NumberAnimation { target: window; property: "introTop"; to: 0; duration: Design.duration.base; easing.type: Easing.InQuart }
+        NumberAnimation { target: window; property: "introNotifs"; to: 0; duration: Design.duration.base; easing.type: Easing.InQuart }
+        NumberAnimation { target: window; property: "introCore"; to: 0; duration: Design.duration.base; easing.type: Easing.InQuart }
+        NumberAnimation { target: window; property: "introSliders"; to: 0; duration: Design.duration.base; easing.type: Easing.InQuart }
+        NumberAnimation { target: window; property: "introActions"; to: 0; duration: Design.duration.base; easing.type: Easing.InQuart }
+        NumberAnimation { target: window; property: "introProfiles"; to: 0; duration: Design.duration.fast; easing.type: Easing.InQuart }
     }
 
     // Helper: Safely clear an entire group of notifications by AppName
@@ -282,116 +251,109 @@ Item {
         anchors.fill: parent
         scale: 0.92 + (0.08 * introMain)
         opacity: introMain
-        transform: Translate { y: window.s(15) * (1 - introMain) }
+        transform: Translate { y: Design.s(15) * (1 - introMain) }
 
         // Unified Outer Background
         Rectangle {
             anchors.fill: parent
-            radius: window.s(20)
-            color: window.base
-            border.color: window.surface0 
+            radius: Design.s(20)
+            color: Design.surface
+            border.color: Design.raised 
             border.width: 1
             clip: true
 
             // Rotating Background Blobs - Spanning across the whole widget natively
             Rectangle {
                 width: parent.width * 0.8; height: width; radius: width / 2
-                x: (parent.width / 2 - width / 2) + Math.cos(window.globalOrbitAngle * 2) * window.s(150)
-                y: (parent.height / 2 - height / 2) + Math.sin(window.globalOrbitAngle * 2) * window.s(100)
+                x: (parent.width / 2 - width / 2) + Math.cos(window.globalOrbitAngle * 2) * Design.s(150)
+                y: (parent.height / 2 - height / 2) + Math.sin(window.globalOrbitAngle * 2) * Design.s(100)
                 opacity: 0.08
                 color: window.ambientPrimary
-                Behavior on color { ColorAnimation { duration: 1000 } }
+                Behavior on color { ColorAnimation { duration: window.tintDuration } }
             }
             
             Rectangle {
                 width: parent.width * 0.9; height: width; radius: width / 2
-                x: (parent.width / 2 - width / 2) + Math.sin(window.globalOrbitAngle * 1.5) * window.s(-150)
-                y: (parent.height / 2 - height / 2) + Math.cos(window.globalOrbitAngle * 1.5) * window.s(-100)
+                x: (parent.width / 2 - width / 2) + Math.sin(window.globalOrbitAngle * 1.5) * Design.s(-150)
+                y: (parent.height / 2 - height / 2) + Math.cos(window.globalOrbitAngle * 1.5) * Design.s(-100)
                 opacity: 0.06
                 color: window.ambientSecondary
-                Behavior on color { ColorAnimation { duration: 1000 } }
+                Behavior on color { ColorAnimation { duration: window.tintDuration } }
             }
 
             RowLayout {
                 anchors.fill: parent
-                spacing: window.s(15) // Seamless separation instead of a line
+                spacing: Design.s(15) // Seamless separation instead of a line
 
                 // ==========================================
                 // LEFT SIDE: NOTIFICATION CENTER
                 // ==========================================
                 Item {
-                    Layout.preferredWidth: window.s(320)
+                    Layout.preferredWidth: Design.s(320)
                     Layout.fillHeight: true
 
                     ColumnLayout {
                         anchors.fill: parent
-                        anchors.margins: window.s(20)
-                        spacing: window.s(15)
+                        anchors.margins: Design.s(20)
+                        spacing: Design.s(15)
 
                         // --- Notification Header & DND Toggle ---
                         RowLayout {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: window.s(38)
-                            spacing: window.s(12)
+                            Layout.preferredHeight: Design.s(38)
+                            spacing: Design.s(12)
                             
-                            transform: Translate { y: window.s(-20) * (1.0 - introTop) }
+                            transform: Translate { y: Design.s(-20) * (1.0 - introTop) }
                             opacity: introTop
 
-                            Text {
+                            Label {
+                                role: "subhead"
                                 text: "Notifications"
-                                font.family: "JetBrains Mono"
-                                font.weight: Font.Black
-                                font.pixelSize: window.s(18)
-                                color: window.text
+                                font.weight: Design.weight.bold
                             }
 
                             Item { Layout.fillWidth: true } // Spacer
 
                             // DND Toggle Button
                             Rectangle {
-                                Layout.preferredWidth: dndMa.containsMouse ? window.s(38) + dndText.implicitWidth + window.s(8) : window.s(38)
-                                Layout.preferredHeight: window.s(38)
-                                radius: window.s(12)
-                                color: window.dndEnabled ? Qt.alpha(window.red, 0.15) : (dndMa.containsMouse ? window.surface1 : "transparent")
-                                border.color: window.dndEnabled ? window.red : (dndMa.containsMouse ? window.surface2 : "transparent")
+                                Layout.preferredWidth: dndMa.containsMouse ? Design.s(38) + dndText.implicitWidth + Design.s(8) : Design.s(38)
+                                Layout.preferredHeight: Design.s(38)
+                                radius: Design.s(12)
+                                color: window.dndEnabled ? Qt.alpha(Design.danger, 0.15) : (dndMa.containsMouse ? Design.hover : "transparent")
+                                border.color: window.dndEnabled ? Design.danger : (dndMa.containsMouse ? Design.active : "transparent")
                                 border.width: 1
                                 clip: true
 
-                                Behavior on width { NumberAnimation { duration: 300; easing.type: Easing.OutQuint } }
-                                Behavior on color { ColorAnimation { duration: 150 } }
-                                Behavior on border.color { ColorAnimation { duration: 150 } }
+                                Behavior on width { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutQuint } }
+                                Behavior on color { ColorAnimation { duration: Design.duration.fast } }
+                                Behavior on border.color { ColorAnimation { duration: Design.duration.fast } }
 
                                 Row {
                                     anchors.right: parent.right
-                                    anchors.rightMargin: window.s(10)
+                                    anchors.rightMargin: Design.s(10)
                                     anchors.verticalCenter: parent.verticalCenter
-                                    spacing: window.s(8)
+                                    spacing: Design.s(8)
 
-                                    Text {
+                                    Label {
                                         id: dndText
                                         text: window.dndEnabled ? "Silent" : "Mute"
-                                        font.family: "JetBrains Mono"
-                                        font.weight: Font.Bold
-                                        font.pixelSize: window.s(13)
-                                        color: window.dndEnabled ? window.red : window.text
+                                        font.weight: Design.weight.semibold
+                                        color: window.dndEnabled ? Design.danger : Design.text
                                         anchors.verticalCenter: parent.verticalCenter
                                         opacity: dndMa.containsMouse ? 1.0 : 0.0
-                                        Behavior on opacity { NumberAnimation { duration: 250 } }
+                                        Behavior on opacity { NumberAnimation { duration: Design.duration.base } }
                                     }
 
-                                    Text {
-                                        font.family: "Iosevka Nerd Font"
-                                        font.pixelSize: window.s(18)
-                                        color: window.dndEnabled ? window.red : (dndMa.containsMouse ? window.text : window.overlay0)
+                                    Icon {
+                                        color: window.dndEnabled ? Design.danger : (dndMa.containsMouse ? Design.text : Design.textFaint)
                                         text: window.dndEnabled ? "󰂛" : "󰂚"
                                         anchors.verticalCenter: parent.verticalCenter
-                                        Behavior on color { ColorAnimation { duration: 150 } }
+                                        Behavior on color { ColorAnimation { duration: Design.duration.fast } }
                                     }
                                 }
 
-                                MouseArea {
+                                Clickable {
                                     id: dndMa
-                                    anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                                     onClicked: {
                                         window.dndEnabled = !window.dndEnabled;
                                         Quickshell.execDetached(["sh", "-c", "mkdir -p ~/.cache && echo '" + (window.dndEnabled ? "1" : "0") + "' > ~/.cache/qs_dnd"]);
@@ -401,15 +363,13 @@ Item {
                         }
 
                         // --- Zero State ---
-                        Text {
+                        Label {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
-                            font.family: "JetBrains Mono"
                             font.weight: Font.Medium
-                            font.pixelSize: window.s(14)
-                            color: window.overlay0
+                            color: Design.textFaint
                             text: "You're all caught up."
                             visible: !notifModel || notifModel.count === 0
                             opacity: introNotifs
@@ -421,35 +381,35 @@ Item {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             model: window.notifModel
-                            spacing: window.s(8)
+                            spacing: Design.s(8)
                             clip: true
                             
                             opacity: introNotifs
-                            transform: Translate { y: window.s(20) * (1 - introNotifs) }
+                            transform: Translate { y: Design.s(20) * (1 - introNotifs) }
 
                             ScrollBar.vertical: ScrollBar {
                                 active: notifList.moving || notifList.movingVertically
-                                width: window.s(4)
+                                width: Design.s(4)
                                 policy: ScrollBar.AsNeeded
-                                contentItem: Rectangle { implicitWidth: window.s(4); radius: window.s(2); color: window.surface2 }
+                                contentItem: Rectangle { implicitWidth: Design.s(4); radius: Design.s(2); color: Design.active }
                             }
 
                             // Fluid Animations
                             add: Transition {
                                 ParallelAnimation {
-                                    NumberAnimation { property: "opacity"; from: 0.0; to: 1.0; duration: 400; easing.type: Easing.OutQuint }
-                                    NumberAnimation { property: "x"; from: window.s(-40); to: 0; duration: 500; easing.type: Easing.OutExpo }
-                                    NumberAnimation { property: "scale"; from: 0.95; to: 1.0; duration: 500; easing.type: Easing.OutBack }
+                                    NumberAnimation { property: "opacity"; from: 0.0; to: 1.0; duration: Design.duration.slow; easing.type: Easing.OutQuint }
+                                    NumberAnimation { property: "x"; from: Design.s(-40); to: 0; duration: Design.duration.slow; easing.type: Easing.OutExpo }
+                                    NumberAnimation { property: "scale"; from: 0.95; to: 1.0; duration: Design.duration.slow; easing.type: Easing.OutBack }
                                 }
                             }
                             remove: Transition {
                                 ParallelAnimation {
-                                    NumberAnimation { property: "opacity"; to: 0.0; duration: 300; easing.type: Easing.OutQuint }
-                                    NumberAnimation { property: "scale"; to: 0.9; duration: 300; easing.type: Easing.OutQuint }
+                                    NumberAnimation { property: "opacity"; to: 0.0; duration: Design.duration.base; easing.type: Easing.OutQuint }
+                                    NumberAnimation { property: "scale"; to: 0.9; duration: Design.duration.base; easing.type: Easing.OutQuint }
                                 }
                             }
                             displaced: Transition {
-                                NumberAnimation { properties: "y"; duration: 400; easing.type: Easing.OutExpo }
+                                NumberAnimation { properties: "y"; duration: Design.duration.slow; easing.type: Easing.OutExpo }
                             }
 
                             // --- Grouping Configuration ---
@@ -457,21 +417,21 @@ Item {
                             section.criteria: ViewSection.FullString
                             section.delegate: Item {
                                 width: ListView.view.width
-                                height: window.s(46)
+                                height: Design.s(46)
                                 
                                 Rectangle {
                                     anchors.fill: parent
-                                    anchors.topMargin: window.s(10)
-                                    anchors.bottomMargin: window.s(4)
-                                    color: headerMa.containsMouse ? window.surface1 : "transparent"
-                                    radius: window.s(8)
-                                    Behavior on color { ColorAnimation { duration: 150 } }
+                                    anchors.topMargin: Design.s(10)
+                                    anchors.bottomMargin: Design.s(4)
+                                    color: headerMa.containsMouse ? Design.hover : "transparent"
+                                    radius: Design.s(8)
+                                    Behavior on color { ColorAnimation { duration: Design.duration.fast } }
 
                                     RowLayout {
                                         anchors.fill: parent
-                                        anchors.leftMargin: window.s(6)
-                                        anchors.rightMargin: window.s(6)
-                                        spacing: window.s(8)
+                                        anchors.leftMargin: Design.s(6)
+                                        anchors.rightMargin: Design.s(6)
+                                        spacing: Design.s(8)
 
                                         // Clickable Area for Collapse Toggle
                                         MouseArea {
@@ -484,22 +444,19 @@ Item {
 
                                             RowLayout {
                                                 anchors.fill: parent
-                                                spacing: window.s(8)
+                                                spacing: Design.s(8)
                                                 
-                                                Text {
-                                                    font.family: "Iosevka Nerd Font"
-                                                    font.pixelSize: window.s(14)
-                                                    color: window.mauve
+                                                Icon {
+                                                    role: "body"
+                                                    color: Design.accentAlt
                                                     text: window.isCollapsed(section) ? "󰅂" : "󰅀"
-                                                    Behavior on rotation { NumberAnimation { duration: 250; easing.type: Easing.OutBack } }
+                                                    Behavior on rotation { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutBack } }
                                                 }
 
-                                                Text {
+                                                Label {
+                                                    role: "caption"
                                                     text: section.toUpperCase()
-                                                    font.family: "JetBrains Mono"
-                                                    font.weight: Font.Black
-                                                    font.pixelSize: window.s(11)
-                                                    color: window.text
+                                                    font.weight: Design.weight.bold
                                                     Layout.fillWidth: true
                                                     verticalAlignment: Text.AlignVCenter
                                                 }
@@ -508,26 +465,21 @@ Item {
 
                                         // Clear Group Button
                                         Rectangle {
-                                            Layout.preferredWidth: window.s(26)
-                                            Layout.preferredHeight: window.s(26)
-                                            radius: window.s(13)
-                                            color: groupClearMa.containsMouse ? window.surface2 : "transparent"
-                                            Behavior on color { ColorAnimation { duration: 150 } }
+                                            Layout.preferredWidth: Design.s(26)
+                                            Layout.preferredHeight: Design.s(26)
+                                            radius: Design.s(13)
+                                            color: groupClearMa.containsMouse ? Design.active : "transparent"
+                                            Behavior on color { ColorAnimation { duration: Design.duration.fast } }
 
-                                            Text {
+                                            Icon {
+                                                role: "body"
                                                 anchors.centerIn: parent
-                                                font.family: "Iosevka Nerd Font"
-                                                font.pixelSize: window.s(14)
-                                                color: groupClearMa.containsMouse ? window.red : window.overlay0
+                                                color: groupClearMa.containsMouse ? Design.danger : Design.textFaint
                                                 text: "󰅖"
-                                                Behavior on color { ColorAnimation { duration: 150 } }
+                                                Behavior on color { ColorAnimation { duration: Design.duration.fast } }
                                             }
 
-                                            MouseArea {
-                                                id: groupClearMa
-                                                anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                                onClicked: window.clearGroup(section)
-                                            }
+                                            Clickable { id: groupClearMa; onClicked: window.clearGroup(section) }
                                         }
                                     }
                                 }
@@ -543,30 +495,26 @@ Item {
                                 opacity: isHidden ? 0 : 1
                                 clip: true
                                 
-                                Behavior on height { NumberAnimation { duration: 300; easing.type: Easing.OutExpo } }
-                                Behavior on opacity { NumberAnimation { duration: 250; easing.type: Easing.OutQuint } }
+                                Behavior on height { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutExpo } }
+                                Behavior on opacity { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutQuint } }
 
                                 Rectangle {
                                     id: innerCard
                                     width: parent.width
-                                    height: cardContent.height + window.s(24)
-                                    radius: window.s(14)
-                                    color: cardHover.containsMouse ? window.surface1 : window.surface0
-                                    border.color: cardHover.containsMouse ? window.surface2 : "transparent"
+                                    height: cardContent.height + Design.s(24)
+                                    radius: Design.s(14)
+                                    color: cardHover.containsMouse ? Design.hover : Design.raised
+                                    border.color: cardHover.containsMouse ? Design.active : "transparent"
                                     border.width: 1
                                     clip: true
-                                    Behavior on color { ColorAnimation { duration: 200 } }
-                                    Behavior on border.color { ColorAnimation { duration: 200 } }
+                                    Behavior on color { ColorAnimation { duration: Design.duration.base } }
+                                    Behavior on border.color { ColorAnimation { duration: Design.duration.base } }
 
-                                    MouseArea {
-                                        id: cardHover
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                    }
+                                    Clickable { id: cardHover }
 
                                     // Left side accent stripe
                                     Rectangle {
-                                        width: window.s(4)
+                                        width: Design.s(4)
                                         height: parent.height
                                         anchors.left: parent.left
                                         color: window.ambientPrimary
@@ -577,44 +525,39 @@ Item {
                                         anchors.left: parent.left
                                         anchors.right: parent.right
                                         anchors.top: parent.top
-                                        anchors.margins: window.s(14)
-                                        anchors.leftMargin: window.s(18) // make room for the accent stripe
-                                        spacing: window.s(6)
+                                        anchors.margins: Design.s(14)
+                                        anchors.leftMargin: Design.s(18) // make room for the accent stripe
+                                        spacing: Design.s(6)
 
                                         RowLayout {
                                             Layout.fillWidth: true
-                                            spacing: window.s(8)
+                                            spacing: Design.s(8)
 
-                                            Text {
+                                            Label {
                                                 text: model.summary || "Notification"
-                                                font.family: "JetBrains Mono"
-                                                font.weight: Font.Bold
-                                                font.pixelSize: window.s(13)
-                                                color: window.text
+                                                font.weight: Design.weight.semibold
                                                 Layout.fillWidth: true
                                                 wrapMode: Text.Wrap
                                             }
 
                                             // Individual Dismiss Button
                                             Rectangle {
-                                                Layout.preferredWidth: window.s(22)
-                                                Layout.preferredHeight: window.s(22)
-                                                radius: window.s(11)
-                                                color: itemClearMa.containsMouse ? Qt.alpha(window.red, 0.15) : "transparent"
-                                                Behavior on color { ColorAnimation { duration: 150 } }
+                                                Layout.preferredWidth: Design.s(22)
+                                                Layout.preferredHeight: Design.s(22)
+                                                radius: Design.s(11)
+                                                color: itemClearMa.containsMouse ? Qt.alpha(Design.danger, 0.15) : "transparent"
+                                                Behavior on color { ColorAnimation { duration: Design.duration.fast } }
 
-                                                Text {
+                                                Icon {
+                                                    role: "caption"
                                                     anchors.centerIn: parent
-                                                    font.family: "Iosevka Nerd Font"
-                                                    font.pixelSize: window.s(12)
-                                                    color: itemClearMa.containsMouse ? window.red : window.overlay0
+                                                    color: itemClearMa.containsMouse ? Design.danger : Design.textFaint
                                                     text: "󰅖"
-                                                    Behavior on color { ColorAnimation { duration: 150 } }
+                                                    Behavior on color { ColorAnimation { duration: Design.duration.fast } }
                                                 }
 
-                                                MouseArea {
+                                                Clickable {
                                                     id: itemClearMa
-                                                    anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                                                     onClicked: {
                                                         if(window.notifModel) window.notifModel.remove(index);
                                                     }
@@ -622,16 +565,15 @@ Item {
                                             }
                                         }
 
-                                        Text {
+                                        Label {
+                                            role: "caption"
                                             text: model.body || ""
-                                            font.family: "JetBrains Mono"
                                             font.weight: Font.Medium
-                                            font.pixelSize: window.s(11)
-                                            color: window.subtext0
+                                            dim: true
                                             Layout.fillWidth: true
                                             wrapMode: Text.Wrap
                                             visible: text !== ""
-                                            textFormat: Text.PlainText 
+                                            textFormat: Text.PlainText
                                         }
                                     }
                                 }
@@ -644,7 +586,7 @@ Item {
                 // RIGHT SIDE: HARDWARE & BATTERY CORE
                 // ==========================================
                 Item {
-                    Layout.preferredWidth: window.s(480)
+                    Layout.preferredWidth: Design.s(480)
                     Layout.fillHeight: true
 
                     // Radar Rings (Centered on the Hardware Panel so it aligns perfectly with the gauge)
@@ -655,14 +597,14 @@ Item {
                             model: 3
                             Rectangle {
                                 anchors.centerIn: parent
-                                anchors.verticalCenterOffset: window.s(-70)
-                                width: window.s(320) + (index * window.s(170))
+                                anchors.verticalCenterOffset: Design.s(-70)
+                                width: Design.s(320) + (index * Design.s(170))
                                 height: width
                                 radius: width / 2
                                 color: "transparent"
                                 border.color: window.ambientSecondary
                                 border.width: 1
-                                Behavior on border.color { ColorAnimation { duration: 1000 } }
+                                Behavior on border.color { ColorAnimation { duration: window.tintDuration } }
                                 opacity: 0.06 - (index * 0.02)
                             }
                         }
@@ -672,30 +614,34 @@ Item {
                     Row {
                         anchors.top: parent.top
                         anchors.left: parent.left
-                        anchors.margins: window.s(25)
-                        spacing: window.s(6)
+                        anchors.margins: Design.s(25)
+                        spacing: Design.s(6)
                         
-                        transform: Translate { y: window.s(-20) * (1.0 - introTop) }
+                        transform: Translate { y: Design.s(-20) * (1.0 - introTop) }
                         opacity: introTop
                         
                         // Hours Box
                         Rectangle {
-                            width: window.s(44); height: window.s(48); radius: window.s(10)
-                            color: window.surface0; border.color: window.surface1; border.width: 1
+                            width: Design.s(44); height: Design.s(48); radius: Design.s(10)
+                            color: Design.raised; border.color: Design.hover; border.width: 1
                             
-                            Rectangle { anchors.fill: parent; radius: window.s(10); color: window.ambientPrimary; opacity: 0.05; Behavior on color { ColorAnimation { duration: 1000 } } }
+                            Rectangle { anchors.fill: parent; radius: Design.s(10); color: window.ambientPrimary; opacity: 0.05; Behavior on color { ColorAnimation { duration: window.tintDuration } } }
                             Column {
                                 anchors.centerIn: parent
-                                Text { 
+                                Label {
+                                    role: "subhead"
                                     text: window.upHours.toString().padStart(2, '0')
-                                    font.pixelSize: window.s(18); font.family: "JetBrains Mono"; font.weight: Font.Black
+                                    font.weight: Design.weight.bold
                                     color: window.ambientPrimary
-                                    Behavior on color { ColorAnimation { duration: 1000 } }
-                                    anchors.horizontalCenter: parent.horizontalCenter 
+                                    Behavior on color { ColorAnimation { duration: window.tintDuration } }
+                                    anchors.horizontalCenter: parent.horizontalCenter
                                 }
-                                Text { 
-                                    text: "HR"; font.pixelSize: window.s(8); font.family: "JetBrains Mono"; font.weight: Font.Bold
-                                    color: window.subtext0; anchors.horizontalCenter: parent.horizontalCenter 
+                                Label {
+                                    role: "caption"
+                                    text: "HR"
+                                    font.weight: Design.weight.semibold
+                                    dim: true
+                                    anchors.horizontalCenter: parent.horizontalCenter
                                 }
                             }
                         }
@@ -704,37 +650,41 @@ Item {
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
                             text: ":"
-                            font.pixelSize: window.s(22); font.family: "JetBrains Mono"; font.weight: Font.Black
+                            font.pixelSize: Design.s(22); font.family: Design.font.mono; font.weight: Design.weight.bold
                             color: window.ambientPrimary
-                            Behavior on color { ColorAnimation { duration: 1000 } }
+                            Behavior on color { ColorAnimation { duration: window.tintDuration } }
                             
                             opacity: uptimePulse
                             property real uptimePulse: 1.0
                             SequentialAnimation on uptimePulse {
                                 loops: Animation.Infinite; running: true
-                                NumberAnimation { to: 0.2; duration: 800; easing.type: Easing.InOutSine }
-                                NumberAnimation { to: 1.0; duration: 800; easing.type: Easing.InOutSine }
+                                NumberAnimation { to: 0.2; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
+                                NumberAnimation { to: 1.0; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
                             }
                         }
 
                         // Mins Box
                         Rectangle {
-                            width: window.s(44); height: window.s(48); radius: window.s(10)
-                            color: window.surface0; border.color: window.surface1; border.width: 1
+                            width: Design.s(44); height: Design.s(48); radius: Design.s(10)
+                            color: Design.raised; border.color: Design.hover; border.width: 1
                             
-                            Rectangle { anchors.fill: parent; radius: window.s(10); color: window.ambientSecondary; opacity: 0.05; Behavior on color { ColorAnimation { duration: 1000 } } }
+                            Rectangle { anchors.fill: parent; radius: Design.s(10); color: window.ambientSecondary; opacity: 0.05; Behavior on color { ColorAnimation { duration: window.tintDuration } } }
                             Column {
                                 anchors.centerIn: parent
-                                Text { 
+                                Label {
+                                    role: "subhead"
                                     text: window.upMins.toString().padStart(2, '0')
-                                    font.pixelSize: window.s(18); font.family: "JetBrains Mono"; font.weight: Font.Black
+                                    font.weight: Design.weight.bold
                                     color: window.ambientSecondary
-                                    Behavior on color { ColorAnimation { duration: 1000 } }
-                                    anchors.horizontalCenter: parent.horizontalCenter 
+                                    Behavior on color { ColorAnimation { duration: window.tintDuration } }
+                                    anchors.horizontalCenter: parent.horizontalCenter
                                 }
-                                Text { 
-                                    text: "MIN"; font.pixelSize: window.s(8); font.family: "JetBrains Mono"; font.weight: Font.Bold
-                                    color: window.subtext0; anchors.horizontalCenter: parent.horizontalCenter 
+                                Label {
+                                    role: "caption"
+                                    text: "MIN"
+                                    font.weight: Design.weight.semibold
+                                    dim: true
+                                    anchors.horizontalCenter: parent.horizontalCenter
                                 }
                             }
                         }
@@ -744,54 +694,49 @@ Item {
                     Rectangle {
                         id: logoutBtn
                         anchors.top: parent.top; anchors.right: parent.right
-                        anchors.margins: window.s(25)
-                        width: logoutMa.containsMouse ? window.s(44) + usernameText.implicitWidth + window.s(12) : window.s(44)
-                        height: window.s(44); radius: window.s(14)
-                        color: logoutMa.containsMouse ? window.surface1 : "transparent"
-                        border.color: logoutMa.containsMouse ? window.surface2 : "transparent"
+                        anchors.margins: Design.s(25)
+                        width: logoutMa.containsMouse ? Design.s(44) + usernameText.implicitWidth + Design.s(12) : Design.s(44)
+                        height: Design.s(44); radius: Design.s(14)
+                        color: logoutMa.containsMouse ? Design.hover : "transparent"
+                        border.color: logoutMa.containsMouse ? Design.active : "transparent"
                         clip: true
                         
-                        transform: Translate { y: window.s(-20) * (1.0 - introTop) }
+                        transform: Translate { y: Design.s(-20) * (1.0 - introTop) }
                         opacity: introTop
 
-                        Behavior on width { NumberAnimation { duration: 300; easing.type: Easing.OutQuint } }
-                        Behavior on color { ColorAnimation { duration: 150 } }
-                        Behavior on border.color { ColorAnimation { duration: 150 } }
+                        Behavior on width { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutQuint } }
+                        Behavior on color { ColorAnimation { duration: Design.duration.fast } }
+                        Behavior on border.color { ColorAnimation { duration: Design.duration.fast } }
 
                         Row {
                             anchors.right: parent.right
-                            anchors.rightMargin: window.s(13)
+                            anchors.rightMargin: Design.s(13)
                             anchors.verticalCenter: parent.verticalCenter
-                            spacing: window.s(12)
+                            spacing: Design.s(12)
 
-                            Text {
+                            Label {
                                 id: usernameText
                                 text: window.currentUserName
-                                font.family: "JetBrains Mono"
-                                font.weight: Font.Bold
-                                font.pixelSize: window.s(14)
-                                color: window.text
+                                font.weight: Design.weight.semibold
                                 anchors.verticalCenter: parent.verticalCenter
                                 opacity: logoutMa.containsMouse ? 1.0 : 0.0
-                                Behavior on opacity { NumberAnimation { duration: 250 } }
+                                Behavior on opacity { NumberAnimation { duration: Design.duration.base } }
                             }
 
-                            Text {
-                                font.family: "Iosevka Nerd Font"; font.pixelSize: window.s(18)
-                                color: logoutMa.containsMouse ? window.red : window.overlay0
+                            Icon {
+                                color: logoutMa.containsMouse ? Design.danger : Design.textFaint
                                 text: "󰍃"
                                 anchors.verticalCenter: parent.verticalCenter
-                                Behavior on color { ColorAnimation { duration: 150 } }
+                                Behavior on color { ColorAnimation { duration: Design.duration.fast } }
                             }
                         }
 
-                        MouseArea {
+                        Clickable {
                             id: logoutMa
-                            anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                             onClicked: { 
                                 exitAnim.start(); // Trigger graceful UI exit
                                 Quickshell.execDetached(["sh", "-c", "loginctl terminate-user $USER"]); 
-                                window.closePanel();
+                                window.close();
                             }
                         }
                     }
@@ -802,19 +747,19 @@ Item {
                         z: 1
                         
                         opacity: introCore
-                        transform: Translate { y: window.s(25) * (1 - introCore) }
+                        transform: Translate { y: Design.s(25) * (1 - introCore) }
                         scale: 0.9 + (0.1 * introCore)
 
                         // CLEAN OUTSIDE GLOW HALO
                         Rectangle {
                             anchors.centerIn: centralCore
-                            width: centralCore.width + window.s(45)
+                            width: centralCore.width + Design.s(45)
                             height: width
                             radius: width / 2
-                            color: centralCore.isDangerState ? window.red : window.ambientPrimary
+                            color: centralCore.isDangerState ? Design.danger : window.ambientPrimary
                             opacity: centralCore.isDangerState ? 0.25 : 0.15
                             z: 0 
-                            Behavior on color { ColorAnimation { duration: 400 } }
+                            Behavior on color { ColorAnimation { duration: Design.duration.slow } }
                             SequentialAnimation on scale {
                                 loops: Animation.Infinite; running: true
                                 NumberAnimation { to: heroMa.containsMouse ? 1.15 : 1.08; duration: heroMa.containsMouse ? 800 : 2000; easing.type: Easing.InOutSine }
@@ -824,10 +769,10 @@ Item {
 
                         Rectangle {
                             id: centralCore
-                            width: window.s(260)
+                            width: Design.s(260)
                             height: width
                             anchors.centerIn: parent
-                            anchors.verticalCenterOffset: window.s(-70)
+                            anchors.verticalCenterOffset: Design.s(-70)
                             radius: width / 2
                             z: 1
                             
@@ -850,20 +795,20 @@ Item {
 
                             gradient: Gradient {
                                 orientation: Gradient.Vertical
-                                GradientStop { position: 0.0; color: window.surface0 }
-                                GradientStop { position: 1.0; color: window.base }
+                                GradientStop { position: 0.0; color: Design.raised }
+                                GradientStop { position: 1.0; color: Design.surface }
                             }
 
                             Rectangle {
                                 anchors.fill: parent
                                 radius: width / 2
-                                color: window.maroon
+                                color: Design.danger
                                 opacity: centralCore.isDangerState ? 0.15 : 0.0
-                                Behavior on opacity { NumberAnimation { duration: 1000 } }
+                                Behavior on opacity { NumberAnimation { duration: window.tintDuration } }
                                 SequentialAnimation on opacity {
                                     loops: Animation.Infinite; running: centralCore.isDangerState
-                                    NumberAnimation { to: 0.25; duration: 600; easing.type: Easing.InOutSine }
-                                    NumberAnimation { to: 0.15; duration: 600; easing.type: Easing.InOutSine }
+                                    NumberAnimation { to: 0.25; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
+                                    NumberAnimation { to: 0.15; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
                                 }
                             }
 
@@ -873,15 +818,15 @@ Item {
                                 property real textPulse: 0.0
                                 SequentialAnimation on textPulse {
                                     loops: Animation.Infinite; running: true
-                                    NumberAnimation { from: 0.0; to: 1.0; duration: 1200; easing.type: Easing.InOutSine }
-                                    NumberAnimation { from: 1.0; to: 0.0; duration: 1200; easing.type: Easing.InOutSine }
+                                    NumberAnimation { from: 0.0; to: 1.0; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
+                                    NumberAnimation { from: 1.0; to: 0.0; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
                                 }
                                 
                                 property real pumpPhase: 0.0
                                 NumberAnimation on pumpPhase {
                                     running: heroMa.containsMouse && window.isCharging
                                     loops: Animation.Infinite
-                                    from: 0.0; to: 1.0; duration: 1200
+                                    from: 0.0; to: 1.0; duration: window.pulsePeriod
                                     easing.type: Easing.InOutSine 
                                     onStopped: batCanvas.requestPaint()
                                 }
@@ -890,7 +835,7 @@ Item {
                                 NumberAnimation on dischargePhase {
                                     running: heroMa.containsMouse && !window.isCharging
                                     loops: Animation.Infinite
-                                    from: 1.0; to: 0.0; duration: 1600
+                                    from: 1.0; to: 0.0; duration: window.pulsePeriod
                                     easing.type: Easing.InOutSine
                                     onStopped: batCanvas.requestPaint()
                                 }
@@ -909,15 +854,15 @@ Item {
                                         
                                         var centerX = width / 2;
                                         var centerY = height / 2;
-                                        var radius = (width / 2) - window.s(18); 
+                                        var radius = (width / 2) - Design.s(18); 
                                         var endAngle = (window.animCapacity / 100) * 2 * Math.PI;
                                         
                                         ctx.lineCap = "round";
                                         
-                                        ctx.lineWidth = window.s(8);
+                                        ctx.lineWidth = Design.s(8);
                                         ctx.beginPath();
                                         ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-                                        ctx.strokeStyle = window.surface1;
+                                        ctx.strokeStyle = Design.hover;
                                         ctx.stroke();
                                         
                                         var fillGrad = ctx.createLinearGradient(0, height, width, 0);
@@ -925,7 +870,7 @@ Item {
                                         fillGrad.addColorStop(1, window.batColorEnd.toString());
 
                                         ctx.globalAlpha = 1.0;
-                                        ctx.lineWidth = window.s(14);
+                                        ctx.lineWidth = Design.s(14);
                                         ctx.beginPath();
                                         ctx.arc(centerX, centerY, radius, 0, endAngle);
                                         ctx.strokeStyle = fillGrad;
@@ -939,7 +884,7 @@ Item {
                                                     var sEnd = Math.min(endAngle, surgeAngle + 0.4);
                                                     ctx.beginPath();
                                                     ctx.arc(centerX, centerY, radius, sStart, sEnd);
-                                                    ctx.lineWidth = window.s(22);
+                                                    ctx.lineWidth = Design.s(22);
                                                     ctx.strokeStyle = window.batColorStart.toString();
                                                     ctx.globalAlpha = 0.5 * Math.sin(parent.pumpPhase * Math.PI);
                                                     ctx.stroke();
@@ -948,7 +893,7 @@ Item {
                                                     sEnd = Math.min(endAngle, surgeAngle + 0.2);
                                                     ctx.beginPath();
                                                     ctx.arc(centerX, centerY, radius, sStart, sEnd);
-                                                    ctx.lineWidth = window.s(28);
+                                                    ctx.lineWidth = Design.s(28);
                                                     ctx.strokeStyle = window.batColorEnd.toString();
                                                     ctx.globalAlpha = 0.8 * Math.sin(parent.pumpPhase * Math.PI);
                                                     ctx.stroke();
@@ -959,7 +904,7 @@ Item {
                                                     var hitX = centerX + Math.cos(endAngle) * radius;
                                                     var hitY = centerY + Math.sin(endAngle) * radius;
                                                     ctx.beginPath();
-                                                    ctx.arc(hitX, hitY, window.s(7) + (flarePhase * window.s(15)), 0, 2*Math.PI);
+                                                    ctx.arc(hitX, hitY, Design.s(7) + (flarePhase * Design.s(15)), 0, 2*Math.PI);
                                                     ctx.fillStyle = window.batColorEnd.toString();
                                                     ctx.globalAlpha = (1.0 - flarePhase) * 0.6;
                                                     ctx.fill();
@@ -974,7 +919,7 @@ Item {
                                                     if (dStart < dEnd) {
                                                         ctx.beginPath();
                                                         ctx.arc(centerX, centerY, radius, dStart, dEnd);
-                                                        ctx.lineWidth = window.s(14) + (1 - d) * window.s(2);
+                                                        ctx.lineWidth = Design.s(14) + (1 - d) * Design.s(2);
                                                         ctx.strokeStyle = window.batColorEnd.toString();
                                                         ctx.globalAlpha = 0.2 * Math.sin(parent.dischargePhase * Math.PI);
                                                         ctx.stroke();
@@ -988,41 +933,40 @@ Item {
 
                             ColumnLayout {
                                 anchors.centerIn: parent
-                                spacing: window.s(-2)
+                                spacing: Design.s(-2)
                                 
                                 RowLayout {
                                     Layout.alignment: Qt.AlignHCenter
-                                    spacing: window.s(8)
+                                    spacing: Design.s(8)
                                     
-                                    Text {
-                                        font.family: "Iosevka Nerd Font"
-                                        font.pixelSize: window.s(28)
+                                    Icon {
+                                        role: "display"
                                         color: window.batColorStart
                                         text: window.isCharging ? "󰂄" : (window.batCapacity > 20 ? "󰁹" : "󰂃")
-                                        Behavior on color { ColorAnimation { duration: 400 } }
+                                        Behavior on color { ColorAnimation { duration: Design.duration.slow } }
                                     }
                                     
                                     Text {
-                                        font.family: "JetBrains Mono"
-                                        font.weight: Font.Black
-                                        font.pixelSize: window.s(54)
-                                        color: window.text
+                                        font.family: Design.font.mono
+                                        font.weight: Design.weight.bold
+                                        font.pixelSize: Design.s(54)
+                                        color: Design.text
                                         text: Math.round(window.animCapacity) + "%" 
                                     }
                                 }
 
                                 Text {
                                     Layout.alignment: Qt.AlignHCenter
-                                    font.family: "JetBrains Mono"
-                                    font.weight: Font.Bold
-                                    font.pixelSize: window.s(13)
+                                    font.family: Design.font.mono
+                                    font.weight: Design.weight.semibold
+                                    font.pixelSize: Design.s(13)
                                     
                                     color: window.isCharging 
-                                            ? Qt.tint(window.green, Qt.rgba(1, 1, 1, parent.textPulse * 0.4)) 
-                                            : (centralCore.isDangerState ? Qt.tint(window.red, Qt.rgba(1, 1, 1, parent.textPulse * 0.3)) : window.subtext0)
+                                            ? Qt.tint(Design.ok, Qt.rgba(1, 1, 1, parent.textPulse * 0.4)) 
+                                            : (centralCore.isDangerState ? Qt.tint(Design.danger, Qt.rgba(1, 1, 1, parent.textPulse * 0.3)) : Design.textDim)
                                             
                                     text: window.batStatus.toUpperCase()
-                                    Behavior on color { ColorAnimation { duration: 300 } }
+                                    Behavior on color { ColorAnimation { duration: Design.duration.base } }
                                 }
                             }
                         }
@@ -1042,129 +986,82 @@ Item {
                         anchors.bottom: parent.bottom
                         anchors.left: parent.left
                         anchors.right: parent.right
-                        anchors.margins: window.s(25)
-                        spacing: window.s(15)
+                        anchors.margins: Design.s(25)
+                        spacing: Design.s(15)
 
                         // 1. HARDWARE CONTROLS DOCK (Sliders)
                         Rectangle {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: window.s(96)
-                            radius: window.s(14)
-                            color: window.surface0
-                            border.color: window.surface1
+                            Layout.preferredHeight: Design.s(96)
+                            radius: Design.s(14)
+                            color: Design.raised
+                            border.color: Design.hover
                             border.width: 1
 
                             opacity: introSliders
-                            transform: Translate { y: window.s(20) * (1.0 - introSliders) }
+                            transform: Translate { y: Design.s(20) * (1.0 - introSliders) }
 
                             ColumnLayout {
                                 anchors.fill: parent
-                                anchors.margins: window.s(14)
-                                spacing: window.s(12)
+                                anchors.margins: Design.s(14)
+                                spacing: Design.s(12)
 
                                 // Brightness Slider
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    spacing: window.s(15)
+                                    spacing: Design.s(15)
 
                                     Item {
-                                        Layout.preferredWidth: window.s(32)
-                                        Layout.preferredHeight: window.s(32)
-                                        Text {
+                                        Layout.preferredWidth: Design.s(32)
+                                        Layout.preferredHeight: Design.s(32)
+                                        Icon {
+                                            role: "title"
                                             anchors.centerIn: parent
                                             text: window.sysBrightness > 66 ? "󰃠" : (window.sysBrightness > 33 ? "󰃟" : "󰃞")
-                                            font.family: "Iosevka Nerd Font"
-                                            font.pixelSize: window.s(22)
                                             color: window.ambientPrimary
-                                            Behavior on color { ColorAnimation { duration: 200 } }
+                                            Behavior on color { ColorAnimation { duration: Design.duration.base } }
                                         }
                                     }
 
-                                    Item {
+                                    Slider {
                                         Layout.fillWidth: true
-                                        height: window.s(18)
-                                        
-                                        Timer {
-                                            id: briCmdThrottle
-                                            interval: 50
-                                            property int targetPct: -1
-                                            onTriggered: {
-                                                if (targetPct >= 0) {
-                                                    Quickshell.execDetached(["brightnessctl", "set", targetPct + "%"]);
-                                                    targetPct = -1;
-                                                }
-                                            }
-                                        }
+                                        Layout.preferredHeight: Design.s(18)
 
-                                        Rectangle {
-                                            anchors.fill: parent
-                                            radius: window.s(9)
-                                            color: window.surface1
-                                            border.color: window.surface2
-                                            border.width: 1
-                                            clip: true
+                                        value: window.sysBrightness
+                                        tone: window.batColorStart
+                                        cornerRadius: Design.radius.ctl
 
-                                            Rectangle {
-                                                height: parent.height
-                                                width: parent.width * (window.sysBrightness / 100)
-                                                radius: window.s(9)
-                                                opacity: briMa.containsMouse ? 1.0 : 0.85
-                                                Behavior on opacity { NumberAnimation { duration: 200 } }
-                                                Behavior on width { enabled: !window.isDraggingBri; NumberAnimation { duration: 200; easing.type: Easing.OutQuint } }
-
-                                                gradient: Gradient {
-                                                    orientation: Gradient.Horizontal
-                                                    GradientStop { position: 0.0; color: window.batColorStart; Behavior on color { ColorAnimation { duration: 300 } } }
-                                                    GradientStop { position: 1.0; color: window.batColorEnd; Behavior on color { ColorAnimation { duration: 300 } } }
-                                                }
-                                            }
+                                        onMoved: pct => {
+                                            window.sysBrightness = pct;
+                                            Quickshell.execDetached(["brightnessctl", "set", pct + "%"]);
                                         }
-                                        MouseArea {
-                                            id: briMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onPressed: (mouse) => { briSyncDelay.stop(); window.isDraggingBri = true; updateBri(mouse.x); }
-                                            onPositionChanged: (mouse) => { if (pressed) updateBri(mouse.x); }
-                                            onReleased: { briSyncDelay.restart(); }
-                                            
-                                            function updateBri(mx) {
-                                                let pct = Math.max(0, Math.min(100, Math.round((mx / width) * 100)));
-                                                window.sysBrightness = pct; 
-                                                briCmdThrottle.targetPct = pct;
-                                                if (!briCmdThrottle.running) briCmdThrottle.start();
-                                            }
-                                        }
+                                        onActiveChanged: window.isDraggingBri = active
                                     }
                                 }
 
                                 // Volume Slider
                                 RowLayout {
                                     Layout.fillWidth: true
-                                    spacing: window.s(15)
+                                    spacing: Design.s(15)
 
                                     Rectangle {
-                                        Layout.preferredWidth: window.s(32)
-                                        Layout.preferredHeight: window.s(32)
-                                        radius: window.s(16)
-                                        color: volIconMa.containsMouse ? window.surface1 : "transparent"
+                                        Layout.preferredWidth: Design.s(32)
+                                        Layout.preferredHeight: Design.s(32)
+                                        radius: Design.s(16)
+                                        color: volIconMa.containsMouse ? Design.hover : "transparent"
                                         border.color: volIconMa.containsMouse ? window.profileStart : "transparent"
-                                        Behavior on color { ColorAnimation { duration: 150 } }
-                                        Behavior on border.color { ColorAnimation { duration: 150 } }
+                                        Behavior on color { ColorAnimation { duration: Design.duration.fast } }
+                                        Behavior on border.color { ColorAnimation { duration: Design.duration.fast } }
 
-                                        Text {
+                                        Icon {
+                                            role: "title"
                                             anchors.centerIn: parent
                                             text: window.sysMuted || window.sysVolume === 0 ? "󰖁" : (window.sysVolume > 50 ? "󰕾" : "󰖀")
-                                            font.family: "Iosevka Nerd Font"
-                                            font.pixelSize: window.s(22)
-                                            color: window.sysMuted ? window.overlay0 : window.profileStart
-                                            Behavior on color { ColorAnimation { duration: 200 } }
+                                            color: window.sysMuted ? Design.textFaint : window.profileStart
+                                            Behavior on color { ColorAnimation { duration: Design.duration.base } }
                                         }
-                                        MouseArea {
+                                        Clickable {
                                             id: volIconMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
                                             onClicked: {
                                                 volSyncDelay.stop();
                                                 window.isDraggingVol = true; 
@@ -1175,65 +1072,23 @@ Item {
                                         }
                                     }
 
-                                    Item {
+                                    Slider {
                                         Layout.fillWidth: true
-                                        height: window.s(18)
-                                        
-                                        Timer {
-                                            id: volCmdThrottle
-                                            interval: 50
-                                            property int targetPct: -1
-                                            onTriggered: {
-                                                if (targetPct >= 0) {
-                                                    if (targetPct > 0 && window.sysMuted) {
-                                                        window.sysMuted = false;
-                                                        Quickshell.execDetached(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "0"]);
-                                                    }
-                                                    Quickshell.execDetached(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", targetPct + "%"]);
-                                                    targetPct = -1;
-                                                }
-                                            }
-                                        }
+                                        Layout.preferredHeight: Design.s(18)
 
-                                        Rectangle {
-                                            anchors.fill: parent
-                                            radius: window.s(9)
-                                            color: window.surface1
-                                            border.color: window.surface2
-                                            border.width: 1
-                                            clip: true
+                                        value: window.sysVolume
+                                        tone: window.profileStart
+                                        muted: window.sysMuted
 
-                                            Rectangle {
-                                                height: parent.height
-                                                width: parent.width * (window.sysVolume / 100)
-                                                radius: window.s(9)
-                                                opacity: window.sysMuted ? 0.5 : (volMa.containsMouse ? 1.0 : 0.85)
-                                                Behavior on opacity { NumberAnimation { duration: 200 } }
-                                                Behavior on width { enabled: !window.isDraggingVol; NumberAnimation { duration: 200; easing.type: Easing.OutQuint } }
-
-                                                gradient: Gradient {
-                                                    orientation: Gradient.Horizontal
-                                                    GradientStop { position: 0.0; color: window.sysMuted ? window.surface2 : window.profileStart; Behavior on color { ColorAnimation { duration: 300 } } }
-                                                    GradientStop { position: 1.0; color: window.sysMuted ? Qt.lighter(window.surface2, 1.15) : window.profileEnd; Behavior on color { ColorAnimation { duration: 300 } } }
-                                                }
+                                        onMoved: pct => {
+                                            window.sysVolume = pct;
+                                            if (pct > 0 && window.sysMuted) {
+                                                window.sysMuted = false;
+                                                Quickshell.execDetached(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "0"]);
                                             }
+                                            Quickshell.execDetached(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", pct + "%"]);
                                         }
-                                        MouseArea {
-                                            id: volMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
-                                            onPressed: (mouse) => { volSyncDelay.stop(); window.isDraggingVol = true; updateVol(mouse.x); }
-                                            onPositionChanged: (mouse) => { if (pressed) updateVol(mouse.x); }
-                                            onReleased: { volSyncDelay.restart(); }
-                                            
-                                            function updateVol(mx) {
-                                                let pct = Math.max(0, Math.min(100, Math.round((mx / width) * 100)));
-                                                window.sysVolume = pct;
-                                                volCmdThrottle.targetPct = pct;
-                                                if (!volCmdThrottle.running) volCmdThrottle.start();
-                                            }
-                                        }
+                                        onActiveChanged: window.isDraggingVol = active
                                     }
                                 }
                             }
@@ -1242,8 +1097,8 @@ Item {
                         // 2. SYSTEM ACTIONS DOCK
                         RowLayout {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: window.s(75)
-                            spacing: window.s(12)
+                            Layout.preferredHeight: Design.s(75)
+                            spacing: Design.s(12)
                             
                             Repeater {
                                 model: ListModel {
@@ -1257,22 +1112,22 @@ Item {
                                     id: actionCapsule
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
-                                    radius: window.s(14)
+                                    radius: Design.s(14)
 
                                     opacity: introActions
-                                    transform: Translate { y: window.s(30) * (1.0 - introActions) + (index * window.s(12) * (1.0 - introActions)) }
+                                    transform: Translate { y: Design.s(30) * (1.0 - introActions) + (index * Design.s(12) * (1.0 - introActions)) }
                                     
-                                    property color c1: window[baseColor] || window.surface1
+                                    property color c1: window[baseColor] || Design.hover
                                     property color c2: Qt.lighter(c1, 1.2)
 
-                                    color: actionMa.containsMouse ? window.surface1 : window.surface0
-                                    border.color: actionMa.containsMouse ? c1 : window.surface2
+                                    color: actionMa.containsMouse ? Design.hover : Design.raised
+                                    border.color: actionMa.containsMouse ? c1 : Design.active
                                     border.width: actionMa.containsMouse ? 2 : 1
-                                    Behavior on color { ColorAnimation { duration: 200 } }
-                                    Behavior on border.color { ColorAnimation { duration: 200 } }
+                                    Behavior on color { ColorAnimation { duration: Design.duration.base } }
+                                    Behavior on border.color { ColorAnimation { duration: Design.duration.base } }
                                     
                                     scale: actionMa.pressed ? (0.98 - (0.01 * weight)) : (actionMa.containsMouse ? 1.08 : 1.0)
-                                    Behavior on scale { NumberAnimation { duration: 400; easing.type: Easing.OutQuart } }
+                                    Behavior on scale { NumberAnimation { duration: Design.duration.slow; easing.type: Easing.OutQuart } }
 
                                     property real fillLevel: 0.0
                                     property bool triggered: false
@@ -1286,7 +1141,7 @@ Item {
                                         NumberAnimation on wavePhase {
                                             running: actionCapsule.fillLevel > 0.0 && actionCapsule.fillLevel < 1.0
                                             loops: Animation.Infinite
-                                            from: 0; to: Math.PI * 2; duration: 800
+                                            from: 0; to: Math.PI * 2; duration: window.pulsePeriod
                                         }
                                         onWavePhaseChanged: requestPaint()
                                         Connections { target: actionCapsule; function onFillLevelChanged() { actionWaveCanvas.requestPaint() } }
@@ -1296,7 +1151,7 @@ Item {
                                             ctx.clearRect(0, 0, width, height);
                                             if (actionCapsule.fillLevel <= 0.001) return;
                                             
-                                            var r = window.s(14); 
+                                            var r = Design.s(14); 
                                             var fillY = height * (1.0 - actionCapsule.fillLevel);
                                             ctx.save();
                                             ctx.beginPath();
@@ -1315,7 +1170,7 @@ Item {
                                             ctx.beginPath();
                                             ctx.moveTo(0, fillY);
                                             if (actionCapsule.fillLevel < 0.99) {
-                                                var waveAmp = window.s(10) * Math.sin(actionCapsule.fillLevel * Math.PI); 
+                                                var waveAmp = Design.s(10) * Math.sin(actionCapsule.fillLevel * Math.PI); 
                                                 var cp1y = fillY + Math.sin(wavePhase) * waveAmp;
                                                 var cp2y = fillY + Math.cos(wavePhase + Math.PI) * waveAmp;
                                                 ctx.bezierCurveTo(width * 0.33, cp2y, width * 0.66, cp1y, width, fillY);
@@ -1338,18 +1193,17 @@ Item {
                                     }
 
                                     Rectangle {
-                                        anchors.fill: parent; radius: window.s(14); color: "#ffffff"
+                                        anchors.fill: parent; radius: Design.s(14); color: Design.text
                                         opacity: actionCapsule.flashOpacity
-                                        PropertyAnimation on opacity { id: cardFlashAnim; to: 0; duration: 500; easing.type: Easing.OutExpo }
+                                        PropertyAnimation on opacity { id: cardFlashAnim; to: 0; duration: Design.duration.slow; easing.type: Easing.OutExpo }
                                     }
 
-                                    Text { 
+                                    Icon {
+                                        role: "title"
                                         anchors.centerIn: parent
-                                        font.family: "Iosevka Nerd Font"
-                                        font.pixelSize: window.s(24)
-                                        color: actionMa.containsMouse ? window.text : window.subtext0
+                                        color: actionMa.containsMouse ? Design.text : Design.textDim
                                         text: icon
-                                        Behavior on color { ColorAnimation { duration: 150 } }
+                                        Behavior on color { ColorAnimation { duration: Design.duration.fast } }
                                     }
 
                                     Item {
@@ -1357,22 +1211,18 @@ Item {
                                         height: actionCapsule.height * actionCapsule.fillLevel
                                         clip: true
                                         
-                                        Text { 
+                                        Icon {
+                                            role: "title"
                                             anchors.horizontalCenter: parent.horizontalCenter
                                             y: (actionCapsule.height / 2) - (height / 2) - (actionCapsule.height - parent.height)
-                                            font.family: "Iosevka Nerd Font"
-                                            font.pixelSize: window.s(24)
-                                            color: window.crust
-                                            text: icon 
+                                            color: Design.ground
+                                            text: icon
                                         }
                                     }
 
-                                    MouseArea {
+                                    Clickable {
                                         id: actionMa
-                                        anchors.fill: parent
-                                        hoverEnabled: true
                                         cursorShape: actionCapsule.triggered ? Qt.ArrowCursor : Qt.PointingHandCursor
-                                        
                                         onPressed: { 
                                             if (!actionCapsule.triggered) { 
                                                 drainAnim.stop(); 
@@ -1398,12 +1248,12 @@ Item {
                                     
                                     NumberAnimation {
                                         id: drainAnim; target: actionCapsule; property: "fillLevel"; to: 0.0
-                                        duration: 1500 * actionCapsule.fillLevel; easing.type: Easing.OutQuad
+                                        duration: window.holdDuration * actionCapsule.fillLevel; easing.type: Easing.OutQuad
                                     }
 
                                     Timer {
                                         id: exitTimer; interval: 500 
-                                        onTriggered: { Quickshell.execDetached(["sh", "-c", cmd]); window.closePanel(); }
+                                        onTriggered: { Quickshell.execDetached(["sh", "-c", cmd]); window.close(); }
                                     }
                                 }
                             }
@@ -1412,28 +1262,28 @@ Item {
                         // 3. POWER PROFILES DOCK
                         Rectangle {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: window.s(54)
-                            radius: window.s(14)
-                            color: window.surface0 
-                            border.color: window.surface1
+                            Layout.preferredHeight: Design.s(54)
+                            radius: Design.s(14)
+                            color: Design.raised 
+                            border.color: Design.hover
                             border.width: 1
 
                             opacity: introProfiles
-                            transform: Translate { y: window.s(20) * (1.0 - introProfiles) }
+                            transform: Translate { y: Design.s(20) * (1.0 - introProfiles) }
                             
                             Rectangle {
                                 id: sliderPill
-                                width: (parent.width - window.s(2)) / 3 
-                                height: parent.height - window.s(2)
-                                y: window.s(1)
-                                radius: window.s(10)
+                                width: (parent.width - Design.s(2)) / 3 
+                                height: parent.height - Design.s(2)
+                                y: Design.s(1)
+                                radius: Design.s(10)
                                 x: {
-                                    if (window.powerProfile === "performance") return window.s(1);
-                                    if (window.powerProfile === "balanced") return width + window.s(1);
-                                    return (width * 2) + window.s(1);
+                                    if (window.powerProfile === "performance") return Design.s(1);
+                                    if (window.powerProfile === "balanced") return width + Design.s(1);
+                                    return (width * 2) + Design.s(1);
                                 }
                                 
-                                Behavior on x { NumberAnimation { duration: 400; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+                                Behavior on x { NumberAnimation { duration: Design.duration.slow; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
                                 
                                 gradient: Gradient {
                                     orientation: Gradient.Horizontal
@@ -1459,24 +1309,22 @@ Item {
                                         
                                         RowLayout {
                                             anchors.centerIn: parent
-                                            spacing: window.s(8)
-                                            Text {
-                                                font.family: "Iosevka Nerd Font"; font.pixelSize: window.s(18)
-                                                color: window.powerProfile === name ? window.crust : (profileMa.containsMouse ? window.text : window.subtext0)
+                                            spacing: Design.s(8)
+                                            Icon {
+                                                color: window.powerProfile === name ? Design.ground : (profileMa.containsMouse ? Design.text : Design.textDim)
                                                 text: icon
-                                                Behavior on color { ColorAnimation { duration: 200 } }
+                                                Behavior on color { ColorAnimation { duration: Design.duration.base } }
                                             }
-                                            Text {
-                                                font.family: "JetBrains Mono"; font.weight: Font.Black; font.pixelSize: window.s(13)
-                                                color: window.powerProfile === name ? window.crust : (profileMa.containsMouse ? window.text : window.subtext0)
+                                            Label {
+                                                font.weight: Design.weight.bold
+                                                color: window.powerProfile === name ? Design.ground : (profileMa.containsMouse ? Design.text : Design.textDim)
                                                 text: label
-                                                Behavior on color { ColorAnimation { duration: 200 } }
+                                                Behavior on color { ColorAnimation { duration: Design.duration.base } }
                                             }
                                         }
                                         
-                                        MouseArea {
+                                        Clickable {
                                             id: profileMa
-                                            anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                                             onClicked: { Quickshell.execDetached(["powerprofilesctl", "set", name]); sysPoller.running = true; }
                                         }
                                     }
