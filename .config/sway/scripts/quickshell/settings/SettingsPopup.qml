@@ -5,21 +5,22 @@ import QtQuick.Layouts
 import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
-import "../"
+import "../Ui"
 
-Item {
+PopupShell {
     id: root
-    focus: true
+
+    // Durations that are choreography, not styling: a staged entrance, ambient
+    // loops and slow tint crossfades. Deliberately off the motion scale.
+    // PauseAnimation delays are left as they are — that spread is the stagger.
+    readonly property int introDuration: 800
+    readonly property int tintDuration: 1000
+    readonly property int pulsePeriod: 1500
+    readonly property int driftPeriod: 90000
+
 
     // --- Responsive Scaling Logic ---
-    Scaler {
-        id: scaler
-        currentWidth: Screen.width
-    }
     
-    function s(val) { 
-        return scaler.s(val); 
-    }
     readonly property string scriptDir: Quickshell.env("QS_SCRIPT_DIR") || (Quickshell.env("HOME") + "/.config/sway/scripts")
     readonly property string mainQmlPath: scriptDir + "/quickshell/Main.qml"
 
@@ -39,28 +40,6 @@ Item {
         event.accepted = true;
     }
 
-    MatugenColors { id: _theme }
-    // -------------------------------------------------------------------------
-    // COLORS
-    // -------------------------------------------------------------------------
-    readonly property color base: _theme.base
-    readonly property color mantle: _theme.mantle
-    readonly property color crust: _theme.crust
-    readonly property color text: _theme.text
-    readonly property color subtext0: _theme.subtext0
-    readonly property color subtext1: _theme.subtext1
-    readonly property color surface0: _theme.surface0
-    readonly property color surface1: _theme.surface1
-    readonly property color surface2: _theme.surface2
-    readonly property color overlay0: _theme.overlay0
-    readonly property color mauve: _theme.mauve
-    readonly property color pink: _theme.pink
-    readonly property color blue: _theme.blue
-    readonly property color sapphire: _theme.sapphire
-    readonly property color green: _theme.green
-    readonly property color peach: _theme.peach
-    readonly property color yellow: _theme.yellow
-    readonly property color red: _theme.red
 
     // -------------------------------------------------------------------------
     // SSOT GLOBAL SETTINGS & UPDATES
@@ -118,7 +97,7 @@ Item {
         }
     }
 
-    function closePanel() {
+    function root.close() {
         Quickshell.execDetached(["qs", "-p", root.mainQmlPath, "ipc", "call", "main", "close"]);
     }
     Process {
@@ -240,13 +219,13 @@ Item {
 
     SequentialAnimation {
         id: startupSequence
-        PauseAnimation { duration: 100 }
+        PauseAnimation { duration: Design.duration.fast }
         NumberAnimation { 
             target: root
             property: "introContent"
             from: 0.0
             to: 1.0
-            duration: 700
+            duration: root.introDuration
             easing.type: Easing.OutBack
             easing.overshoot: 1.05
         } 
@@ -274,10 +253,10 @@ Item {
     Rectangle {
         id: sidebarPanel
         anchors.fill: parent
-        color: Qt.rgba(root.base.r, root.base.g, root.base.b, 0.95)
-        radius: root.s(16)
+        color: Qt.rgba(Design.surface.r, Design.surface.g, Design.surface.b, 0.95)
+        radius: Design.s(16)
         border.width: 1
-        border.color: Qt.rgba(root.surface0.r, root.surface0.g, root.surface0.b, 0.8)
+        border.color: Qt.rgba(Design.raised.r, Design.raised.g, Design.raised.b, 0.8)
         clip: true
 
         // --- Straighten Left Corners ---
@@ -285,7 +264,7 @@ Item {
             anchors.left: parent.left
             anchors.top: parent.top
             anchors.bottom: parent.bottom
-            width: root.s(16)
+            width: Design.s(16)
             color: sidebarPanel.color
 
             Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: sidebarPanel.border.color }
@@ -304,26 +283,26 @@ Item {
             Flickable {
                 anchors.fill: parent
                 contentWidth: width
-                contentHeight: settingsMainCol.implicitHeight + root.s(100)
+                contentHeight: settingsMainCol.implicitHeight + Design.s(100)
                 boundsBehavior: Flickable.StopAtBounds
                 clip: true
 
                 ColumnLayout {
                     id: settingsMainCol
-                    width: parent.width - root.s(48)
-                    x: root.s(24)
-                    y: root.s(24)
-                    spacing: root.s(20)
+                    width: parent.width - Design.s(48)
+                    x: Design.s(24)
+                    y: Design.s(24)
+                    spacing: Design.s(20)
 
                     // --- HEADER ---
                     RowLayout {
                         Layout.fillWidth: true
                         Text { 
                             text: "Settings"
-                            font.family: "JetBrains Mono"
-                            font.weight: Font.Black
-                            font.pixelSize: root.s(26)
-                            color: root.text
+                            font.family: Design.font.mono
+                            font.weight: Design.weight.bold
+                            font.pixelSize: Design.s(26)
+                            color: Design.text
                             Layout.alignment: Qt.AlignVCenter 
                         }
                     }
@@ -333,10 +312,10 @@ Item {
                     // Box 1: Startup & Icons
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: col1.implicitHeight + root.s(32)
-                        radius: root.s(12)
-                        color: Qt.alpha(root.surface0, 0.5)
-                        border.color: root.surface1
+                        Layout.preferredHeight: col1.implicitHeight + Design.s(32)
+                        radius: Design.s(12)
+                        color: Qt.alpha(Design.raised, 0.5)
+                        border.color: Design.hover
                         border.width: 1
                         
                         ColumnLayout {
@@ -344,78 +323,78 @@ Item {
                             anchors.top: parent.top
                             anchors.left: parent.left
                             anchors.right: parent.right
-                            anchors.margins: root.s(16)
-                            spacing: root.s(16)
+                            anchors.margins: Design.s(16)
+                            spacing: Design.s(16)
                             
                             RowLayout {
                                 Layout.fillWidth: true
-                                spacing: root.s(16)
+                                spacing: Design.s(16)
                                 Item {
-                                    Layout.preferredWidth: root.s(24)
+                                    Layout.preferredWidth: Design.s(24)
                                     Layout.alignment: Qt.AlignTop
-                                    Layout.topMargin: root.s(2)
-                                    Text { anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; text: ""; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(20); color: root.peach }
+                                    Layout.topMargin: Design.s(2)
+                                    Icon { role: "title"; anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; text: ""; color: Design.warn }
                                 }
                                 ColumnLayout {
                                     Layout.fillWidth: true
                                     Layout.alignment: Qt.AlignTop
-                                    spacing: root.s(4)
+                                    spacing: Design.s(4)
                                     RowLayout {
                                         Layout.fillWidth: true
-                                        Text { text: "Guide on startup"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(13); color: root.text; Layout.fillWidth: true }
+                                        Label { text: "Guide on startup"; font.weight: Design.weight.semibold; Layout.fillWidth: true }
                                         Rectangle {
                                             Layout.alignment: Qt.AlignTop | Qt.AlignRight
-                                            Layout.preferredWidth: root.s(40)
-                                            Layout.preferredHeight: root.s(24)
-                                            radius: root.s(12)
-                                            color: root.setOpenGuideAtStartup ? root.peach : root.surface2
-                                            Behavior on color { ColorAnimation { duration: 200 } }
+                                            Layout.preferredWidth: Design.s(40)
+                                            Layout.preferredHeight: Design.s(24)
+                                            radius: Design.s(12)
+                                            color: root.setOpenGuideAtStartup ? Design.warn : Design.active
+                                            Behavior on color { ColorAnimation { duration: Design.duration.base } }
                                             Rectangle {
-                                                width: root.s(18); height: root.s(18); radius: root.s(9); color: root.base
-                                                y: root.s(3); x: root.setOpenGuideAtStartup ? root.s(19) : root.s(3)
-                                                Behavior on x { NumberAnimation { duration: 250; easing.type: Easing.OutBack } }
+                                                width: Design.s(18); height: Design.s(18); radius: Design.s(9); color: Design.surface
+                                                y: Design.s(3); x: root.setOpenGuideAtStartup ? Design.s(19) : Design.s(3)
+                                                Behavior on x { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutBack } }
                                             }
                                             MouseArea { anchors.fill: parent; onClicked: root.setOpenGuideAtStartup = !root.setOpenGuideAtStartup; cursorShape: Qt.PointingHandCursor }
                                         }
                                     }
-                                    Text { text: "Launch on login"; font.family: "JetBrains Mono"; font.pixelSize: root.s(11); color: root.subtext0; Layout.fillWidth: true }
+                                    Label { role: "caption"; text: "Launch on login"; dim: true; Layout.fillWidth: true }
                                 }
                             }
                             
-                            Rectangle { Layout.fillWidth: true; height: 1; color: Qt.alpha(root.surface1, 0.5) }
+                            Rectangle { Layout.fillWidth: true; height: 1; color: Qt.alpha(Design.hover, 0.5) }
 
                             RowLayout {
                                 Layout.fillWidth: true
-                                spacing: root.s(16)
+                                spacing: Design.s(16)
                                 Item {
-                                    Layout.preferredWidth: root.s(24)
+                                    Layout.preferredWidth: Design.s(24)
                                     Layout.alignment: Qt.AlignTop
-                                    Layout.topMargin: root.s(2)
-                                    Text { anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; text: "󰋖"; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(20); color: root.blue }
+                                    Layout.topMargin: Design.s(2)
+                                    Icon { role: "title"; anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; text: "󰋖"; color: Design.accent }
                                 }
                                 ColumnLayout {
                                     Layout.fillWidth: true
                                     Layout.alignment: Qt.AlignTop
-                                    spacing: root.s(4)
+                                    spacing: Design.s(4)
                                     RowLayout {
                                         Layout.fillWidth: true
-                                        Text { text: "Guide shortcut"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(13); color: root.text; Layout.fillWidth: true }
+                                        Label { text: "Guide shortcut"; font.weight: Design.weight.semibold; Layout.fillWidth: true }
                                         Rectangle {
                                             Layout.alignment: Qt.AlignTop | Qt.AlignRight
-                                            Layout.preferredWidth: root.s(40)
-                                            Layout.preferredHeight: root.s(24)
-                                            radius: root.s(12)
-                                            color: root.setGuideShortcut ? root.blue : root.surface2
-                                            Behavior on color { ColorAnimation { duration: 200 } }
+                                            Layout.preferredWidth: Design.s(40)
+                                            Layout.preferredHeight: Design.s(24)
+                                            radius: Design.s(12)
+                                            color: root.setGuideShortcut ? Design.accent : Design.active
+                                            Behavior on color { ColorAnimation { duration: Design.duration.base } }
                                             Rectangle {
-                                                width: root.s(18); height: root.s(18); radius: root.s(9); color: root.base
-                                                y: root.s(3); x: root.setGuideShortcut ? root.s(19) : root.s(3)
-                                                Behavior on x { NumberAnimation { duration: 250; easing.type: Easing.OutBack } }
+                                                width: Design.s(18); height: Design.s(18); radius: Design.s(9); color: Design.surface
+                                                y: Design.s(3); x: root.setGuideShortcut ? Design.s(19) : Design.s(3)
+                                                Behavior on x { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutBack } }
                                             }
                                             MouseArea { anchors.fill: parent; onClicked: root.setGuideShortcut = !root.setGuideShortcut; cursorShape: Qt.PointingHandCursor }
                                         }
                                     }
-                                    Text { text: "Reserved for Waybar/Quickshell launchers"; font.family: "JetBrains Mono"; font.pixelSize: root.s(11); color: root.subtext0; Layout.fillWidth: true }
+                                    Label { role: "caption"; text: "Reserved for Waybar/Quickshell launchers"; dim: true; Layout.fillWidth: true }
                                 }
                             }
                         }
@@ -424,10 +403,10 @@ Item {
                     // Box 2: UI Scale
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: col2.implicitHeight + root.s(32)
-                        radius: root.s(12)
-                        color: Qt.alpha(root.surface0, 0.5)
-                        border.color: root.surface1
+                        Layout.preferredHeight: col2.implicitHeight + Design.s(32)
+                        radius: Design.s(12)
+                        color: Qt.alpha(Design.raised, 0.5)
+                        border.color: Design.hover
                         border.width: 1
                         
                         ColumnLayout {
@@ -435,53 +414,51 @@ Item {
                             anchors.top: parent.top
                             anchors.left: parent.left
                             anchors.right: parent.right
-                            anchors.margins: root.s(16)
+                            anchors.margins: Design.s(16)
                             
                             RowLayout {
                                 Layout.fillWidth: true
-                                spacing: root.s(16)
+                                spacing: Design.s(16)
                                 Item {
-                                    Layout.preferredWidth: root.s(24)
+                                    Layout.preferredWidth: Design.s(24)
                                     Layout.alignment: Qt.AlignTop
-                                    Layout.topMargin: root.s(2)
-                                    Text { anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; text: "󰁦"; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(20); color: root.sapphire }
+                                    Layout.topMargin: Design.s(2)
+                                    Icon { role: "title"; anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; text: "󰁦"; color: Design.accentSoft }
                                 }
                                 ColumnLayout {
                                     Layout.fillWidth: true
                                     Layout.alignment: Qt.AlignTop
-                                    spacing: root.s(4)
-                                    Text { text: "UI Scale"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(13); color: root.text; Layout.fillWidth: true }
-                                    Text { text: "Base size scalar"; font.family: "JetBrains Mono"; font.pixelSize: root.s(11); color: root.subtext0; Layout.fillWidth: true }
+                                    spacing: Design.s(4)
+                                    Label { text: "UI Scale"; font.weight: Design.weight.semibold; Layout.fillWidth: true }
+                                    Label { role: "caption"; text: "Base size scalar"; dim: true; Layout.fillWidth: true }
                                     
                                     RowLayout {
-                                        Layout.topMargin: root.s(8)
-                                        spacing: root.s(12)
+                                        Layout.topMargin: Design.s(8)
+                                        spacing: Design.s(12)
                                         Rectangle {
-                                            width: root.s(30); height: root.s(30); radius: root.s(8)
-                                            color: sMinusMa.pressed ? root.surface2 : root.surface1
-                                            border.color: sMinusMa.containsMouse ? root.sapphire : "transparent"
+                                            width: Design.s(30); height: Design.s(30); radius: Design.s(8)
+                                            color: sMinusMa.pressed ? Design.active : Design.hover
+                                            border.color: sMinusMa.containsMouse ? Design.accentSoft : "transparent"
                                             border.width: 1
-                                            Behavior on color { ColorAnimation { duration: 150 } }
-                                            Text { anchors.centerIn: parent; text: "-"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(16); color: root.text }
-                                            MouseArea { id: sMinusMa; anchors.fill: parent; hoverEnabled: true; onClicked: root.setUiScale = Math.max(0.5, (root.setUiScale - 0.1).toFixed(1)) }
+                                            Behavior on color { ColorAnimation { duration: Design.duration.fast } }
+                                            Label { role: "subhead"; anchors.centerIn: parent; text: "-"; font.weight: Design.weight.semibold }
+                                            Clickable { id: sMinusMa; onClicked: root.setUiScale = Math.max(0.5, (root.setUiScale - 0.1).toFixed(1)) }
                                         }
-                                        Text { 
+                                        Label {
                                             text: root.setUiScale.toFixed(1) + "x"
-                                            font.family: "JetBrains Mono"
-                                            font.weight: Font.Black
-                                            font.pixelSize: root.s(14)
-                                            color: root.sapphire
-                                            Layout.minimumWidth: root.s(40)
-                                            horizontalAlignment: Text.AlignHCenter 
+                                            font.weight: Design.weight.bold
+                                            color: Design.accentSoft
+                                            Layout.minimumWidth: Design.s(40)
+                                            horizontalAlignment: Text.AlignHCenter
                                         }
                                         Rectangle {
-                                            width: root.s(30); height: root.s(30); radius: root.s(8)
-                                            color: sPlusMa.pressed ? root.surface2 : root.surface1
-                                            border.color: sPlusMa.containsMouse ? root.sapphire : "transparent"
+                                            width: Design.s(30); height: Design.s(30); radius: Design.s(8)
+                                            color: sPlusMa.pressed ? Design.active : Design.hover
+                                            border.color: sPlusMa.containsMouse ? Design.accentSoft : "transparent"
                                             border.width: 1
-                                            Behavior on color { ColorAnimation { duration: 150 } }
-                                            Text { anchors.centerIn: parent; text: "+"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(16); color: root.text }
-                                            MouseArea { id: sPlusMa; anchors.fill: parent; hoverEnabled: true; onClicked: root.setUiScale = Math.min(2.0, (root.setUiScale + 0.1).toFixed(1)) }
+                                            Behavior on color { ColorAnimation { duration: Design.duration.fast } }
+                                            Label { role: "subhead"; anchors.centerIn: parent; text: "+"; font.weight: Design.weight.semibold }
+                                            Clickable { id: sPlusMa; onClicked: root.setUiScale = Math.min(2.0, (root.setUiScale + 0.1).toFixed(1)) }
                                         }
                                         Item { Layout.fillWidth: true }
                                     }
@@ -493,10 +470,10 @@ Item {
                     // Box 3: Keyboard Language & Switcher
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: col3.implicitHeight + root.s(32)
-                        radius: root.s(12)
-                        color: Qt.alpha(root.surface0, 0.5)
-                        border.color: root.surface1
+                        Layout.preferredHeight: col3.implicitHeight + Design.s(32)
+                        radius: Design.s(12)
+                        color: Qt.alpha(Design.raised, 0.5)
+                        border.color: Design.hover
                         border.width: 1
                         
                         ColumnLayout {
@@ -504,65 +481,59 @@ Item {
                             anchors.top: parent.top
                             anchors.left: parent.left
                             anchors.right: parent.right
-                            anchors.margins: root.s(16)
-                            spacing: root.s(16)
+                            anchors.margins: Design.s(16)
+                            spacing: Design.s(16)
                             
                             // Part 1: Language
                             RowLayout {
                                 Layout.fillWidth: true
-                                spacing: root.s(16)
+                                spacing: Design.s(16)
                                 Item {
-                                    Layout.preferredWidth: root.s(24)
+                                    Layout.preferredWidth: Design.s(24)
                                     Layout.alignment: Qt.AlignTop
-                                    Layout.topMargin: root.s(2)
-                                    Text { anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; text: "󰌌"; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(20); color: root.green }
+                                    Layout.topMargin: Design.s(2)
+                                    Icon { role: "title"; anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; text: "󰌌"; color: Design.ok }
                                 }
                                 ColumnLayout {
                                     Layout.fillWidth: true
                                     Layout.alignment: Qt.AlignTop
-                                    spacing: root.s(4)
-                                    Text { text: "Keyboard layouts"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(13); color: root.text; Layout.fillWidth: true }
-                                    Text { text: "Matches config. Click ✖ to remove."; font.family: "JetBrains Mono"; font.pixelSize: root.s(11); color: root.subtext0; Layout.fillWidth: true }
+                                    spacing: Design.s(4)
+                                    Label { text: "Keyboard layouts"; font.weight: Design.weight.semibold; Layout.fillWidth: true }
+                                    Label { role: "caption"; text: "Matches config. Click ✖ to remove."; dim: true; Layout.fillWidth: true }
                                     
                                     Flow {
                                         Layout.fillWidth: true
-                                        spacing: root.s(8)
-                                        Layout.topMargin: root.s(6)
+                                        spacing: Design.s(8)
+                                        Layout.topMargin: Design.s(6)
                                         Repeater {
                                             model: root.setLanguage ? root.setLanguage.split(",").filter(x => x.trim() !== "") : []
                                             Rectangle {
-                                                width: langChipLayout.implicitWidth + root.s(24)
-                                                height: root.s(28)
-                                                radius: root.s(14)
-                                                color: root.surface1
-                                                border.color: chipMa.containsMouse ? root.red : root.surface2
+                                                width: langChipLayout.implicitWidth + Design.s(24)
+                                                height: Design.s(28)
+                                                radius: Design.s(14)
+                                                color: Design.hover
+                                                border.color: chipMa.containsMouse ? Design.danger : Design.active
                                                 border.width: 1
-                                                Behavior on border.color { ColorAnimation { duration: 150 } }
+                                                Behavior on border.color { ColorAnimation { duration: Design.duration.fast } }
                                                 RowLayout {
                                                     id: langChipLayout
                                                     anchors.centerIn: parent
-                                                    spacing: root.s(8)
-                                                    Text { 
+                                                    spacing: Design.s(8)
+                                                    Label {
+                                                        role: "caption"
                                                         text: modelData
-                                                        font.family: "JetBrains Mono"
-                                                        font.weight: Font.Bold
-                                                        font.pixelSize: root.s(12)
-                                                        color: chipMa.containsMouse ? root.red : root.text 
-                                                        Behavior on color { ColorAnimation { duration: 150 } }
+                                                        font.weight: Design.weight.semibold
+                                                        color: chipMa.containsMouse ? Design.danger : Design.text
+                                                        Behavior on color { ColorAnimation { duration: Design.duration.fast } }
                                                     }
-                                                    Text { 
+                                                    Label {
                                                         text: "✖"
-                                                        font.family: "JetBrains Mono"
-                                                        font.pixelSize: root.s(13)
-                                                        color: chipMa.containsMouse ? root.red : root.subtext0
-                                                        Behavior on color { ColorAnimation { duration: 150 } } 
+                                                        color: chipMa.containsMouse ? Design.danger : Design.textDim
+                                                        Behavior on color { ColorAnimation { duration: Design.duration.fast } }
                                                     }
                                                 }
-                                                MouseArea {
+                                                Clickable {
                                                     id: chipMa
-                                                    anchors.fill: parent
-                                                    hoverEnabled: true
-                                                    cursorShape: Qt.PointingHandCursor
                                                     onClicked: {
                                                         let arr = root.setLanguage.split(",").filter(x => x.trim() !== "");
                                                         arr.splice(index, 1);
@@ -576,39 +547,39 @@ Item {
                                     // Search Bar Input
                                     Rectangle {
                                         Layout.fillWidth: true
-                                        Layout.preferredHeight: root.s(36)
-                                        Layout.topMargin: root.s(8)
-                                        radius: root.s(6)
-                                        color: root.surface0
-                                        border.color: langInput.activeFocus ? root.green : root.surface2
+                                        Layout.preferredHeight: Design.s(36)
+                                        Layout.topMargin: Design.s(8)
+                                        radius: Design.s(6)
+                                        color: Design.raised
+                                        border.color: langInput.activeFocus ? Design.ok : Design.active
                                         border.width: 1
-                                        Behavior on border.color { ColorAnimation { duration: 200 } }
+                                        Behavior on border.color { ColorAnimation { duration: Design.duration.base } }
                                         TextInput {
                                             id: langInput
                                             anchors.fill: parent
-                                            anchors.margins: root.s(10)
+                                            anchors.margins: Design.s(10)
                                             verticalAlignment: TextInput.AlignVCenter
-                                            font.family: "JetBrains Mono"
-                                            font.pixelSize: root.s(12)
-                                            color: root.text
+                                            font.family: Design.font.mono
+                                            font.pixelSize: Design.s(12)
+                                            color: Design.text
                                             clip: true
                                             selectByMouse: true
                                             onTextChanged: { root.updateLangSearch(text); }
                                             onAccepted: root.saveAppSettings()
-                                            Text { text: "Search to add..."; color: root.subtext0; visible: !parent.text && !parent.activeFocus; font: parent.font; anchors.verticalCenter: parent.verticalCenter }
+                                            Text { text: "Search to add..."; color: Design.textDim; visible: !parent.text && !parent.activeFocus; font: parent.font; anchors.verticalCenter: parent.verticalCenter }
                                         }
                                     }
 
                                     // Expanding List Container
                                     Rectangle {
                                         Layout.fillWidth: true
-                                        Layout.preferredHeight: langInput.activeFocus && langSearchModel.count > 0 ? Math.min(root.s(150), langSearchModel.count * root.s(32)) : 0
-                                        radius: root.s(6)
-                                        color: root.surface0
-                                        border.color: root.green
+                                        Layout.preferredHeight: langInput.activeFocus && langSearchModel.count > 0 ? Math.min(Design.s(150), langSearchModel.count * Design.s(32)) : 0
+                                        radius: Design.s(6)
+                                        color: Design.raised
+                                        border.color: Design.ok
                                         border.width: Layout.preferredHeight > 0 ? 1 : 0
                                         clip: true
-                                        Behavior on Layout.preferredHeight { NumberAnimation { duration: 250; easing.type: Easing.OutExpo } }
+                                        Behavior on Layout.preferredHeight { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutExpo } }
                                         ListView {
                                             anchors.fill: parent
                                             model: langSearchModel
@@ -616,21 +587,18 @@ Item {
                                             ScrollBar.vertical: ScrollBar { active: true; policy: ScrollBar.AsNeeded }
                                             delegate: Rectangle {
                                                 width: parent.width
-                                                height: root.s(32)
-                                                color: sMa.containsMouse ? root.surface2 : "transparent"
+                                                height: Design.s(32)
+                                                color: sMa.containsMouse ? Design.active : "transparent"
                                                 RowLayout {
                                                     anchors.fill: parent
-                                                    anchors.leftMargin: root.s(12)
-                                                    anchors.rightMargin: root.s(12)
-                                                    spacing: root.s(10)
-                                                    Text { text: model.code; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(12); color: root.text }
-                                                    Text { text: model.name; font.family: "JetBrains Mono"; font.pixelSize: root.s(11); color: root.subtext0; elide: Text.ElideRight; Layout.fillWidth: true }
+                                                    anchors.leftMargin: Design.s(12)
+                                                    anchors.rightMargin: Design.s(12)
+                                                    spacing: Design.s(10)
+                                                    Label { role: "caption"; text: model.code; font.weight: Design.weight.semibold }
+                                                    Label { role: "caption"; text: model.name; dim: true; elide: Text.ElideRight; Layout.fillWidth: true }
                                                 }
-                                                MouseArea {
+                                                Clickable {
                                                     id: sMa
-                                                    anchors.fill: parent
-                                                    hoverEnabled: true
-                                                    cursorShape: Qt.PointingHandCursor
                                                     onClicked: {
                                                         let arr = root.setLanguage ? root.setLanguage.split(",").filter(x => x.trim() !== "") : [];
                                                         if (!arr.includes(model.code)) {
@@ -647,53 +615,51 @@ Item {
                                 }
                             }
                             
-                            Rectangle { Layout.fillWidth: true; height: 1; color: Qt.alpha(root.surface1, 0.5) }
+                            Rectangle { Layout.fillWidth: true; height: 1; color: Qt.alpha(Design.hover, 0.5) }
 
                             // Part 2: Layout Switcher
                             RowLayout {
                                 id: layoutSwitcherBox
                                 Layout.fillWidth: true
-                                spacing: root.s(16)
+                                spacing: Design.s(16)
                                 property bool isDropdownOpen: false
 
                                 Item {
-                                    Layout.preferredWidth: root.s(24)
+                                    Layout.preferredWidth: Design.s(24)
                                     Layout.alignment: Qt.AlignTop
-                                    Layout.topMargin: root.s(2)
-                                    Text { anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; text: "󰯍"; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(20); color: Qt.alpha(root.green, 0.7) }
+                                    Layout.topMargin: Design.s(2)
+                                    Icon { role: "title"; anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; text: "󰯍"; color: Qt.alpha(Design.ok, 0.7) }
                                 }
 
                                 ColumnLayout {
                                     Layout.fillWidth: true
                                     Layout.alignment: Qt.AlignTop
-                                    spacing: root.s(4)
-                                    Text { text: "Layout shortcut"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(13); color: root.text; Layout.fillWidth: true }
-                                    Text { text: "Toggle combination"; font.family: "JetBrains Mono"; font.pixelSize: root.s(11); color: root.subtext0; Layout.fillWidth: true }
+                                    spacing: Design.s(4)
+                                    Label { text: "Layout shortcut"; font.weight: Design.weight.semibold; Layout.fillWidth: true }
+                                    Label { role: "caption"; text: "Toggle combination"; dim: true; Layout.fillWidth: true }
 
                                     // Switcher Selection Header
                                     Rectangle {
                                         Layout.fillWidth: true
-                                        Layout.preferredHeight: root.s(36)
-                                        Layout.topMargin: root.s(8)
-                                        radius: root.s(6)
-                                        color: root.surface0
-                                        border.color: layoutSwitcherBox.isDropdownOpen ? root.green : root.surface2
+                                        Layout.preferredHeight: Design.s(36)
+                                        Layout.topMargin: Design.s(8)
+                                        radius: Design.s(6)
+                                        color: Design.raised
+                                        border.color: layoutSwitcherBox.isDropdownOpen ? Design.ok : Design.active
                                         border.width: 1
-                                        Behavior on border.color { ColorAnimation { duration: 200 } }
+                                        Behavior on border.color { ColorAnimation { duration: Design.duration.base } }
                                         RowLayout {
                                             anchors.fill: parent
-                                            anchors.margins: root.s(10)
-                                            Text { 
+                                            anchors.margins: Design.s(10)
+                                            Label {
+                                                role: "caption"
                                                 text: root.getKbToggleLabel(root.setKbOptions)
-                                                font.family: "JetBrains Mono"
-                                                font.pixelSize: root.s(12)
-                                                color: root.text
-                                                Layout.fillWidth: true 
+                                                Layout.fillWidth: true
                                             }
                                             Text { 
                                                 text: layoutSwitcherBox.isDropdownOpen ? "▴" : "▾"
-                                                font.pixelSize: root.s(14)
-                                                color: root.subtext0 
+                                                font.pixelSize: Design.s(14)
+                                                color: Design.textDim 
                                             }
                                         }
                                         MouseArea {
@@ -706,38 +672,34 @@ Item {
                                     // Expanding Switcher Dropdown
                                     Rectangle {
                                         Layout.fillWidth: true
-                                        Layout.preferredHeight: layoutSwitcherBox.isDropdownOpen ? root.kbToggleModelArr.length * root.s(32) : 0
-                                        radius: root.s(6)
-                                        color: root.surface0
-                                        border.color: root.green
+                                        Layout.preferredHeight: layoutSwitcherBox.isDropdownOpen ? root.kbToggleModelArr.length * Design.s(32) : 0
+                                        radius: Design.s(6)
+                                        color: Design.raised
+                                        border.color: Design.ok
                                         border.width: Layout.preferredHeight > 0 ? 1 : 0
                                         clip: true
-                                        Behavior on Layout.preferredHeight { NumberAnimation { duration: 250; easing.type: Easing.OutExpo } }
+                                        Behavior on Layout.preferredHeight { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutExpo } }
                                         ListView {
                                             anchors.fill: parent
                                             model: root.kbToggleModelArr
                                             interactive: false
                                             delegate: Rectangle {
                                                 width: parent.width
-                                                height: root.s(32)
-                                                color: toggleMa.containsMouse ? root.surface2 : "transparent"
+                                                height: Design.s(32)
+                                                color: toggleMa.containsMouse ? Design.active : "transparent"
                                                 RowLayout {
                                                     anchors.fill: parent
-                                                    anchors.leftMargin: root.s(12)
-                                                    anchors.rightMargin: root.s(12)
-                                                    Text { 
+                                                    anchors.leftMargin: Design.s(12)
+                                                    anchors.rightMargin: Design.s(12)
+                                                    Label {
+                                                        role: "caption"
                                                         text: modelData.label
-                                                        font.family: "JetBrains Mono"
-                                                        font.pixelSize: root.s(12)
-                                                        color: root.setKbOptions === modelData.val ? root.green : root.text
-                                                        Layout.fillWidth: true 
+                                                        color: root.setKbOptions === modelData.val ? Design.ok : Design.text
+                                                        Layout.fillWidth: true
                                                     }
                                                 }
-                                                MouseArea {
+                                                Clickable {
                                                     id: toggleMa
-                                                    anchors.fill: parent
-                                                    hoverEnabled: true
-                                                    cursorShape: Qt.PointingHandCursor
                                                     onClicked: {
                                                         root.setKbOptions = modelData.val;
                                                         layoutSwitcherBox.isDropdownOpen = false;
@@ -754,55 +716,55 @@ Item {
                     // Box 4: Wallpaper Directory
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: col4.implicitHeight + root.s(32)
-                        radius: root.s(12)
-                        color: Qt.alpha(root.surface0, 0.5)
-                        border.color: wpDirInput.activeFocus ? root.mauve : root.surface1
+                        Layout.preferredHeight: col4.implicitHeight + Design.s(32)
+                        radius: Design.s(12)
+                        color: Qt.alpha(Design.raised, 0.5)
+                        border.color: wpDirInput.activeFocus ? Design.accentAlt : Design.hover
                         border.width: 1
-                        Behavior on border.color { ColorAnimation { duration: 150 } }
+                        Behavior on border.color { ColorAnimation { duration: Design.duration.fast } }
                         
                         ColumnLayout {
                             id: col4
                             anchors.top: parent.top
                             anchors.left: parent.left
                             anchors.right: parent.right
-                            anchors.margins: root.s(16)
+                            anchors.margins: Design.s(16)
                             
                             RowLayout {
                                 Layout.fillWidth: true
-                                spacing: root.s(16)
+                                spacing: Design.s(16)
                                 Item {
-                                    Layout.preferredWidth: root.s(24)
+                                    Layout.preferredWidth: Design.s(24)
                                     Layout.alignment: Qt.AlignTop
-                                    Layout.topMargin: root.s(2)
-                                    Text { anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; text: ""; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(20); color: root.mauve }
+                                    Layout.topMargin: Design.s(2)
+                                    Icon { role: "title"; anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; text: ""; color: Design.accentAlt }
                                 }
                                 ColumnLayout {
                                     Layout.fillWidth: true
                                     Layout.alignment: Qt.AlignTop
-                                    spacing: root.s(4)
-                                    Text { text: "Wallpaper directory"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(13); color: root.text; Layout.fillWidth: true }
-                                    Text { text: "Absolute source path"; font.family: "JetBrains Mono"; font.pixelSize: root.s(11); color: root.subtext0; Layout.fillWidth: true }
+                                    spacing: Design.s(4)
+                                    Label { text: "Wallpaper directory"; font.weight: Design.weight.semibold; Layout.fillWidth: true }
+                                    Label { role: "caption"; text: "Absolute source path"; dim: true; Layout.fillWidth: true }
                                     
                                     // Text Input
                                     Rectangle {
                                         Layout.fillWidth: true
-                                        Layout.preferredHeight: root.s(36)
-                                        Layout.topMargin: root.s(8)
-                                        radius: root.s(6)
-                                        color: root.surface0
-                                        border.color: wpDirInput.activeFocus ? root.mauve : root.surface2
+                                        Layout.preferredHeight: Design.s(36)
+                                        Layout.topMargin: Design.s(8)
+                                        radius: Design.s(6)
+                                        color: Design.raised
+                                        border.color: wpDirInput.activeFocus ? Design.accentAlt : Design.active
                                         border.width: 1
-                                        Behavior on border.color { ColorAnimation { duration: 200 } }
+                                        Behavior on border.color { ColorAnimation { duration: Design.duration.base } }
                                         TextInput {
                                             id: wpDirInput
                                             anchors.fill: parent
-                                            anchors.margins: root.s(10)
+                                            anchors.margins: Design.s(10)
                                             verticalAlignment: TextInput.AlignVCenter
                                             text: root.setWallpaperDir
-                                            font.family: "JetBrains Mono"
-                                            font.pixelSize: root.s(12)
-                                            color: root.text
+                                            font.family: Design.font.mono
+                                            font.pixelSize: Design.s(12)
+                                            color: Design.text
                                             clip: true
                                             selectByMouse: true
                                             onTextChanged: { 
@@ -820,36 +782,31 @@ Item {
                                     // Expanding Suggestions List
                                     Rectangle {
                                         Layout.fillWidth: true
-                                        Layout.preferredHeight: wpDirInput.activeFocus && pathSuggestModel.count > 0 ? pathSuggestModel.count * root.s(30) : 0
-                                        radius: root.s(6)
-                                        color: root.surface0
-                                        border.color: root.mauve
+                                        Layout.preferredHeight: wpDirInput.activeFocus && pathSuggestModel.count > 0 ? pathSuggestModel.count * Design.s(30) : 0
+                                        radius: Design.s(6)
+                                        color: Design.raised
+                                        border.color: Design.accentAlt
                                         border.width: Layout.preferredHeight > 0 ? 1 : 0
                                         clip: true
-                                        Behavior on Layout.preferredHeight { NumberAnimation { duration: 250; easing.type: Easing.OutExpo } }
+                                        Behavior on Layout.preferredHeight { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutExpo } }
                                         ListView {
                                             anchors.fill: parent
                                             model: pathSuggestModel
                                             interactive: false
                                             delegate: Rectangle {
                                                 width: parent.width
-                                                height: root.s(30)
-                                                color: suggestMa.containsMouse ? root.surface2 : "transparent"
-                                                Text { 
+                                                height: Design.s(30)
+                                                color: suggestMa.containsMouse ? Design.active : "transparent"
+                                                Label {
+                                                    role: "caption"
                                                     anchors.verticalCenter: parent.verticalCenter
-                                                    x: root.s(12)
+                                                    x: Design.s(12)
                                                     text: model.path
-                                                    font.family: "JetBrains Mono"
-                                                    font.pixelSize: root.s(11)
-                                                    color: root.text
                                                     elide: Text.ElideMiddle
-                                                    width: parent.width - root.s(24) 
+                                                    width: parent.width - Design.s(24)
                                                 }
-                                                MouseArea {
+                                                Clickable {
                                                     id: suggestMa
-                                                    anchors.fill: parent
-                                                    hoverEnabled: true
-                                                    cursorShape: Qt.PointingHandCursor
                                                     onClicked: { 
                                                         wpDirInput.text = model.path; 
                                                         pathSuggestModel.clear(); 
@@ -867,10 +824,10 @@ Item {
                     // Box 5: Workspace Count
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: col5.implicitHeight + root.s(32)
-                        radius: root.s(12)
-                        color: Qt.alpha(root.surface0, 0.5)
-                        border.color: root.surface1
+                        Layout.preferredHeight: col5.implicitHeight + Design.s(32)
+                        radius: Design.s(12)
+                        color: Qt.alpha(Design.raised, 0.5)
+                        border.color: Design.hover
                         border.width: 1
                         
                         ColumnLayout {
@@ -878,53 +835,51 @@ Item {
                             anchors.top: parent.top
                             anchors.left: parent.left
                             anchors.right: parent.right
-                            anchors.margins: root.s(16)
+                            anchors.margins: Design.s(16)
                             
                             RowLayout {
                                 Layout.fillWidth: true
-                                spacing: root.s(16)
+                                spacing: Design.s(16)
                                 Item {
-                                    Layout.preferredWidth: root.s(24)
+                                    Layout.preferredWidth: Design.s(24)
                                     Layout.alignment: Qt.AlignTop
-                                    Layout.topMargin: root.s(2)
-                                    Text { anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; text: "󰽿"; font.family: "Iosevka Nerd Font"; font.pixelSize: root.s(20); color: root.yellow }
+                                    Layout.topMargin: Design.s(2)
+                                    Icon { role: "title"; anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; text: "󰽿"; color: Design.warn }
                                 }
                                 ColumnLayout {
                                     Layout.fillWidth: true
                                     Layout.alignment: Qt.AlignTop
-                                    spacing: root.s(4)
-                                    Text { text: "Workspaces"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(13); color: root.text; Layout.fillWidth: true }
-                                    Text { text: "Static workspace count for helper views"; font.family: "JetBrains Mono"; font.pixelSize: root.s(11); color: root.subtext0; Layout.fillWidth: true }
+                                    spacing: Design.s(4)
+                                    Label { text: "Workspaces"; font.weight: Design.weight.semibold; Layout.fillWidth: true }
+                                    Label { role: "caption"; text: "Static workspace count for helper views"; dim: true; Layout.fillWidth: true }
                                     
                                     RowLayout {
-                                        Layout.topMargin: root.s(8)
-                                        spacing: root.s(12)
+                                        Layout.topMargin: Design.s(8)
+                                        spacing: Design.s(12)
                                         Rectangle {
-                                            width: root.s(30); height: root.s(30); radius: root.s(8)
-                                            color: wsMinusMa.pressed ? root.surface2 : root.surface1
-                                            border.color: wsMinusMa.containsMouse ? root.yellow : "transparent"
+                                            width: Design.s(30); height: Design.s(30); radius: Design.s(8)
+                                            color: wsMinusMa.pressed ? Design.active : Design.hover
+                                            border.color: wsMinusMa.containsMouse ? Design.warn : "transparent"
                                             border.width: 1
-                                            Behavior on color { ColorAnimation { duration: 150 } }
-                                            Text { anchors.centerIn: parent; text: "-"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(16); color: root.text }
-                                            MouseArea { id: wsMinusMa; anchors.fill: parent; hoverEnabled: true; onClicked: root.setWorkspaceCount = Math.max(1, root.setWorkspaceCount - 1) }
+                                            Behavior on color { ColorAnimation { duration: Design.duration.fast } }
+                                            Label { role: "subhead"; anchors.centerIn: parent; text: "-"; font.weight: Design.weight.semibold }
+                                            Clickable { id: wsMinusMa; onClicked: root.setWorkspaceCount = Math.max(1, root.setWorkspaceCount - 1) }
                                         }
-                                        Text { 
+                                        Label {
                                             text: root.setWorkspaceCount.toString()
-                                            font.family: "JetBrains Mono"
-                                            font.weight: Font.Black
-                                            font.pixelSize: root.s(14)
-                                            color: root.yellow
-                                            Layout.minimumWidth: root.s(40)
-                                            horizontalAlignment: Text.AlignHCenter 
+                                            font.weight: Design.weight.bold
+                                            color: Design.warn
+                                            Layout.minimumWidth: Design.s(40)
+                                            horizontalAlignment: Text.AlignHCenter
                                         }
                                         Rectangle {
-                                            width: root.s(30); height: root.s(30); radius: root.s(8)
-                                            color: wsPlusMa.pressed ? root.surface2 : root.surface1
-                                            border.color: wsPlusMa.containsMouse ? root.yellow : "transparent"
+                                            width: Design.s(30); height: Design.s(30); radius: Design.s(8)
+                                            color: wsPlusMa.pressed ? Design.active : Design.hover
+                                            border.color: wsPlusMa.containsMouse ? Design.warn : "transparent"
                                             border.width: 1
-                                            Behavior on color { ColorAnimation { duration: 150 } }
-                                            Text { anchors.centerIn: parent; text: "+"; font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: root.s(16); color: root.text }
-                                            MouseArea { id: wsPlusMa; anchors.fill: parent; hoverEnabled: true; onClicked: root.setWorkspaceCount = Math.min(20, root.setWorkspaceCount + 1) }
+                                            Behavior on color { ColorAnimation { duration: Design.duration.fast } }
+                                            Label { role: "subhead"; anchors.centerIn: parent; text: "+"; font.weight: Design.weight.semibold }
+                                            Clickable { id: wsPlusMa; onClicked: root.setWorkspaceCount = Math.min(20, root.setWorkspaceCount + 1) }
                                         }
                                         Item { Layout.fillWidth: true }
                                     }
@@ -939,47 +894,37 @@ Item {
             // --- NEW PILL SAVE BUTTON ---
             Rectangle {
                 id: floatingSaveBtn
-                width: saveRow.implicitWidth + root.s(32)
-                height: root.s(40)
+                width: saveRow.implicitWidth + Design.s(32)
+                height: Design.s(40)
                 anchors.bottom: parent.bottom
                 anchors.right: parent.right
-                anchors.margins: root.s(24)
+                anchors.margins: Design.s(24)
                 radius: height / 2
-                color: mainSaveMa.pressed ? Qt.darker(root.mauve, 1.2) : (mainSaveMa.containsMouse ? root.mauve : root.surface0)
-                border.color: root.mauve
+                color: mainSaveMa.pressed ? Qt.darker(Design.accentAlt, 1.2) : (mainSaveMa.containsMouse ? Design.accentAlt : Design.raised)
+                border.color: Design.accentAlt
                 border.width: 1
                 
-                Behavior on color { ColorAnimation { duration: 150 } }
+                Behavior on color { ColorAnimation { duration: Design.duration.fast } }
 
                 RowLayout {
                     id: saveRow
                     anchors.centerIn: parent
-                    spacing: root.s(8)
+                    spacing: Design.s(8)
                     
-                    Text {
+                    Icon {
                         text: "󰆓"
-                        font.family: "Iosevka Nerd Font"
-                        font.pixelSize: root.s(18)
-                        color: mainSaveMa.containsMouse ? root.crust : root.mauve
-                        Behavior on color { ColorAnimation { duration: 150 } }
+                        color: mainSaveMa.containsMouse ? Design.ground : Design.accentAlt
+                        Behavior on color { ColorAnimation { duration: Design.duration.fast } }
                     }
-                    Text {
+                    Label {
                         text: "Apply"
-                        font.family: "JetBrains Mono"
-                        font.weight: Font.Bold
-                        font.pixelSize: root.s(13)
-                        color: mainSaveMa.containsMouse ? root.crust : root.text
-                        Behavior on color { ColorAnimation { duration: 150 } }
+                        font.weight: Design.weight.semibold
+                        color: mainSaveMa.containsMouse ? Design.ground : Design.text
+                        Behavior on color { ColorAnimation { duration: Design.duration.fast } }
                     }
                 }
                 
-                MouseArea { 
-                    id: mainSaveMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.saveAppSettings() 
-                }
+                Clickable { id: mainSaveMa; onClicked: root.saveAppSettings() }
             }
         }
     }

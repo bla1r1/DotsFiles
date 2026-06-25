@@ -6,34 +6,34 @@ import QtCore
 import Quickshell
 import Quickshell.Io
 import QtQuick.Window
-import "../"
+import "../Ui"
 
-Item {
+PopupShell {
     id: window
 
-    // --- Responsive Scaling Logic ---
-    Scaler {
-        id: scaler
-        currentWidth: Screen.width
-    }
-    
-    function s(val) { 
-        return scaler.s(val); 
-    }
+    // Durations that are choreography, not styling: a staged entrance, ambient
+    // loops and slow tint crossfades. Deliberately off the motion scale.
+    // PauseAnimation delays are left as they are — that spread is the stagger.
+    readonly property int introDuration: 800
+    readonly property int tintDuration: 1000
+    readonly property int pulsePeriod: 1500
+    readonly property int driftPeriod: 90000
 
+
+    // Durations that are choreography, not styling: a staged entrance, ambient
+    // loops and slow tint crossfades. Deliberately off the motion scale.
+    // PauseAnimation delays are left as they are — that spread is the stagger.
+    readonly property int introDuration: 800
+    readonly property int tintDuration: 1000
+    readonly property int pulsePeriod: 1500
+    readonly property int driftPeriod: 90000
+
+
+    // --- Responsive Scaling Logic ---
+    
    // -------------------------------------------------------------------------
     // COLORS (Dynamic Matugen Palette)
     // -------------------------------------------------------------------------
-    MatugenColors { id: _theme }
-    readonly property color base: _theme.base
-    readonly property color mantle: _theme.mantle
-    readonly property color crust: _theme.crust
-    readonly property color text: _theme.text
-    readonly property color subtext0: _theme.subtext0
-    readonly property color overlay0: _theme.overlay0
-    readonly property color surface0: _theme.surface0
-    readonly property color surface1: _theme.surface1
-    readonly property color surface2: _theme.surface2
     
     readonly property color mauve: _theme.mauve
     readonly property color pink: _theme.pink
@@ -85,7 +85,7 @@ Item {
     // Animation properties
     property real animatedTotalSeconds: 0
     Behavior on animatedTotalSeconds {
-        NumberAnimation { duration: 850; easing.type: Easing.OutQuint }
+        NumberAnimation { duration: window.introDuration; easing.type: Easing.OutQuint }
     }
     onTotalSecondsChanged: {
         animatedTotalSeconds = totalSeconds;
@@ -94,12 +94,12 @@ Item {
     // --- ENHANCED UI NAVIGATION FOCUS STATES ---
     property real weekViewFocus: window.isWeekView ? 1.0 : 0.0
     Behavior on weekViewFocus {
-        NumberAnimation { duration: 550; easing.type: Easing.OutExpo }
+        NumberAnimation { duration: Design.duration.slow; easing.type: Easing.OutExpo }
     }
 
     property real appViewFocus: window.selectedAppClass !== "" ? 1.0 : 0.0
     Behavior on appViewFocus {
-        NumberAnimation { duration: 550; easing.type: Easing.OutExpo }
+        NumberAnimation { duration: Design.duration.slow; easing.type: Easing.OutExpo }
     }
 
     property bool isFirstLoad: true
@@ -122,41 +122,41 @@ Item {
         running: true
 
         // Base window fades, scales slightly
-        NumberAnimation { target: window; property: "introMain"; from: 0; to: 1.0; duration: 900; easing.type: Easing.OutQuart }
+        NumberAnimation { target: window; property: "introMain"; from: 0; to: 1.0; duration: window.introDuration; easing.type: Easing.OutQuart }
 
         // Header drops down
         SequentialAnimation {
-            PauseAnimation { duration: 100 }
-            NumberAnimation { target: window; property: "introHeader"; from: 0; to: 1.0; duration: 800; easing.type: Easing.OutBack; easing.overshoot: 1.0 }
+            PauseAnimation { duration: Design.duration.fast }
+            NumberAnimation { target: window; property: "introHeader"; from: 0; to: 1.0; duration: window.introDuration; easing.type: Easing.OutBack; easing.overshoot: 1.0 }
         }
 
         // Stats Row scales and springs up
         SequentialAnimation {
-            PauseAnimation { duration: 250 }
-            NumberAnimation { target: window; property: "introStats"; from: 0; to: 1.0; duration: 900; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
+            PauseAnimation { duration: Design.duration.base }
+            NumberAnimation { target: window; property: "introStats"; from: 0; to: 1.0; duration: window.introDuration; easing.type: Easing.OutBack; easing.overshoot: 1.2 }
         }
 
         // Mid Charts slide in from opposite sides
         SequentialAnimation {
-            PauseAnimation { duration: 350 }
-            NumberAnimation { target: window; property: "introMidLeft"; from: 0; to: 1.0; duration: 850; easing.type: Easing.OutQuart }
+            PauseAnimation { duration: Design.duration.base }
+            NumberAnimation { target: window; property: "introMidLeft"; from: 0; to: 1.0; duration: window.introDuration; easing.type: Easing.OutQuart }
         }
         
         // Universal Bar Fill starts early, runs slow and smooth
         SequentialAnimation {
-            PauseAnimation { duration: 300 } // Starts slightly before the charts finish entering
-            NumberAnimation { target: window; property: "introAppBars"; from: 0; to: 1.0; duration: 1300; easing.type: Easing.OutQuart }
+            PauseAnimation { duration: Design.duration.base } // Starts slightly before the charts finish entering
+            NumberAnimation { target: window; property: "introAppBars"; from: 0; to: 1.0; duration: window.introDuration; easing.type: Easing.OutQuart }
         }
         
         SequentialAnimation {
-            PauseAnimation { duration: 450 }
-            NumberAnimation { target: window; property: "introMidRight"; from: 0; to: 1.0; duration: 850; easing.type: Easing.OutQuart }
+            PauseAnimation { duration: Design.duration.slow }
+            NumberAnimation { target: window; property: "introMidRight"; from: 0; to: 1.0; duration: window.introDuration; easing.type: Easing.OutQuart }
         }
 
         // Bottom List / Chart sweeps up with internal cascading
         SequentialAnimation {
             PauseAnimation { duration: 550 }
-            NumberAnimation { target: window; property: "introBottom"; from: 0; to: 1.0; duration: 1000; easing.type: Easing.OutExpo }
+            NumberAnimation { target: window; property: "introBottom"; from: 0; to: 1.0; duration: window.introDuration; easing.type: Easing.OutExpo }
         }
     }
 
@@ -167,18 +167,18 @@ Item {
     // Clean, unified exit animation for when an action is clicked
     ParallelAnimation {
         id: exitAnim
-        NumberAnimation { target: window; property: "introMain"; to: 0; duration: 400; easing.type: Easing.InQuart }
-        NumberAnimation { target: window; property: "introHeader"; to: 0; duration: 300; easing.type: Easing.InQuart }
-        NumberAnimation { target: window; property: "introStats"; to: 0; duration: 350; easing.type: Easing.InQuart }
-        NumberAnimation { target: window; property: "introMidLeft"; to: 0; duration: 250; easing.type: Easing.InQuart }
-        NumberAnimation { target: window; property: "introMidRight"; to: 0; duration: 200; easing.type: Easing.InQuart }
-        NumberAnimation { target: window; property: "introBottom"; to: 0; duration: 150; easing.type: Easing.InQuart }
-        NumberAnimation { target: window; property: "introAppBars"; to: 0; duration: 250; easing.type: Easing.InQuart }
+        NumberAnimation { target: window; property: "introMain"; to: 0; duration: Design.duration.slow; easing.type: Easing.InQuart }
+        NumberAnimation { target: window; property: "introHeader"; to: 0; duration: Design.duration.base; easing.type: Easing.InQuart }
+        NumberAnimation { target: window; property: "introStats"; to: 0; duration: Design.duration.base; easing.type: Easing.InQuart }
+        NumberAnimation { target: window; property: "introMidLeft"; to: 0; duration: Design.duration.base; easing.type: Easing.InQuart }
+        NumberAnimation { target: window; property: "introMidRight"; to: 0; duration: Design.duration.base; easing.type: Easing.InQuart }
+        NumberAnimation { target: window; property: "introBottom"; to: 0; duration: Design.duration.fast; easing.type: Easing.InQuart }
+        NumberAnimation { target: window; property: "introAppBars"; to: 0; duration: Design.duration.base; easing.type: Easing.InQuart }
     }
 
     property real globalOrbitAngle: 0
     NumberAnimation on globalOrbitAngle {
-        from: 0; to: Math.PI * 2; duration: 120000; loops: Animation.Infinite; running: true
+        from: 0; to: Math.PI * 2; duration: window.driftPeriod; loops: Animation.Infinite; running: true
     }
 
     // --- SHARED DATA INGESTION ---
@@ -508,66 +508,66 @@ Item {
 
         Rectangle {
             anchors.fill: parent
-            radius: window.s(20)
-            color: window.crust
-            border.color: Qt.alpha(window.surface1, 0.2)
+            radius: Design.s(20)
+            color: Design.ground
+            border.color: Qt.alpha(Design.hover, 0.2)
             border.width: 1
             clip: true
 
             Rectangle {
                 width: parent.width * 1.2; height: width; radius: width / 2
-                x: (parent.width / 2 - width / 2) + Math.cos(window.globalOrbitAngle * 2) * window.s(150)
-                y: (parent.height / 2 - height / 2) + Math.sin(window.globalOrbitAngle * 2) * window.s(100)
+                x: (parent.width / 2 - width / 2) + Math.cos(window.globalOrbitAngle * 2) * Design.s(150)
+                y: (parent.height / 2 - height / 2) + Math.sin(window.globalOrbitAngle * 2) * Design.s(100)
                 opacity: 0.015
-                color: window.mauve
+                color: Design.accentAlt
             }
             Rectangle {
                 width: parent.width * 1.1; height: width; radius: width / 2
-                x: (parent.width / 2 - width / 2) + Math.sin(window.globalOrbitAngle * 1.5) * window.s(-150)
-                y: (parent.height / 2 - height / 2) + Math.cos(window.globalOrbitAngle * 1.5) * window.s(-100)
+                x: (parent.width / 2 - width / 2) + Math.sin(window.globalOrbitAngle * 1.5) * Design.s(-150)
+                y: (parent.height / 2 - height / 2) + Math.cos(window.globalOrbitAngle * 1.5) * Design.s(-100)
                 opacity: 0.010
-                color: window.blue
+                color: Design.accent
             }
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.margins: window.s(24)
-                spacing: window.s(16)
+                anchors.margins: Design.s(24)
+                spacing: Design.s(16)
 
                 // ==========================================
                 // 1. HEADER
                 // ==========================================
                 RowLayout {
                     Layout.fillWidth: true
-                    Layout.topMargin: window.s(4)
-                    Layout.preferredHeight: window.s(40)
+                    Layout.topMargin: Design.s(4)
+                    Layout.preferredHeight: Design.s(40)
 
                     opacity: introHeader
-                    transform: Translate { y: window.s(-20) * (1 - introHeader) }
+                    transform: Translate { y: Design.s(-20) * (1 - introHeader) }
                     
                     // Left Buttons (Overlapped to prevent layout shifting)
                     RowLayout {
                         Layout.alignment: Qt.AlignVCenter
-                        spacing: window.s(4)
+                        spacing: Design.s(4)
 
                         // Wrapper to hold Back and Week buttons in the exact same 40x40 footprint
                         Item {
-                            Layout.preferredWidth: window.s(40)
-                            Layout.preferredHeight: window.s(40)
+                            Layout.preferredWidth: Design.s(40)
+                            Layout.preferredHeight: Design.s(40)
 
                             // Universal Return Arrow (Back to Daily / App List)
                             Rectangle {
                                 anchors.fill: parent
-                                radius: window.s(20)
-                                color: backMa.containsMouse ? window.surface0 : "transparent"
+                                radius: Design.s(20)
+                                color: backMa.containsMouse ? Design.raised : "transparent"
                                 opacity: (window.selectedAppClass !== "" || window.isWeekView) ? 1.0 : 0.0
                                 visible: opacity > 0
-                                Behavior on opacity { NumberAnimation { duration: 350; easing.type: Easing.OutQuint } }
-                                Behavior on color { ColorAnimation { duration: 150 } }
+                                Behavior on opacity { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutQuint } }
+                                Behavior on color { ColorAnimation { duration: Design.duration.fast } }
                                 
-                                Text { anchors.centerIn: parent; font.family: "Iosevka Nerd Font"; text: "󰁍"; color: window.text; font.pixelSize: window.s(18) }
-                                MouseArea { 
-                                    id: backMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; 
+                                Icon { anchors.centerIn: parent; text: "󰁍" }
+                                Clickable {
+                                    id: backMa
                                     onClicked: { 
                                         if (window.selectedAppClass !== "") {
                                             window.selectedAppClass = ""; 
@@ -577,71 +577,66 @@ Item {
                                         } else if (window.isWeekView) {
                                             window.isWeekView = false;
                                         }
-                                    } 
+                                    }
                                 }
                             }
 
                             // Week View Open Button
                             Rectangle {
                                 anchors.fill: parent
-                                radius: window.s(20)
-                                color: weekMa.containsMouse ? window.surface0 : "transparent"
+                                radius: Design.s(20)
+                                color: weekMa.containsMouse ? Design.raised : "transparent"
                                 opacity: (window.selectedAppClass === "" && !window.isWeekView) ? 1.0 : 0.0
                                 visible: opacity > 0
-                                Behavior on opacity { NumberAnimation { duration: 350; easing.type: Easing.OutQuint } }
-                                Behavior on color { ColorAnimation { duration: 150 } }
+                                Behavior on opacity { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutQuint } }
+                                Behavior on color { ColorAnimation { duration: Design.duration.fast } }
                                 
-                                Text { anchors.centerIn: parent; font.family: "Iosevka Nerd Font"; text: "󰃭"; color: window.text; font.pixelSize: window.s(18) }
-                                MouseArea { 
-                                    id: weekMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; 
-                                    onClicked: window.isWeekView = true 
-                                }
+                                Icon { anchors.centerIn: parent; text: "󰃭" }
+                                Clickable { id: weekMa; onClicked: window.isWeekView = true }
                             }
                         }
 
                         // Prev Week/Day Arrow
                         Rectangle {
-                            Layout.preferredWidth: window.s(40)
-                            Layout.preferredHeight: window.s(40)
-                            radius: window.s(20)
-                            color: prevWeekMa.containsMouse ? window.surface0 : "transparent"
-                            Behavior on color { ColorAnimation { duration: 150 } }
-                            Text { anchors.centerIn: parent; font.family: "Iosevka Nerd Font"; text: "󰅁"; color: window.text; font.pixelSize: window.s(18) }
-                            MouseArea { id: prevWeekMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: changeDay(window.isWeekView ? -7 : -1) }
+                            Layout.preferredWidth: Design.s(40)
+                            Layout.preferredHeight: Design.s(40)
+                            radius: Design.s(20)
+                            color: prevWeekMa.containsMouse ? Design.raised : "transparent"
+                            Behavior on color { ColorAnimation { duration: Design.duration.fast } }
+                            Icon { anchors.centerIn: parent; text: "󰅁" }
+                            Clickable { id: prevWeekMa; onClicked: changeDay(window.isWeekView ? -7 : -1) }
                         }
                     }                   
                     // Title Area
                     RowLayout {
                         Layout.fillWidth: true
                         Layout.alignment: Qt.AlignHCenter
-                        spacing: window.s(8)
+                        spacing: Design.s(8)
                         
                         Item { Layout.fillWidth: true } // Left Spacer
 
                         Image {
                             property bool active: window.selectedAppClass !== "" && window.selectedAppIcon !== "" && !window.isWeekView
-                            property real animWidth: active ? window.s(20) : 0
-                            Behavior on animWidth { NumberAnimation { duration: 350; easing.type: Easing.OutQuint } }
+                            property real animWidth: active ? Design.s(20) : 0
+                            Behavior on animWidth { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutQuint } }
 
                             source: window.selectedAppIcon.startsWith("/") ? "file://" + window.selectedAppIcon : "image://icon/" + window.selectedAppIcon
-                            sourceSize: Qt.size(window.s(20), window.s(20))
+                            sourceSize: Qt.size(Design.s(20), Design.s(20))
                             Layout.preferredWidth: animWidth
-                            Layout.preferredHeight: window.s(20)
+                            Layout.preferredHeight: Design.s(20)
                             Layout.alignment: Qt.AlignVCenter
-                            Layout.rightMargin: active ? window.s(8) : 0
-                            opacity: animWidth / window.s(20.0)
+                            Layout.rightMargin: active ? Design.s(8) : 0
+                            opacity: animWidth / Design.s(20.0)
                             visible: animWidth > 0
                             fillMode: Image.PreserveAspectFit
                             clip: true
                         }
 
-                        Text {
+                        Label {
+                            role: "subhead"
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
-                            font.family: "JetBrains Mono"
-                            font.weight: Font.DemiBold
-                            font.pixelSize: window.s(18)
-                            color: window.text
+                            font.weight: Design.weight.semibold
                             text: window.isWeekView ? (window.weekRangeStr !== "" ? window.weekRangeStr : "Week Overview") : (window.selectedAppClass !== "" ? `${window.selectedAppName} - ${window.getFancyDate(window.activeDate)}` : window.getFancyDate(window.activeDate))
                         }
 
@@ -650,13 +645,13 @@ Item {
 
                     // Next Week/Day Arrow
                     Rectangle {
-                        Layout.preferredWidth: window.s(40)
-                        Layout.preferredHeight: window.s(40)
-                        radius: window.s(20)
-                        color: nextWeekMa.containsMouse ? window.surface0 : "transparent"
-                        Behavior on color { ColorAnimation { duration: 150 } }
-                        Text { anchors.centerIn: parent; font.family: "Iosevka Nerd Font"; text: "󰅂"; color: window.text; font.pixelSize: window.s(18) }
-                        MouseArea { id: nextWeekMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: changeDay(window.isWeekView ? 7 : 1) }
+                        Layout.preferredWidth: Design.s(40)
+                        Layout.preferredHeight: Design.s(40)
+                        radius: Design.s(20)
+                        color: nextWeekMa.containsMouse ? Design.raised : "transparent"
+                        Behavior on color { ColorAnimation { duration: Design.duration.fast } }
+                        Icon { anchors.centerIn: parent; text: "󰅂" }
+                        Clickable { id: nextWeekMa; onClicked: changeDay(window.isWeekView ? 7 : 1) }
                     }
                 }
 
@@ -674,11 +669,11 @@ Item {
                     ColumnLayout {
                         id: dailyViewWrapper
                         anchors.fill: parent
-                        spacing: window.s(16)
+                        spacing: Design.s(16)
                         
                         opacity: 1.0 - window.weekViewFocus
                         visible: opacity > 0
-                        transform: Translate { x: window.s(-40) * window.weekViewFocus }
+                        transform: Translate { x: Design.s(-40) * window.weekViewFocus }
                         scale: 0.95 + (0.05 * (1.0 - window.weekViewFocus)) // Smooth fluid scale backward
 
                         // ==========================================
@@ -686,49 +681,44 @@ Item {
                         // ==========================================
                         RowLayout {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: window.s(90)
-                            Layout.maximumHeight: window.s(90) 
-                            Layout.minimumHeight: window.s(90)
-                            spacing: window.s(16)
+                            Layout.preferredHeight: Design.s(90)
+                            Layout.maximumHeight: Design.s(90) 
+                            Layout.minimumHeight: Design.s(90)
+                            spacing: Design.s(16)
 
                             opacity: introStats
-                            transform: Translate { y: window.s(30) * (1 - introStats) }
+                            transform: Translate { y: Design.s(30) * (1 - introStats) }
 
                             // LEFT: Daily Average (2/7 weight = 200)
                             Rectangle {
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
-                                Layout.preferredWidth: window.s(200)
-                                radius: window.s(14)
-                                color: window.base
-                                border.color: Qt.alpha(window.surface1, 0.3)
+                                Layout.preferredWidth: Design.s(200)
+                                radius: Design.s(14)
+                                color: Design.surface
+                                border.color: Qt.alpha(Design.hover, 0.3)
                                 border.width: 1
 
                                 ColumnLayout {
                                     anchors.centerIn: parent
-                                    spacing: window.s(2)
-                                    Text {
+                                    spacing: Design.s(2)
+                                    Label {
                                         Layout.alignment: Qt.AlignHCenter
-                                        font.family: "JetBrains Mono"
-                                        font.weight: Font.DemiBold
-                                        font.pixelSize: window.s(14)
-                                        color: window.subtext0
+                                        font.weight: Design.weight.semibold
+                                        dim: true
                                         text: "Daily average"
                                     }
-                                    Text {
+                                    Label {
+                                        role: "title"
                                         Layout.alignment: Qt.AlignHCenter
-                                        font.family: "JetBrains Mono"
-                                        font.weight: Font.Bold
-                                        font.pixelSize: window.s(20)
-                                        color: window.text
+                                        font.weight: Design.weight.semibold
                                         text: window.formatTimeList(window.averageSeconds)
                                     }
-                                    Text {
+                                    Label {
+                                        role: "caption"
                                         Layout.alignment: Qt.AlignHCenter
-                                        font.family: "JetBrains Mono"
-                                        font.weight: Font.Medium
-                                        font.pixelSize: window.s(12)
-                                        color: window.overlay0
+                                        font.weight: Design.weight.medium
+                                        color: Design.textFaint
                                         text: window.weekRangeStr
                                         visible: window.weekRangeStr !== ""
                                     }
@@ -739,21 +729,19 @@ Item {
                             Rectangle {
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
-                                Layout.preferredWidth: window.s(300)
-                                radius: window.s(14)
-                                color: window.base
-                                border.color: Qt.alpha(window.surface1, 0.3)
+                                Layout.preferredWidth: Design.s(300)
+                                radius: Design.s(14)
+                                color: Design.surface
+                                border.color: Qt.alpha(Design.hover, 0.3)
                                 border.width: 1
 
                                 ColumnLayout {
                                     anchors.centerIn: parent
                                     spacing: 0
-                                    Text {
+                                    Label {
+                                        role: "display"
                                         Layout.alignment: Qt.AlignHCenter
-                                        font.family: "JetBrains Mono"
-                                        font.weight: Font.Black
-                                        font.pixelSize: window.s(36)
-                                        color: window.text
+                                        font.weight: Design.weight.bold
                                         text: window.formatTimeLarge(window.animatedTotalSeconds)
                                     }
                                 }
@@ -763,40 +751,38 @@ Item {
                             Rectangle {
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
-                                Layout.preferredWidth: window.s(200)
-                                radius: window.s(14)
-                                color: window.base
-                                border.color: Qt.alpha(window.surface1, 0.3)
+                                Layout.preferredWidth: Design.s(200)
+                                radius: Design.s(14)
+                                color: Design.surface
+                                border.color: Qt.alpha(Design.hover, 0.3)
                                 border.width: 1
 
                                 ColumnLayout {
                                     anchors.centerIn: parent
-                                    spacing: window.s(8)
+                                    spacing: Design.s(8)
                                     
                                     // Trend Row
                                     RowLayout {
                                         Layout.alignment: Qt.AlignHCenter
-                                        spacing: window.s(8)
+                                        spacing: Design.s(8)
                                         visible: !(window.totalSeconds === 0 && window.yesterdaySeconds === 0) && window.totalSeconds !== window.yesterdaySeconds
                                         
-                                        Text {
-                                            font.family: "JetBrains Mono"
-                                            font.weight: Font.Black
-                                            font.pixelSize: window.s(28)
+                                        Label {
+                                            role: "display"
+                                            font.weight: Design.weight.bold
                                             color: {
                                                 let diff = window.totalSeconds - window.yesterdaySeconds;
-                                                return diff > 0 ? window.peach : window.green;
+                                                return diff > 0 ? Design.warn : Design.ok;
                                             }
                                             text: (window.totalSeconds - window.yesterdaySeconds) > 0 ? "↑" : "↓"
                                         }
                                         
-                                        Text {
-                                            font.family: "JetBrains Mono"
-                                            font.weight: Font.Bold
-                                            font.pixelSize: window.s(28)
+                                        Label {
+                                            role: "display"
+                                            font.weight: Design.weight.semibold
                                             color: {
                                                 let diff = window.totalSeconds - window.yesterdaySeconds;
-                                                return diff > 0 ? window.peach : window.green;
+                                                return diff > 0 ? Design.warn : Design.ok;
                                             }
                                             text: {
                                                 let diff = window.totalSeconds - window.yesterdaySeconds;
@@ -806,12 +792,10 @@ Item {
                                     }
 
                                     // No Data / Same fallback
-                                    Text {
+                                    Label {
                                         Layout.alignment: Qt.AlignHCenter
-                                        font.family: "JetBrains Mono"
-                                        font.weight: Font.DemiBold
-                                        font.pixelSize: window.s(15)
-                                        color: window.overlay0
+                                        font.weight: Design.weight.semibold
+                                        color: Design.textFaint
                                         text: (window.totalSeconds === 0 && window.yesterdaySeconds === 0) ? "No data" : "Same time"
                                         visible: (window.totalSeconds === 0 && window.yesterdaySeconds === 0) || window.totalSeconds === window.yesterdaySeconds
                                     }
@@ -825,39 +809,36 @@ Item {
                         RowLayout {
                             id: middleSection
                             Layout.fillWidth: true
-                            Layout.preferredHeight: window.s(160)
+                            Layout.preferredHeight: Design.s(160)
                             Layout.fillHeight: false
-                            spacing: window.s(16)
+                            spacing: Design.s(16)
 
                             // LEFT: Weekly Close-Knit Bar Chart
                             Rectangle {
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
-                                Layout.preferredWidth: window.s(400) 
-                                radius: window.s(14)
-                                color: window.base
-                                border.color: Qt.alpha(window.surface1, 0.3)
+                                Layout.preferredWidth: Design.s(400) 
+                                radius: Design.s(14)
+                                color: Design.surface
+                                border.color: Qt.alpha(Design.hover, 0.3)
                                 border.width: 1
 
                                 opacity: introMidLeft
-                                transform: Translate { x: window.s(-30) * (1 - introMidLeft) }
+                                transform: Translate { x: Design.s(-30) * (1 - introMidLeft) }
 
                                 RowLayout {
                                     anchors.centerIn: parent
-                                    height: parent.height - window.s(32)
-                                    spacing: window.s(12) 
+                                    height: parent.height - Design.s(32)
+                                    spacing: Design.s(12) 
 
                                     Repeater {
                                         model: weekListModel
                                         delegate: Item {
                                             Layout.fillHeight: true
-                                            Layout.preferredWidth: window.s(45) 
+                                            Layout.preferredWidth: Design.s(45) 
 
-                                            MouseArea {
+                                            Clickable {
                                                 id: barMa
-                                                anchors.fill: parent
-                                                hoverEnabled: true
-                                                cursorShape: Qt.PointingHandCursor
                                                 onClicked: {
                                                     window.changeToDate(model.dateStr);
                                                 }
@@ -865,48 +846,47 @@ Item {
 
                                             Item {
                                                 anchors.bottom: dayLbl.top
-                                                anchors.bottomMargin: window.s(8)
+                                                anchors.bottomMargin: Design.s(8)
                                                 anchors.horizontalCenter: parent.horizontalCenter
-                                                width: window.s(45) 
+                                                width: Design.s(45) 
                                                 // Tied strictly to the introAppBars multiplier for fluid simultaneous fill
-                                                height: Math.max(window.s(4), (parent.height - window.s(25)) * (model.total / Math.max(window.maxWeekTotal, 1)) * window.introAppBars)
+                                                height: Math.max(Design.s(4), (parent.height - Design.s(25)) * (model.total / Math.max(window.maxWeekTotal, 1)) * window.introAppBars)
                                                 Behavior on height { 
                                                     // ONLY enable reactive behavior after the startup cascade is fully complete
                                                     enabled: window.introAppBars === 1.0 
-                                                    NumberAnimation { duration: 600; easing.type: Easing.OutQuint } 
+                                                    NumberAnimation { duration: window.introDuration; easing.type: Easing.OutQuint } 
                                                 }
 
                                                 Rectangle {
                                                     anchors.fill: parent
-                                                    radius: window.s(4) 
-                                                    color: window.surface0
+                                                    radius: Design.s(4) 
+                                                    color: Design.raised
                                                     visible: !model.isTarget
                                                     opacity: barMa.containsMouse ? 0.7 : 1.0
-                                                    Behavior on color { ColorAnimation { duration: 400; easing.type: Easing.OutCubic } }
+                                                    Behavior on color { ColorAnimation { duration: Design.duration.slow; easing.type: Easing.OutCubic } }
                                                 }
 
                                                 Rectangle {
                                                     anchors.fill: parent
-                                                    radius: window.s(4) 
+                                                    radius: Design.s(4) 
                                                     visible: model.isTarget
                                                     opacity: barMa.containsMouse ? 0.7 : 1.0
                                                     gradient: Gradient {
-                                                        GradientStop { position: 0.0; color: window.mauve }
-                                                        GradientStop { position: 1.0; color: window.blue }
+                                                        GradientStop { position: 0.0; color: Design.accentAlt }
+                                                        GradientStop { position: 1.0; color: Design.accent }
                                                     }
                                                 }
                                             }
 
-                                            Text {
+                                            Label {
+                                                role: "caption"
                                                 id: dayLbl
                                                 anchors.bottom: parent.bottom
                                                 anchors.horizontalCenter: parent.horizontalCenter
-                                                font.family: "JetBrains Mono"
-                                                font.weight: Font.DemiBold
-                                                font.pixelSize: window.s(12)
-                                                color: model.isTarget ? window.text : window.overlay0
-                                                text: model.dayName 
-                                                Behavior on color { ColorAnimation { duration: 400 } }
+                                                font.weight: Design.weight.semibold
+                                                color: model.isTarget ? Design.text : Design.textFaint
+                                                text: model.dayName
+                                                Behavior on color { ColorAnimation { duration: Design.duration.slow } }
                                             }
                                         }
                                     }
@@ -917,26 +897,23 @@ Item {
                             Rectangle {
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
-                                Layout.preferredWidth: window.s(300)
-                                radius: window.s(14)
-                                color: window.base
-                                border.color: Qt.alpha(window.surface1, 0.3)
+                                Layout.preferredWidth: Design.s(300)
+                                radius: Design.s(14)
+                                color: Design.surface
+                                border.color: Qt.alpha(Design.hover, 0.3)
                                 border.width: 1
 
                                 opacity: introMidRight
-                                transform: Translate { x: window.s(30) * (1 - introMidRight) }
+                                transform: Translate { x: Design.s(30) * (1 - introMidRight) }
 
                                 ColumnLayout {
                                     anchors.fill: parent
-                                    anchors.margins: window.s(12)
-                                    spacing: window.s(8)
+                                    anchors.margins: Design.s(12)
+                                    spacing: Design.s(8)
 
-                                    Text {
+                                    Label {
                                         Layout.alignment: Qt.AlignHCenter
-                                        font.family: "JetBrains Mono"
-                                        font.weight: Font.DemiBold
-                                        font.pixelSize: window.s(14)
-                                        color: window.text
+                                        font.weight: Design.weight.semibold
                                         text: window.monthNames[window.activeDate.getMonth()]
                                     }
 
@@ -944,30 +921,27 @@ Item {
                                         Layout.alignment: Qt.AlignCenter
                                         columns: 7 
                                         flow: Grid.LeftToRight 
-                                        spacing: window.s(6) 
+                                        spacing: Design.s(6) 
 
                                         Repeater {
                                             model: monthListModel
                                             delegate: Rectangle {
-                                                width: window.s(18) 
-                                                height: window.s(18) 
-                                                radius: window.s(4)
-                                                color: model.total === -1 ? "transparent" : (model.total === 0 ? window.surface0 : Qt.rgba(window.mauve.r, window.mauve.g, window.mauve.b, Math.min(1.0, 0.3 + 0.7 * (model.total / window.maxMonthTotal))))
-                                                Behavior on color { ColorAnimation { duration: 700; easing.type: Easing.OutQuint } }
+                                                width: Design.s(18) 
+                                                height: Design.s(18) 
+                                                radius: Design.s(4)
+                                                color: model.total === -1 ? "transparent" : (model.total === 0 ? Design.raised : Qt.rgba(Design.accentAlt.r, Design.accentAlt.g, Design.accentAlt.b, Math.min(1.0, 0.3 + 0.7 * (model.total / window.maxMonthTotal))))
+                                                Behavior on color { ColorAnimation { duration: window.tintDuration; easing.type: Easing.OutQuint } }
 
-                                                border.color: model.isTarget ? window.text : "transparent"
+                                                border.color: model.isTarget ? Design.text : "transparent"
                                                 border.width: model.isTarget ? 1 : 0
-                                                Behavior on border.color { ColorAnimation { duration: 300 } }
+                                                Behavior on border.color { ColorAnimation { duration: Design.duration.base } }
                                                 
                                                 visible: model.total !== -1
 
                                                 // Slight animated bounce upon load
                                                 scale: 0.7 + (0.3 * introMidRight)
 
-                                                MouseArea {
-                                                    anchors.fill: parent
-                                                    hoverEnabled: true
-                                                    cursorShape: Qt.PointingHandCursor
+                                                Clickable {
                                                     enabled: model.total !== -1
                                                     onClicked: {
                                                         if (model.total !== -1) {
@@ -989,13 +963,13 @@ Item {
                         Rectangle {
                             Layout.fillWidth: true
                             Layout.fillHeight: true 
-                            radius: window.s(14)
-                            color: window.base
-                            border.color: Qt.alpha(window.surface1, 0.3)
+                            radius: Design.s(14)
+                            color: Design.surface
+                            border.color: Qt.alpha(Design.hover, 0.3)
                             border.width: 1
 
                             opacity: introBottom
-                            transform: Translate { y: window.s(30) * (1 - introBottom) }
+                            transform: Translate { y: Design.s(30) * (1 - introBottom) }
                             
                             Item {
                                 anchors.fill: parent
@@ -1004,51 +978,48 @@ Item {
                                 ListView {
                                     id: appList
                                     anchors.fill: parent
-                                    anchors.margins: window.s(8)
-                                    anchors.topMargin: window.s(12)
-                                    anchors.bottomMargin: window.s(12)
+                                    anchors.margins: Design.s(8)
+                                    anchors.topMargin: Design.s(12)
+                                    anchors.bottomMargin: Design.s(12)
                                     
                                     opacity: 1.0 - window.appViewFocus
                                     visible: opacity > 0
-                                    transform: Translate { x: window.s(-30) * window.appViewFocus }
+                                    transform: Translate { x: Design.s(-30) * window.appViewFocus }
                                     scale: 0.95 + (0.05 * (1.0 - window.appViewFocus)) // Native slide-and-scale
 
                                     model: appListModel
                                     interactive: true 
                                     clip: true        
-                                    spacing: window.s(2)
+                                    spacing: Design.s(2)
                                     
-                                    move: Transition { NumberAnimation { properties: "x,y"; duration: 400; easing.type: Easing.OutQuint } }
+                                    move: Transition { NumberAnimation { properties: "x,y"; duration: Design.duration.slow; easing.type: Easing.OutQuint } }
                                     
                                     ScrollBar.vertical: ScrollBar {
                                         active: appList.moving || appList.movingVertically
-                                        width: window.s(4)
+                                        width: Design.s(4)
                                         policy: ScrollBar.AsNeeded
-                                        contentItem: Rectangle { implicitWidth: window.s(4); radius: window.s(2); color: window.surface2 }
+                                        contentItem: Rectangle { implicitWidth: Design.s(4); radius: Design.s(2); color: Design.active }
                                     }
                                     
                                     delegate: Rectangle {
                                         width: ListView.view.width
-                                        height: window.s(58) 
+                                        height: Design.s(58) 
                                         color: "transparent"
-                                        radius: window.s(10)
+                                        radius: Design.s(10)
 
                                         // Micro-staggering cascading animation inside the list
                                         opacity: introBottom
-                                        transform: Translate { y: (index * window.s(12)) * (1 - introBottom) }
+                                        transform: Translate { y: (index * Design.s(12)) * (1 - introBottom) }
 
                                         Rectangle {
                                             anchors.fill: parent
-                                            radius: window.s(10)
-                                            color: rowMa.containsMouse ? window.surface0 : "transparent"
-                                            Behavior on color { ColorAnimation { duration: 150 } }
+                                            radius: Design.s(10)
+                                            color: rowMa.containsMouse ? Design.raised : "transparent"
+                                            Behavior on color { ColorAnimation { duration: Design.duration.fast } }
                                         }
 
-                                        MouseArea {
+                                        Clickable {
                                             id: rowMa
-                                            anchors.fill: parent
-                                            hoverEnabled: true
-                                            cursorShape: Qt.PointingHandCursor
                                             onClicked: {
                                                 window.selectedAppClass = model.appClass;
                                                 window.selectedAppName = model.name;
@@ -1060,11 +1031,11 @@ Item {
 
                                         ColumnLayout {
                                             anchors.fill: parent
-                                            anchors.leftMargin: window.s(16)
-                                            anchors.rightMargin: window.s(16)
-                                            anchors.topMargin: window.s(10)
-                                            anchors.bottomMargin: window.s(10)
-                                            spacing: window.s(6)
+                                            anchors.leftMargin: Design.s(16)
+                                            anchors.rightMargin: Design.s(16)
+                                            anchors.topMargin: Design.s(10)
+                                            anchors.bottomMargin: Design.s(10)
+                                            spacing: Design.s(6)
 
                                             RowLayout {
                                                 Layout.fillWidth: true
@@ -1072,49 +1043,44 @@ Item {
                                                 Image {
                                                     visible: model.icon !== ""
                                                     source: model.icon.startsWith("/") ? "file://" + model.icon : "image://icon/" + model.icon
-                                                    sourceSize: Qt.size(window.s(20), window.s(20))
-                                                    Layout.preferredWidth: window.s(20)
-                                                    Layout.preferredHeight: window.s(20)
+                                                    sourceSize: Qt.size(Design.s(20), Design.s(20))
+                                                    Layout.preferredWidth: Design.s(20)
+                                                    Layout.preferredHeight: Design.s(20)
                                                     Layout.alignment: Qt.AlignVCenter
-                                                    Layout.rightMargin: window.s(8)
+                                                    Layout.rightMargin: Design.s(8)
                                                     fillMode: Image.PreserveAspectFit
                                                 }
 
-                                                Text {
+                                                Label {
                                                     Layout.fillWidth: true
-                                                    font.family: "JetBrains Mono"
-                                                    font.weight: Font.DemiBold
-                                                    font.pixelSize: window.s(15)
-                                                    color: window.text
+                                                    font.weight: Design.weight.semibold
                                                     text: model.name
                                                     elide: Text.ElideRight
                                                 }
-                                                Text {
-                                                    font.family: "JetBrains Mono"
-                                                    font.weight: Font.Medium
-                                                    font.pixelSize: window.s(14)
-                                                    color: window.subtext0
+                                                Label {
+                                                    font.weight: Design.weight.medium
+                                                    dim: true
                                                     text: window.formatTimeList(model.seconds)
                                                 }
                                             }
 
                                             Item {
                                                 Layout.fillWidth: true
-                                                height: window.s(10)
-                                                Rectangle { anchors.fill: parent; radius: window.s(5); color: window.crust }
+                                                height: Design.s(10)
+                                                Rectangle { anchors.fill: parent; radius: Design.s(5); color: Design.ground }
                                                 Rectangle {
                                                     height: parent.height
                                                     // Tied to the synchronized app bars state
-                                                    width: Math.max(window.s(10), parent.width * (model.percent / 100.0) * window.introAppBars)
-                                                    radius: window.s(5)
+                                                    width: Math.max(Design.s(10), parent.width * (model.percent / 100.0) * window.introAppBars)
+                                                    radius: Design.s(5)
                                                     gradient: Gradient {
                                                         orientation: Gradient.Horizontal
-                                                        GradientStop { position: 0.0; color: window.mauve }
-                                                        GradientStop { position: 1.0; color: window.blue }
+                                                        GradientStop { position: 0.0; color: Design.accentAlt }
+                                                        GradientStop { position: 1.0; color: Design.accent }
                                                     }
                                                     Behavior on width { 
                                                         enabled: window.introAppBars === 1.0
-                                                        NumberAnimation { duration: 600; easing.type: Easing.OutQuint } 
+                                                        NumberAnimation { duration: window.introDuration; easing.type: Easing.OutQuint } 
                                                     }
                                                 }
                                             }
@@ -1126,27 +1092,24 @@ Item {
                                 ColumnLayout {
                                     id: appChartWrapper
                                     anchors.fill: parent
-                                    anchors.margins: window.s(16)
-                                    spacing: window.s(12)
+                                    anchors.margins: Design.s(16)
+                                    spacing: Design.s(12)
 
                                     opacity: window.appViewFocus
                                     visible: opacity > 0
-                                    transform: Translate { x: window.s(30) * (1 - window.appViewFocus) }
+                                    transform: Translate { x: Design.s(30) * (1 - window.appViewFocus) }
                                     scale: 0.95 + (0.05 * window.appViewFocus) // Native slide-and-scale zoom in
 
-                                    Text {
+                                    Label {
                                         Layout.alignment: Qt.AlignHCenter
-                                        font.family: "JetBrains Mono"
-                                        font.weight: Font.DemiBold
-                                        font.pixelSize: window.s(14)
-                                        color: window.text
+                                        font.weight: Design.weight.semibold
                                         text: "Daily usage"
                                     }
 
                                     RowLayout {
                                         Layout.fillWidth: true
                                         Layout.fillHeight: true
-                                        spacing: window.s(4) 
+                                        spacing: Design.s(4) 
 
                                         Repeater {
                                             model: 48 // 2 bars per hour (30 min intervals)
@@ -1158,22 +1121,17 @@ Item {
                                                     anchors.bottom: parent.bottom
                                                     width: parent.width
                                                     // Actively grow from ground up tied to introAppBars
-                                                    height: Math.max(window.s(4), parent.height * (window.hourlyData[index] / Math.max(window.maxHourlyTotal, 1)) * window.introAppBars)
-                                                    radius: window.s(2)
-                                                    color: window.hourlyData[index] > 0 ? window.blue : window.surface0
+                                                    height: Math.max(Design.s(4), parent.height * (window.hourlyData[index] / Math.max(window.maxHourlyTotal, 1)) * window.introAppBars)
+                                                    radius: Design.s(2)
+                                                    color: window.hourlyData[index] > 0 ? Design.accent : Design.raised
                                                     
                                                     Behavior on height { 
                                                         enabled: window.introAppBars === 1.0
-                                                        NumberAnimation { duration: 600; easing.type: Easing.OutQuint } 
+                                                        NumberAnimation { duration: window.introDuration; easing.type: Easing.OutQuint } 
                                                     }
-                                                    Behavior on color { ColorAnimation { duration: 400 } }
+                                                    Behavior on color { ColorAnimation { duration: Design.duration.slow } }
 
-                                                    MouseArea {
-                                                        anchors.fill: parent
-                                                        hoverEnabled: true
-                                                        onEntered: { parent.opacity = 0.7 }
-                                                        onExited: { parent.opacity = 1.0 }
-                                                    }
+                                                    Clickable { onEntered: { parent.opacity = 0.7 }; onExited: { parent.opacity = 1.0 } }
                                                 }
                                             }
                                         }
@@ -1182,15 +1140,15 @@ Item {
                                     // X-Axis Labels 24h
                                     RowLayout {
                                         Layout.fillWidth: true
-                                        Text { font.family: "JetBrains Mono"; font.weight: Font.Medium; font.pixelSize: window.s(11); color: window.overlay0; text: "00:00" }
+                                        Label { role: "caption"; font.weight: Design.weight.medium; color: Design.textFaint; text: "00:00" }
                                         Item { Layout.fillWidth: true }
-                                        Text { font.family: "JetBrains Mono"; font.weight: Font.Medium; font.pixelSize: window.s(11); color: window.overlay0; text: "06:00" }
+                                        Label { role: "caption"; font.weight: Design.weight.medium; color: Design.textFaint; text: "06:00" }
                                         Item { Layout.fillWidth: true }
-                                        Text { font.family: "JetBrains Mono"; font.weight: Font.Medium; font.pixelSize: window.s(11); color: window.overlay0; text: "12:00" }
+                                        Label { role: "caption"; font.weight: Design.weight.medium; color: Design.textFaint; text: "12:00" }
                                         Item { Layout.fillWidth: true }
-                                        Text { font.family: "JetBrains Mono"; font.weight: Font.Medium; font.pixelSize: window.s(11); color: window.overlay0; text: "18:00" }
+                                        Label { role: "caption"; font.weight: Design.weight.medium; color: Design.textFaint; text: "18:00" }
                                         Item { Layout.fillWidth: true }
-                                        Text { font.family: "JetBrains Mono"; font.weight: Font.Medium; font.pixelSize: window.s(11); color: window.overlay0; text: "23:00" }
+                                        Label { role: "caption"; font.weight: Design.weight.medium; color: Design.textFaint; text: "23:00" }
                                     }
                                 }
                             }
@@ -1203,11 +1161,11 @@ Item {
                     ColumnLayout {
                         id: weekViewWrapper
                         anchors.fill: parent
-                        spacing: window.s(16)
+                        spacing: Design.s(16)
 
                         opacity: window.weekViewFocus
                         visible: opacity > 0
-                        transform: Translate { x: window.s(40) * (1 - window.weekViewFocus) }
+                        transform: Translate { x: Design.s(40) * (1 - window.weekViewFocus) }
                         scale: 0.95 + (0.05 * window.weekViewFocus) // Fluid zoom in on activation
 
                         // ─────────────────────────────────────────
@@ -1215,32 +1173,32 @@ Item {
                         // ─────────────────────────────────────────
                         Rectangle {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: window.s(260)
-                            radius: window.s(14)
-                            color: window.base
-                            border.color: Qt.alpha(window.surface1, 0.3)
+                            Layout.preferredHeight: Design.s(260)
+                            radius: Design.s(14)
+                            color: Design.surface
+                            border.color: Qt.alpha(Design.hover, 0.3)
                             border.width: 1
 
                             opacity: introMidLeft
-                            transform: Translate { y: window.s(20) * (1 - introMidLeft) }
+                            transform: Translate { y: Design.s(20) * (1 - introMidLeft) }
 
                             // Outer RowLayout: splits [Heatmap+Xaxis] (left) and [Stats] (right)
                             RowLayout {
                                 anchors.fill: parent
-                                anchors.margins: window.s(16)
-                                spacing: window.s(16)
+                                anchors.margins: Design.s(16)
+                                spacing: Design.s(16)
 
                                 // LEFT SIDE: Heatmap + X-Axis
                                 ColumnLayout {
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
-                                    spacing: window.s(6)
+                                    spacing: Design.s(6)
 
                                     // 7 day rows of 24 hour cells
                                     ColumnLayout {
                                         Layout.fillWidth: true
                                         Layout.fillHeight: true
-                                        spacing: window.s(4)
+                                        spacing: Design.s(4)
 
                                         Repeater {
                                             model: 7
@@ -1248,18 +1206,17 @@ Item {
                                                 property int dayIndex: index
                                                 Layout.fillWidth: true
                                                 Layout.fillHeight: true
-                                                spacing: window.s(8)
+                                                spacing: Design.s(8)
 
                                                 opacity: introMidLeft
-                                                transform: Translate { x: window.s(-20) * (1 - introMidLeft) + (dayIndex * window.s(5) * (1 - introMidLeft)) }
+                                                transform: Translate { x: Design.s(-20) * (1 - introMidLeft) + (dayIndex * Design.s(5) * (1 - introMidLeft)) }
 
-                                                Text {
+                                                Label {
+                                                    role: "caption"
                                                     text: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][dayIndex]
-                                                    font.family: "JetBrains Mono"
-                                                    font.weight: Font.Normal
-                                                    font.pixelSize: window.s(12)
-                                                    color: window.subtext0
-                                                    Layout.preferredWidth: window.s(75)
+                                                    font.weight: Design.weight.regular
+                                                    dim: true
+                                                    Layout.preferredWidth: Design.s(75)
                                                     verticalAlignment: Text.AlignVCenter
                                                 }
 
@@ -1267,7 +1224,7 @@ Item {
                                                 Rectangle {
                                                     Layout.fillWidth: true
                                                     Layout.fillHeight: true
-                                                    radius: window.s(10)
+                                                    radius: Design.s(10)
                                                     color: "transparent"
                                                     clip: true
 
@@ -1284,24 +1241,19 @@ Item {
                                                                 
                                                                 property real val: (window.weekHeatmapData[dayIndex] && window.weekHeatmapData[dayIndex][index]) ? window.weekHeatmapData[dayIndex][index] : 0
                                                                 property real intensity: Math.min(1.0, 0.2 + 0.8 * (val / Math.max(window.maxWeekHour, 1)))
-                                                                color: val === 0 ? window.surface0 : Qt.rgba(window.mauve.r, window.mauve.g, window.mauve.b, intensity)
+                                                                color: val === 0 ? Design.raised : Qt.rgba(Design.accentAlt.r, Design.accentAlt.g, Design.accentAlt.b, intensity)
 
                                                                 // Staggered animated popup matrix effect for the heatmap cells
                                                                 scale: window.isWeekView ? 1.0 : 0.5
                                                                 Behavior on scale {
                                                                     NumberAnimation {
-                                                                        duration: 400 + (dayIndex * 30) + (index * 10)
+                                                                        duration: Design.duration.slow + (dayIndex * 30) + (index * 10)
                                                                         easing.type: Easing.OutBack
                                                                     }
                                                                 }
-                                                                Behavior on color { ColorAnimation { duration: 600; easing.type: Easing.OutQuint } }
+                                                                Behavior on color { ColorAnimation { duration: window.tintDuration; easing.type: Easing.OutQuint } }
 
-                                                                MouseArea {
-                                                                    anchors.fill: parent
-                                                                    hoverEnabled: true
-                                                                    onEntered: parent.opacity = 0.7
-                                                                    onExited: parent.opacity = 1.0
-                                                                }
+                                                                Clickable { onEntered: parent.opacity = 0.7; onExited: parent.opacity = 1.0 }
                                                             }
                                                         }
                                                     }
@@ -1316,50 +1268,47 @@ Item {
                                         spacing: 0 // Crucial for exact alignment with heatmap blocks
                                         
                                         // Spacer matches the day-name label width + spacing exactly
-                                        Item { Layout.preferredWidth: window.s(75 + 8) }
+                                        Item { Layout.preferredWidth: Design.s(75 + 8) }
 
-                                        Text { font.family: "JetBrains Mono"; font.weight: Font.Medium; font.pixelSize: window.s(11); color: window.overlay0; text: "00:00"; Layout.alignment: Qt.AlignLeft }
+                                        Label { role: "caption"; font.weight: Design.weight.medium; color: Design.textFaint; text: "00:00"; Layout.alignment: Qt.AlignLeft }
                                         Item { Layout.fillWidth: true }
-                                        Text { font.family: "JetBrains Mono"; font.weight: Font.Medium; font.pixelSize: window.s(11); color: window.overlay0; text: "06:00"; Layout.alignment: Qt.AlignHCenter }
+                                        Label { role: "caption"; font.weight: Design.weight.medium; color: Design.textFaint; text: "06:00"; Layout.alignment: Qt.AlignHCenter }
                                         Item { Layout.fillWidth: true }
-                                        Text { font.family: "JetBrains Mono"; font.weight: Font.Medium; font.pixelSize: window.s(11); color: window.overlay0; text: "12:00"; Layout.alignment: Qt.AlignHCenter }
+                                        Label { role: "caption"; font.weight: Design.weight.medium; color: Design.textFaint; text: "12:00"; Layout.alignment: Qt.AlignHCenter }
                                         Item { Layout.fillWidth: true }
-                                        Text { font.family: "JetBrains Mono"; font.weight: Font.Medium; font.pixelSize: window.s(11); color: window.overlay0; text: "18:00"; Layout.alignment: Qt.AlignHCenter }
+                                        Label { role: "caption"; font.weight: Design.weight.medium; color: Design.textFaint; text: "18:00"; Layout.alignment: Qt.AlignHCenter }
                                         Item { Layout.fillWidth: true }
-                                        Text { font.family: "JetBrains Mono"; font.weight: Font.Medium; font.pixelSize: window.s(11); color: window.overlay0; text: "23:00"; Layout.alignment: Qt.AlignRight }
+                                        Label { role: "caption"; font.weight: Design.weight.medium; color: Design.textFaint; text: "23:00"; Layout.alignment: Qt.AlignRight }
                                     }
                                 }
 
                                 // RIGHT SIDE: Stats Column
                                 ColumnLayout {
-                                    Layout.preferredWidth: window.s(120)
+                                    Layout.preferredWidth: Design.s(120)
                                     Layout.fillHeight: true
-                                    spacing: window.s(12)
+                                    spacing: Design.s(12)
 
                                     // Daily Average box
                                     Rectangle {
                                         Layout.fillWidth: true
                                         Layout.fillHeight: true
-                                        radius: window.s(10)
-                                        color: window.surface0
+                                        radius: Design.s(10)
+                                        color: Design.raised
 
                                         ColumnLayout {
                                             anchors.centerIn: parent
-                                            spacing: window.s(4)
-                                            Text {
+                                            spacing: Design.s(4)
+                                            Label {
+                                                role: "caption"
                                                 Layout.alignment: Qt.AlignHCenter
-                                                font.family: "JetBrains Mono"
-                                                font.weight: Font.Medium
-                                                font.pixelSize: window.s(12)
-                                                color: window.subtext0
+                                                font.weight: Design.weight.medium
+                                                dim: true
                                                 text: "Daily average"
                                             }
-                                            Text {
+                                            Label {
+                                                role: "subhead"
                                                 Layout.alignment: Qt.AlignHCenter
-                                                font.family: "JetBrains Mono"
-                                                font.weight: Font.Bold
-                                                font.pixelSize: window.s(18)
-                                                color: window.text
+                                                font.weight: Design.weight.semibold
                                                 text: window.formatTimeList(window.averageSeconds)
                                             }
                                         }
@@ -1369,26 +1318,22 @@ Item {
                                     Rectangle {
                                         Layout.fillWidth: true
                                         Layout.fillHeight: true
-                                        radius: window.s(10)
-                                        color: window.surface0
+                                        radius: Design.s(10)
+                                        color: Design.raised
 
                                         ColumnLayout {
                                             anchors.centerIn: parent
-                                            spacing: window.s(4)
-                                            Text {
+                                            spacing: Design.s(4)
+                                            Label {
+                                                role: "caption"
                                                 Layout.alignment: Qt.AlignHCenter
-                                                font.family: "JetBrains Mono"
-                                                font.weight: Font.Medium
-                                                font.pixelSize: window.s(12)
-                                                color: window.subtext0
+                                                font.weight: Design.weight.medium
+                                                dim: true
                                                 text: "Peak hours"
                                             }
-                                            Text {
+                                            Label {
                                                 Layout.alignment: Qt.AlignHCenter
-                                                font.family: "JetBrains Mono"
-                                                font.weight: Font.Bold
-                                                font.pixelSize: window.s(14)
-                                                color: window.text
+                                                font.weight: Design.weight.semibold
                                                 text: window.peakUsageHours
                                             }
                                         }
@@ -1401,55 +1346,52 @@ Item {
                         Rectangle {
                             Layout.fillWidth: true
                             Layout.fillHeight: true
-                            radius: window.s(14)
-                            color: window.base
-                            border.color: Qt.alpha(window.surface1, 0.3)
+                            radius: Design.s(14)
+                            color: Design.surface
+                            border.color: Qt.alpha(Design.hover, 0.3)
                             border.width: 1
 
                             opacity: introBottom
-                            transform: Translate { y: window.s(30) * (1 - introBottom) }
+                            transform: Translate { y: Design.s(30) * (1 - introBottom) }
 
                             ListView {
                                 id: weekAppList
                                 anchors.fill: parent
-                                anchors.margins: window.s(8)
-                                anchors.topMargin: window.s(12)
-                                anchors.bottomMargin: window.s(12)
+                                anchors.margins: Design.s(8)
+                                anchors.topMargin: Design.s(12)
+                                anchors.bottomMargin: Design.s(12)
                                 model: weekAppListModel
                                 interactive: true 
                                 clip: true        
-                                spacing: window.s(2)
+                                spacing: Design.s(2)
                                 
-                                move: Transition { NumberAnimation { properties: "x,y"; duration: 400; easing.type: Easing.OutQuint } }
+                                move: Transition { NumberAnimation { properties: "x,y"; duration: Design.duration.slow; easing.type: Easing.OutQuint } }
                                 
                                 ScrollBar.vertical: ScrollBar {
                                     active: weekAppList.moving || weekAppList.movingVertically
-                                    width: window.s(4)
+                                    width: Design.s(4)
                                     policy: ScrollBar.AsNeeded
-                                    contentItem: Rectangle { implicitWidth: window.s(4); radius: window.s(2); color: window.surface2 }
+                                    contentItem: Rectangle { implicitWidth: Design.s(4); radius: Design.s(2); color: Design.active }
                                 }
                                 
                                 delegate: Rectangle {
                                     width: ListView.view.width
-                                    height: window.s(58) 
+                                    height: Design.s(58) 
                                     color: "transparent"
-                                    radius: window.s(10)
+                                    radius: Design.s(10)
 
                                     opacity: introBottom
-                                    transform: Translate { y: (index * window.s(12)) * (1 - introBottom) }
+                                    transform: Translate { y: (index * Design.s(12)) * (1 - introBottom) }
 
                                     Rectangle {
                                         anchors.fill: parent
-                                        radius: window.s(10)
-                                        color: weekRowMa.containsMouse ? window.surface0 : "transparent"
-                                        Behavior on color { ColorAnimation { duration: 150 } }
+                                        radius: Design.s(10)
+                                        color: weekRowMa.containsMouse ? Design.raised : "transparent"
+                                        Behavior on color { ColorAnimation { duration: Design.duration.fast } }
                                     }
 
-                                    MouseArea {
+                                    Clickable {
                                         id: weekRowMa
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
                                         onClicked: {
                                             window.selectedAppClass = model.appClass;
                                             window.selectedAppName = model.name;
@@ -1462,11 +1404,11 @@ Item {
 
                                     ColumnLayout {
                                         anchors.fill: parent
-                                        anchors.leftMargin: window.s(16)
-                                        anchors.rightMargin: window.s(16)
-                                        anchors.topMargin: window.s(10)
-                                        anchors.bottomMargin: window.s(10)
-                                        spacing: window.s(6)
+                                        anchors.leftMargin: Design.s(16)
+                                        anchors.rightMargin: Design.s(16)
+                                        anchors.topMargin: Design.s(10)
+                                        anchors.bottomMargin: Design.s(10)
+                                        spacing: Design.s(6)
 
                                         RowLayout {
                                             Layout.fillWidth: true
@@ -1474,48 +1416,43 @@ Item {
                                             Image {
                                                 visible: model.icon !== ""
                                                 source: model.icon.startsWith("/") ? "file://" + model.icon : "image://icon/" + model.icon
-                                                sourceSize: Qt.size(window.s(20), window.s(20))
-                                                Layout.preferredWidth: window.s(20)
-                                                Layout.preferredHeight: window.s(20)
+                                                sourceSize: Qt.size(Design.s(20), Design.s(20))
+                                                Layout.preferredWidth: Design.s(20)
+                                                Layout.preferredHeight: Design.s(20)
                                                 Layout.alignment: Qt.AlignVCenter
-                                                Layout.rightMargin: window.s(8)
+                                                Layout.rightMargin: Design.s(8)
                                                 fillMode: Image.PreserveAspectFit
                                             }
 
-                                            Text {
+                                            Label {
                                                 Layout.fillWidth: true
-                                                font.family: "JetBrains Mono"
-                                                font.weight: Font.DemiBold
-                                                font.pixelSize: window.s(15)
-                                                color: window.text
+                                                font.weight: Design.weight.semibold
                                                 text: model.name
                                                 elide: Text.ElideRight
                                             }
-                                            Text {
-                                                font.family: "JetBrains Mono"
-                                                font.weight: Font.Medium
-                                                font.pixelSize: window.s(14)
-                                                color: window.subtext0
+                                            Label {
+                                                font.weight: Design.weight.medium
+                                                dim: true
                                                 text: window.formatTimeList(model.seconds)
                                             }
                                         }
 
                                         Item {
                                             Layout.fillWidth: true
-                                            height: window.s(10)
-                                            Rectangle { anchors.fill: parent; radius: window.s(5); color: window.crust }
+                                            height: Design.s(10)
+                                            Rectangle { anchors.fill: parent; radius: Design.s(5); color: Design.ground }
                                             Rectangle {
                                                 height: parent.height
-                                                width: Math.max(window.s(10), parent.width * (model.percent / 100.0) * window.introAppBars)
-                                                radius: window.s(5)
+                                                width: Math.max(Design.s(10), parent.width * (model.percent / 100.0) * window.introAppBars)
+                                                radius: Design.s(5)
                                                 gradient: Gradient {
                                                     orientation: Gradient.Horizontal
-                                                    GradientStop { position: 0.0; color: window.mauve }
-                                                    GradientStop { position: 1.0; color: window.blue }
+                                                    GradientStop { position: 0.0; color: Design.accentAlt }
+                                                    GradientStop { position: 1.0; color: Design.accent }
                                                 }
                                                 Behavior on width { 
                                                     enabled: window.introAppBars === 1.0
-                                                    NumberAnimation { duration: 600; easing.type: Easing.OutQuint } 
+                                                    NumberAnimation { duration: window.introDuration; easing.type: Easing.OutQuint } 
                                                 }
                                             }
                                         }

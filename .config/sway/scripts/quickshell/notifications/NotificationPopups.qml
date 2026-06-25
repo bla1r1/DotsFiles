@@ -11,6 +11,15 @@ import "../WindowRegistry.js" as Registry
 PanelWindow {
     id: popupWindow
 
+    // Durations that are choreography, not styling: a staged entrance, ambient
+    // loops and slow tint crossfades. Deliberately off the motion scale.
+    // PauseAnimation delays are left as they are — that spread is the stagger.
+    readonly property int introDuration: 800
+    readonly property int tintDuration: 1000
+    readonly property int pulsePeriod: 1500
+    readonly property int driftPeriod: 90000
+
+
     // These properties are passed from Main.qml
     property var popupModel
     property real uiScale: 1.0
@@ -40,7 +49,7 @@ PanelWindow {
 
     // Smoothly adjust window height so it doesn't instantly snap when popups are added/removed
     Behavior on height {
-        NumberAnimation { duration: 400; easing.type: Easing.OutQuint }
+        NumberAnimation { duration: Design.duration.slow; easing.type: Easing.OutQuint }
     }
 
     property bool dndEnabled: false
@@ -66,16 +75,14 @@ PanelWindow {
         
         opacity: popupWindow.dndEnabled ? 0.0 : 1.0
         visible: opacity > 0.01 // Only hide completely when the fade out is basically done
-        Behavior on opacity { NumberAnimation { duration: 300 } }
+        Behavior on opacity { NumberAnimation { duration: Design.duration.base } }
 
-        MatugenColors { id: _theme }
-
-        property var blobPalette1: [_theme.mauve, _theme.blue, _theme.peach, _theme.green, _theme.pink]
-        property var blobPalette2: [_theme.sapphire, _theme.teal, _theme.maroon, _theme.yellow, _theme.red]
+        property var blobPalette1: [Design.accentAlt, Design.accent, Design.warn, Design.ok, Design.accentAlt]
+        property var blobPalette2: [Design.accentSoft, Design.ok, Design.danger, Design.warn, Design.danger]
 
         property real globalOrbitAngle: 0
         NumberAnimation on globalOrbitAngle {
-            from: 0; to: Math.PI * 2; duration: 25000; loops: Animation.Infinite; running: true
+            from: 0; to: Math.PI * 2; duration: popupWindow.driftPeriod; loops: Animation.Infinite; running: true
         }
 
         ListView {
@@ -88,22 +95,22 @@ PanelWindow {
 
             add: Transition {
                 ParallelAnimation {
-                    NumberAnimation { property: "opacity"; from: 0.0; to: 1.0; duration: 400; easing.type: Easing.OutQuint }
-                    NumberAnimation { property: "x"; from: popupWindow.width * 0.4; to: 0; duration: 500; easing.type: Easing.OutQuint }
-                    NumberAnimation { property: "scale"; from: 0.9; to: 1.0; duration: 500; easing.type: Easing.OutQuint }
+                    NumberAnimation { property: "opacity"; from: 0.0; to: 1.0; duration: Design.duration.slow; easing.type: Easing.OutQuint }
+                    NumberAnimation { property: "x"; from: popupWindow.width * 0.4; to: 0; duration: Design.duration.slow; easing.type: Easing.OutQuint }
+                    NumberAnimation { property: "scale"; from: 0.9; to: 1.0; duration: Design.duration.slow; easing.type: Easing.OutQuint }
                 }
             }
             
             remove: Transition {
                 ParallelAnimation {
-                    NumberAnimation { property: "opacity"; to: 0.0; duration: 350; easing.type: Easing.OutQuint }
-                    NumberAnimation { property: "x"; to: popupWindow.width * 0.4; duration: 400; easing.type: Easing.OutQuint }
-                    NumberAnimation { property: "scale"; to: 0.9; duration: 400; easing.type: Easing.OutQuint }
+                    NumberAnimation { property: "opacity"; to: 0.0; duration: Design.duration.base; easing.type: Easing.OutQuint }
+                    NumberAnimation { property: "x"; to: popupWindow.width * 0.4; duration: Design.duration.slow; easing.type: Easing.OutQuint }
+                    NumberAnimation { property: "scale"; to: 0.9; duration: Design.duration.slow; easing.type: Easing.OutQuint }
                 }
             }
 
             displaced: Transition {
-                NumberAnimation { properties: "x,y"; duration: 450; easing.type: Easing.OutQuint }
+                NumberAnimation { properties: "x,y"; duration: Design.duration.slow; easing.type: Easing.OutQuint }
             }
 
             delegate: Item {
@@ -125,7 +132,7 @@ PanelWindow {
                         easing.type: Easing.OutCubic 
                     }
                     SequentialAnimation {
-                        PauseAnimation { duration: 150 }
+                        PauseAnimation { duration: Design.duration.fast }
                         NumberAnimation { 
                             target: delegateRoot; property: "typeLenBody"; 
                             from: 0; to: fullBody.length; 
@@ -140,8 +147,8 @@ PanelWindow {
                     anchors.fill: parent
                     radius: popupWindow.layoutConfig.radius
                     
-                    color: _theme.base
-                    border.color: _theme.surface1
+                    color: Design.surface
+                    border.color: Design.hover
                     border.width: 1
                     clip: true 
                     
@@ -170,11 +177,7 @@ PanelWindow {
                         onTriggered: masterWindow.removePopup(model.uid)
                     }
 
-                    MouseArea {
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        
+                    Clickable {
                         onClicked: {
                             // 1. Intercept custom scripts and open the FOLDER natively in QML
                             if ((model.appName === "Screenshot" || model.appName === "Screen Recorder") && model.iconPath !== "") {
@@ -195,13 +198,12 @@ PanelWindow {
                             }
                             masterWindow.removePopup(model.uid)
                         }
-                        
                         Rectangle {
                             anchors.fill: parent
                             radius: parent.radius
-                            color: _theme.surface0
+                            color: Design.raised
                             opacity: parent.containsMouse ? 0.3 : 0.0
-                            Behavior on opacity { NumberAnimation { duration: 250 } }
+                            Behavior on opacity { NumberAnimation { duration: Design.duration.base } }
                         }
                     }
                     ColumnLayout {
@@ -214,10 +216,10 @@ PanelWindow {
 
                         Text {
                             text: model.appName || "System"
-                            font.family: "JetBrains Mono"
-                            font.weight: Font.Medium
+                            font.family: Design.font.mono
+                            font.weight: Design.weight.medium
                             font.pixelSize: 12 * popupWindow.uiScale
-                            color: _theme.overlay1
+                            color: Design.textFaint
                             Layout.fillWidth: true
                         }
 
@@ -229,8 +231,8 @@ PanelWindow {
                                 id: hiddenSummary
                                 text: delegateRoot.fullSummary
                                 width: parent.width
-                                font.family: "JetBrains Mono"
-                                font.weight: Font.Bold
+                                font.family: Design.font.mono
+                                font.weight: Design.weight.semibold
                                 font.pixelSize: 15 * popupWindow.uiScale
                                 wrapMode: Text.Wrap
                                 visible: false
@@ -240,7 +242,7 @@ PanelWindow {
                                 anchors.fill: parent
                                 text: delegateRoot.fullSummary.substring(0, delegateRoot.typeLenSum)
                                 font: hiddenSummary.font
-                                color: _theme.text
+                                color: Design.text
                                 wrapMode: Text.Wrap
                             }
                         }
@@ -254,8 +256,8 @@ PanelWindow {
                                 id: hiddenBody
                                 text: delegateRoot.fullBody
                                 width: parent.width
-                                font.family: "JetBrains Mono"
-                                font.weight: Font.Medium
+                                font.family: Design.font.mono
+                                font.weight: Design.weight.medium
                                 font.pixelSize: 13 * popupWindow.uiScale
                                 wrapMode: Text.Wrap
                                 textFormat: Text.PlainText
@@ -266,7 +268,7 @@ PanelWindow {
                                 anchors.fill: parent
                                 text: delegateRoot.fullBody.substring(0, delegateRoot.typeLenBody)
                                 font: hiddenBody.font
-                                color: _theme.subtext0 
+                                color: Design.textDim 
                                 wrapMode: Text.Wrap
                                 textFormat: Text.PlainText
                             }

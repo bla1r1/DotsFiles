@@ -650,7 +650,7 @@ PopupShell {
                             
                             Label {
                                 text: root.tabNames[index]
-                                font.weight: parent.parent.isActive ? Font.Bold : Font.Medium
+                                font.weight: parent.parent.isActive ? Design.weight.semibold : Design.weight.medium
                                 color: parent.parent.isActive ? Design.text : Design.textDim
                                 Layout.fillWidth: true
                                 Layout.alignment: Qt.AlignVCenter
@@ -946,12 +946,12 @@ PopupShell {
                                     RowLayout { 
                                         spacing: Design.s(6)
                                         Icon { text: ""; color: Design.accent } 
-                                        Label { role: "caption"; text: root.sysOS; font.weight: Font.Medium; dim: true } 
+                                        Label { role: "caption"; text: root.sysOS; font.weight: Design.weight.medium; dim: true } 
                                     }
                                     RowLayout { 
                                         spacing: Design.s(6)
                                         Icon { text: ""; color: Design.warn } 
-                                        Label { role: "caption"; text: root.sysKernel; font.weight: Font.Medium; dim: true } 
+                                        Label { role: "caption"; text: root.sysKernel; font.weight: Design.weight.medium; dim: true } 
                                     }
                                 }
                                 
@@ -963,7 +963,7 @@ PopupShell {
                                         Label {
                                             role: "caption"
                                             text: root.sysCPU
-                                            font.weight: Font.Medium
+                                            font.weight: Design.weight.medium
                                             dim: true
                                             elide: Text.ElideRight
                                             Layout.maximumWidth: Design.s(220)
@@ -975,7 +975,7 @@ PopupShell {
                                         Label {
                                             role: "caption"
                                             text: root.sysGPU
-                                            font.weight: Font.Medium
+                                            font.weight: Design.weight.medium
                                             dim: true
                                             elide: Text.ElideRight
                                             Layout.maximumWidth: Design.s(220)
@@ -2113,7 +2113,7 @@ PopupShell {
                                         Layout.alignment: Qt.AlignVCenter
                                         Icon { anchors.centerIn: parent; text: modelData.i; color: root[modelData.c] } 
                                     } 
-                                    Label { role: "caption"; text: modelData.f; font.weight: Font.Medium; Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter } 
+                                    Label { role: "caption"; text: modelData.f; font.weight: Design.weight.medium; Layout.fillWidth: true; Layout.alignment: Qt.AlignVCenter } 
                                 }
                                 Clickable { id: tplMa }
                             }

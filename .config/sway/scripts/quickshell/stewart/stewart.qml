@@ -1,22 +1,19 @@
 import QtQuick
 import QtQuick.Effects
-import "../"
+import "../Ui"
 
-Item {
+PopupShell {
     id: root
 
-    MatugenColors { id: _theme }
-    
-    // -------------------------------------------------------------------------
-    // COLORS (Dynamic Matugen Palette)
-    // -------------------------------------------------------------------------
-    readonly property color base: _theme.base
-    readonly property color mantle: _theme.mantle
-    readonly property color crust: _theme.crust
-    readonly property color text: _theme.text
-    readonly property color surface0: _theme.surface0
-    readonly property color surface1: _theme.surface1
-    readonly property color surface2: _theme.surface2
+    // Durations that are choreography, not styling: a staged entrance, ambient
+    // loops and slow tint crossfades. Deliberately off the motion scale.
+    // PauseAnimation delays are left as they are — that spread is the stagger.
+    readonly property int introDuration: 800
+    readonly property int tintDuration: 1000
+    readonly property int pulsePeriod: 1500
+    readonly property int driftPeriod: 90000
+
+
     
     readonly property color mauve: _theme.mauve
     readonly property color pink: _theme.pink
@@ -28,7 +25,7 @@ Item {
         id: windowContent
         anchors.fill: parent
         radius: 12
-        color: root.base 
+        color: Design.surface 
         clip: true
 
         // ---------------------------------------------------------------------
@@ -39,20 +36,20 @@ Item {
         property real baseBlend: 0.0
         SequentialAnimation on baseBlend {
             loops: Animation.Infinite; running: true
-            NumberAnimation { to: 1.0; duration: 15000; easing.type: Easing.InOutSine }
-            NumberAnimation { to: 0.0; duration: 15000; easing.type: Easing.InOutSine }
+            NumberAnimation { to: 1.0; duration: root.pulsePeriod; easing.type: Easing.InOutSine }
+            NumberAnimation { to: 0.0; duration: root.pulsePeriod; easing.type: Easing.InOutSine }
         }
         // Dynamically tints between mauve and pink based on the live theme properties
-        property color currentBasePurple: Qt.tint(root.mauve, Qt.rgba(root.pink.r, root.pink.g, root.pink.b, baseBlend))
+        property color currentBasePurple: Qt.tint(Design.accentAlt, Qt.rgba(Design.accentAlt.r, Design.accentAlt.g, Design.accentAlt.b, baseBlend))
 
         property real accentBlend: 0.0
         SequentialAnimation on accentBlend {
             loops: Animation.Infinite; running: true
-            NumberAnimation { to: 1.0; duration: 15000; easing.type: Easing.InOutSine }
-            NumberAnimation { to: 0.0; duration: 15000; easing.type: Easing.InOutSine }
+            NumberAnimation { to: 1.0; duration: root.pulsePeriod; easing.type: Easing.InOutSine }
+            NumberAnimation { to: 0.0; duration: root.pulsePeriod; easing.type: Easing.InOutSine }
         }
         // Dynamically tints between blue and sapphire based on the live theme properties
-        property color currentAccentLavender: Qt.tint(root.blue, Qt.rgba(root.sapphire.r, root.sapphire.g, root.sapphire.b, accentBlend))
+        property color currentAccentLavender: Qt.tint(Design.accent, Qt.rgba(Design.accentSoft.r, Design.accentSoft.g, Design.accentSoft.b, accentBlend))
 
         // Animation States
         property real calmState: 0.0 
@@ -61,7 +58,7 @@ Item {
         // 9. Breathing Phase Offsets (Continuous Time Engine)
         property real time: 0
         NumberAnimation on time { 
-            from: 0; to: Math.PI * 2; duration: 15000; loops: Animation.Infinite; running: true 
+            from: 0; to: Math.PI * 2; duration: root.driftPeriod; loops: Animation.Infinite; running: true 
         }
         
         // 3 separate breathing phases for organic offset
@@ -77,13 +74,13 @@ Item {
         
         ParallelAnimation {
             id: entranceAnimation
-            NumberAnimation { target: windowContent; property: "opacity"; to: 1.0; duration: 400; easing.type: Easing.OutCubic }
-            NumberAnimation { target: windowContent; property: "scale"; to: 1.0; duration: 400; easing.type: Easing.OutCubic }
+            NumberAnimation { target: windowContent; property: "opacity"; to: 1.0; duration: Design.duration.slow; easing.type: Easing.OutCubic }
+            NumberAnimation { target: windowContent; property: "scale"; to: 1.0; duration: Design.duration.slow; easing.type: Easing.OutCubic }
         }
 
         property real globalOrbitAngle: 0
         NumberAnimation on globalOrbitAngle {
-            from: 0; to: Math.PI * 2; duration: 60000; loops: Animation.Infinite; running: true
+            from: 0; to: Math.PI * 2; duration: root.driftPeriod; loops: Animation.Infinite; running: true
         }
 
         // ---------------------------------------------------------------------
@@ -218,13 +215,13 @@ Item {
             
             SequentialAnimation on driftX {
                 loops: Animation.Infinite
-                NumberAnimation { to: 2; duration: 7450; easing.type: Easing.InOutSine }
-                NumberAnimation { to: -1.5; duration: 6920; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 2; duration: root.pulsePeriod; easing.type: Easing.InOutSine }
+                NumberAnimation { to: -1.5; duration: root.pulsePeriod; easing.type: Easing.InOutSine }
             }
             SequentialAnimation on driftY {
                 loops: Animation.Infinite
-                NumberAnimation { to: 1.5; duration: 8210; easing.type: Easing.InOutSine }
-                NumberAnimation { to: -2; duration: 7630; easing.type: Easing.InOutSine }
+                NumberAnimation { to: 1.5; duration: root.pulsePeriod; easing.type: Easing.InOutSine }
+                NumberAnimation { to: -2; duration: root.pulsePeriod; easing.type: Easing.InOutSine }
             }
 
             anchors.centerIn: parent
@@ -248,8 +245,8 @@ Item {
                     
                     gradient: Gradient {
                         orientation: Gradient.Horizontal
-                        GradientStop { position: 0.0; color: root.surface2 }
-                        GradientStop { position: 1.0; color: root.surface0 }
+                        GradientStop { position: 0.0; color: Design.active }
+                        GradientStop { position: 1.0; color: Design.raised }
                     }
                 }
 
@@ -272,8 +269,8 @@ Item {
                         property real oscRotation: 0
                         SequentialAnimation on oscRotation {
                             loops: Animation.Infinite
-                            NumberAnimation { to: 15; duration: 6000; easing.type: Easing.InOutSine }
-                            NumberAnimation { to: -15; duration: 6000; easing.type: Easing.InOutSine }
+                            NumberAnimation { to: 15; duration: root.pulsePeriod; easing.type: Easing.InOutSine }
+                            NumberAnimation { to: -15; duration: root.pulsePeriod; easing.type: Easing.InOutSine }
                         }
                         rotation: oscRotation
 
@@ -284,8 +281,8 @@ Item {
                                 color: windowContent.currentBasePurple 
                                 SequentialAnimation on position {
                                     loops: Animation.Infinite
-                                    NumberAnimation { to: 0.2; duration: 5000; easing.type: Easing.InOutSine }
-                                    NumberAnimation { to: 0.0; duration: 5000; easing.type: Easing.InOutSine }
+                                    NumberAnimation { to: 0.2; duration: root.pulsePeriod; easing.type: Easing.InOutSine }
+                                    NumberAnimation { to: 0.0; duration: root.pulsePeriod; easing.type: Easing.InOutSine }
                                 }
                             }
                             GradientStop { 
@@ -293,8 +290,8 @@ Item {
                                 color: windowContent.currentAccentLavender 
                                 SequentialAnimation on position {
                                     loops: Animation.Infinite
-                                    NumberAnimation { to: 0.8; duration: 4500; easing.type: Easing.InOutSine }
-                                    NumberAnimation { to: 1.0; duration: 4500; easing.type: Easing.InOutSine }
+                                    NumberAnimation { to: 0.8; duration: root.pulsePeriod; easing.type: Easing.InOutSine }
+                                    NumberAnimation { to: 1.0; duration: root.pulsePeriod; easing.type: Easing.InOutSine }
                                 }
                             }
                         }
@@ -327,8 +324,8 @@ Item {
                         property real maskRotation: 0
                         SequentialAnimation on maskRotation {
                             loops: Animation.Infinite
-                            NumberAnimation { to: -20; duration: 7000; easing.type: Easing.InOutSine }
-                            NumberAnimation { to: 20; duration: 7000; easing.type: Easing.InOutSine }
+                            NumberAnimation { to: -20; duration: root.pulsePeriod; easing.type: Easing.InOutSine }
+                            NumberAnimation { to: 20; duration: root.pulsePeriod; easing.type: Easing.InOutSine }
                         }
                         rotation: maskRotation
 
@@ -358,7 +355,7 @@ Item {
                                 width: (index % 3) + 2
                                 height: width
                                 radius: width/2
-                                color: root.text
+                                color: Design.text
                                 rotation: windowContent.time * 20 * (index % 2 === 0 ? 1 : -1)
                             }
                         }
@@ -381,14 +378,14 @@ Item {
                         SequentialAnimation on sweepPos {
                             loops: Animation.Infinite
                             running: true
-                            NumberAnimation { from: -0.5; to: 1.5; duration: 8000; easing.type: Easing.InOutSine }
-                            PauseAnimation { duration: 4000 } 
+                            NumberAnimation { from: -0.5; to: 1.5; duration: root.pulsePeriod; easing.type: Easing.InOutSine }
+                            PauseAnimation { duration: root.introDuration } 
                         }
 
                         gradient: Gradient {
                             orientation: Gradient.Horizontal
                             GradientStop { position: Math.max(0.0, Math.min(1.0, refractionLayer.sweepPos - 0.2)); color: "transparent" }
-                            GradientStop { position: Math.max(0.0, Math.min(1.0, refractionLayer.sweepPos)); color: Qt.alpha(root.text, 0.08) }
+                            GradientStop { position: Math.max(0.0, Math.min(1.0, refractionLayer.sweepPos)); color: Qt.alpha(Design.text, 0.08) }
                             GradientStop { position: Math.max(0.0, Math.min(1.0, refractionLayer.sweepPos + 0.2)); color: "transparent" }
                         }
                     }
@@ -400,7 +397,7 @@ Item {
                         radius: width / 2
                         color: "transparent"
                         border.width: 1.5
-                        border.color: Qt.rgba(root.text.r, root.text.g, root.text.b, 0.15 + windowContent.breathA * 0.1)
+                        border.color: Qt.rgba(Design.text.r, Design.text.g, Design.text.b, 0.15 + windowContent.breathA * 0.1)
                         antialiasing: true
                         layer.enabled: true
                         layer.effect: MultiEffect { blurEnabled: true; blurMax: 4; blur: 1.0 }
@@ -416,7 +413,7 @@ Item {
             id: introSequence
             running: true
 
-            PauseAnimation { duration: 200 } 
+            PauseAnimation { duration: Design.duration.base } 
 
             // Phase 1: Loading Wind-Up
             NumberAnimation {
@@ -424,7 +421,7 @@ Item {
                 property: "rotation"
                 from: 0
                 to: 360 
-                duration: 1200 
+                duration: root.introDuration 
                 easing.type: Easing.InCubic
             }
 
@@ -433,30 +430,30 @@ Item {
                 target: orb; 
                 property: "scale"; 
                 to: 0.96; 
-                duration: 250; 
+                duration: Design.duration.base; 
                 easing.type: Easing.InOutSine 
             }
             
-            PauseAnimation { duration: 100 }
+            PauseAnimation { duration: Design.duration.fast }
 
             // Phase 3: The Transformation Pop
             ParallelAnimation {
-                NumberAnimation { target: loadingShell; property: "opacity"; to: 0.0; duration: 150 }
-                NumberAnimation { target: activeEnergyCore; property: "opacity"; to: 1.0; duration: 300 }
+                NumberAnimation { target: loadingShell; property: "opacity"; to: 0.0; duration: Design.duration.fast }
+                NumberAnimation { target: activeEnergyCore; property: "opacity"; to: 1.0; duration: Design.duration.base }
 
                 SequentialAnimation {
-                    NumberAnimation { target: orb; property: "scale"; to: 1.05; duration: 200; easing.type: Easing.OutCubic }
-                    NumberAnimation { target: orb; property: "scale"; to: 1.0; duration: 800; easing.type: Easing.InOutSine }
+                    NumberAnimation { target: orb; property: "scale"; to: 1.05; duration: Design.duration.base; easing.type: Easing.OutCubic }
+                    NumberAnimation { target: orb; property: "scale"; to: 1.0; duration: root.pulsePeriod; easing.type: Easing.InOutSine }
                 }
                 
                 // 8. Refine Shockwave Dissipation (Asymmetrical decay: Fast rise, slow lingering fade)
                 SequentialAnimation {
-                    NumberAnimation { target: windowContent; property: "popShockwave"; from: 0.0; to: 1.0; duration: 150; easing.type: Easing.OutCubic }
-                    NumberAnimation { target: windowContent; property: "popShockwave"; to: 0.0; duration: 1200; easing.type: Easing.OutQuart } 
+                    NumberAnimation { target: windowContent; property: "popShockwave"; from: 0.0; to: 1.0; duration: Design.duration.fast; easing.type: Easing.OutCubic }
+                    NumberAnimation { target: windowContent; property: "popShockwave"; to: 0.0; duration: root.introDuration; easing.type: Easing.OutQuart } 
                 }
 
-                NumberAnimation { target: orbGlow; property: "baseOpacity"; to: 1.0; duration: 400; easing.type: Easing.InOutSine }
-                NumberAnimation { target: orbGlow; property: "baseScale"; to: 1.0; duration: 600; easing.type: Easing.OutBack }
+                NumberAnimation { target: orbGlow; property: "baseOpacity"; to: 1.0; duration: Design.duration.slow; easing.type: Easing.InOutSine }
+                NumberAnimation { target: orbGlow; property: "baseScale"; to: 1.0; duration: root.introDuration; easing.type: Easing.OutBack }
             }
 
             // Phase 4: Settle into Calm Idle State
@@ -465,7 +462,7 @@ Item {
                 property: "calmState"
                 from: 0.0
                 to: 1.0
-                duration: 2500
+                duration: root.pulsePeriod
                 easing.type: Easing.InOutSine
             }
         }

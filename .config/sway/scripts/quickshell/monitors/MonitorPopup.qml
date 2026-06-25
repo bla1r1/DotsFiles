@@ -856,7 +856,7 @@ PopupShell {
                                         }
                                         Label {
                                             role: "caption"
-                                            font.weight: isSel ? Font.Bold : Font.Normal
+                                            font.weight: isSel ? Design.weight.semibold : Design.weight.regular
                                             color: isSel ? Design.text : Design.textDim
                                             text: modelData.label
                                             Behavior on color { ColorAnimation { duration: Design.duration.fast } }
@@ -922,7 +922,7 @@ PopupShell {
                                     
                                     Label {
                                         role: "subhead"
-                                        font.weight: isSel ? Font.Black : Font.Bold
+                                        font.weight: isSel ? Design.weight.bold : Design.weight.semibold
                                         color: isSel ? accentColor : Design.text
                                         text: modelData.label
                                         Behavior on color { ColorAnimation { duration: Design.duration.base } }
@@ -1020,7 +1020,7 @@ PopupShell {
                                 Label {
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     text: sliderContainer.rates[index]
-                                    font.weight: sliderContainer.currentIndex === index ? Font.Bold : Font.Normal
+                                    font.weight: sliderContainer.currentIndex === index ? Design.weight.semibold : Design.weight.regular
                                     color: sliderContainer.currentIndex === index ? window.selectedRateAccent : Design.textFaint
                                     Behavior on color { ColorAnimation { duration: Design.duration.base } }
                                 }

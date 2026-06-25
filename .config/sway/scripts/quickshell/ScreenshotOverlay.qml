@@ -20,14 +20,11 @@ PanelWindow {
     width: screen.width
     height: screen.height
 
-    Scaler { id: scaler; currentWidth: width }
-    function s(val) { return scaler.s(val); }
     
-    MatugenColors { id: _theme }
-    property color dimColor: Qt.alpha(_theme.crust, 0.50)
-    property color selectionTint: Qt.alpha(_theme.mauve, 0.05)
-    property color handleColor: _theme.text
-    property color accentColor: _theme.mauve
+    property color dimColor: Qt.alpha(Design.ground, 0.50)
+    property color selectionTint: Qt.alpha(Design.accentAlt, 0.05)
+    property color handleColor: Design.text
+    property color accentColor: Design.accentAlt
 
     property bool isEditMode: Quickshell.env("QS_SCREENSHOT_EDIT") === "true"
     readonly property string scriptDir: Quickshell.env("QS_SCRIPT_DIR") || (Quickshell.env("HOME") + "/.config/sway/scripts")
@@ -142,10 +139,10 @@ PanelWindow {
         property real targetStartX; property real targetStartY
         property real targetEndX; property real targetEndY
 
-        NumberAnimation { target: root; property: "startX"; to: maximizeAnim.targetStartX; duration: 250; easing.type: Easing.InOutQuad }
-        NumberAnimation { target: root; property: "startY"; to: maximizeAnim.targetStartY; duration: 250; easing.type: Easing.InOutQuad }
-        NumberAnimation { target: root; property: "endX"; to: maximizeAnim.targetEndX; duration: 250; easing.type: Easing.InOutQuad }
-        NumberAnimation { target: root; property: "endY"; to: maximizeAnim.targetEndY; duration: 250; easing.type: Easing.InOutQuad }
+        NumberAnimation { target: root; property: "startX"; to: maximizeAnim.targetStartX; duration: Design.duration.base; easing.type: Easing.InOutQuad }
+        NumberAnimation { target: root; property: "startY"; to: maximizeAnim.targetStartY; duration: Design.duration.base; easing.type: Easing.InOutQuad }
+        NumberAnimation { target: root; property: "endX"; to: maximizeAnim.targetEndX; duration: Design.duration.base; easing.type: Easing.InOutQuad }
+        NumberAnimation { target: root; property: "endY"; to: maximizeAnim.targetEndY; duration: Design.duration.base; easing.type: Easing.InOutQuad }
         onFinished: root.saveCache()
     }
 
@@ -178,18 +175,18 @@ PanelWindow {
         property bool isDanger: false
         signal clicked()
 
-        Layout.preferredHeight: s(36)
-        Layout.preferredWidth: label !== "" ? (txt.implicitWidth + s(36)) : s(36)
-        radius: s(18)
-        color: maBtn.containsMouse ? (isDanger ? Qt.alpha(_theme.red, 0.2) : _theme.surface0) : "transparent"
-        Behavior on color { ColorAnimation { duration: 150 } }
+        Layout.preferredHeight: Design.s(36)
+        Layout.preferredWidth: label !== "" ? (txt.implicitWidth + Design.s(36)) : Design.s(36)
+        radius: Design.s(18)
+        color: maBtn.containsMouse ? (isDanger ? Qt.alpha(Design.danger, 0.2) : Design.raised) : "transparent"
+        Behavior on color { ColorAnimation { duration: Design.duration.fast } }
 
         RowLayout {
-            anchors.centerIn: parent; spacing: s(6)
-            Text { font.family: "Iosevka Nerd Font"; text: tBtn.iconTxt; color: tBtn.isDanger ? _theme.red : _theme.text; font.pixelSize: s(18) }
-            Text { id: txt; visible: tBtn.label !== ""; font.family: "JetBrains Mono"; font.weight: Font.DemiBold; text: tBtn.label; color: tBtn.isDanger ? _theme.red : _theme.text; font.pixelSize: s(13) }
+            anchors.centerIn: parent; spacing: Design.s(6)
+            Text { font.family: Design.font.icon; text: tBtn.iconTxt; color: tBtn.isDanger ? Design.danger : Design.text; font.pixelSize: Design.s(18) }
+            Text { id: txt; visible: tBtn.label !== ""; font.family: Design.font.mono; font.weight: Design.weight.semibold; text: tBtn.label; color: tBtn.isDanger ? Design.danger : Design.text; font.pixelSize: Design.s(13) }
         }
-        MouseArea { id: maBtn; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: tBtn.clicked() }
+        Clickable { id: maBtn; onClicked: tBtn.clicked() }
     }
 
     Item {
@@ -199,17 +196,17 @@ PanelWindow {
             anchors.fill: parent
             color: root.dimColor
             opacity: (!root.isSelecting && !root.hasSelection) ? 1.0 : 0.0
-            Behavior on opacity { NumberAnimation { duration: 150 } }
+            Behavior on opacity { NumberAnimation { duration: Design.duration.fast } }
             Text {
                 anchors.centerIn: parent
                 text: root.isVideoMode ? "Click Record (Portal handles area selection)" : "Select region to capture"
-                font.family: "JetBrains Mono"; font.weight: Font.DemiBold; font.pixelSize: s(24); color: _theme.text
+                font.family: Design.font.mono; font.weight: Design.weight.semibold; font.pixelSize: Design.s(24); color: Design.text
             }
         }
         Item {
             anchors.fill: parent
             opacity: (root.isSelecting || root.hasSelection) ? 1.0 : 0.0
-            Behavior on opacity { NumberAnimation { duration: 150 } }
+            Behavior on opacity { NumberAnimation { duration: Design.duration.fast } }
             Rectangle { x: 0; y: 0; width: parent.width; height: root.selY; color: root.dimColor } 
             Rectangle { x: 0; y: root.selY + root.selH; width: parent.width; height: parent.height - (root.selY + root.selH); color: root.dimColor }
             Rectangle { x: 0; y: root.selY; width: root.selX; height: root.selH; color: root.dimColor } 
@@ -221,9 +218,9 @@ PanelWindow {
     Rectangle {
         visible: root.isSelecting || root.hasSelection
         x: root.selX; y: root.selY; width: root.selW; height: root.selH
-        color: (root.showQrPopup && root.isQrSuccess) ? Qt.alpha(_theme.green, 0.15) : (root.isVideoMode ? Qt.alpha(_theme.red, 0.05) : root.selectionTint)
-        border.color: (root.showQrPopup && root.isQrSuccess) ? _theme.green : (root.isVideoMode ? _theme.red : root.accentColor)
-        border.width: s(4)
+        color: (root.showQrPopup && root.isQrSuccess) ? Qt.alpha(Design.ok, 0.15) : (root.isVideoMode ? Qt.alpha(Design.danger, 0.05) : root.selectionTint)
+        border.color: (root.showQrPopup && root.isQrSuccess) ? Design.ok : (root.isVideoMode ? Design.danger : root.accentColor)
+        border.width: Design.s(4)
         z: 5
     }
 
@@ -232,24 +229,24 @@ PanelWindow {
         delegate: Rectangle {
             visible: opacity > 0
             opacity: (root.showQrPopup && model.qSuccess && model.qW > 0) ? 1.0 : 0.0
-            property real pad: (root.showQrPopup && model.qSuccess) ? s(5) : 0
+            property real pad: (root.showQrPopup && model.qSuccess) ? Design.s(5) : 0
             x: model.qW > 0 ? (model.qX - pad) : model.qX
             y: model.qH > 0 ? (model.qY - pad) : model.qY
             width: model.qW > 0 ? (model.qW + (pad * 2)) : 0
             height: model.qH > 0 ? (model.qH + (pad * 2)) : 0
-            color: Qt.alpha(_theme.green, 0.25)
-            border.color: _theme.green
-            border.width: s(3)
-            radius: s(8)
+            color: Qt.alpha(Design.ok, 0.25)
+            border.color: Design.ok
+            border.width: Design.s(3)
+            radius: Design.s(8)
             z: 34
-            Behavior on opacity { NumberAnimation { duration: 400; easing.type: Easing.OutQuart } }
-            Behavior on pad { NumberAnimation { duration: 400; easing.type: Easing.OutQuart } }
+            Behavior on opacity { NumberAnimation { duration: Design.duration.slow; easing.type: Easing.OutQuart } }
+            Behavior on pad { NumberAnimation { duration: Design.duration.slow; easing.type: Easing.OutQuart } }
         }
     }
 
     component Handle: Rectangle {
-        width: s(20); height: s(20); radius: s(10)
-        color: root.handleColor; border.color: root.accentColor; border.width: s(4)
+        width: Design.s(20); height: Design.s(20); radius: Design.s(10)
+        color: root.handleColor; border.color: root.accentColor; border.width: Design.s(4)
         visible: (root.hasSelection || root.isSelecting) && !root.isScanningQr && !root.showQrPopup && !root.isVideoMode; z: 10
     }
     Handle { x: root.selX - width / 2; y: root.selY - height / 2 } 
@@ -257,17 +254,14 @@ PanelWindow {
     Handle { x: root.selX - width / 2; y: root.selY + root.selH - height / 2 } 
     Handle { x: root.selX + root.selW - width / 2; y: root.selY + root.selH - height / 2 } 
 
-    MouseArea {
-        anchors.fill: parent
-        hoverEnabled: true
+    Clickable {
         acceptedButtons: Qt.LeftButton | Qt.RightButton
-        z: 20 
-
+        z: 20
         function getInteractionMode(mx, my, mods) {
             if (!root.hasSelection) return 1; 
             if (mods & Qt.ShiftModifier) return 2; 
 
-            let margin = s(20) 
+            let margin = Design.s(20) 
             
             // Check if mouse is on the specific coordinate lines
             let onLeftLine = Math.abs(mx - root.selX) <= margin; 
@@ -293,7 +287,6 @@ PanelWindow {
             
             return 1;
         }
-
         onPositionChanged: (mouse) => {
             if (root.isVideoMode) { cursorShape = Qt.ArrowCursor; return; }
 
@@ -325,7 +318,6 @@ PanelWindow {
                 root.startX = nx; root.startY = ny; root.endX = nx + nw; root.endY = ny + nh;
             }
         }
-
         onPressed: (mouse) => {
             if (mouse.button === Qt.RightButton) { Qt.quit(); return; }
             if (root.isVideoMode) return; 
@@ -348,7 +340,6 @@ PanelWindow {
                 root.hasSelection = false; root.isMaximized = false
             }
         }
-
         onReleased: {
             if (root.isSelecting) {
                 root.isSelecting = false
@@ -364,22 +355,22 @@ PanelWindow {
         id: toolbar
         z: 30 
         
-        property bool fitsOutsideBottom: (root.selY + root.selH + height + s(15)) <= root.height
-        property bool fitsOutsideTop: (root.selY - height - s(15)) >= 0
-        property bool fitsInside: root.selH >= (height + s(30)) && root.selW >= (width + s(20))
+        property bool fitsOutsideBottom: (root.selY + root.selH + height + Design.s(15)) <= root.height
+        property bool fitsOutsideTop: (root.selY - height - Design.s(15)) >= 0
+        property bool fitsInside: root.selH >= (height + Design.s(30)) && root.selW >= (width + Design.s(20))
 
         visible: root.hasSelection && !root.isSelecting && (fitsOutsideBottom || fitsOutsideTop || fitsInside) && !root.isScanningQr && !root.showQrPopup
-        x: Math.max(s(10), Math.min(parent.width - width - s(10), root.selX + (root.selW / 2) - (width / 2)))
-        y: fitsOutsideBottom ? (root.selY + root.selH + s(15)) : (fitsOutsideTop ? (root.selY - height - s(15)) : (root.selY + root.selH - height - s(15)))
+        x: Math.max(Design.s(10), Math.min(parent.width - width - Design.s(10), root.selX + (root.selW / 2) - (width / 2)))
+        y: fitsOutsideBottom ? (root.selY + root.selH + Design.s(15)) : (fitsOutsideTop ? (root.selY - height - Design.s(15)) : (root.selY + root.selH - height - Design.s(15)))
 
-        width: toolbarLayout.width + s(16)
-        height: s(52)
-        radius: s(26)
-        color: _theme.base
-        border.color: _theme.surface1
-        border.width: s(2)
+        width: toolbarLayout.width + Design.s(16)
+        height: Design.s(52)
+        radius: Design.s(26)
+        color: Design.surface
+        border.color: Design.hover
+        border.width: Design.s(2)
 
-        property bool popUpwards: (toolbar.y + s(200)) > root.height
+        property bool popUpwards: (toolbar.y + Design.s(200)) > root.height
 
         component AudioControl: RowLayout {
             property string iconOn: ""
@@ -392,56 +383,56 @@ PanelWindow {
             signal muteUpdate(bool newMute)
             signal dropdownClicked()
 
-            spacing: s(4)
+            spacing: Design.s(4)
 
             Rectangle {
-                width: s(30); height: s(30); radius: s(15)
-                color: maIcon.containsMouse ? _theme.surface1 : "transparent"
-                Behavior on color { ColorAnimation { duration: 150 } }
+                width: Design.s(30); height: Design.s(30); radius: Design.s(15)
+                color: maIcon.containsMouse ? Design.hover : "transparent"
+                Behavior on color { ColorAnimation { duration: Design.duration.fast } }
 
                 Text {
                     anchors.centerIn: parent
-                    font.family: "Iosevka Nerd Font"
+                    font.family: Design.font.icon
                     text: parent.parent.mutedValue ? parent.parent.iconOff : parent.parent.iconOn
-                    color: parent.parent.mutedValue ? _theme.red : _theme.text
-                    font.pixelSize: s(16)
+                    color: parent.parent.mutedValue ? Design.danger : Design.text
+                    font.pixelSize: Design.s(16)
                 }
-                MouseArea {
-                    id: maIcon; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                Clickable {
+                    id: maIcon
                     onClicked: parent.parent.muteUpdate(!parent.parent.mutedValue)
                 }
             }
 
             Slider {
-                Layout.preferredWidth: s(60)
+                Layout.preferredWidth: Design.s(60)
                 from: 0.0; to: 1.0; value: parent.volumeValue
                 onValueChanged: parent.volumeUpdate(value)
 
                 background: Rectangle {
                     x: parent.leftPadding; y: parent.topPadding + parent.availableHeight / 2 - height / 2
-                    implicitWidth: s(60); implicitHeight: s(4)
+                    implicitWidth: Design.s(60); implicitHeight: Design.s(4)
                     width: parent.availableWidth; height: implicitHeight
-                    radius: s(2)
-                    color: _theme.surface2
-                    Rectangle { width: parent.parent.visualPosition * parent.width; height: parent.height; color: parent.parent.parent.mutedValue ? _theme.subtext0 : _theme.mauve; radius: s(2) }
+                    radius: Design.s(2)
+                    color: Design.active
+                    Rectangle { width: parent.parent.visualPosition * parent.width; height: parent.height; color: parent.parent.parent.mutedValue ? Design.textDim : Design.accentAlt; radius: Design.s(2) }
                 }
                 handle: Rectangle {
                     x: parent.leftPadding + parent.visualPosition * (parent.availableWidth - width)
                     y: parent.topPadding + parent.availableHeight / 2 - height / 2
-                    implicitWidth: s(12); implicitHeight: s(12); radius: s(6)
-                    color: parent.parent.parent.mutedValue ? _theme.subtext0 : _theme.mauve
+                    implicitWidth: Design.s(12); implicitHeight: Design.s(12); radius: Design.s(6)
+                    color: parent.parent.parent.mutedValue ? Design.textDim : Design.accentAlt
                 }
             }
 
             Rectangle {
                 visible: parent.hasDropdown
-                width: s(20); height: s(30); color: "transparent"
+                width: Design.s(20); height: Design.s(30); color: "transparent"
                 Text {
                     anchors.centerIn: parent
-                    font.family: "Iosevka Nerd Font"
+                    font.family: Design.font.icon
                     text: toolbar.popUpwards ? "󰅃" : "󰅀"
-                    color: _theme.text
-                    font.pixelSize: s(16)
+                    color: Design.text
+                    font.pixelSize: Design.s(16)
                 }
                 MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: parent.parent.dropdownClicked() }
             }
@@ -450,38 +441,38 @@ PanelWindow {
         Rectangle {
             id: micDropdown
             visible: false
-            width: s(280)
-            height: micModel.count === 0 ? s(40) : Math.min(s(180), micModel.count * s(36))
-            x: micAudio.x - s(40)
-            y: toolbar.popUpwards ? (-height - s(8)) : (toolbar.height + s(8))
-            color: _theme.base
-            border.color: _theme.surface1; border.width: s(2)
-            radius: s(8)
+            width: Design.s(280)
+            height: micModel.count === 0 ? Design.s(40) : Math.min(Design.s(180), micModel.count * Design.s(36))
+            x: micAudio.x - Design.s(40)
+            y: toolbar.popUpwards ? (-height - Design.s(8)) : (toolbar.height + Design.s(8))
+            color: Design.surface
+            border.color: Design.hover; border.width: Design.s(2)
+            radius: Design.s(8)
             z: 50
 
             Text {
                 visible: micModel.count === 0
                 anchors.centerIn: parent
                 text: "No Microphones (Install pulseaudio)"
-                color: _theme.subtext0
-                font.pixelSize: s(12)
+                color: Design.textDim
+                font.pixelSize: Design.s(12)
             }
 
             ListView {
                 visible: micModel.count > 0
-                anchors.fill: parent; anchors.margins: s(4)
+                anchors.fill: parent; anchors.margins: Design.s(4)
                 model: micModel
                 clip: true
                 delegate: Rectangle {
-                    width: ListView.view.width; height: s(32); radius: s(6)
-                    color: maList.containsMouse ? _theme.surface0 : "transparent"
+                    width: ListView.view.width; height: Design.s(32); radius: Design.s(6)
+                    color: maList.containsMouse ? Design.raised : "transparent"
                     RowLayout {
-                        anchors.fill: parent; anchors.margins: s(6)
-                        Text { text: model.devDesc; color: root.micDevice === model.devName ? _theme.mauve : _theme.text; font.pixelSize: s(12); elide: Text.ElideRight; Layout.fillWidth: true }
+                        anchors.fill: parent; anchors.margins: Design.s(6)
+                        Text { text: model.devDesc; color: root.micDevice === model.devName ? Design.accentAlt : Design.text; font.pixelSize: Design.s(12); elide: Text.ElideRight; Layout.fillWidth: true }
                     }
-                    MouseArea { 
-                        id: maList; anchors.fill: parent; hoverEnabled: true; 
-                        onClicked: { root.micDevice = model.devName; root.saveAudioPrefs(); micDropdown.visible = false } 
+                    Clickable {
+                        id: maList
+                        onClicked: { root.micDevice = model.devName; root.saveAudioPrefs(); micDropdown.visible = false }
                     }
                 }
             }
@@ -490,32 +481,32 @@ PanelWindow {
         RowLayout {
             id: toolbarLayout
             anchors.centerIn: parent
-            spacing: s(8)
+            spacing: Design.s(8)
 
             Rectangle {
-                width: s(80); height: s(36); radius: s(18)
-                color: _theme.surface0
+                width: Design.s(80); height: Design.s(36); radius: Design.s(18)
+                color: Design.raised
                 
                 RowLayout {
-                    anchors.fill: parent; anchors.margins: s(4); spacing: 0
+                    anchors.fill: parent; anchors.margins: Design.s(4); spacing: 0
                     Rectangle {
-                        Layout.fillWidth: true; Layout.fillHeight: true; radius: s(14)
-                        color: !root.isVideoMode ? _theme.surface2 : "transparent"
-                        Behavior on color { ColorAnimation { duration: 200 } }
-                        Text { anchors.centerIn: parent; font.family: "Iosevka Nerd Font"; text: "󰄄"; color: !root.isVideoMode ? _theme.text : _theme.subtext0; font.pixelSize: s(16) }
+                        Layout.fillWidth: true; Layout.fillHeight: true; radius: Design.s(14)
+                        color: !root.isVideoMode ? Design.active : "transparent"
+                        Behavior on color { ColorAnimation { duration: Design.duration.base } }
+                        Text { anchors.centerIn: parent; font.family: Design.font.icon; text: "󰄄"; color: !root.isVideoMode ? Design.text : Design.textDim; font.pixelSize: Design.s(16) }
                         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.isVideoMode = false }
                     }
                     Rectangle {
-                        Layout.fillWidth: true; Layout.fillHeight: true; radius: s(14)
-                        color: root.isVideoMode ? _theme.surface2 : "transparent"
-                        Behavior on color { ColorAnimation { duration: 200 } }
-                        Text { anchors.centerIn: parent; font.family: "Iosevka Nerd Font"; text: ""; color: root.isVideoMode ? _theme.text : _theme.subtext0; font.pixelSize: s(16) }
+                        Layout.fillWidth: true; Layout.fillHeight: true; radius: Design.s(14)
+                        color: root.isVideoMode ? Design.active : "transparent"
+                        Behavior on color { ColorAnimation { duration: Design.duration.base } }
+                        Text { anchors.centerIn: parent; font.family: Design.font.icon; text: ""; color: root.isVideoMode ? Design.text : Design.textDim; font.pixelSize: Design.s(16) }
                         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.isVideoMode = true }
                     }
                 }
             }
 
-            Rectangle { width: s(2); Layout.fillHeight: true; Layout.topMargin: s(10); Layout.bottomMargin: s(10); color: _theme.surface0; radius: s(1) }
+            Rectangle { width: Design.s(2); Layout.fillHeight: true; Layout.topMargin: Design.s(10); Layout.bottomMargin: Design.s(10); color: Design.raised; radius: Design.s(1) }
 
             AudioControl { 
                 id: deskAudio; visible: root.isVideoMode; iconOn: "󰓃"; iconOff: "󰓄" 
@@ -532,7 +523,7 @@ PanelWindow {
                 onDropdownClicked: micDropdown.visible = !micDropdown.visible
             }
 
-            Rectangle { visible: root.isVideoMode; width: s(2); Layout.fillHeight: true; Layout.topMargin: s(10); Layout.bottomMargin: s(10); color: _theme.surface0; radius: s(1) }
+            Rectangle { visible: root.isVideoMode; width: Design.s(2); Layout.fillHeight: true; Layout.topMargin: Design.s(10); Layout.bottomMargin: Design.s(10); color: Design.raised; radius: Design.s(1) }
 
             ToolbarBtn { visible: !root.isVideoMode; iconTxt: "󰄄"; label: "Capture"; onClicked: root.executeCapture(false, false) }
             ToolbarBtn { visible: root.isVideoMode; iconTxt: "󰑊"; label: "Record"; isDanger: true; onClicked: root.executeCapture(false, true) }
@@ -540,7 +531,7 @@ PanelWindow {
             ToolbarBtn { visible: !root.isVideoMode; iconTxt: "󰏫"; onClicked: root.executeCapture(true, false) }
             ToolbarBtn { visible: !root.isVideoMode; iconTxt: "⿻"; onClicked: root.performQrScan() }
 
-            Rectangle { width: s(2); Layout.fillHeight: true; Layout.topMargin: s(10); Layout.bottomMargin: s(10); color: _theme.surface0; radius: s(1) }
+            Rectangle { width: Design.s(2); Layout.fillHeight: true; Layout.topMargin: Design.s(10); Layout.bottomMargin: Design.s(10); color: Design.raised; radius: Design.s(1) }
             
             ToolbarBtn { visible: !root.isVideoMode; iconTxt: root.isMaximized ? "" : ""; onClicked: root.toggleMaximize() }
             ToolbarBtn { iconTxt: "󰅖"; isDanger: true; onClicked: Qt.quit() }
@@ -555,14 +546,14 @@ PanelWindow {
             opacity: (root.showQrPopup && !root.isSelecting) ? 1.0 : 0.0
             
             x: model.qTargetX
-            y: model.qTargetY + (model.fitsTop ? (1.0 - opacity) * s(15) : -(1.0 - opacity) * s(15))
+            y: model.qTargetY + (model.fitsTop ? (1.0 - opacity) * Design.s(15) : -(1.0 - opacity) * Design.s(15))
             
-            width: qrPopupLayout.implicitWidth + s(32)
-            height: s(52)
-            radius: s(26)
-            color: _theme.base
-            border.color: model.qSuccess ? _theme.green : _theme.red
-            border.width: s(2)
+            width: qrPopupLayout.implicitWidth + Design.s(32)
+            height: Design.s(52)
+            radius: Design.s(26)
+            color: Design.surface
+            border.color: model.qSuccess ? Design.ok : Design.danger
+            border.width: Design.s(2)
 
             property bool isHovered: maHover.containsMouse
 
@@ -570,29 +561,29 @@ PanelWindow {
             z: isHovered ? 100 : (40 - index)
             transformOrigin: Item.Center
 
-            Behavior on opacity { NumberAnimation { duration: 400; easing.type: Easing.OutQuart } }
-            Behavior on scale { NumberAnimation { duration: 250; easing.type: Easing.OutQuart } }
+            Behavior on opacity { NumberAnimation { duration: Design.duration.slow; easing.type: Easing.OutQuart } }
+            Behavior on scale { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutQuart } }
 
-            MouseArea { id: maHover; anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.NoButton }
+            Clickable { id: maHover; acceptedButtons: Qt.NoButton }
 
             RowLayout {
                 id: qrPopupLayout
                 anchors.centerIn: parent
-                spacing: s(8)
+                spacing: Design.s(8)
 
                 Text {
                     text: model.qText
-                    color: model.qSuccess ? _theme.text : _theme.red
-                    font.family: "JetBrains Mono"
-                    font.pixelSize: s(13)
-                    font.weight: Font.DemiBold
-                    Layout.maximumWidth: s(400)
-                    Layout.leftMargin: s(8)
+                    color: model.qSuccess ? Design.text : Design.danger
+                    font.family: Design.font.mono
+                    font.pixelSize: Design.s(13)
+                    font.weight: Design.weight.semibold
+                    Layout.maximumWidth: Design.s(400)
+                    Layout.leftMargin: Design.s(8)
                     elide: Text.ElideRight
                     wrapMode: Text.NoWrap
                 }
 
-                Rectangle { visible: model.qSuccess; width: s(2); Layout.fillHeight: true; Layout.topMargin: s(10); Layout.bottomMargin: s(10); color: _theme.surface0; radius: s(1) }
+                Rectangle { visible: model.qSuccess; width: Design.s(2); Layout.fillHeight: true; Layout.topMargin: Design.s(10); Layout.bottomMargin: Design.s(10); color: Design.raised; radius: Design.s(1) }
 
                 ToolbarBtn {
                     visible: model.qSuccess
@@ -612,7 +603,7 @@ PanelWindow {
                     }
                 }
 
-                Rectangle { width: s(2); Layout.fillHeight: true; Layout.topMargin: s(10); Layout.bottomMargin: s(10); color: _theme.surface0; radius: s(1) }
+                Rectangle { width: Design.s(2); Layout.fillHeight: true; Layout.topMargin: Design.s(10); Layout.bottomMargin: Design.s(10); color: Design.raised; radius: Design.s(1) }
                 ToolbarBtn { iconTxt: "󰅖"; isDanger: true; onClicked: root.showQrPopup = false }
             }
         }
@@ -634,7 +625,7 @@ PanelWindow {
                 qrModel.append({ 
                     qX: root.selX + (root.selW / 2), qY: root.selY + (root.selH / 2), qW: 0, qH: 0, 
                     qText: "Scan timed out or failed.", qSuccess: false,
-                    qTargetX: root.selX + (root.selW / 2) - s(100), qTargetY: root.selY + (root.selH / 2),
+                    qTargetX: root.selX + (root.selW / 2) - Design.s(100), qTargetY: root.selY + (root.selH / 2),
                     qBaseScale: 1.0, fitsTop: false 
                 })
                 root.isQrSuccess = false
@@ -663,15 +654,15 @@ PanelWindow {
                     if (successState) anySuccess = true;
                     let cleanText = successState ? actualText.replace(/^QR-Code:/, "") : (actualText === "NOT_FOUND" ? "No QR code found." : actualText);
                     
-                    let estTextWidth = Math.min(s(400), cleanText.length * s(8.5));
-                    let pw = estTextWidth + (successState ? s(140) : s(40)); 
-                    let ph = s(52);
+                    let estTextWidth = Math.min(Design.s(400), cleanText.length * Design.s(8.5));
+                    let pw = estTextWidth + (successState ? Design.s(140) : Design.s(40)); 
+                    let ph = Design.s(52);
                     let absX = root.selX + x; let absY = root.selY + y;
                     let cx = absX + (w / 2);
-                    let fitsTop = (absY - ph - s(15)) >= root.selY;
+                    let fitsTop = (absY - ph - Design.s(15)) >= root.selY;
                     let idealX = cx - (pw / 2);
-                    let targetX = Math.max(s(10), Math.min(root.width - pw - s(10), idealX));
-                    let targetY = fitsTop ? (absY - ph - s(15)) : (absY + h + s(15));
+                    let targetX = Math.max(Design.s(10), Math.min(root.width - pw - Design.s(10), idealX));
+                    let targetY = fitsTop ? (absY - ph - Design.s(15)) : (absY + h + Design.s(15));
 
                     qrs.push({ qX: absX, qY: absY, qW: w, qH: h, qText: cleanText, qSuccess: successState, pw: pw, ph: ph, targetX: targetX, targetY: targetY, cx: targetX + (pw / 2), cy: targetY + (ph / 2), scale: 1.0, fitsTop: fitsTop });
                 }
@@ -682,12 +673,12 @@ PanelWindow {
                     for (let j = i + 1; j < qrs.length; j++) {
                         let A = qrs[i]; let B = qrs[j];
                         let dx = Math.abs(A.cx - B.cx); let dy = Math.abs(A.cy - B.cy);
-                        let req_x = (A.pw * A.scale + B.pw * B.scale) / 2 + s(10);
-                        let req_y = (A.ph * A.scale + B.ph * B.scale) / 2 + s(10);
+                        let req_x = (A.pw * A.scale + B.pw * B.scale) / 2 + Design.s(10);
+                        let req_y = (A.ph * A.scale + B.ph * B.scale) / 2 + Design.s(10);
                         
                         if (dx < req_x && dy < req_y) {
-                            let factorX = dx > 0 ? (dx - s(10)) * 2 / (A.pw + B.pw) : 0;
-                            let factorY = dy > 0 ? (dy - s(10)) * 2 / (A.ph + B.ph) : 0;
+                            let factorX = dx > 0 ? (dx - Design.s(10)) * 2 / (A.pw + B.pw) : 0;
+                            let factorY = dy > 0 ? (dy - Design.s(10)) * 2 / (A.ph + B.ph) : 0;
                             let maxFactor = Math.max(factorX, factorY);
                             maxFactor = Math.max(0.35, maxFactor); 
                             A.scale = Math.min(A.scale, maxFactor); B.scale = Math.min(B.scale, maxFactor);
@@ -700,7 +691,7 @@ PanelWindow {
                 qrModel.append({ 
                     qX: root.selX + (root.selW / 2), qY: root.selY + (root.selH / 2), qW: 0, qH: 0, 
                     qText: "No QR code found.", qSuccess: false,
-                    qTargetX: root.selX + (root.selW / 2) - s(100), qTargetY: root.selY + (root.selH / 2),
+                    qTargetX: root.selX + (root.selW / 2) - Design.s(100), qTargetY: root.selY + (root.selH / 2),
                     qBaseScale: 1.0, fitsTop: false 
                 });
             } else {

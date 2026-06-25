@@ -432,7 +432,7 @@ PopupShell {
                                 Label {
                                     role: "display"
                                     anchors.centerIn: parent
-                                    font.weight: Font.Black
+                                    font.weight: Design.weight.bold
                                     color: window.activeMute ? Design.danger : Design.text
                                     text: window.activeMute ? "MUTE" : window.activeVol + "%"
                                     Behavior on color { ColorAnimation { duration: Design.duration.base } }
@@ -459,7 +459,7 @@ PopupShell {
                                         role: "display"
                                         x: waveClipItem.width / 2 - width / 2
                                         y: (centralCore.height / 2) - (height / 2) - (centralCore.height - waveClipItem.height)
-                                        font.weight: Font.Black
+                                        font.weight: Design.weight.bold
                                         color: Design.ground
                                         text: window.activeMute ? "MUTE" : window.activeVol + "%"
                                     }
@@ -488,7 +488,7 @@ PopupShell {
                                     role: "title"
                                     Layout.fillWidth: true
                                     elide: Text.ElideRight
-                                    font.weight: Font.Black
+                                    font.weight: Design.weight.bold
                                     text: window.activeName
                                 }
                                 Label {
@@ -555,7 +555,7 @@ PopupShell {
                                             role: "caption"
                                             Layout.fillWidth: true
                                             elide: Text.ElideRight
-                                            font.weight: Font.Bold
+                                            font.weight: Design.weight.semibold
                                             text: "Microphone"
                                         }
                                         Label {
@@ -593,7 +593,7 @@ PopupShell {
                                         role: "caption"
                                         Layout.preferredWidth: Design.s(36)
                                         horizontalAlignment: Text.AlignRight
-                                        font.weight: Font.Bold
+                                        font.weight: Design.weight.semibold
                                         dim: true
                                         text: window.defaultMicVol + "%"
                                     }
@@ -670,7 +670,7 @@ PopupShell {
                                         Behavior on color { ColorAnimation { duration: Design.duration.base } }
                                     }
                                     Label {
-                                        font.weight: Font.Black
+                                        font.weight: Design.weight.bold
                                         color: window.activeTab === tabId ? Design.ground : (tabMa.containsMouse ? Design.text : Design.textDim)
                                         text: label
                                         Behavior on color { ColorAnimation { duration: Design.duration.base } }
@@ -809,7 +809,7 @@ PopupShell {
                                         Label {
                                             Layout.fillWidth: true
                                             elide: Text.ElideRight
-                                            font.weight: Font.Bold
+                                            font.weight: Design.weight.semibold
                                             color: isActiveNode ? Design.ground : Design.text
                                             text: model.description
                                         }
@@ -892,7 +892,7 @@ PopupShell {
                                     Label {
                                         role: "caption"
                                         Layout.preferredWidth: Design.s(35)
-                                        font.weight: Font.Bold
+                                        font.weight: Design.weight.semibold
                                         dim: true
                                         text: deviceSlider.shown + "%"
                                         horizontalAlignment: Text.AlignRight

@@ -368,7 +368,7 @@ PopupShell {
                             Layout.fillHeight: true
                             horizontalAlignment: Text.AlignHCenter
                             verticalAlignment: Text.AlignVCenter
-                            font.weight: Font.Medium
+                            font.weight: Design.weight.medium
                             color: Design.textFaint
                             text: "You're all caught up."
                             visible: !notifModel || notifModel.count === 0
@@ -568,7 +568,7 @@ PopupShell {
                                         Label {
                                             role: "caption"
                                             text: model.body || ""
-                                            font.weight: Font.Medium
+                                            font.weight: Design.weight.medium
                                             dim: true
                                             Layout.fillWidth: true
                                             wrapMode: Text.Wrap

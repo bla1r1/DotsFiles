@@ -1,8 +1,8 @@
 import QtQuick
+import "../../Ui"
 import QtQuick.Layouts
-import "." as SettingsUi
 
-SettingsUi.SettingsCard {
+Card {
     id: section
 
     property int dimTimeout: 300
@@ -11,13 +11,6 @@ SettingsUi.SettingsCard {
     property int suspendTimeout: 1200
     property bool dimOnLock: true
     property bool autoSuspend: false
-    property color surface0Color: "#1e1e2e"
-    property color surface1Color: "#313244"
-    property color surface2Color: "#45475a"
-    property color baseColor: "#11111b"
-    property color textColor: "#cdd6f4"
-    property color mutedColor: "#a6adc8"
-    property color peachColor: "#fab387"
     signal dimTimeoutChangedByUser(int value)
     signal lockTimeoutChangedByUser(int value)
     signal dpmsTimeoutChangedByUser(int value)
@@ -27,81 +20,65 @@ SettingsUi.SettingsCard {
 
     title: "Lock & idle"
     subtitle: "Timeouts are in seconds"
-    backgroundColor: Qt.alpha(surface0Color, 0.5)
-    borderColor: surface1Color
-    titleColor: textColor
-    subtitleColor: mutedColor
 
     GridLayout {
         Layout.fillWidth: true
         columns: 2
-        columnSpacing: 12 * section.scaleFactor
-        rowSpacing: 10 * section.scaleFactor
+        columnSpacing: Design.s(12)
+        rowSpacing: Design.s(10)
 
-        Text { text: "Dim"; color: section.mutedColor; font.family: "JetBrains Mono"; font.pixelSize: 11 * section.scaleFactor }
+        Text { text: "Dim"; color: Design.textDim; font.family: Design.font.mono; font.pixelSize: Design.s(11) }
         TextInput {
             text: section.dimTimeout.toString()
-            color: section.textColor
-            font.family: "JetBrains Mono"
-            font.pixelSize: 12 * section.scaleFactor
+            color: Design.text
+            font.family: Design.font.mono
+            font.pixelSize: Design.s(12)
             validator: IntValidator { bottom: 30; top: 86400 }
             onTextChanged: section.dimTimeoutChangedByUser(parseInt(text || "300"))
         }
 
-        Text { text: "Lock"; color: section.mutedColor; font.family: "JetBrains Mono"; font.pixelSize: 11 * section.scaleFactor }
+        Text { text: "Lock"; color: Design.textDim; font.family: Design.font.mono; font.pixelSize: Design.s(11) }
         TextInput {
             text: section.lockTimeout.toString()
-            color: section.textColor
-            font.family: "JetBrains Mono"
-            font.pixelSize: 12 * section.scaleFactor
+            color: Design.text
+            font.family: Design.font.mono
+            font.pixelSize: Design.s(12)
             validator: IntValidator { bottom: 30; top: 86400 }
             onTextChanged: section.lockTimeoutChangedByUser(parseInt(text || "600"))
         }
 
-        Text { text: "DPMS"; color: section.mutedColor; font.family: "JetBrains Mono"; font.pixelSize: 11 * section.scaleFactor }
+        Text { text: "DPMS"; color: Design.textDim; font.family: Design.font.mono; font.pixelSize: Design.s(11) }
         TextInput {
             text: section.dpmsTimeout.toString()
-            color: section.textColor
-            font.family: "JetBrains Mono"
-            font.pixelSize: 12 * section.scaleFactor
+            color: Design.text
+            font.family: Design.font.mono
+            font.pixelSize: Design.s(12)
             validator: IntValidator { bottom: 30; top: 86400 }
             onTextChanged: section.dpmsTimeoutChangedByUser(parseInt(text || "900"))
         }
 
-        Text { text: "Suspend"; color: section.mutedColor; font.family: "JetBrains Mono"; font.pixelSize: 11 * section.scaleFactor }
+        Text { text: "Suspend"; color: Design.textDim; font.family: Design.font.mono; font.pixelSize: Design.s(11) }
         TextInput {
             text: section.suspendTimeout.toString()
             enabled: section.autoSuspend
             opacity: section.autoSuspend ? 1.0 : 0.4
-            color: section.textColor
-            font.family: "JetBrains Mono"
-            font.pixelSize: 12 * section.scaleFactor
+            color: Design.text
+            font.family: Design.font.mono
+            font.pixelSize: Design.s(12)
             validator: IntValidator { bottom: 30; top: 86400 }
             onTextChanged: section.suspendTimeoutChangedByUser(parseInt(text || "1200"))
         }
     }
 
-    SettingsUi.SettingToggle {
+    Toggle {
         label: "Dim while locking"
         checked: section.dimOnLock
-        scaleFactor: section.scaleFactor
-        accentColor: section.peachColor
-        surface2Color: section.surface2Color
-        baseColor: section.baseColor
-        textColor: section.textColor
-        mutedColor: section.mutedColor
         onToggled: section.dimOnLockChangedByUser(!section.dimOnLock)
     }
 
-    SettingsUi.SettingToggle {
+    Toggle {
         label: "Auto suspend"
         checked: section.autoSuspend
-        scaleFactor: section.scaleFactor
-        accentColor: section.peachColor
-        surface2Color: section.surface2Color
-        baseColor: section.baseColor
-        textColor: section.textColor
-        mutedColor: section.mutedColor
         onToggled: section.autoSuspendChangedByUser(!section.autoSuspend)
     }
 }

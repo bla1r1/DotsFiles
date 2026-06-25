@@ -5,20 +5,22 @@ import QtQuick.Window
 import QtCore
 import Quickshell
 import Quickshell.Io
-import "../"
+import "../Ui"
 
-Item {
+PopupShell {
     id: window
+
+    // Durations that are choreography, not styling: a staged entrance, ambient
+    // loops and slow tint crossfades. Deliberately off the motion scale.
+    // PauseAnimation delays are left as they are — that spread is the stagger.
+    readonly property int introDuration: 800
+    readonly property int tintDuration: 1000
+    readonly property int pulsePeriod: 1500
+    readonly property int driftPeriod: 90000
+
     
     // --- Responsive Scaling Logic ---
-    Scaler {
-        id: scaler
-        currentWidth: Screen.width
-    }
     
-    function s(val) { 
-        return scaler.s(val); 
-    }
     
     focus: true
 
@@ -90,18 +92,6 @@ Item {
         } catch(e) {}
     }
 
-    MatugenColors { id: _theme }
-
-    readonly property color base: _theme.base
-    readonly property color mantle: _theme.mantle
-    readonly property color crust: _theme.crust
-    readonly property color text: _theme.text
-    readonly property color subtext0: _theme.subtext0
-    readonly property color overlay0: _theme.overlay0
-    readonly property color overlay1: _theme.overlay1
-    readonly property color surface0: _theme.surface0
-    readonly property color surface1: _theme.surface1
-    readonly property color surface2: _theme.surface2
     
     readonly property color mauve: _theme.mauve
     readonly property color pink: _theme.pink
@@ -113,8 +103,8 @@ Item {
 
     readonly property string scriptsDir: Quickshell.env("HOME") + "/.config/sway/scripts/quickshell/network"
     
-    readonly property color wifiAccent: Qt.lighter(window.sapphire, 1.15) 
-    readonly property color btAccent: window.mauve
+    readonly property color wifiAccent: Qt.lighter(Design.accentSoft, 1.15) 
+    readonly property color btAccent: Design.accentAlt
 
     property string activeMode: "bt"
     readonly property color activeColor: activeMode === "wifi" ? window.wifiAccent : window.btAccent
@@ -213,7 +203,7 @@ Item {
     property var coreVisualIndices: [0, 0, 0, 0, 0]
     property int activeCoreCount: 0
     property real smoothedActiveCoreCount: activeCoreCount
-    Behavior on smoothedActiveCoreCount { NumberAnimation { duration: 1000; easing.type: Easing.InOutExpo } }
+    Behavior on smoothedActiveCoreCount { NumberAnimation { duration: window.introDuration; easing.type: Easing.InOutExpo } }
 
     function syncCores() {
         let wValid = !!window.wifiConnected && window.wifiConnected.ssid !== undefined;
@@ -393,7 +383,7 @@ Item {
     readonly property bool isLogicMultiState: window.activeMode === "bt" && window.activeCoreCount > 1
     
     property real multiTransitionState: (isLogicMultiState && window.currentPower) ? 1.0 : 0.0
-    Behavior on multiTransitionState { NumberAnimation { duration: 1200; easing.type: Easing.InOutExpo } }
+    Behavior on multiTransitionState { NumberAnimation { duration: window.introDuration; easing.type: Easing.InOutExpo } }
 
     function updateInfoNodes() {
         let nodes = [];
@@ -647,24 +637,24 @@ Item {
 
     property real globalOrbitAngle: 0
     NumberAnimation on globalOrbitAngle {
-        from: 0; to: Math.PI * 2; duration: 200000; loops: Animation.Infinite; running: true
+        from: 0; to: Math.PI * 2; duration: window.driftPeriod; loops: Animation.Infinite; running: true
     }
 
     property real introState: 0.0
-    Behavior on introState { NumberAnimation { duration: 1500; easing.type: Easing.OutCubic } }
+    Behavior on introState { NumberAnimation { duration: window.introDuration; easing.type: Easing.OutCubic } }
 
     component LoadingDots : Row {
-        spacing: window.s(5)
-        property color dotCol: window.text
+        spacing: Design.s(5)
+        property color dotCol: Design.text
         Repeater {
             model: 3
             Rectangle {
-                width: window.s(6); height: window.s(6); radius: window.s(3); color: dotCol
+                width: Design.s(6); height: Design.s(6); radius: Design.s(3); color: dotCol
                 SequentialAnimation on y {
                     loops: Animation.Infinite
                     PauseAnimation { duration: index * 100 }
-                    NumberAnimation { from: 0; to: window.s(-6); duration: 250; easing.type: Easing.OutSine }
-                    NumberAnimation { from: window.s(-6); to: 0; duration: 250; easing.type: Easing.InSine }
+                    NumberAnimation { from: 0; to: Design.s(-6); duration: Design.duration.base; easing.type: Easing.OutSine }
+                    NumberAnimation { from: Design.s(-6); to: 0; duration: Design.duration.base; easing.type: Easing.InSine }
                     PauseAnimation { duration: (2 - index) * 100 }
                 }
             }
@@ -676,61 +666,61 @@ Item {
 
         Rectangle {
             anchors.fill: parent
-            radius: window.s(20)
-            color: window.base
-            border.color: window.surface0
+            radius: Design.s(20)
+            color: Design.surface
+            border.color: Design.raised
             border.width: 1
             clip: true
             
             Rectangle {
                 width: parent.width * 0.8; height: width; radius: width / 2
-                x: (parent.width / 2 - width / 2) + Math.cos(window.globalOrbitAngle * 2) * window.s(150)
-                y: (parent.height / 2 - height / 2) + Math.sin(window.globalOrbitAngle * 2) * window.s(100)
+                x: (parent.width / 2 - width / 2) + Math.cos(window.globalOrbitAngle * 2) * Design.s(150)
+                y: (parent.height / 2 - height / 2) + Math.sin(window.globalOrbitAngle * 2) * Design.s(100)
                 opacity: window.currentPower ? 0.08 : 0.02
-                color: window.currentConn ? window.activeColor : window.surface2
-                Behavior on color { ColorAnimation { duration: 1000 } }
-                Behavior on opacity { NumberAnimation { duration: 1000 } }
+                color: window.currentConn ? window.activeColor : Design.active
+                Behavior on color { ColorAnimation { duration: window.tintDuration } }
+                Behavior on opacity { NumberAnimation { duration: window.introDuration } }
                 visible: opacity > 0.01
             }
             
             Rectangle {
                 width: parent.width * 0.9; height: width; radius: width / 2
-                x: (parent.width / 2 - width / 2) + Math.sin(window.globalOrbitAngle * 1.5) * window.s(-150)
-                y: (parent.height / 2 - height / 2) + Math.cos(window.globalOrbitAngle * 1.5) * window.s(-100)
+                x: (parent.width / 2 - width / 2) + Math.sin(window.globalOrbitAngle * 1.5) * Design.s(-150)
+                y: (parent.height / 2 - height / 2) + Math.cos(window.globalOrbitAngle * 1.5) * Design.s(-100)
                 opacity: window.currentPower ? 0.06 : 0.01
-                color: window.currentConn ? window.activeGradientSecondary : window.surface1
-                Behavior on color { ColorAnimation { duration: 1000 } }
-                Behavior on opacity { NumberAnimation { duration: 1000 } }
+                color: window.currentConn ? window.activeGradientSecondary : Design.hover
+                Behavior on color { ColorAnimation { duration: window.tintDuration } }
+                Behavior on opacity { NumberAnimation { duration: window.introDuration } }
                 visible: opacity > 0.01
             }
 
             Item {
                 id: radarItem
                 anchors.fill: parent
-                anchors.bottomMargin: window.s(80) 
+                anchors.bottomMargin: Design.s(80) 
                 opacity: window.currentPower ? 1.0 : 0.0
                 scale: window.currentPower ? 1.0 : 1.05
                 visible: opacity > 0.01
-                Behavior on opacity { NumberAnimation { duration: 600; easing.type: Easing.InOutQuad } }
-                Behavior on scale { NumberAnimation { duration: 600; easing.type: Easing.OutCubic } }
+                Behavior on opacity { NumberAnimation { duration: window.introDuration; easing.type: Easing.InOutQuad } }
+                Behavior on scale { NumberAnimation { duration: window.introDuration; easing.type: Easing.OutCubic } }
                 
                 Repeater {
                     model: 3
                     Rectangle {
                         anchors.centerIn: parent
-                        width: window.s(280) + (index * window.s(170))
+                        width: Design.s(280) + (index * Design.s(170))
                         height: width
                         radius: width / 2
                         color: "transparent"
                         
-                        border.color: Object.keys(window.disconnectingDevices).length > 0 ? window.red : window.activeColor
-                        border.width: Object.keys(window.disconnectingDevices).length > 0 ? window.s(2) : 1
+                        border.color: Object.keys(window.disconnectingDevices).length > 0 ? Design.danger : window.activeColor
+                        border.width: Object.keys(window.disconnectingDevices).length > 0 ? Design.s(2) : 1
                         
-                        Behavior on border.color { ColorAnimation { duration: 150 } }
-                        Behavior on border.width { NumberAnimation { duration: 150 } }
+                        Behavior on border.color { ColorAnimation { duration: Design.duration.fast } }
+                        Behavior on border.width { NumberAnimation { duration: Design.duration.fast } }
 
                         opacity: Object.keys(window.disconnectingDevices).length > 0 ? 0.2 : (window.currentConn ? 0.08 - (index * 0.02) : 0.03)
-                        Behavior on opacity { NumberAnimation { duration: 150 } }
+                        Behavior on opacity { NumberAnimation { duration: Design.duration.fast } }
                     }
                 }
             }
@@ -738,13 +728,13 @@ Item {
             Canvas {
                 id: nodeLinesCanvas
                 anchors.fill: parent
-                anchors.bottomMargin: window.s(80)
+                anchors.bottomMargin: Design.s(80)
                 z: 0 
                 opacity: (window.currentConn && window.showInfoView && window.currentPower) ? 1.0 : 0.0
                 visible: opacity > 0.01
-                Behavior on opacity { NumberAnimation { duration: 500 } }
+                Behavior on opacity { NumberAnimation { duration: Design.duration.slow } }
                 
-                property real scaleTrigger: window.s(1)
+                property real scaleTrigger: Design.s(1)
                 onScaleTriggerChanged: requestPaint()
 
                 Timer {
@@ -866,7 +856,7 @@ Item {
             Item {
                 id: orbitContainer
                 anchors.fill: parent
-                anchors.bottomMargin: window.s(80) 
+                anchors.bottomMargin: Design.s(80) 
                 z: 1
 
                 // =========================================================
@@ -889,23 +879,23 @@ Item {
                         
                         Behavior on activeTransition { 
                             enabled: window.introState >= 1.0; 
-                            NumberAnimation { duration: 1400; easing.type: Easing.OutExpo } 
+                            NumberAnimation { duration: window.introDuration; easing.type: Easing.OutExpo } 
                         }
 
                         property real multiShift: window.activeMode === "wifi" ? 0.0 : window.multiTransitionState
 
                         // Auto scale down cores as devices fill ring
-                        width: window.currentPower ? (window.s(200) - (window.s(30) * multiShift) - (window.s(15) * Math.max(0, window.smoothedActiveCoreCount - 2))) : window.s(160)
+                        width: window.currentPower ? (Design.s(200) - (Design.s(30) * multiShift) - (Design.s(15) * Math.max(0, window.smoothedActiveCoreCount - 2))) : Design.s(160)
                         height: width
                         
                         property real myBaseAngle: (window.coreVisualIndices[index] / Math.max(1, window.activeCoreCount)) * Math.PI * 2
                         property real animatedBaseAngle: myBaseAngle
-                        Behavior on animatedBaseAngle { NumberAnimation { duration: 1000; easing.type: Easing.InOutExpo } }
+                        Behavior on animatedBaseAngle { NumberAnimation { duration: window.introDuration; easing.type: Easing.InOutExpo } }
                         
                         property real coreOrbitAngle: window.globalOrbitAngle * 1.5 + animatedBaseAngle
                         
-                        property real myOrbitRadiusX: window.s(180) + (window.activeCoreCount > 2 ? window.s(20) : 0)
-                        property real myOrbitRadiusY: window.s(110) + (window.activeCoreCount > 2 ? window.s(15) : 0)
+                        property real myOrbitRadiusX: Design.s(180) + (window.activeCoreCount > 2 ? Design.s(20) : 0)
+                        property real myOrbitRadiusY: Design.s(110) + (window.activeCoreCount > 2 ? Design.s(15) : 0)
 
                         x: (orbitContainer.width / 2 - width / 2) + (Math.cos(coreOrbitAngle) * myOrbitRadiusX * multiShift * activeTransition)
                         y: (orbitContainer.height / 2 - height / 2) + (Math.sin(coreOrbitAngle) * myOrbitRadiusY * multiShift * activeTransition)
@@ -930,9 +920,9 @@ Item {
                             shadowColor: "#000000"
                             shadowOpacity: window.currentPower ? 0.5 : 0.0
                             shadowBlur: 1.2
-                            shadowVerticalOffset: window.s(6)
+                            shadowVerticalOffset: Design.s(6)
                             z: -1
-                            Behavior on shadowOpacity { NumberAnimation { duration: 600 } }
+                            Behavior on shadowOpacity { NumberAnimation { duration: window.introDuration } }
                         }
 
                         Rectangle {
@@ -949,8 +939,8 @@ Item {
                             SequentialAnimation on bumpScale {
                                 id: coreBumpAnim
                                 running: false
-                                NumberAnimation { to: 1.15; duration: 200; easing.type: Easing.OutBack }
-                                NumberAnimation { to: 1.0; duration: 600; easing.type: Easing.OutQuint }
+                                NumberAnimation { to: 1.15; duration: Design.duration.base; easing.type: Easing.OutBack }
+                                NumberAnimation { to: 1.0; duration: window.introDuration; easing.type: Easing.OutQuint }
                             }
 
                             gradient: Gradient {
@@ -958,40 +948,40 @@ Item {
                                 GradientStop {
                                     position: 0.0
                                     color: {
-                                        if (!window.currentPower) return window.mantle;
-                                        if (isMyDisconnecting) return window.surface0; 
-                                        if (centralCore.isDangerState && window.currentConn && !showPassword) return Qt.lighter(window.red, 1.15);
-                                        return window.currentConn || showPassword ? Qt.lighter(window.activeColor, 1.15) : window.surface0;
+                                        if (!window.currentPower) return Design.sunken;
+                                        if (isMyDisconnecting) return Design.raised; 
+                                        if (centralCore.isDangerState && window.currentConn && !showPassword) return Qt.lighter(Design.danger, 1.15);
+                                        return window.currentConn || showPassword ? Qt.lighter(window.activeColor, 1.15) : Design.raised;
                                     }
-                                    Behavior on color { ColorAnimation { duration: 300 } }
+                                    Behavior on color { ColorAnimation { duration: Design.duration.base } }
                                 }
                                 GradientStop {
                                     position: 1.0
                                     color: {
-                                        if (!window.currentPower) return window.crust;
-                                        if (isMyDisconnecting) return window.base; 
-                                        if (centralCore.isDangerState && window.currentConn && !showPassword) return window.red;
-                                        return window.currentConn || showPassword ? window.activeColor : window.base;
+                                        if (!window.currentPower) return Design.ground;
+                                        if (isMyDisconnecting) return Design.surface; 
+                                        if (centralCore.isDangerState && window.currentConn && !showPassword) return Design.danger;
+                                        return window.currentConn || showPassword ? window.activeColor : Design.surface;
                                     }
-                                    Behavior on color { ColorAnimation { duration: 300 } }
+                                    Behavior on color { ColorAnimation { duration: Design.duration.base } }
                                 }
                             }
 
                             border.color: {
-                                if (!window.currentPower) return window.crust;
-                                if (isMyDisconnecting) return window.surface0;
-                                if (centralCore.isDangerState && window.currentConn && !showPassword) return window.maroon;
-                                return window.currentConn || showPassword ? Qt.lighter(window.activeColor, 1.1) : window.surface1;
+                                if (!window.currentPower) return Design.ground;
+                                if (isMyDisconnecting) return Design.raised;
+                                if (centralCore.isDangerState && window.currentConn && !showPassword) return Design.danger;
+                                return window.currentConn || showPassword ? Qt.lighter(window.activeColor, 1.1) : Design.hover;
                             }
-                            border.width: window.s(2)
-                            Behavior on border.color { ColorAnimation { duration: 300 } }
+                            border.width: Design.s(2)
+                            Behavior on border.color { ColorAnimation { duration: Design.duration.base } }
                             
                             Rectangle {
                                 anchors.fill: parent
                                 radius: parent.radius
                                 color: "#ffffff"
                                 opacity: centralCore.flashOpacity
-                                PropertyAnimation on opacity { id: coreFlashAnim; to: 0; duration: 500; easing.type: Easing.OutExpo }
+                                PropertyAnimation on opacity { id: coreFlashAnim; to: 0; duration: Design.duration.slow; easing.type: Easing.OutExpo }
                             }
 
                             Canvas {
@@ -1000,14 +990,14 @@ Item {
                                 visible: centralCore.disconnectFill > 0
                                 opacity: 0.95
                                 
-                                property real scaleTrigger: window.s(1)
+                                property real scaleTrigger: Design.s(1)
                                 onScaleTriggerChanged: requestPaint()
 
                                 property real wavePhase: 0.0
                                 NumberAnimation on wavePhase {
                                     running: centralCore.disconnectFill > 0.0 && centralCore.disconnectFill < 1.0
                                     loops: Animation.Infinite
-                                    from: 0; to: Math.PI * 2; duration: 800
+                                    from: 0; to: Math.PI * 2; duration: window.introDuration
                                 }
                                 onWavePhaseChanged: requestPaint()
                                 Connections { target: centralCore; function onDisconnectFillChanged() { coreWave.requestPaint() } }
@@ -1043,8 +1033,8 @@ Item {
                                     ctx.closePath();
                                     
                                     var grad = ctx.createLinearGradient(0, 0, 0, height);
-                                    grad.addColorStop(0, window.surface1.toString()); 
-                                    grad.addColorStop(1, window.crust.toString());
+                                    grad.addColorStop(0, Design.hover.toString()); 
+                                    grad.addColorStop(1, Design.ground.toString());
                                     ctx.fillStyle = grad;
                                     ctx.fill();
                                     ctx.restore();
@@ -1053,31 +1043,31 @@ Item {
 
                             Rectangle {
                                 anchors.centerIn: parent
-                                width: parent.width + window.s(40)
+                                width: parent.width + Design.s(40)
                                 height: width
                                 radius: width / 2
-                                color: centralCore.isDangerState && window.currentConn && !showPassword ? window.red : window.activeColor
+                                color: centralCore.isDangerState && window.currentConn && !showPassword ? Design.danger : window.activeColor
                                 opacity: (window.currentConn || showPassword) && !isMyDisconnecting ? (centralCore.isDangerState && !showPassword ? 0.3 : 0.15) : 0.0
                                 z: -1
-                                Behavior on color { ColorAnimation { duration: 200 } }
-                                Behavior on opacity { NumberAnimation { duration: 300 } }
+                                Behavior on color { ColorAnimation { duration: Design.duration.base } }
+                                Behavior on opacity { NumberAnimation { duration: Design.duration.base } }
                                 
                                 // Fixed duration breathing to prevent lag spikes
                                 SequentialAnimation on scale {
                                     loops: Animation.Infinite; running: window.currentConn || showPassword
-                                    NumberAnimation { to: 1.1; duration: 2000; easing.type: Easing.InOutSine }
-                                    NumberAnimation { to: 1.0; duration: 2000; easing.type: Easing.InOutSine }
+                                    NumberAnimation { to: 1.1; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
+                                    NumberAnimation { to: 1.0; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
                                 }
                             }
                             
                             Rectangle {
                                 anchors.centerIn: parent
-                                width: parent.width + window.s(15)
+                                width: parent.width + Design.s(15)
                                 height: width
                                 radius: width / 2
                                 color: "transparent"
-                                border.color: centralCore.isDangerState && !showPassword ? window.red : window.activeColor
-                                border.width: window.s(3)
+                                border.color: centralCore.isDangerState && !showPassword ? Design.danger : window.activeColor
+                                border.width: Design.s(3)
                                 z: -2
                                 
                                 property real pulseOp: 0.0
@@ -1102,23 +1092,23 @@ Item {
                                 anchors.fill: parent
                                 opacity: showOffline ? 1.0 : 0.0
                                 visible: opacity > 0.01
-                                Behavior on opacity { NumberAnimation { duration: 400 } }
+                                Behavior on opacity { NumberAnimation { duration: Design.duration.slow } }
                                 
                                 Rectangle {
                                     anchors.centerIn: parent
                                     width: parent.width * 0.7; height: width; radius: width/2
-                                    color: window.surface0
+                                    color: Design.raised
                                     SequentialAnimation on scale {
                                         running: showOffline; loops: Animation.Infinite
-                                        NumberAnimation { to: 1.05; duration: 2000; easing.type: Easing.InOutSine }
-                                        NumberAnimation { to: 1.0; duration: 2000; easing.type: Easing.InOutSine }
+                                        NumberAnimation { to: 1.05; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
+                                        NumberAnimation { to: 1.0; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
                                     }
                                 }
                                 Text {
                                     anchors.centerIn: parent
-                                    font.family: "Iosevka Nerd Font"
-                                    font.pixelSize: window.s(48) - (window.s(16) * coreContainer.multiShift)
-                                    color: window.surface2
+                                    font.family: Design.font.icon
+                                    font.pixelSize: Design.s(48) - (Design.s(16) * coreContainer.multiShift)
+                                    color: Design.active
                                     text: window.activeMode === "wifi" ? "󰤮" : "󰂲"
                                 }
                             }
@@ -1128,7 +1118,7 @@ Item {
                                 anchors.fill: parent
                                 opacity: showScanning ? 1.0 : 0.0
                                 visible: opacity > 0.01
-                                Behavior on opacity { NumberAnimation { duration: 400 } }
+                                Behavior on opacity { NumberAnimation { duration: Design.duration.slow } }
 
                                 Repeater {
                                     model: 3
@@ -1136,29 +1126,29 @@ Item {
                                         anchors.centerIn: parent
                                         width: parent.width * 0.4; height: width; radius: width / 2
                                         color: "transparent"
-                                        border.color: window.activeColor; border.width: window.s(2)
+                                        border.color: window.activeColor; border.width: Design.s(2)
                                         SequentialAnimation on scale {
                                             running: showScanning; loops: Animation.Infinite
                                             PauseAnimation { duration: index * 400 }
-                                            NumberAnimation { from: 1.0; to: 2.5; duration: 2000; easing.type: Easing.OutSine }
+                                            NumberAnimation { from: 1.0; to: 2.5; duration: window.introDuration; easing.type: Easing.OutSine }
                                         }
                                         SequentialAnimation on opacity {
                                             running: showScanning; loops: Animation.Infinite
                                             PauseAnimation { duration: index * 400 }
-                                            NumberAnimation { from: 0.8; to: 0.0; duration: 2000; easing.type: Easing.OutSine }
+                                            NumberAnimation { from: 0.8; to: 0.0; duration: window.introDuration; easing.type: Easing.OutSine }
                                         }
                                     }
                                 }
                                 Text {
                                     anchors.centerIn: parent
-                                    font.family: "Iosevka Nerd Font"
-                                    font.pixelSize: window.s(48) - (window.s(16) * coreContainer.multiShift)
+                                    font.family: Design.font.icon
+                                    font.pixelSize: Design.s(48) - (Design.s(16) * coreContainer.multiShift)
                                     color: window.activeColor
                                     text: window.activeMode === "wifi" ? "󰤨" : "󰂯"
                                     SequentialAnimation on opacity {
                                         running: showScanning; loops: Animation.Infinite
-                                        NumberAnimation { to: 0.5; duration: 1000; easing.type: Easing.InOutSine }
-                                        NumberAnimation { to: 1.0; duration: 1000; easing.type: Easing.InOutSine }
+                                        NumberAnimation { to: 0.5; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
+                                        NumberAnimation { to: 1.0; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
                                     }
                                 }
                             }
@@ -1170,36 +1160,39 @@ Item {
                                 opacity: showPassword ? 1.0 : 0.0
                                 visible: opacity > 0.01
                                 scale: showPassword ? 1.0 : 0.8
-                                Behavior on scale { NumberAnimation { duration: 400; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
-                                Behavior on opacity { NumberAnimation { duration: 300; easing.type: Easing.OutSine } }
+                                Behavior on scale { NumberAnimation { duration: Design.duration.slow; easing.type: Easing.OutBack; easing.overshoot: 1.5 } }
+                                Behavior on opacity { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutSine } }
                                 
                                 ColumnLayout {
                                     anchors.centerIn: parent
-                                    spacing: window.s(8)
+                                    spacing: Design.s(8)
                                     
-                                    Text { Layout.alignment: Qt.AlignHCenter; font.family: "Iosevka Nerd Font"; font.pixelSize: window.s(32); color: window.crust; text: "󰤨" }
+                                    Icon { role: "display"; Layout.alignment: Qt.AlignHCenter; color: Design.ground; text: "󰤨" }
                                     
-                                    Text { 
-                                        Layout.alignment: Qt.AlignHCenter; Layout.maximumWidth: pwdLayer.width - window.s(40)
-                                        font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: window.s(13)
-                                        color: window.crust; text: window.pendingWifiSsid; elide: Text.ElideRight 
+                                    Label {
+                                        Layout.alignment: Qt.AlignHCenter
+                                        Layout.maximumWidth: pwdLayer.width - Design.s(40)
+                                        font.weight: Design.weight.semibold
+                                        color: Design.ground
+                                        text: window.pendingWifiSsid
+                                        elide: Text.ElideRight
                                     }
                                     
                                     Rectangle {
                                         Layout.alignment: Qt.AlignHCenter
-                                        Layout.preferredWidth: pwdLayer.width - window.s(40); height: window.s(36)
-                                        radius: window.s(18)
-                                        color: window.surface0
-                                        border.color: wifiPasswordField.activeFocus ? window.crust : "transparent"
+                                        Layout.preferredWidth: pwdLayer.width - Design.s(40); height: Design.s(36)
+                                        radius: Design.s(18)
+                                        color: Design.raised
+                                        border.color: wifiPasswordField.activeFocus ? Design.ground : "transparent"
                                         border.width: 1
-                                        Behavior on border.color { ColorAnimation { duration: 200 } }
+                                        Behavior on border.color { ColorAnimation { duration: Design.duration.base } }
                                         
                                         TextInput {
                                             id: wifiPasswordField
                                             anchors.fill: parent
-                                            anchors.leftMargin: window.s(15); anchors.rightMargin: window.s(15)
+                                            anchors.leftMargin: Design.s(15); anchors.rightMargin: Design.s(15)
                                             verticalAlignment: TextInput.AlignVCenter
-                                            font.family: "JetBrains Mono"; font.pixelSize: window.s(13); color: window.text
+                                            font.family: Design.font.mono; font.pixelSize: Design.s(13); color: Design.text
                                             echoMode: TextInput.Password; clip: true
                                             onAccepted: {
                                                 if (text.trim() !== "") {
@@ -1232,40 +1225,41 @@ Item {
                                 opacity: showConnected ? 1.0 : 0.0
                                 visible: opacity > 0.01
                                 scale: showConnected ? 1.0 : 0.95
-                                Behavior on scale { NumberAnimation { duration: 400; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
-                                Behavior on opacity { NumberAnimation { duration: 300; easing.type: Easing.OutSine } }
+                                Behavior on scale { NumberAnimation { duration: Design.duration.slow; easing.type: Easing.OutBack; easing.overshoot: 1.2 } }
+                                Behavior on opacity { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutSine } }
 
                                 ColumnLayout {
                                     id: baseCoreText
                                     anchors.centerIn: parent
-                                    spacing: window.s(4)
+                                    spacing: Design.s(4)
 
                                     Text {
                                         Layout.alignment: Qt.AlignHCenter
-                                        font.family: "Iosevka Nerd Font"
-                                        font.pixelSize: window.s(48) - (window.s(16) * coreContainer.multiShift)
-                                        color: isMyDisconnecting ? window.overlay1 : window.crust
+                                        font.family: Design.font.icon
+                                        font.pixelSize: Design.s(48) - (Design.s(16) * coreContainer.multiShift)
+                                        color: isMyDisconnecting ? Design.textFaint : Design.ground
                                         text: isMyDisconnecting ? "" : (coreMa.containsMouse ? (window.activeMode === "wifi" ? "󰖪" : "󰂲") : (coreContainer.myDevice ? (coreContainer.myDevice.icon || (window.activeMode === "wifi" ? "󰤨" : "󰂯")) : ""))
-                                        Behavior on color { ColorAnimation { duration: 200 } }
+                                        Behavior on color { ColorAnimation { duration: Design.duration.base } }
                                     }
-                                    LoadingDots { Layout.alignment: Qt.AlignHCenter; visible: isMyDisconnecting; dotCol: window.overlay1 }
+                                    LoadingDots { Layout.alignment: Qt.AlignHCenter; visible: isMyDisconnecting; dotCol: Design.textFaint }
                                     Text {
                                         Layout.alignment: Qt.AlignHCenter
-                                        Layout.maximumWidth: window.s(150) - (window.s(50) * coreContainer.multiShift)
+                                        Layout.maximumWidth: Design.s(150) - (Design.s(50) * coreContainer.multiShift)
                                         horizontalAlignment: Text.AlignHCenter
-                                        font.family: "JetBrains Mono"; font.weight: Font.Black
-                                        font.pixelSize: window.s(16) - (window.s(4) * coreContainer.multiShift)
-                                        color: isMyDisconnecting ? window.overlay1 : window.crust
+                                        font.family: Design.font.mono; font.weight: Design.weight.bold
+                                        font.pixelSize: Design.s(16) - (Design.s(4) * coreContainer.multiShift)
+                                        color: isMyDisconnecting ? Design.textFaint : Design.ground
                                         text: coreContainer.myDevice ? (window.activeMode === "wifi" ? coreContainer.myDevice.ssid : coreContainer.myDevice.name) : ""
                                         elide: Text.ElideRight
-                                        Behavior on color { ColorAnimation { duration: 200 } }
+                                        Behavior on color { ColorAnimation { duration: Design.duration.base } }
                                     }
-                                    Text {
+                                    Label {
+                                        role: "caption"
                                         Layout.alignment: Qt.AlignHCenter
-                                        font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: window.s(11)
-                                        color: isMyDisconnecting ? window.overlay1 : (coreMa.containsMouse ? window.crust : "#99000000")
+                                        font.weight: Design.weight.semibold
+                                        color: isMyDisconnecting ? Design.textFaint : (coreMa.containsMouse ? Design.ground : "#99000000")
                                         text: isMyDisconnecting ? "Disconnecting..." : (centralCore.disconnectFill > 0.01 ? "Hold..." : "Connected")
-                                        Behavior on color { ColorAnimation { duration: 200 } }
+                                        Behavior on color { ColorAnimation { duration: Design.duration.base } }
                                     }
                                 }
 
@@ -1274,49 +1268,46 @@ Item {
                                     anchors.bottom: parent.bottom
                                     anchors.left: parent.left
                                     anchors.right: parent.right
-                                    height: Math.min(parent.height, Math.max(0, parent.height * centralCore.disconnectFill + window.s(8)))
+                                    height: Math.min(parent.height, Math.max(0, parent.height * centralCore.disconnectFill + Design.s(8)))
                                     clip: true
                                     visible: centralCore.disconnectFill > 0
 
                                     ColumnLayout {
-                                        spacing: window.s(4)
+                                        spacing: Design.s(4)
                                         x: waveClipItem.width / 2 - width / 2
                                         y: (centralCore.height / 2) - (height / 2) - (centralCore.height - waveClipItem.height)
 
                                         Text {
                                             Layout.alignment: Qt.AlignHCenter
-                                            font.family: "Iosevka Nerd Font"
-                                            font.pixelSize: window.s(48) - (window.s(16) * coreContainer.multiShift)
-                                            color: window.text
+                                            font.family: Design.font.icon
+                                            font.pixelSize: Design.s(48) - (Design.s(16) * coreContainer.multiShift)
+                                            color: Design.text
                                             text: isMyDisconnecting ? "" : (coreMa.containsMouse ? (window.activeMode === "wifi" ? "󰖪" : "󰂲") : (coreContainer.myDevice ? (coreContainer.myDevice.icon || (window.activeMode === "wifi" ? "󰤨" : "󰂯")) : ""))
                                         }
-                                        LoadingDots { Layout.alignment: Qt.AlignHCenter; visible: isMyDisconnecting; dotCol: window.text }
+                                        LoadingDots { Layout.alignment: Qt.AlignHCenter; visible: isMyDisconnecting; dotCol: Design.text }
                                         Text {
                                             Layout.alignment: Qt.AlignHCenter
-                                            Layout.maximumWidth: window.s(150) - (window.s(50) * coreContainer.multiShift)
+                                            Layout.maximumWidth: Design.s(150) - (Design.s(50) * coreContainer.multiShift)
                                             horizontalAlignment: Text.AlignHCenter
-                                            font.family: "JetBrains Mono"; font.weight: Font.Black
-                                            font.pixelSize: window.s(16) - (window.s(4) * coreContainer.multiShift)
-                                            color: window.text
+                                            font.family: Design.font.mono; font.weight: Design.weight.bold
+                                            font.pixelSize: Design.s(16) - (Design.s(4) * coreContainer.multiShift)
+                                            color: Design.text
                                             text: coreContainer.myDevice ? (window.activeMode === "wifi" ? coreContainer.myDevice.ssid : coreContainer.myDevice.name) : ""
                                             elide: Text.ElideRight
                                         }
-                                        Text {
+                                        Label {
+                                            role: "caption"
                                             Layout.alignment: Qt.AlignHCenter
-                                            font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: window.s(11)
-                                            color: window.text
+                                            font.weight: Design.weight.semibold
                                             text: isMyDisconnecting ? "Disconnecting..." : (centralCore.disconnectFill > 0.01 ? "Hold..." : "Connected")
                                         }
                                     }
                                 }
                             }
 
-                            MouseArea {
+                            Clickable {
                                 id: coreMa
-                                anchors.fill: parent
-                                hoverEnabled: true
                                 cursorShape: window.currentConn && !isMyDisconnecting && !showPassword ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                
                                 onPressed: {
                                     if (window.currentConn && !isMyDisconnecting && !centralCore.disconnectTriggered && !showPassword) {
                                         coreDrainAnim.stop();
@@ -1336,7 +1327,7 @@ Item {
                                 target: centralCore
                                 property: "disconnectFill"
                                 to: 1.0
-                                duration: 700 * (1.0 - centralCore.disconnectFill) 
+                                duration: window.introDuration * (1.0 - centralCore.disconnectFill) 
                                 easing.type: Easing.InSine
                                 onFinished: {
                                     centralCore.disconnectTriggered = true;
@@ -1368,7 +1359,7 @@ Item {
                                 target: centralCore
                                 property: "disconnectFill"
                                 to: 0.0
-                                duration: 1000 * centralCore.disconnectFill 
+                                duration: window.introDuration * centralCore.disconnectFill 
                                 easing.type: Easing.OutQuad
                             }
                         }
@@ -1382,7 +1373,7 @@ Item {
                     anchors.fill: parent
                     opacity: window.currentPower ? 1.0 : 0.0
                     visible: opacity > 0.01
-                    Behavior on opacity { NumberAnimation { duration: 600; easing.type: Easing.InOutQuad } }
+                    Behavior on opacity { NumberAnimation { duration: window.introDuration; easing.type: Easing.InOutQuad } }
 
                     Repeater {
                         id: orbitRepeater
@@ -1390,15 +1381,15 @@ Item {
                         
                         delegate: Item {
                             id: floatCardDelegateContainer
-                            width: window.s(170); height: window.s(60)
+                            width: Design.s(170); height: Design.s(60)
 
                             property bool isLoaded: false
                             opacity: isLoaded ? 1.0 : 0.0
                             visible: opacity > 0.01
-                            Behavior on opacity { NumberAnimation { duration: 400; easing.type: Easing.OutQuint } }
+                            Behavior on opacity { NumberAnimation { duration: Design.duration.slow; easing.type: Easing.OutQuint } }
 
                             property real entryAnim: isLoaded ? 1.0 : 0.0
-                            Behavior on entryAnim { NumberAnimation { duration: 600; easing.type: Easing.OutBack } }
+                            Behavior on entryAnim { NumberAnimation { duration: window.introDuration; easing.type: Easing.OutBack } }
 
                             Timer {
                                 running: true
@@ -1446,35 +1437,35 @@ Item {
                             
                             property real targetSingleBaseAngle: (index / Math.max(1, orbitRepeater.count)) * Math.PI * 2
                             property real singleBaseAngle: targetSingleBaseAngle
-                            Behavior on singleBaseAngle { NumberAnimation { duration: 800; easing.type: Easing.OutExpo } }
+                            Behavior on singleBaseAngle { NumberAnimation { duration: window.introDuration; easing.type: Easing.OutExpo } }
 
                             property real singleLiveAngle: (window.globalOrbitAngle * 1.5) + singleBaseAngle
                             
                             property real arcSpread: Math.PI * 0.8 
                             property real targetNodeOffset: (siblingsCount > 1) ? ((localIndex / (siblingsCount - 1)) - 0.5) * arcSpread : 0
                             property real nodeOffset: targetNodeOffset
-                            Behavior on nodeOffset { NumberAnimation { duration: 800; easing.type: Easing.OutExpo } }
+                            Behavior on nodeOffset { NumberAnimation { duration: window.introDuration; easing.type: Easing.OutExpo } }
 
                             property real parentCoreAngle: (window.globalOrbitAngle * 1.5) + parentBaseAngle
                             property real multiLiveAngle: myParentIdx === -1 ? singleLiveAngle : (parentCoreAngle + nodeOffset)
 
                             property int ringIndex: isInfoNode ? 0 : index % 2
-                            property real targetRingOffset: ringIndex * window.s(40)
+                            property real targetRingOffset: ringIndex * Design.s(40)
                             property real ringOffset: targetRingOffset
-                            Behavior on ringOffset { NumberAnimation { duration: 800; easing.type: Easing.OutExpo } }
+                            Behavior on ringOffset { NumberAnimation { duration: window.introDuration; easing.type: Easing.OutExpo } }
 
-                            property real singleRadX: isInfoNode ? window.s(280) : window.s(320) + ringOffset
-                            property real singleRadY: isInfoNode ? window.s(180) : window.s(200) + ringOffset
+                            property real singleRadX: isInfoNode ? Design.s(280) : Design.s(320) + ringOffset
+                            property real singleRadY: isInfoNode ? Design.s(180) : Design.s(200) + ringOffset
                             
-                            property real multiRadX: isInfoNode ? (myParentIdx === -1 ? 0 : (window.activeCoreCount > 2 ? window.s(180) : window.s(160))) : window.s(340) + ringOffset
-                            property real multiRadY: isInfoNode ? (myParentIdx === -1 ? 0 : (window.activeCoreCount > 2 ? window.s(180) : window.s(160))) : window.s(240) + ringOffset
+                            property real multiRadX: isInfoNode ? (myParentIdx === -1 ? 0 : (window.activeCoreCount > 2 ? Design.s(180) : Design.s(160))) : Design.s(340) + ringOffset
+                            property real multiRadY: isInfoNode ? (myParentIdx === -1 ? 0 : (window.activeCoreCount > 2 ? Design.s(180) : Design.s(160))) : Design.s(240) + ringOffset
 
                             property real currentRadX: (singleRadX * (1 - unifiedRatio)) + (multiRadX * unifiedRatio)
                             property real currentRadY: (singleRadY * (1 - unifiedRatio)) + (multiRadY * unifiedRatio)
                             property real currentAngle: (singleLiveAngle * (1 - unifiedRatio)) + (multiLiveAngle * unifiedRatio)
                             
-                            property real pwrDrift: window.currentPower ? 0 : window.s(40)
-                            Behavior on pwrDrift { NumberAnimation { duration: 600; easing.type: Easing.OutQuint } }
+                            property real pwrDrift: window.currentPower ? 0 : Design.s(40)
+                            Behavior on pwrDrift { NumberAnimation { duration: window.introDuration; easing.type: Easing.OutQuint } }
 
                             property real animRadX: (currentRadX + pwrDrift) * (0.25 + 0.75 * entryAnim)
                             property real animRadY: (currentRadY + pwrDrift) * (0.25 + 0.75 * entryAnim)
@@ -1488,14 +1479,14 @@ Item {
                                 : parentY - (height / 2) + Math.sin(currentAngle) * animRadY
 
                             property real liveBob: myParentIdx === -1 && isInfoNode 
-                                ? Math.sin(window.globalOrbitAngle * 6) * window.s(12) * (1 - unifiedRatio) 
+                                ? Math.sin(window.globalOrbitAngle * 6) * Design.s(12) * (1 - unifiedRatio) 
                                 : 0
 
                             x: targetX
                             y: targetY + liveBob
 
                             scale: (!isLoaded ? 0.0 : (floatMa.pressed ? dynamicScale * 0.95 : (floatCard.locksList ? dynamicScale * 1.08 : dynamicScale))) * floatCard.bumpScale
-                            Behavior on scale { NumberAnimation { duration: 400; easing.type: Easing.OutQuart } }
+                            Behavior on scale { NumberAnimation { duration: Design.duration.slow; easing.type: Easing.OutQuart } }
                             z: floatCard.locksList ? 10 : index
 
                             MultiEffect {
@@ -1505,14 +1496,14 @@ Item {
                                 shadowColor: "#000000"
                                 shadowOpacity: 0.3
                                 shadowBlur: 0.8
-                                shadowVerticalOffset: window.s(4)
+                                shadowVerticalOffset: Design.s(4)
                                 z: -1
                             }
 
                             Rectangle {
                                 id: floatCard
                                 anchors.fill: parent
-                                radius: window.s(14)
+                                radius: Design.s(14)
                                 
                                 property string itemId: id
                                 property string itemName: name
@@ -1542,8 +1533,8 @@ Item {
                                 SequentialAnimation on bumpScale {
                                     id: cardBumpAnim
                                     running: false
-                                    NumberAnimation { to: 1.2; duration: 200; easing.type: Easing.OutBack }
-                                    NumberAnimation { to: 1.0; duration: 600; easing.type: Easing.OutQuint }
+                                    NumberAnimation { to: 1.2; duration: Design.duration.base; easing.type: Easing.OutBack }
+                                    NumberAnimation { to: 1.0; duration: window.introDuration; easing.type: Easing.OutQuint }
                                 }
 
                                 property real nameImplicitWidth: baseNameText.implicitWidth
@@ -1554,11 +1545,11 @@ Item {
                                 SequentialAnimation on textOffset {
                                     running: floatCard.doMarquee
                                     loops: Animation.Infinite
-                                    PauseAnimation { duration: 600 } 
+                                    PauseAnimation { duration: window.introDuration } 
                                     NumberAnimation {
                                         from: 0
-                                        to: -(floatCard.nameImplicitWidth + window.s(30))
-                                        duration: (floatCard.nameImplicitWidth + window.s(30)) * 35
+                                        to: -(floatCard.nameImplicitWidth + Design.s(30))
+                                        duration: (floatCard.nameImplicitWidth + Design.s(30)) * 35
                                     }
                                 }
                                 onDoMarqueeChanged: if (!doMarquee) textOffset = 0;
@@ -1586,59 +1577,59 @@ Item {
                                     }
                                 }
 
-                                color: locksList ? "#2affffff" : "#0effffff"
-                                Behavior on color { ColorAnimation { duration: 200 } }
+                                color: locksList ? Design.veilBold : Design.veil
+                                Behavior on color { ColorAnimation { duration: Design.duration.base } }
                                 
                                 // Fail flash background
                                 Rectangle {
                                     anchors.fill: parent
                                     radius: parent.radius
-                                    color: window.red
+                                    color: Design.danger
                                     opacity: floatCard.isFailed ? 0.3 : 0.0
-                                    Behavior on opacity { NumberAnimation { duration: 300 } }
+                                    Behavior on opacity { NumberAnimation { duration: Design.duration.base } }
                                 }
 
                                 Rectangle {
                                     anchors.fill: parent
-                                    radius: window.s(14)
+                                    radius: Design.s(14)
                                     color: "transparent"
                                     border.width: 1
-                                    border.color: floatCard.isFailed ? window.red : window.surface2
+                                    border.color: floatCard.isFailed ? Design.danger : Design.active
                                     visible: !isHighlighted && !locksList
-                                    Behavior on border.color { ColorAnimation { duration: 300 } }
+                                    Behavior on border.color { ColorAnimation { duration: Design.duration.base } }
                                 }
 
                                 Rectangle {
                                     anchors.fill: parent
-                                    radius: window.s(14)
+                                    radius: Design.s(14)
                                     opacity: locksList || isHighlighted ? 1.0 : 0.0
                                     color: "transparent"
-                                    border.width: isHighlighted && !locksList ? 1 : window.s(2)
-                                    border.color: floatCard.isFailed ? window.red : "transparent"
-                                    Behavior on opacity { NumberAnimation { duration: 250 } }
+                                    border.width: isHighlighted && !locksList ? 1 : Design.s(2)
+                                    border.color: floatCard.isFailed ? Design.danger : "transparent"
+                                    Behavior on opacity { NumberAnimation { duration: Design.duration.base } }
                                     
                                     Rectangle {
                                         anchors.fill: parent
-                                        anchors.margins: isHighlighted && !locksList ? 1 : window.s(2)
-                                        radius: window.s(12)
-                                        color: window.base
+                                        anchors.margins: isHighlighted && !locksList ? 1 : Design.s(2)
+                                        radius: Design.s(12)
+                                        color: Design.surface
                                         opacity: locksList ? 0.9 : 1.0
                                     }
                                     
                                     gradient: Gradient {
                                         orientation: Gradient.Horizontal
-                                        GradientStop { position: 0.0; color: floatCard.isFailed ? Qt.lighter(window.red, 1.15) : Qt.lighter(window.activeColor, 1.15) }
-                                        GradientStop { position: 1.0; color: floatCard.isFailed ? window.red : window.activeColor }
+                                        GradientStop { position: 0.0; color: floatCard.isFailed ? Qt.lighter(Design.danger, 1.15) : Qt.lighter(window.activeColor, 1.15) }
+                                        GradientStop { position: 1.0; color: floatCard.isFailed ? Design.danger : window.activeColor }
                                     }
                                     z: -1
                                 }
 
                                 Rectangle {
                                     anchors.fill: parent
-                                    radius: window.s(14)
+                                    radius: Design.s(14)
                                     color: "#ffffff"
                                     opacity: floatCard.flashOpacity
-                                    PropertyAnimation on opacity { id: cardFlashAnim; to: 0; duration: 500; easing.type: Easing.OutExpo }
+                                    PropertyAnimation on opacity { id: cardFlashAnim; to: 0; duration: Design.duration.slow; easing.type: Easing.OutExpo }
                                     z: 5
                                 }
 
@@ -1646,7 +1637,7 @@ Item {
                                     id: waveCanvas
                                     anchors.fill: parent
                                     
-                                    property real scaleTrigger: window.s(1)
+                                    property real scaleTrigger: Design.s(1)
                                     onScaleTriggerChanged: requestPaint()
 
                                     property real wavePhase: 0.0
@@ -1655,7 +1646,7 @@ Item {
                                         running: floatCard.renderFill > 0.0 && floatCard.renderFill < 1.0
                                         loops: Animation.Infinite
                                         from: 0; to: Math.PI * 2
-                                        duration: 800
+                                        duration: window.introDuration
                                     }
 
                                     onWavePhaseChanged: requestPaint()
@@ -1718,76 +1709,70 @@ Item {
                                     radius: parent.radius
                                     color: "transparent"
                                     border.color: window.activeColor
-                                    border.width: window.s(2)
+                                    border.width: Design.s(2)
                                     visible: parent.isHighlighted && !parent.isMyBusy && !parent.isCurrentlyConnected && !parent.isFailed
                                     
                                     SequentialAnimation on scale {
                                         loops: Animation.Infinite; running: parent.visible
-                                        NumberAnimation { to: 1.15; duration: 1200; easing.type: Easing.InOutSine }
-                                        NumberAnimation { to: 1.0; duration: 1200; easing.type: Easing.InOutSine }
+                                        NumberAnimation { to: 1.15; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
+                                        NumberAnimation { to: 1.0; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
                                     }
                                     SequentialAnimation on opacity {
                                         loops: Animation.Infinite; running: parent.visible
-                                        NumberAnimation { to: 0.0; duration: 1200; easing.type: Easing.InOutSine }
-                                        NumberAnimation { to: 0.8; duration: 1200; easing.type: Easing.InOutSine }
+                                        NumberAnimation { to: 0.0; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
+                                        NumberAnimation { to: 0.8; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
                                     }
                                 }
 
                                 RowLayout {
                                     id: baseTextRow
                                     anchors.fill: parent
-                                    anchors.margins: window.s(12)
-                                    spacing: window.s(10)
+                                    anchors.margins: Design.s(12)
+                                    spacing: Design.s(10)
                                     
-                                    Text {
-                                        font.family: "Iosevka Nerd Font"
-                                        font.pixelSize: window.s(20)
-                                        color: floatCard.isFailed ? window.red : (floatCard.isMyBusy ? window.text : window.activeColor)
+                                    Icon {
+                                        role: "title"
+                                        color: floatCard.isFailed ? Design.danger : (floatCard.isMyBusy ? Design.text : window.activeColor)
                                         text: icon
-                                        Behavior on color { ColorAnimation { duration: 200 } }
+                                        Behavior on color { ColorAnimation { duration: Design.duration.base } }
                                     }
                                     
                                     ColumnLayout {
                                         Layout.fillWidth: true
-                                        spacing: window.s(2)
+                                        spacing: Design.s(2)
                                         
                                         Item {
                                             id: nameContainerBase
                                             Layout.fillWidth: true
-                                            height: window.s(18)
+                                            height: Design.s(18)
                                             clip: true
 
-                                            Text {
+                                            Label {
                                                 id: baseNameText
                                                 anchors.left: parent.left
                                                 anchors.leftMargin: floatCard.textOffset
                                                 anchors.verticalCenter: parent.verticalCenter
                                                 text: floatCard.itemName
-                                                font.family: "JetBrains Mono"
-                                                font.weight: Font.Bold
-                                                font.pixelSize: window.s(13)
-                                                color: floatCard.isFailed ? window.red : (floatCard.isHighlighted ? window.activeColor : window.text)
-                                                Behavior on color { ColorAnimation { duration: 200 } }
+                                                font.weight: Design.weight.semibold
+                                                color: floatCard.isFailed ? Design.danger : (floatCard.isHighlighted ? window.activeColor : Design.text)
+                                                Behavior on color { ColorAnimation { duration: Design.duration.base } }
                                             }
-                                            Text {
+                                            Label {
                                                 anchors.left: baseNameText.right
-                                                anchors.leftMargin: window.s(30)
+                                                anchors.leftMargin: Design.s(30)
                                                 anchors.verticalCenter: parent.verticalCenter
                                                 visible: floatCard.doMarquee
                                                 text: floatCard.itemName
-                                                font.family: "JetBrains Mono"
-                                                font.weight: Font.Bold
-                                                font.pixelSize: window.s(13)
-                                                color: floatCard.isFailed ? window.red : (floatCard.isHighlighted ? window.activeColor : window.text)
+                                                font.weight: Design.weight.semibold
+                                                color: floatCard.isFailed ? Design.danger : (floatCard.isHighlighted ? window.activeColor : Design.text)
                                             }
                                         }
                                         
-                                        Text {
-                                            font.family: "JetBrains Mono"
-                                            font.pixelSize: window.s(10)
-                                            color: floatCard.isFailed ? window.maroon : (floatCard.isMyBusy ? window.activeColor : window.overlay0)
+                                        Label {
+                                            role: "caption"
+                                            color: floatCard.isFailed ? Design.danger : (floatCard.isMyBusy ? window.activeColor : Design.textFaint)
                                             text: floatCard.isFailed ? "Connection Failed" : (floatCard.isMyBusy ? "Connecting..." : (floatCard.renderFill > 0.1 && floatCard.renderFill < 1.0 ? "Hold..." : action))
-                                            Behavior on color { ColorAnimation { duration: 200 } }
+                                            Behavior on color { ColorAnimation { duration: Design.duration.base } }
                                         }
                                     }
                                 }
@@ -1802,38 +1787,41 @@ Item {
                                     RowLayout {
                                         x: baseTextRow.x; y: baseTextRow.y
                                         width: baseTextRow.width; height: baseTextRow.height
-                                        spacing: window.s(10)
+                                        spacing: Design.s(10)
                                         
-                                        Text { font.family: "Iosevka Nerd Font"; font.pixelSize: window.s(20); color: window.crust; text: icon }
+                                        Icon { role: "title"; color: Design.ground; text: icon }
                                         
                                         ColumnLayout {
                                             Layout.fillWidth: true
-                                            spacing: window.s(2)
+                                            spacing: Design.s(2)
 
                                             Item {
                                                 Layout.fillWidth: true
-                                                height: window.s(18)
+                                                height: Design.s(18)
                                                 clip: true
                                                 
-                                                Text {
+                                                Label {
                                                     id: filledNameText
                                                     anchors.left: parent.left
                                                     anchors.leftMargin: floatCard.textOffset
                                                     anchors.verticalCenter: parent.verticalCenter
                                                     text: floatCard.itemName
-                                                    font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: window.s(13); color: window.crust 
+                                                    font.weight: Design.weight.semibold
+                                                    color: Design.ground
                                                 }
-                                                Text { 
+                                                Label {
                                                     anchors.left: filledNameText.right
-                                                    anchors.leftMargin: window.s(30)
+                                                    anchors.leftMargin: Design.s(30)
                                                     anchors.verticalCenter: parent.verticalCenter
                                                     visible: floatCard.doMarquee
                                                     text: floatCard.itemName
-                                                    font.family: "JetBrains Mono"; font.weight: Font.Bold; font.pixelSize: window.s(13); color: window.crust 
+                                                    font.weight: Design.weight.semibold
+                                                    color: Design.ground
                                                 }
                                             }
-                                            Text {
-                                                font.family: "JetBrains Mono"; font.pixelSize: window.s(10); color: window.crust
+                                            Label {
+                                                role: "caption"
+                                                color: Design.ground
                                                 text: floatCard.isMyBusy ? "Connecting..." : (floatCard.renderFill > 0.1 && floatCard.renderFill < 1.0 ? "Hold..." : action)
                                             }
                                         }
@@ -1869,7 +1857,7 @@ Item {
                                     target: floatCard
                                     property: "fillLevel"
                                     to: 1.0
-                                    duration: 600 * (1.0 - floatCard.fillLevel) 
+                                    duration: window.introDuration * (1.0 - floatCard.fillLevel) 
                                     easing.type: Easing.InSine
                                     onFinished: {
                                         floatCard.triggered = true;
@@ -1910,7 +1898,7 @@ Item {
                                     target: floatCard
                                     property: "fillLevel"
                                     to: 0.0
-                                    duration: 1500 * floatCard.fillLevel 
+                                    duration: window.introDuration * floatCard.fillLevel 
                                     easing.type: Easing.OutQuad
                                 }
                             }
@@ -1925,33 +1913,33 @@ Item {
             Rectangle {
                 anchors.bottom: parent.bottom
                 anchors.horizontalCenter: parent.horizontalCenter
-                anchors.bottomMargin: window.s(25)
-                width: window.s(360)
-                height: window.s(54)
-                radius: window.s(14)
-                color: "#1affffff" 
-                border.color: "#1affffff"
+                anchors.bottomMargin: Design.s(25)
+                width: Design.s(360)
+                height: Design.s(54)
+                radius: Design.s(14)
+                color: Design.veilStrong 
+                border.color: Design.veilStrong
                 border.width: 1
 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.margins: window.s(6)
-                    spacing: window.s(6)
+                    anchors.margins: Design.s(6)
+                    spacing: Design.s(6)
 
                     // Wi-Fi Mode Button
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        radius: window.s(10)
+                        radius: Design.s(10)
                         
-                        color: window.activeMode === "wifi" ? "transparent" : (wifiTabMa.containsMouse ? window.surface1 : "transparent")
-                        Behavior on color { ColorAnimation { duration: 200 } }
+                        color: window.activeMode === "wifi" ? "transparent" : (wifiTabMa.containsMouse ? Design.hover : "transparent")
+                        Behavior on color { ColorAnimation { duration: Design.duration.base } }
 
                         Rectangle {
                             anchors.fill: parent
-                            radius: window.s(10)
+                            radius: Design.s(10)
                             opacity: window.activeMode === "wifi" ? 1.0 : 0.0
-                            Behavior on opacity { NumberAnimation { duration: 300 } }
+                            Behavior on opacity { NumberAnimation { duration: Design.duration.base } }
                             gradient: Gradient {
                                 orientation: Gradient.Horizontal
                                 GradientStop { position: 0.0; color: Qt.lighter(window.wifiAccent, 1.15) }
@@ -1961,12 +1949,12 @@ Item {
 
                         RowLayout {
                             anchors.centerIn: parent
-                            spacing: window.s(8)
-                            Text { font.family: "Iosevka Nerd Font"; font.pixelSize: window.s(18); color: window.activeMode === "wifi" ? window.crust : window.text; text: "󰤨"; Behavior on color { ColorAnimation{duration:200} } }
-                            Text { font.family: "JetBrains Mono"; font.weight: Font.Black; font.pixelSize: window.s(13); color: window.activeMode === "wifi" ? window.crust : window.text; text: "Wi-Fi"; Behavior on color { ColorAnimation{duration:200} } }
+                            spacing: Design.s(8)
+                            Icon { color: window.activeMode === "wifi" ? Design.ground : Design.text; text: "󰤨"; Behavior on color { ColorAnimation{duration:200} } }
+                            Label { font.weight: Design.weight.bold; color: window.activeMode === "wifi" ? Design.ground : Design.text; text: "Wi-Fi"; Behavior on color { ColorAnimation{duration:200} } }
                         }
-                        MouseArea {
-                            id: wifiTabMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                        Clickable {
+                            id: wifiTabMa
                             onClicked: {
                                 if (window.pendingWifiId !== "") { window.pendingWifiId = ""; window.pendingWifiSsid = ""; }
                                 if (window.activeMode !== "wifi") window.playSfx("switch.wav");
@@ -1975,21 +1963,21 @@ Item {
                         }
                     }
 
-                    Rectangle { width: 1; Layout.fillHeight: true; Layout.margins: window.s(5); color: "#33ffffff" }
+                    Rectangle { width: 1; Layout.fillHeight: true; Layout.margins: Design.s(5); color: Design.veilBold }
 
                     // Bluetooth Mode Button
                     Rectangle {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
-                        radius: window.s(10)
-                        color: window.activeMode === "bt" ? "transparent" : (btTabMa.containsMouse ? window.surface1 : "transparent")
-                        Behavior on color { ColorAnimation { duration: 200 } }
+                        radius: Design.s(10)
+                        color: window.activeMode === "bt" ? "transparent" : (btTabMa.containsMouse ? Design.hover : "transparent")
+                        Behavior on color { ColorAnimation { duration: Design.duration.base } }
 
                         Rectangle {
                             anchors.fill: parent
-                            radius: window.s(10)
+                            radius: Design.s(10)
                             opacity: window.activeMode === "bt" ? 1.0 : 0.0
-                            Behavior on opacity { NumberAnimation { duration: 300 } }
+                            Behavior on opacity { NumberAnimation { duration: Design.duration.base } }
                             gradient: Gradient {
                                 orientation: Gradient.Horizontal
                                 GradientStop { position: 0.0; color: Qt.lighter(window.btAccent, 1.15) }
@@ -1999,12 +1987,12 @@ Item {
 
                         RowLayout {
                             anchors.centerIn: parent
-                            spacing: window.s(8)
-                            Text { font.family: "Iosevka Nerd Font"; font.pixelSize: window.s(18); color: window.activeMode === "bt" ? window.crust : window.text; text: "󰂯"; Behavior on color { ColorAnimation{duration:200} } }
-                            Text { font.family: "JetBrains Mono"; font.weight: Font.Black; font.pixelSize: window.s(13); color: window.activeMode === "bt" ? window.crust : window.text; text: "Bluetooth"; Behavior on color { ColorAnimation{duration:200} } }
+                            spacing: Design.s(8)
+                            Icon { color: window.activeMode === "bt" ? Design.ground : Design.text; text: "󰂯"; Behavior on color { ColorAnimation{duration:200} } }
+                            Label { font.weight: Design.weight.bold; color: window.activeMode === "bt" ? Design.ground : Design.text; text: "Bluetooth"; Behavior on color { ColorAnimation{duration:200} } }
                         }
-                        MouseArea {
-                            id: btTabMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
+                        Clickable {
+                            id: btTabMa
                             onClicked: {
                                 if (window.pendingWifiId !== "") { window.pendingWifiId = ""; window.pendingWifiSsid = ""; }
                                 if (window.activeMode !== "bt") window.playSfx("switch.wav");
@@ -2019,43 +2007,43 @@ Item {
             Rectangle {
                 anchors.bottom: parent.bottom
                 anchors.right: parent.right
-                anchors.margins: window.s(30)
-                width: window.s(48); height: window.s(48); radius: window.s(24)
+                anchors.margins: Design.s(30)
+                width: Design.s(48); height: Design.s(48); radius: Design.s(24)
                 
                 color: "transparent"
-                border.color: window.currentPowerPending ? window.activeColor : (window.currentPower ? "transparent" : window.surface2)
-                border.width: window.s(2)
-                Behavior on border.color { ColorAnimation { duration: 300 } }
+                border.color: window.currentPowerPending ? window.activeColor : (window.currentPower ? "transparent" : Design.active)
+                border.width: Design.s(2)
+                Behavior on border.color { ColorAnimation { duration: Design.duration.base } }
 
                 Rectangle {
                     anchors.fill: parent
-                    radius: window.s(24)
+                    radius: Design.s(24)
                     opacity: window.currentPower ? 1.0 : 0.0
-                    Behavior on opacity { NumberAnimation { duration: 300 } }
+                    Behavior on opacity { NumberAnimation { duration: Design.duration.base } }
                     gradient: Gradient {
                         orientation: Gradient.Horizontal
-                        GradientStop { position: 0.0; color: Qt.lighter(window.activeColor, 1.15); Behavior on color { ColorAnimation {duration: 300} } }
-                        GradientStop { position: 1.0; color: window.activeColor; Behavior on color { ColorAnimation {duration: 300} } }
+                        GradientStop { position: 0.0; color: Qt.lighter(window.activeColor, 1.15); Behavior on color { ColorAnimation {duration: Design.duration.base} } }
+                        GradientStop { position: 1.0; color: window.activeColor; Behavior on color { ColorAnimation {duration: Design.duration.base} } }
                     }
                 }
                 
                 scale: pwrMa.pressed ? 0.9 : (pwrMa.containsMouse ? 1.1 : 1.0)
-                Behavior on scale { NumberAnimation { duration: 200; easing.type: Easing.OutBack } }
+                Behavior on scale { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutBack } }
 
                 Text {
                     id: pwrIcon
                     anchors.centerIn: parent
-                    font.family: "Iosevka Nerd Font"
-                    font.pixelSize: window.s(22)
-                    color: window.currentPower ? window.crust : window.text
+                    font.family: Design.font.icon
+                    font.pixelSize: Design.s(22)
+                    color: window.currentPower ? Design.ground : Design.text
                     text: window.currentPowerPending ? "󰑮" : "" 
-                    Behavior on color { ColorAnimation { duration: 300 } }
+                    Behavior on color { ColorAnimation { duration: Design.duration.base } }
 
                     RotationAnimation {
                         target: pwrIcon
                         property: "rotation"
                         from: 0; to: 360
-                        duration: 800
+                        duration: window.introDuration
                         loops: Animation.Infinite
                         running: window.currentPowerPending
                         onRunningChanged: {
@@ -2064,11 +2052,8 @@ Item {
                     }
                 }
 
-                MouseArea {
+                Clickable {
                     id: pwrMa
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
                     onClicked: {
                         if (window.pendingWifiId !== "") { window.pendingWifiId = ""; window.pendingWifiSsid = ""; }
                         if (window.activeMode === "wifi") {
