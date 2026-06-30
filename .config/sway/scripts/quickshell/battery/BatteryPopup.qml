@@ -5,12 +5,16 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import "../Ui"
+import "../Services"
 
 PopupShell {
     id: window
 
     // --- RECEIVE THE DBUS LIST FROM MAIN.QML ---
     property var notifModel
+
+    Component.onCompleted: Audio.acquire()
+    Component.onDestruction: Audio.release()
 
 
 
@@ -24,8 +28,11 @@ PopupShell {
     property int upHours: 0
     property int upMins: 0
 
-    property real sysVolume: 0
-    property bool sysMuted: false
+    // Volume is owned by Services/Audio. This popup used to read it through a
+    // second path (raw wpctl inside sysPoller) — two sources for one number.
+    readonly property var sink: Audio.defaultSink
+    readonly property real sysVolume: sink ? sink.volume : 0
+    readonly property bool sysMuted: sink ? sink.mute : false
     property real sysBrightness: 0
     
     property string currentUserName: ""
@@ -58,10 +65,8 @@ PopupShell {
     readonly property int driftPeriod: 90000
 
     // Anti-jitter sync states — the poller must not yank a control mid-drag.
-    property bool isDraggingVol: false
     property bool isDraggingBri: false
 
-    Timer { id: volSyncDelay; interval: 800; onTriggered: window.isDraggingVol = false; triggeredOnStart: true; }
 
     readonly property bool isCharging: batStatus === "Charging"
 
@@ -127,14 +132,13 @@ PopupShell {
             "cat /sys/class/power_supply/BAT*/status 2>/dev/null | head -n1 || echo 'Unknown'; " +
             "powerprofilesctl get 2>/dev/null || echo 'balanced'; " +
             "awk '{print int($1/3600)\"h \"int(($1%3600)/60)\"m\"}' /proc/uptime 2>/dev/null || echo '0h 0m'; " +
-            "wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | awk '{print int($2*100), ($3==\"[MUTED]\"?\"off\":\"on\")}' || echo '0 on'; " +
             "brightnessctl -m 2>/dev/null | awk -F, '{print substr($4, 1, length($4)-1)}' || echo '0'"
         ]
         running: true
         stdout: StdioCollector {
             onStreamFinished: {
                 let lines = this.text.trim().split("\n");
-                if (lines.length >= 6) {
+                if (lines.length >= 5) {
                     if (window.batCapacity !== parseInt(lines[0])) {
                         window.batCapacity = parseInt(lines[0]);
                         window.animCapacity = window.batCapacity;
@@ -147,15 +151,9 @@ PopupShell {
                         window.upHours = parseInt(upParts[0]) || 0;
                         window.upMins = parseInt(upParts[1].replace("m", "")) || 0;
                     }
-
-                    if (!window.isDraggingVol) {
-                        let volParts = (lines[4] || "0 on").trim().split(" ");
-                        window.sysVolume = parseInt(volParts[0]) || 0;
-                        window.sysMuted = (volParts[1] === "off");
-                    }
                     
                     if (!window.isDraggingBri) {
-                        window.sysBrightness = parseInt(lines[5]) || 0;
+                        window.sysBrightness = parseInt(lines[4]) || 0;
                     }
                 }
             }
@@ -1063,11 +1061,8 @@ PopupShell {
                                         Clickable {
                                             id: volIconMa
                                             onClicked: {
-                                                volSyncDelay.stop();
-                                                window.isDraggingVol = true; 
-                                                window.sysMuted = !window.sysMuted;
-                                                Quickshell.execDetached(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"]);
-                                                volSyncDelay.restart();
+                                                if (window.sink)
+                                                    Audio.toggleMute("sink", window.sink.id);
                                             }
                                         }
                                     }
@@ -1079,16 +1074,8 @@ PopupShell {
                                         value: window.sysVolume
                                         tone: window.profileStart
                                         muted: window.sysMuted
-
-                                        onMoved: pct => {
-                                            window.sysVolume = pct;
-                                            if (pct > 0 && window.sysMuted) {
-                                                window.sysMuted = false;
-                                                Quickshell.execDetached(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "0"]);
-                                            }
-                                            Quickshell.execDetached(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", pct + "%"]);
-                                        }
-                                        onActiveChanged: window.isDraggingVol = active
+                                        onMoved: pct => Audio.applyVolume("sink", window.sink, pct)
+                                        onActiveChanged: Audio.hold(window.sink ? window.sink.id : "", active)
                                     }
                                 }
                             }

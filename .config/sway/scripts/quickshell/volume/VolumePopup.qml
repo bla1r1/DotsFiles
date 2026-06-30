@@ -6,6 +6,7 @@ import QtCore
 import Quickshell
 import Quickshell.Io
 import "../Ui"
+import "../Services"
 
 PopupShell {
     id: window
@@ -26,10 +27,8 @@ PopupShell {
     // -------------------------------------------------------------------------
     // STATE & CONFIG
     // -------------------------------------------------------------------------
-    readonly property string scriptsDir: Quickshell.env("HOME") + "/.config/sway/scripts/quickshell/volume"
     
     property string activeTab: "outputs" // outputs, inputs, apps
-    onActiveTabChanged: updateHeroData()
 
     
     // Durations that are choreography, not styling: a staged entrance and
@@ -46,167 +45,28 @@ PopupShell {
     }
 
     // Top Orb Active State Links
-    property string activeId: ""
-    property string activeName: "No Device"
-    property string activeDesc: ""
-    property int activeVol: 0
-    property bool activeMute: false
-    property string activeIcon: "󰓃"
-    property string defaultMicId: ""
-    property string defaultMicName: "No Microphone"
-    property string defaultMicDesc: ""
-    property int defaultMicVol: 0
-    property bool defaultMicMute: false
 
-    // Models
-    ListModel { id: outputsModel }
-    ListModel { id: inputsModel }
-    ListModel { id: appsModel }
+    // Audio state lives in Services/Audio — VolumePopup and BatteryPopup used
+    // to read volume two different ways and could disagree on screen.
+    Component.onCompleted: Audio.acquire()
+    Component.onDestruction: Audio.release()
 
-    property var draggingNodes: ({})
-    property bool draggingMaster: false
+    readonly property var defaultMic: Audio.defaultSource
+    readonly property string defaultMicId: defaultMic ? defaultMic.id : ""
+    readonly property string defaultMicName: defaultMic ? defaultMic.description : "No Microphone"
+    readonly property int defaultMicVol: defaultMic ? defaultMic.volume : 0
+    readonly property bool defaultMicMute: defaultMic ? defaultMic.mute : false
 
-    // -------------------------------------------------------------------------
-    // CACHING & DATA LOGIC
-    // -------------------------------------------------------------------------
-    Settings {
-        id: cache
-        property string lastAudioJson: ""
-    }
+    readonly property var activeDevice: window.activeTab === "inputs" ? Audio.defaultSource : Audio.defaultSink
+    readonly property string activeId: activeDevice ? activeDevice.id : ""
+    readonly property string activeName: activeDevice ? activeDevice.description : "No Device"
+    readonly property string activeDesc: activeDevice ? activeDevice.name : ""
+    readonly property int activeVol: activeDevice ? activeDevice.volume : 0
+    readonly property bool activeMute: activeDevice ? activeDevice.mute : false
+    readonly property string activeIcon: activeDevice ? activeDevice.icon : "󰓃"
 
-    Component.onCompleted: {
-        if (cache.lastAudioJson !== "") processAudioJson(cache.lastAudioJson);
-    }
-
-    function processAudioJson(textData) {
-        if (!textData) return;
-        try {
-            let data = JSON.parse(textData);
-            syncModel(outputsModel, data.outputs || []);
-            syncModel(inputsModel, data.inputs || []);
-            syncModel(appsModel, data.apps || []);
-            updateDefaultMicData();
-            updateHeroData();
-        } catch(e) {}
-    }
-
-    function updateDefaultMicData() {
-        let chosen = null;
-        for (let i = 0; i < inputsModel.count; i++) {
-            let d = inputsModel.get(i);
-            if (d.is_default) {
-                chosen = d;
-                break;
-            }
-        }
-        if (!chosen && inputsModel.count > 0) chosen = inputsModel.get(0);
-
-        if (!chosen) {
-            window.defaultMicId = "";
-            window.defaultMicName = "No Microphone";
-            window.defaultMicDesc = "";
-            if (!window.draggingNodes["__default_mic"]) {
-                window.defaultMicVol = 0;
-                window.defaultMicMute = false;
-            }
-            return;
-        }
-
-        window.defaultMicId = chosen.id;
-        window.defaultMicName = chosen.description;
-        window.defaultMicDesc = chosen.name;
-        if (!window.draggingNodes["__default_mic"]) {
-            window.defaultMicVol = chosen.volume;
-            window.defaultMicMute = chosen.mute;
-        }
-    }
-
-    function updateHeroData() {
-        let targetModel = (window.activeTab === "inputs") ? inputsModel : outputsModel;
-        
-        let foundDefault = false;
-        for (let i = 0; i < targetModel.count; i++) {
-            let d = targetModel.get(i);
-            if (d.is_default) {
-                window.activeId = d.id;
-                window.activeName = d.description;
-                window.activeDesc = d.name;
-                window.activeIcon = d.icon;
-                if (!window.draggingMaster) {
-                    window.activeVol = d.volume;
-                    window.activeMute = d.mute;
-                }
-                foundDefault = true;
-                break;
-            }
-        }
-        
-        // Fallback if no default is found
-        if (!foundDefault && targetModel.count > 0) {
-            let d = targetModel.get(0);
-            window.activeId = d.id;
-            window.activeName = d.description;
-            window.activeDesc = d.name;
-            window.activeIcon = d.icon;
-            if (!window.draggingMaster) {
-                window.activeVol = d.volume;
-                window.activeMute = d.mute;
-            }
-        }
-    }
-
-    function syncModel(listModel, dataArray) {
-        for (let i = listModel.count - 1; i >= 0; i--) {
-            let id = listModel.get(i).id;
-            let found = false;
-            for (let j = 0; j < dataArray.length; j++) {
-                if (id === dataArray[j].id) { found = true; break; }
-            }
-            if (!found) listModel.remove(i);
-        }
-        
-        for (let i = 0; i < dataArray.length; i++) {
-            let d = dataArray[i];
-            let foundIdx = -1;
-            for (let j = i; j < listModel.count; j++) {
-                if (listModel.get(j).id === d.id) { foundIdx = j; break; }
-            }
-            
-            let obj = {
-                id: d.id, name: d.name, description: d.description,
-                volume: d.volume, mute: d.mute, is_default: d.is_default, icon: d.icon
-            };
-
-            if (foundIdx === -1) {
-                listModel.insert(i, obj);
-            } else {
-                if (foundIdx !== i) listModel.move(foundIdx, i, 1);
-                for (let key in obj) { 
-                    if (key === "volume" && window.draggingNodes[obj.id]) continue;
-                    if (listModel.get(i)[key] !== obj[key]) {
-                        listModel.setProperty(i, key, obj[key]); 
-                    }
-                }
-            }
-        }
-    }
-
-    Process {
-        id: audioPoller
-        command: ["python3", window.scriptsDir + "/get_audio_state.py"]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: {
-                cache.lastAudioJson = this.text.trim();
-                processAudioJson(cache.lastAudioJson);
-            }
-        }
-    }
-
-    Timer {
-        interval: 1000; running: true; repeat: true; triggeredOnStart: true;
-        onTriggered: audioPoller.running = true
-    }
+    readonly property string activeType: window.activeTab === "inputs" ? "source"
+                                       : (window.activeTab === "apps" ? "sink-input" : "sink")
 
     // -------------------------------------------------------------------------
     // ANIMATIONS
@@ -470,8 +330,8 @@ PopupShell {
                                 id: masterOrbMa
                                 onClicked: {
                                     let type = window.activeTab === "inputs" ? "source" : "sink";
-                                    Quickshell.execDetached([window.scriptsDir + "/audio_control.sh", "toggle-mute", type, window.activeId]);
-                                    audioPoller.running = true;
+                                    Audio.toggleMute(type, window.activeId);
+                                    Audio.refresh();
                                 }
                             }
                         }
@@ -514,13 +374,13 @@ PopupShell {
                                     onMoved: pct => {
                                         let type = window.activeTab === "inputs" ? "source" : "sink";
                                         if (pct > 0 && window.activeMute)
-                                            Quickshell.execDetached([window.scriptsDir + "/audio_control.sh", "toggle-mute", type, window.activeId]);
-                                        Quickshell.execDetached([window.scriptsDir + "/audio_control.sh", "set-volume", type, window.activeId, pct]);
+                                            Audio.toggleMute(type, window.activeId);
+                                        Audio.setVolume(type, window.activeId, pct);
                                     }
 
                                     onActiveChanged: {
-                                        window.draggingMaster = active;
-                                        if (!active) audioPoller.running = true;
+                                        Audio.hold(window.activeId, active);
+                                        if (!active) Audio.refresh();
                                     }
                                 }
                             }
@@ -579,13 +439,13 @@ PopupShell {
 
                                         onMoved: pct => {
                                             if (pct > 0 && window.defaultMicMute)
-                                                Quickshell.execDetached([window.scriptsDir + "/audio_control.sh", "toggle-mute", "source", window.defaultMicId]);
-                                            Quickshell.execDetached([window.scriptsDir + "/audio_control.sh", "set-volume", "source", window.defaultMicId, pct]);
+                                                Audio.toggleMute("source", window.defaultMicId);
+                                            Audio.setVolume("source", window.defaultMicId, pct);
                                         }
 
                                         onActiveChanged: {
-                                            window.draggingNodes["__default_mic"] = active;
-                                            if (!active) audioPoller.running = true;
+                                            Audio.hold("__default_mic", active);
+                                            if (!active) Audio.refresh();
                                         }
                                     }
 
@@ -605,8 +465,8 @@ PopupShell {
                                     cursorShape: window.defaultMicId !== "" ? Qt.PointingHandCursor : Qt.ArrowCursor
                                     onClicked: {
                                         if (window.defaultMicId === "") return;
-                                        Quickshell.execDetached([window.scriptsDir + "/audio_control.sh", "toggle-mute", "source", window.defaultMicId]);
-                                        audioPoller.running = true;
+                                        Audio.toggleMute("source", window.defaultMicId);
+                                        Audio.refresh();
                                     }
                                 }
                             }
@@ -714,9 +574,9 @@ PopupShell {
                         }
 
                         model: {
-                            if (window.activeTab === "outputs") return outputsModel;
-                            if (window.activeTab === "inputs") return inputsModel;
-                            return appsModel;
+                            if (window.activeTab === "outputs") return Audio.outputs;
+                            if (window.activeTab === "inputs") return Audio.inputs;
+                            return Audio.apps;
                         }
 
                         Item {
@@ -772,8 +632,8 @@ PopupShell {
                                 onClicked: {
                                     if (window.activeTab !== "apps" && !model.is_default) {
                                         let type = window.activeTab === "outputs" ? "sink" : "source";
-                                        Quickshell.execDetached([window.scriptsDir + "/audio_control.sh", "set-default", type, model.name]);
-                                        audioPoller.running = true;
+                                        Audio.setDefault(type, model.name);
+                                        Audio.refresh();
                                     }
                                 }
                             }
@@ -849,8 +709,8 @@ PopupShell {
                                                 let type = "sink";
                                                 if (window.activeTab === "inputs") type = "source";
                                                 if (window.activeTab === "apps") type = "sink-input";
-                                                Quickshell.execDetached([window.scriptsDir + "/audio_control.sh", "toggle-mute", type, model.id]);
-                                                audioPoller.running = true;
+                                                Audio.toggleMute(type, model.id);
+                                                Audio.refresh();
                                             }
                                         }
                                     }
@@ -870,7 +730,7 @@ PopupShell {
                                             if (window.activeTab === "inputs") type = "source";
                                             if (window.activeTab === "apps") type = "sink-input";
 
-                                            let targetList = window.activeTab === "outputs" ? outputsModel : (window.activeTab === "inputs" ? inputsModel : appsModel);
+                                            let targetList = window.activeTab === "outputs" ? Audio.outputs : (window.activeTab === "inputs" ? Audio.inputs : Audio.apps);
                                             for (let i = 0; i < targetList.count; i++) {
                                                 if (targetList.get(i).id === model.id) {
                                                     targetList.setProperty(i, "volume", pct);
@@ -879,13 +739,13 @@ PopupShell {
                                             }
 
                                             if (pct > 0 && model.mute)
-                                                Quickshell.execDetached([window.scriptsDir + "/audio_control.sh", "toggle-mute", type, model.id]);
-                                            Quickshell.execDetached([window.scriptsDir + "/audio_control.sh", "set-volume", type, model.id, pct]);
+                                                Audio.toggleMute(type, model.id);
+                                            Audio.setVolume(type, model.id, pct);
                                         }
 
                                         onActiveChanged: {
-                                            window.draggingNodes[model.id] = active;
-                                            if (!active) audioPoller.running = true;
+                                            Audio.hold(model.id, active);
+                                            if (!active) Audio.refresh();
                                         }
                                     }
 
