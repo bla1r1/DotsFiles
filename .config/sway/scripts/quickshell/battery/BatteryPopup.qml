@@ -13,27 +13,27 @@ PopupShell {
     // --- RECEIVE THE DBUS LIST FROM MAIN.QML ---
     property var notifModel
 
-    Component.onCompleted: Audio.acquire()
-    Component.onDestruction: Audio.release()
+    Component.onCompleted: { Audio.acquire(); Power.acquire(); }
+    Component.onDestruction: { Audio.release(); Power.release(); }
 
 
 
     // -------------------------------------------------------------------------
     // STATE & POLLING
     // -------------------------------------------------------------------------
-    property int batCapacity: 0
-    property string batStatus: "Unknown"
-    property string powerProfile: "balanced"
-    
-    property int upHours: 0
-    property int upMins: 0
+    // Battery, profile, uptime and backlight are owned by Services/Power.
+    readonly property int batCapacity: Power.capacity
+    readonly property string batStatus: Power.status
+    readonly property string powerProfile: Power.profile
+    readonly property int upHours: Power.upHours
+    readonly property int upMins: Power.upMins
+    readonly property int sysBrightness: Power.brightness
 
     // Volume is owned by Services/Audio. This popup used to read it through a
-    // second path (raw wpctl inside sysPoller) — two sources for one number.
+    // second path (raw wpctl in its own poller) — two sources for one number.
     readonly property var sink: Audio.defaultSink
     readonly property real sysVolume: sink ? sink.volume : 0
     readonly property bool sysMuted: sink ? sink.mute : false
-    property real sysBrightness: 0
     
     property string currentUserName: ""
     
@@ -64,8 +64,6 @@ PopupShell {
     readonly property int holdDuration: 1500
     readonly property int driftPeriod: 90000
 
-    // Anti-jitter sync states — the poller must not yank a control mid-drag.
-    property bool isDraggingBri: false
 
 
     readonly property bool isCharging: batStatus === "Charging"
@@ -96,7 +94,13 @@ PopupShell {
         return Design.danger; 
     }
 
+    // Not a plain binding: the gauge animates toward the reading, and Behavior
+    // only fires on assignment. Bound directly it would jump.
     property real animCapacity: 0
+    Connections {
+        target: Power
+        function onCapacityChanged() { window.animCapacity = Power.capacity; }
+    }
     Behavior on animCapacity { NumberAnimation { duration: window.gaugeDuration; easing.type: Easing.OutQuint } }
     
     onAnimCapacityChanged: batCanvas.requestPaint()
@@ -125,44 +129,6 @@ PopupShell {
         }
     }
 
-    Process {
-        id: sysPoller
-        command: ["bash", "-c", 
-            "cat /sys/class/power_supply/BAT*/capacity 2>/dev/null | head -n1 || echo '0'; " +
-            "cat /sys/class/power_supply/BAT*/status 2>/dev/null | head -n1 || echo 'Unknown'; " +
-            "powerprofilesctl get 2>/dev/null || echo 'balanced'; " +
-            "awk '{print int($1/3600)\"h \"int(($1%3600)/60)\"m\"}' /proc/uptime 2>/dev/null || echo '0h 0m'; " +
-            "brightnessctl -m 2>/dev/null | awk -F, '{print substr($4, 1, length($4)-1)}' || echo '0'"
-        ]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: {
-                let lines = this.text.trim().split("\n");
-                if (lines.length >= 5) {
-                    if (window.batCapacity !== parseInt(lines[0])) {
-                        window.batCapacity = parseInt(lines[0]);
-                        window.animCapacity = window.batCapacity;
-                    }
-                    window.batStatus = lines[1];
-                    window.powerProfile = lines[2];
-                    
-                    let upParts = lines[3].split("h ");
-                    if (upParts.length === 2) {
-                        window.upHours = parseInt(upParts[0]) || 0;
-                        window.upMins = parseInt(upParts[1].replace("m", "")) || 0;
-                    }
-                    
-                    if (!window.isDraggingBri) {
-                        window.sysBrightness = parseInt(lines[4]) || 0;
-                    }
-                }
-            }
-        }
-    }
-    Timer {
-        interval: 1500; running: true; repeat: true; triggeredOnStart: true;
-        onTriggered: sysPoller.running = true
-    }
 
     property real globalOrbitAngle: 0
     NumberAnimation on globalOrbitAngle {
@@ -1030,10 +996,9 @@ PopupShell {
                                         cornerRadius: Design.radius.ctl
 
                                         onMoved: pct => {
-                                            window.sysBrightness = pct;
-                                            Quickshell.execDetached(["brightnessctl", "set", pct + "%"]);
+                                            Power.setBrightness(pct);
                                         }
-                                        onActiveChanged: window.isDraggingBri = active
+                                        onActiveChanged: Power.brightnessHeld = active
                                     }
                                 }
 
@@ -1312,7 +1277,7 @@ PopupShell {
                                         
                                         Clickable {
                                             id: profileMa
-                                            onClicked: { Quickshell.execDetached(["powerprofilesctl", "set", name]); sysPoller.running = true; }
+                                            onClicked: { Power.setProfile(name); Power.refresh(); }
                                         }
                                     }
                                 }

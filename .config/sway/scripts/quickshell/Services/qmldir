@@ -1,3 +1,4 @@
 module Services
 
 singleton Audio 1.0 Audio.qml
+singleton Power 1.0 Power.qml

@@ -29,6 +29,7 @@ PanelWindow {
             masterWindow.handleIpcCommand("toggle:" + targetWidget + ":" + (arg || ""), true)
         }
 
+        function toggleControl() { masterWindow.handleIpcCommand("toggle:control:", true) }
         function toggleBattery() { masterWindow.handleIpcCommand("toggle:battery:", true) }
         function toggleVolume() { masterWindow.handleIpcCommand("toggle:volume:", true) }
         function toggleMusic() { masterWindow.handleIpcCommand("toggle:music:", true) }
@@ -291,7 +292,17 @@ PanelWindow {
         masterWindow.targetW = t.w;
         masterWindow.targetH = t.h;
 
-        if (masterWindow.loadedWidget === newWidget && widgetStack.currentItem) {
+        const sameComponent = masterWindow.loadedWidget !== ""
+            && getLayout(masterWindow.loadedWidget)
+            && getLayout(masterWindow.loadedWidget).comp === t.comp;
+
+        if (sameComponent && widgetStack.currentItem) {
+            // Same file already on screen — move to the page rather than
+            // rebuilding it. This is what makes the Control Center feel like
+            // one surface instead of four that happen to share a frame.
+            const target = { volume: "sound", battery: "power", network: "network", music: "media" }[newWidget];
+            if (target && widgetStack.currentItem.page !== undefined)
+                widgetStack.currentItem.page = target;
             if (arg !== "" && widgetStack.currentItem.activeMode !== undefined)
                 widgetStack.currentItem.activeMode = arg;
             masterWindow.isVisible = true;
@@ -304,6 +315,13 @@ PanelWindow {
         let props = { "notifModel": masterWindow.notifModel };
         if (newWidget === "network" && (arg === "wifi" || arg === "bt"))
             props["activeMode"] = arg;
+
+        // volume / battery / network / music are pages of one Control Center
+        // now. Existing keybinds and bar buttons keep working: the name picks
+        // the page instead of a whole separate popup.
+        const page = { volume: "sound", battery: "power", network: "network", music: "media" }[newWidget];
+        if (page)
+            props["page"] = page;
 
         if (immediate || masterWindow.firstOpen) {
             widgetStack.replace(t.comp, props, StackView.Immediate);

@@ -22,6 +22,10 @@ Item {
     // Children land inside the padded frame, not on top of the border.
     default property alias content: body.data
 
+    // A page inside the Control Center has no chrome of its own — the Center
+    // owns the window. Lets the four popups be reused as pages unchanged.
+    property bool framed: true
+
     property int padding: Design.space.xl
     property color background: Design.surface
     property color borderColor: Design.line
@@ -51,16 +55,16 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        radius: Design.s(root.cornerRadius)
-        color: root.background
-        border.color: root.borderColor
-        border.width: Design.border
+        radius: root.framed ? Design.s(root.cornerRadius) : 0
+        color: root.framed ? root.background : "transparent"
+        border.color: root.framed ? root.borderColor : "transparent"
+        border.width: root.framed ? Design.border : 0
         clip: true
 
         Item {
             id: body
             anchors.fill: parent
-            anchors.margins: Design.s(root.padding)
+            anchors.margins: root.framed ? Design.s(root.padding) : 0
         }
     }
 }
