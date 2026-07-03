@@ -7,9 +7,13 @@ import QtQuick.Shapes
 import Quickshell
 import Quickshell.Io
 import "../Ui"
+import "../Services"
 
 PopupShell {
     id: root
+
+    Component.onCompleted: Media.acquire()
+    Component.onDestruction: Media.release()
 
     // Durations that are choreography, not styling: a staged entrance, ambient
     // loops and slow tint crossfades. Deliberately off the motion scale.
@@ -207,18 +211,6 @@ PopupShell {
         return Design.text;
     }
 
-    // --- UTILITIES & OPTIMISTIC UPDATES ---
-    function execCmd(cmdStr) {
-        var safeCmd = cmdStr.replace(/`/g, "\\`");
-        var p = Qt.createQmlObject(`
-            import Quickshell.Io
-            Process {
-                command: ["bash", "-c", \`${safeCmd}\`]
-                running: true
-                onExited: (exitCode) => destroy()
-            }
-        `, root);
-    }
 
     function applyPresetOptimistically(presetName) {
         var presets = {
@@ -244,7 +236,7 @@ PopupShell {
             root.lastEqUpdate = Date.now(); 
             
             root.triggerEqLightning();
-            execCmd(`$HOME/.config/sway/scripts/quickshell/music/equalizer.sh preset ${presetName}`);
+            Media.setEqPreset(presetName, presets[presetName]);
         }
     }
 
@@ -259,58 +251,6 @@ PopupShell {
         id: playDebounceTimer
         interval: 1500
         onTriggered: root.userToggledPlay = false
-    }
-
-    Timer {
-        interval: 500
-        running: true
-        repeat: true
-        triggeredOnStart: true
-        onTriggered: {
-            if (!musicProc.running) musicProc.running = true;
-            if (!eqProc.running) eqProc.running = true;
-        }
-    }
-
-    Process {
-        id: musicProc
-        running: true
-        command: [Quickshell.env("HOME") + "/.config/sway/scripts/quickshell/music/music_info.sh"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                if (this.text) {
-                    var outStr = this.text.trim();
-                    if (outStr.length > 0) {
-                        try { 
-                            var newData = JSON.parse(outStr); 
-                            if (root.userToggledPlay) {
-                                newData.status = root.musicData.status; 
-                            }
-                            root.musicData = newData; 
-                        } catch(e) {}
-                    }
-                }
-            }
-        }
-    }
-
-    Process {
-        id: eqProc
-        running: true
-        command: [Quickshell.env("HOME") + "/.config/sway/scripts/quickshell/music/equalizer.sh", "get"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                if (this.text) {
-                    // Ignore background data entirely if we recently pushed an optimistic update
-                    if (Date.now() - root.lastEqUpdate < 2000) return;
-
-                    var outStr = this.text.trim();
-                    if (outStr.length > 0) {
-                        try { root.eqData = JSON.parse(outStr); } catch(e) {}
-                    }
-                }
-            }
-        }
     }
 
     // --- UI LAYOUT ---
@@ -769,7 +709,7 @@ PopupShell {
                                         root.musicData = temp;
 
                                         var safePlayer = root.musicData.playerName ? root.musicData.playerName : "";
-                                        root.execCmd(`$HOME/.config/sway/scripts/quickshell/music/player_control.sh seek ${value.toFixed(2)} ${root.musicData.length} "${safePlayer}"`);
+                                        Media.seek(value.toFixed(2));
                                         
                                         seekDebounceTimer.restart();
                                     }
@@ -868,7 +808,7 @@ PopupShell {
                             MouseArea {
                                 width: Design.s(30); height: Design.s(30)
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: root.execCmd("playerctl previous")
+                                onClicked: Media.previous()
                                 Icon { role: "title"; anchors.centerIn: parent; text: ""; color: parent.pressed ? Design.text : Design.textFaint }
                             }
                             MouseArea {
@@ -881,7 +821,7 @@ PopupShell {
                                     var temp = Object.assign({}, root.musicData);
                                     temp.status = (temp.status === "Playing" ? "Paused" : "Playing");
                                     root.musicData = temp;
-                                    root.execCmd("playerctl play-pause");
+                                    Media.playPause();
                                 }
 
                                 // Fluid Ripple Animation Element
@@ -932,7 +872,7 @@ PopupShell {
                             MouseArea {
                                 width: Design.s(30); height: Design.s(30)
                                 cursorShape: Qt.PointingHandCursor
-                                onClicked: root.execCmd("playerctl next")
+                                onClicked: Media.next()
                                 Icon { role: "title"; anchors.centerIn: parent; text: ""; color: parent.pressed ? Design.text : Design.textFaint }
                             }
                         }
@@ -1009,7 +949,7 @@ PopupShell {
                                         root.lastEqUpdate = Date.now(); 
                                         
                                         root.triggerEqLightning();
-                                        root.execCmd("$HOME/.config/sway/scripts/quickshell/music/equalizer.sh apply");
+                                        Quickshell.execDetached(["bash", "-c", "$HOME/.config/sway/scripts/quickshell/music/equalizer.sh apply"]);
                                     }
                                 }
                             }
@@ -1126,7 +1066,7 @@ PopupShell {
                                                     // Set lock here too to protect individual slider tweaks
                                                     root.lastEqUpdate = Date.now();
                                                     
-                                                    root.execCmd(`$HOME/.config/sway/scripts/quickshell/music/equalizer.sh set_band ${modelData.idx} ${Math.round(value)}`);
+                                                    Quickshell.execDetached([Quickshell.env("HOME") + "/.config/sway/scripts/quickshell/music/equalizer.sh", "set_band", String(modelData.idx), String(Math.round(value))]);
                                                 }
                                             }
 

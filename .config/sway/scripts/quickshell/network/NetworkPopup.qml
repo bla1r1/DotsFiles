@@ -6,9 +6,22 @@ import QtCore
 import Quickshell
 import Quickshell.Io
 import "../Ui"
+import "../Services"
 
 PopupShell {
     id: window
+
+    Component.onCompleted: Network.acquire()
+    Component.onDestruction: Network.release()
+
+    // Parsing stays here — only the polling moved. Services/Network exists so
+    // one poller serves every place that shows network state, not to drag the
+    // whole popup into a singleton.
+    Connections {
+        target: Network
+        function onWifiUpdated(data) { window.processWifiJson(JSON.stringify(data)); }
+        function onBluetoothUpdated(data) { window.processBtJson(JSON.stringify(data)); }
+    }
 
     // Durations that are choreography, not styling: a staged entrance, ambient
     // loops and slow tint crossfades. Deliberately off the motion scale.
@@ -172,7 +185,7 @@ PopupShell {
             }
             
             window.connectingId = "";
-            if (window.activeMode === "wifi") wifiPoller.running = true; else btPoller.running = true;
+            if (window.activeMode === "wifi") Network.refresh(); else Network.refresh();
         }
     }
 
@@ -600,39 +613,6 @@ PopupShell {
                 if (isNowBtConn || window.isWifiConn) window.updateInfoNodes();
             }
         } catch(e) {}
-    }
-
-    Process {
-        id: wifiPoller
-        command: ["bash", window.scriptsDir + "/wifi_panel_logic.sh"]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: {
-                cache.lastWifiJson = this.text.trim();
-                processWifiJson(cache.lastWifiJson);
-            }
-        }
-    }
-
-    Process {
-        id: btPoller
-        command: ["bash", window.scriptsDir + "/bluetooth_panel_logic.sh", "--status"]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: {
-                cache.lastBtJson = this.text.trim();
-                processBtJson(cache.lastBtJson);
-            }
-        }
-    }
-    
-    Timer {
-        interval: (Object.keys(window.busyTasks).length > 0 || Object.keys(window.disconnectingDevices).length > 0) ? 1000 : 3000
-        running: true; repeat: true
-        onTriggered: { 
-            if (!wifiPoller.running) wifiPoller.running = true; 
-            if (!btPoller.running) btPoller.running = true; 
-        }
     }
 
     property real globalOrbitAngle: 0
@@ -1350,7 +1330,7 @@ PopupShell {
                                     centralCore.disconnectFill = 0.0;
                                     centralCore.disconnectTriggered = false;
                                     
-                                    if (window.activeMode === "wifi") wifiPoller.running = true; else btPoller.running = true;
+                                    if (window.activeMode === "wifi") Network.refresh(); else Network.refresh();
                                 }
                             }
                             
@@ -1872,7 +1852,7 @@ PopupShell {
                                             drainAnim.start();
                                         } else if (isInfoNode && cmdStr) {
                                             Quickshell.execDetached(["sh", "-c", cmdStr]);
-                                            if (window.activeMode === "bt") btPoller.running = true;
+                                            if (window.activeMode === "bt") Network.refresh();
                                             floatCard.triggered = false;
                                             drainAnim.start(); 
                                         } else {
@@ -2066,7 +2046,7 @@ PopupShell {
                             wifiPendingReset.restart();
                             window.wifiPower = window.expectedWifiPower; // Optimistic
                             Quickshell.execDetached(["nmcli", "radio", "wifi", window.wifiPower]);
-                            wifiPoller.running = true;
+                            Network.refresh();
                         } else {
                             if (window.btPowerPending) return;
                             window.expectedBtPower = window.btPower === "on" ? "off" : "on";
@@ -2077,7 +2057,7 @@ PopupShell {
                             btPendingReset.restart();
                             window.btPower = window.expectedBtPower; // Optimistic
                             Quickshell.execDetached(["bash", window.scriptsDir + "/bluetooth_panel_logic.sh", "--toggle"]);
-                            btPoller.running = true;
+                            Network.refresh();
                         }
                     }
                 }
