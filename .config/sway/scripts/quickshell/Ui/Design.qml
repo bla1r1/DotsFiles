@@ -40,6 +40,9 @@ Singleton {
     // multi-monitor ever matters, this becomes a property on PopupShell and
     // components take it from their parent.
 
+    // Both are pushed in by PopupShell. Design is the token layer: it must not
+    // depend on Services, or the dependency runs backwards — the thing that
+    // defines how the UI looks would need to know where settings are stored.
     property real screenWidth: 1920
     property real uiScale: 1.0
 
@@ -223,8 +226,6 @@ Singleton {
     function reload() {
         paletteReader.running = false;
         paletteReader.running = true;
-        settingsReader.running = false;
-        settingsReader.running = true;
     }
 
     // Parsed palette. Kept as a child object so every role above stays a
@@ -318,17 +319,6 @@ Singleton {
         }
     }
 
-    property Process settingsReader: Process {
-        command: ["bash", "-c", "jq -c . ~/.config/sway/settings.json 2>/dev/null || echo '{}'"]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const c = root._parse(this.text);
-                if (c && c.uiScale !== undefined)
-                    root.uiScale = c.uiScale;
-            }
-        }
-    }
 
     // =========================================================================
     // LEGACY NAMES — delete once no popup references them

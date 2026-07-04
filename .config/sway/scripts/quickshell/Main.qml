@@ -4,6 +4,7 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
+import "./Services"
 import "WindowRegistry.js" as Registry
 
 PanelWindow {
@@ -91,7 +92,9 @@ PanelWindow {
     property real targetW: 1
     property real targetH: 1
 
-    property real globalUiScale: 1.0
+    // Was fed by its own jq subprocess reading settings.json; now one typed
+    // read from the store, which is watching the file anyway.
+    readonly property real globalUiScale: Settings.uiScale
     property string lastIpcCommand: ""
     property string loadedWidget: ""
 
@@ -105,32 +108,6 @@ PanelWindow {
 
     onGlobalUiScaleChanged: {
         handleNativeScreenChange();
-    }
-
-    Process {
-        id: settingsReader
-        command: ["bash", "-c", "jq -c . ~/.config/sway/settings.json 2>/dev/null || echo '{}'"]
-        running: true 
-        stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    let text = this.text ? this.text.trim() : "{}";
-                    let start = text.indexOf("{");
-                    let end = text.lastIndexOf("}");
-                    if (start >= 0 && end >= start) text = text.slice(start, end + 1);
-                    else text = "{}";
-
-                    if (text.length > 0 && text !== "{}") {
-                        let parsed = JSON.parse(text);
-                        if (parsed.uiScale !== undefined && masterWindow.globalUiScale !== parsed.uiScale) {
-                            masterWindow.globalUiScale = parsed.uiScale;
-                        }
-                    }
-                } catch (e) {
-                    console.log("Error parsing settings.json in main.qml:", e);
-                }
-            }
-        }
     }
 
     function getLayout(name) {

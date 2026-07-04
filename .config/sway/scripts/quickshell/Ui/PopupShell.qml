@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Window
 import Quickshell
+import "../Services"
 
 // =============================================================================
 // The frame every popup repeats by hand.
@@ -38,6 +39,7 @@ Item {
     // singleton with no visual parent. Every popup lives inside one of these,
     // so this is the one place that always knows.
     Component.onCompleted: Design.screenWidth = Screen.width
+    Binding { target: Design; property: "uiScale"; value: Settings.uiScale }
     Connections {
         target: Screen
         function onWidthChanged() { Design.screenWidth = Screen.width }

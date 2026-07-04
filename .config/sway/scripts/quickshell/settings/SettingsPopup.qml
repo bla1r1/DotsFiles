@@ -6,6 +6,7 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import "../Ui"
+import "../Services"
 
 PopupShell {
     id: root
@@ -22,7 +23,6 @@ PopupShell {
     // --- Responsive Scaling Logic ---
     
     readonly property string scriptDir: Quickshell.env("QS_SCRIPT_DIR") || (Quickshell.env("HOME") + "/.config/sway/scripts")
-    readonly property string mainQmlPath: scriptDir + "/quickshell/Main.qml"
 
     // -------------------------------------------------------------------------
     // KEYBOARD SHORTCUTS
@@ -77,29 +77,24 @@ PopupShell {
     }
 
     function saveAppSettings() {
-        let config = {
-            "uiScale": root.setUiScale,
-            "openGuideAtStartup": root.setOpenGuideAtStartup,
-            "guideShortcut": root.setGuideShortcut,
-            "wallpaperDir": root.setWallpaperDir,
-            "language": root.setLanguage,
-            "kbOptions": root.setKbOptions,
-            "workspaceCount": root.setWorkspaceCount
-        };
-        let jsonString = JSON.stringify(config, null, 2);
-        
-        let cmd = "mkdir -p ~/.config/sway/ && echo '" + jsonString + "' > ~/.config/sway/settings.json && notify-send 'Quickshell' 'Settings Applied Successfully!'";
-                  
-        Quickshell.execDetached(["bash", "-c", cmd]);
-        
+        // One writer. The old path was `echo '<json>' > file` through bash:
+        // not atomic, and broken by any single quote inside a value.
+        Settings.apply({
+            uiScale: root.setUiScale,
+            openGuideAtStartup: root.setOpenGuideAtStartup,
+            guideShortcut: root.setGuideShortcut,
+            wallpaperDir: root.setWallpaperDir,
+            language: root.setLanguage,
+            kbOptions: root.setKbOptions,
+            workspaceCount: root.setWorkspaceCount
+        });
+        Quickshell.execDetached(["notify-send", "Quickshell", "Settings Applied Successfully!"]);
+
         if (root.setWorkspaceCount !== root.initialWorkspaceCount) {
             root.initialWorkspaceCount = root.setWorkspaceCount; 
         }
     }
 
-    function root.close() {
-        Quickshell.execDetached(["qs", "-p", root.mainQmlPath, "ipc", "call", "main", "close"]);
-    }
     Process {
         id: swayLangReader
         command: ["bash", "-c", "grep -m1 '^ *xkb_layout ' ~/.config/sway/conf.d/input.conf | awk '{print $2}' | tr -d ' '"]
@@ -114,40 +109,25 @@ PopupShell {
         }
     }
 
-    Process {
-        id: settingsReader
-        command: ["bash", "-c", "jq -c . ~/.config/sway/settings.json 2>/dev/null || echo '{}'"]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    let text = this.text ? this.text.trim() : "{}";
-                    let start = text.indexOf("{");
-                    let end = text.lastIndexOf("}");
-                    if (start >= 0 && end >= start) text = text.slice(start, end + 1);
-                    else text = "{}";
-
-                    if (text.length > 0 && text !== "{}") {
-                        let parsed = JSON.parse(text);
-                        if (parsed.uiScale !== undefined) root.setUiScale = parsed.uiScale;
-                        if (parsed.openGuideAtStartup !== undefined) root.setOpenGuideAtStartup = parsed.openGuideAtStartup;
-                        if (parsed.guideShortcut !== undefined) root.setGuideShortcut = parsed.guideShortcut;
-                        if (parsed.wallpaperDir !== undefined) root.setWallpaperDir = parsed.wallpaperDir;
-                        if (parsed.language !== undefined && parsed.language !== "") root.setLanguage = parsed.language;
-                        if (parsed.kbOptions !== undefined) root.setKbOptions = parsed.kbOptions;
-                        if (parsed.workspaceCount !== undefined) {
-                            root.setWorkspaceCount = parsed.workspaceCount;
-                            root.initialWorkspaceCount = parsed.workspaceCount; // TRACK BASELINE
-                        }
-                    } else {
-                        root.saveAppSettings();
-                    }
-                } catch (e) {
-                    console.log("Error parsing global settings:", e);
-                }
-            }
-        }
+    // Editable copies, seeded from the store. Each field kept its own
+    // `if (parsed.x !== undefined)` guard before — the schema does that now.
+    function loadAppSettings() {
+        root.setUiScale = Settings.uiScale;
+        root.setOpenGuideAtStartup = Settings.openGuideAtStartup;
+        root.setGuideShortcut = Settings.guideShortcut;
+        root.setWallpaperDir = Settings.wallpaperDir;
+        root.setLanguage = Settings.language;
+        root.setKbOptions = Settings.kbOptions;
+        root.setWorkspaceCount = Settings.workspaceCount;
+        root.initialWorkspaceCount = Settings.workspaceCount;
     }
+
+    Component.onCompleted: root.loadAppSettings()
+    Connections {
+        target: Settings
+        function onChanged() { root.loadAppSettings(); }
+    }
+
     ListModel {
         id: langModel
         ListElement { code: "us"; name: "English (US)" }
