@@ -11,7 +11,6 @@ import "../Services"
 PopupShell {
     id: window
 
-    Component.onCompleted: Network.acquire()
     Component.onDestruction: Network.release()
 
     // Parsing stays here — only the polling moved. Services/Network exists so
@@ -86,6 +85,8 @@ PopupShell {
     }
 
     Component.onCompleted: {
+        Network.acquire();
+
         Quickshell.execDetached(["bash", "-c", "mkdir -p '" + window.cacheDir + "'; if [ ! -f '" + window.modeFilePath + "' ]; then echo '" + activeMode + "' > '" + window.modeFilePath + "'; fi"]);
 
         if (cache.lastWifiJson !== "") processWifiJson(cache.lastWifiJson);

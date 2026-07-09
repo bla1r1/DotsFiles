@@ -122,7 +122,6 @@ PopupShell {
         root.initialWorkspaceCount = Settings.workspaceCount;
     }
 
-    Component.onCompleted: root.loadAppSettings()
     Connections {
         target: Settings
         function onChanged() { root.loadAppSettings(); }
@@ -193,8 +192,9 @@ PopupShell {
     // -------------------------------------------------------------------------
     property real introContent: 0.0
 
-    Component.onCompleted: { 
-        startupSequence.start(); 
+    Component.onCompleted: {
+        root.loadAppSettings();
+        startupSequence.start();
     }
 
     SequentialAnimation {

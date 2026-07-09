@@ -26,7 +26,7 @@ import "../WindowRegistry.js" as LayoutMath
 //       radius: Design.s(Design.radius.card)
 //   }
 //
-// See README.md for the rule that keeps this file the only source of truth.
+// See docs/design-system.md for the rule that keeps this the only source of truth.
 // =============================================================================
 
 Singleton {

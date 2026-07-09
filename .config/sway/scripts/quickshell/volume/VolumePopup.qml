@@ -32,7 +32,7 @@ PopupShell {
 
     
     // Durations that are choreography, not styling: a staged entrance and
-    // ambient loops. Deliberately off the motion scale — see Ui/README.md.
+    // ambient loops. Deliberately off the motion scale — see docs/design-system.md.
     readonly property int introDuration: 800
     readonly property int introHeaderDuration: 700
     readonly property int tintDuration: 800
