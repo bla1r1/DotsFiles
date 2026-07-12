@@ -1,27 +1,27 @@
 pragma Singleton
 
 import QtQuick
-import QtCore
 import Quickshell
-import Quickshell.Io
+import Quickshell.Services.Pipewire
 
 // =============================================================================
-// Owner of the audio state.
+// Owner of the audio state, on PipeWire directly.
 //
-// Volume had two owners reading it two different ways: VolumePopup via
-// get_audio_state.py, BatteryPopup via raw `wpctl get-volume`. Two sources of
-// truth for one number, free to disagree on screen. This is the one source;
-// every write goes through audio_control.sh.
+// Was: `python3 get_audio_state.py` once a second, parsed from JSON, plus
+// `audio_control.sh` shelling out to pactl for every write. 60 process spawns a
+// minute for state that PipeWire already pushes.
 //
-//   Audio.setVolume("sink", id, 42)
-//   Audio.defaultSink.volume
+// Now: no processes at all. Node properties arrive as signals.
 //
-// POLLING IS REFCOUNTED. A singleton that polls unconditionally would run
-// python3 once a second for the whole session — today the poller only lives as
-// long as the popup does. Consumers must bracket their use:
+// The PUBLIC SHAPE IS UNCHANGED on purpose — VolumePopup and BatteryPopup are
+// already written against it, and the interface is the seam that made swapping
+// the implementation a one-file change. Volume stays 0..100 int here even
+// though PipeWire works in 0..1, because that is what the popups speak.
 //
-//   Component.onCompleted: Audio.acquire()
-//   Component.onDestruction: Audio.release()
+// NOTE: PwObjectTracker is required. Quickshell does not bind node properties
+// unless something is tracking the object — without it `audio.volume` reads
+// once and never updates again. That is the single easiest thing to get wrong
+// in this file.
 // =============================================================================
 
 Singleton {
@@ -31,120 +31,109 @@ Singleton {
     readonly property ListModel inputs: ListModel {}
     readonly property ListModel apps: ListModel {}
 
-    // Assigned explicitly at the end of every sync, NOT bound: a ListModel
-    // mutation does not re-evaluate a binding that calls into it, so a bound
-    // version would silently keep returning the first device it ever saw.
     property var defaultSink: null
     property var defaultSource: null
 
-    property int pollInterval: 1000
-
-    readonly property string _scriptsDir: Quickshell.env("HOME") + "/.config/sway/scripts/quickshell/volume"
-
     // ── Consumers ────────────────────────────────────────────────────────────
+    // No longer gates a poller — there is none. It scopes the object tracker,
+    // which is not free: tracking every node in the graph all session would
+    // cost for nothing while no audio UI is on screen.
 
     property int _users: 0
     function acquire() { root._users++; }
     function release() { if (root._users > 0) root._users--; }
 
+    readonly property bool _tracking: root._users > 0
+
+    // ── The graph ────────────────────────────────────────────────────────────
+
+    readonly property var sinkNodes: Pipewire.nodes.values.filter(n => n.isSink && !n.isStream)
+    readonly property var sourceNodes: Pipewire.nodes.values.filter(n => !n.isSink && !n.isStream && n.audio)
+    readonly property var streamNodes: Pipewire.nodes.values.filter(n => n.isStream)
+
+    PwObjectTracker {
+        objects: root._tracking
+            ? root.sinkNodes.concat(root.sourceNodes, root.streamNodes,
+                                    [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource])
+            : []
+    }
+
     // ── Writes ───────────────────────────────────────────────────────────────
-    // `type` is "sink" | "source" | "sink-input", matching audio_control.sh.
+    // `type` is still "sink" | "source" | "sink-input" so callers do not change.
+
+    function _node(id) {
+        return Pipewire.nodes.values.find(n => String(n.id) === String(id)) || null;
+    }
 
     function setVolume(type, id, pct) {
-        if (!id) return;
-        Quickshell.execDetached([root._scriptsDir + "/audio_control.sh", "set-volume", type, id, pct]);
+        const n = root._node(id);
+        if (n && n.audio)
+            n.audio.volume = Math.max(0, Math.min(100, pct)) / 100;
     }
 
     function toggleMute(type, id) {
-        if (!id) return;
-        Quickshell.execDetached([root._scriptsDir + "/audio_control.sh", "toggle-mute", type, id]);
+        const n = root._node(id);
+        if (n && n.audio)
+            n.audio.muted = !n.audio.muted;
     }
 
     function setDefault(type, name) {
-        if (!name) return;
-        Quickshell.execDetached([root._scriptsDir + "/audio_control.sh", "set-default", type, name]);
+        // Choosing a default is wirePlumber policy, not a node property, and
+        // PipeWire has no call for it — this is the one write that still shells
+        // out. It happens on a click, never in a loop.
+        Quickshell.execDetached(["wpctl", "set-default", String(name)]);
     }
 
-    // Raising a muted device should unmute it — otherwise the slider moves and
-    // nothing is heard. Both popups had this rule; now it lives in one place.
+    // Raising a muted device should unmute it, or the slider moves and nothing
+    // is heard. Both popups had this rule; it lives here once.
     function applyVolume(type, device, pct) {
-        if (!device || !device.id) return;
-        if (pct > 0 && device.mute)
-            root.toggleMute(type, device.id);
-        root.setVolume(type, device.id, pct);
+        if (!device || device.id === undefined)
+            return;
+        const n = root._node(device.id);
+        if (!n || !n.audio)
+            return;
+        if (pct > 0 && n.audio.muted)
+            n.audio.muted = false;
+        n.audio.volume = Math.max(0, Math.min(100, pct)) / 100;
     }
 
-    /** Ask the poller to refresh now rather than waiting out the interval. */
-    function refresh() { poller.running = true; }
+    /** Kept for source compatibility. Nothing polls, so there is nothing to ask. */
+    function refresh() {}
 
     // ── Drag protection ──────────────────────────────────────────────────────
-    // While a slider is held, the poller must not overwrite that device's
-    // volume. This lived in each popup as `draggingNodes`; it is a property of
-    // the data, not of the view, so it belongs here.
+    // Still needed: PipeWire reports the value it actually applied, which can
+    // trail a fast drag by a frame or two and would fight the pointer.
 
     property var _held: ({})
 
     function hold(id, holding) {
         let h = Object.assign({}, root._held);
-        if (holding) h[id] = true;
-        else delete h[id];
+        if (holding) h[String(id)] = true;
+        else delete h[String(id)];
         root._held = h;
     }
 
-    function isHeld(id) { return root._held[id] === true; }
+    function isHeld(id) { return root._held[String(id)] === true; }
 
-    // ── Polling ──────────────────────────────────────────────────────────────
+    // ── Graph → the shape the popups read ────────────────────────────────────
 
-    Settings {
-        id: cache
-        property string lastAudioJson: ""
+    function _row(n, isDefault) {
+        return {
+            id: String(n.id),
+            name: n.name || "",
+            description: n.nickname || n.description || n.name || "",
+            volume: n.audio ? Math.round(n.audio.volume * 100) : 0,
+            mute: n.audio ? n.audio.muted : false,
+            is_default: !!isDefault,
+            icon: n.isSink ? "\u{f057e}" : "\u{f036c}"
+        };
     }
 
-    Component.onCompleted: if (cache.lastAudioJson !== "") root._apply(cache.lastAudioJson)
+    function _sync(model, nodes, defaultNode) {
+        const rows = nodes.map(n => root._row(n, defaultNode && n.id === defaultNode.id));
 
-    Process {
-        id: poller
-        command: ["python3", root._scriptsDir + "/get_audio_state.py"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                cache.lastAudioJson = this.text.trim();
-                root._apply(cache.lastAudioJson);
-            }
-        }
-    }
-
-    Timer {
-        interval: root.pollInterval
-        repeat: true
-        triggeredOnStart: true
-        running: root._users > 0
-        onTriggered: poller.running = true
-    }
-
-    // ── Model sync ───────────────────────────────────────────────────────────
-
-    function _apply(text) {
-        if (!text) return;
-        let data;
-        try {
-            data = JSON.parse(text);
-        } catch (e) {
-            // Keep the last good state rather than emptying the lists.
-            console.warn("Audio: cannot parse state —", e);
-            return;
-        }
-        _sync(root.outputs, data.outputs || []);
-        _sync(root.inputs, data.inputs || []);
-        _sync(root.apps, data.apps || []);
-        root.defaultSink = _pick(root.outputs);
-        root.defaultSource = _pick(root.inputs);
-    }
-
-    /** In-place reconcile: keeps delegates alive so rows do not flash. */
-    function _sync(model, rows) {
         for (let i = model.count - 1; i >= 0; i--) {
-            const id = model.get(i).id;
-            if (!rows.some(r => r.id === id))
+            if (!rows.some(r => r.id === model.get(i).id))
                 model.remove(i);
         }
 
@@ -154,32 +143,54 @@ Singleton {
             for (let j = i; j < model.count; j++) {
                 if (model.get(j).id === d.id) { at = j; break; }
             }
-
-            const obj = {
-                id: d.id, name: d.name, description: d.description,
-                volume: d.volume, mute: d.mute, is_default: d.is_default, icon: d.icon
-            };
-
             if (at === -1) {
-                model.insert(i, obj);
+                model.insert(i, d);
                 continue;
             }
             if (at !== i)
                 model.move(at, i, 1);
-            for (const key in obj) {
+            for (const key in d) {
                 if (key === "volume" && root.isHeld(d.id))
                     continue;
-                if (model.get(i)[key] !== obj[key])
-                    model.setProperty(i, key, obj[key]);
+                if (model.get(i)[key] !== d[key])
+                    model.setProperty(i, key, d[key]);
             }
         }
     }
 
-    function _pick(model) {
-        for (let i = 0; i < model.count; i++) {
-            if (model.get(i).is_default)
-                return model.get(i);
-        }
-        return model.count > 0 ? model.get(0) : null;
+    function _rebuild() {
+        const sink = Pipewire.defaultAudioSink;
+        const source = Pipewire.defaultAudioSource;
+
+        root._sync(root.outputs, root.sinkNodes, sink);
+        root._sync(root.inputs, root.sourceNodes, source);
+        root._sync(root.apps, root.streamNodes, null);
+
+        root.defaultSink = sink ? root._row(sink, true) : null;
+        root.defaultSource = source ? root._row(source, true) : null;
     }
+
+    // Rebuild whenever the graph or the tracked values move. Cheap: it is a
+    // diff against ListModels that mostly do not change.
+    onSinkNodesChanged: root._rebuild()
+    onSourceNodesChanged: root._rebuild()
+    onStreamNodesChanged: root._rebuild()
+
+    Connections {
+        target: Pipewire
+        function onDefaultAudioSinkChanged() { root._rebuild(); }
+        function onDefaultAudioSourceChanged() { root._rebuild(); }
+    }
+
+    // Node volume changes do not re-emit the list bindings above, so poke the
+    // rebuild on a slow tick as a floor. 2s, not 1s, and it touches nothing
+    // outside this process — no fork, no parse.
+    Timer {
+        interval: 2000
+        repeat: true
+        running: root._tracking
+        onTriggered: root._rebuild()
+    }
+
+    Component.onCompleted: root._rebuild()
 }

@@ -3,6 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Services.UPower
 
 // =============================================================================
 // Owner of battery, power profile, uptime and laptop backlight.
@@ -22,9 +23,26 @@ Singleton {
     id: root
 
     // ── Battery ──────────────────────────────────────────────────────────────
-    property int capacity: 0
-    property string status: "Unknown"
-    readonly property bool charging: status === "Charging"
+    // From UPower rather than catting /sys/class/power_supply/BAT*/ in a bash
+    // poller. UPower is already a daemon watching this hardware; asking it costs
+    // a D-Bus property read, and it pushes changes instead of being asked.
+    readonly property var _bat: UPower.displayDevice
+
+    readonly property int capacity: root._bat ? Math.round(root._bat.percentage * 100) : 0
+    readonly property bool charging: root._bat
+        ? (root._bat.state === UPowerDeviceState.Charging
+           || root._bat.state === UPowerDeviceState.FullyCharged)
+        : false
+    readonly property string status: {
+        if (!root._bat) return "Unknown";
+        switch (root._bat.state) {
+        case UPowerDeviceState.Charging:      return "Charging";
+        case UPowerDeviceState.FullyCharged:  return "Full";
+        case UPowerDeviceState.Discharging:   return "Discharging";
+        case UPowerDeviceState.Empty:         return "Empty";
+        default:                              return "Unknown";
+        }
+    }
 
     // ── Profile ──────────────────────────────────────────────────────────────
     property string profile: "balanced"
@@ -34,11 +52,27 @@ Singleton {
     property int upMins: 0
 
     // ── Backlight ────────────────────────────────────────────────────────────
-    // The laptop panel, via brightnessctl. External monitors are a different
-    // device on a different protocol (DDC) and stay with MonitorPopup.
+    // The laptop panel. External monitors are a different device on a different
+    // protocol (DDC) and stay with MonitorPopup.
+    //
+    // Split on purpose: READ from sysfs, WRITE through brightnessctl.
+    //
+    // Reading natively takes brightness out of the 1.5s poll loop entirely —
+    // sysfs emits inotify on change, so FileView sees a keypress immediately
+    // instead of up to a second and a half later.
+    //
+    // Writing stays with the tool because `brightnessctl -e4 -n2` is not a
+    // number being stored: -e4 is a logarithmic curve matching how brightness
+    // is actually perceived, and -n2 keeps the panel from going fully dark.
+    // Writing raw values to sysfs would silently lose both.
     property int brightness: 0
+    property int brightnessRaw: 0
+    property int brightnessMax: 0
 
-    property int pollInterval: 1500
+    // What is left in the poller is the power profile and uptime. Battery moved
+    // to UPower, brightness to inotify — neither is asked for any more. 40
+    // process spawns a minute became 4.
+    property int pollInterval: 15000
 
     // ── Consumers ────────────────────────────────────────────────────────────
 
@@ -54,8 +88,14 @@ Singleton {
     }
 
     function setBrightness(pct) {
-        root.brightness = pct;
-        Quickshell.execDetached(["brightnessctl", "set", pct + "%"]);
+        root.brightness = pct;   // optimistic; the FileView confirms
+        Quickshell.execDetached(["brightnessctl", "-c", "backlight", "-e4", "-n2", "set", pct + "%"]);
+    }
+
+    function stepBrightness(delta) {
+        const sign = delta >= 0 ? "+" : "-";
+        Quickshell.execDetached(["brightnessctl", "-c", "backlight", "-e4", "-n2",
+                                 "set", Math.abs(delta) + "%" + sign]);
     }
 
     function refresh() { poller.running = true; }
@@ -70,30 +110,22 @@ Singleton {
     Process {
         id: poller
         command: ["bash", "-c",
-            "cat /sys/class/power_supply/BAT*/capacity 2>/dev/null | head -n1 || echo '0'; " +
-            "cat /sys/class/power_supply/BAT*/status 2>/dev/null | head -n1 || echo 'Unknown'; " +
             "powerprofilesctl get 2>/dev/null || echo 'balanced'; " +
-            "awk '{print int($1/3600)\"h \"int(($1%3600)/60)\"m\"}' /proc/uptime 2>/dev/null || echo '0h 0m'; " +
-            "brightnessctl -m 2>/dev/null | awk -F, '{print substr($4, 1, length($4)-1)}' || echo '0'"
+            "awk '{print int($1/3600)\"h \"int(($1%3600)/60)\"m\"}' /proc/uptime 2>/dev/null || echo '0h 0m'"
         ]
         stdout: StdioCollector {
             onStreamFinished: {
                 const lines = this.text.trim().split("\n");
-                if (lines.length < 5)
+                if (lines.length < 2)
                     return;
 
-                root.capacity = parseInt(lines[0]) || 0;
-                root.status = lines[1];
-                root.profile = lines[2];
+                root.profile = lines[0];
 
-                const up = lines[3].split("h ");
+                const up = lines[1].split("h ");
                 if (up.length === 2) {
                     root.upHours = parseInt(up[0]) || 0;
                     root.upMins = parseInt(up[1].replace("m", "")) || 0;
                 }
-
-                if (!root.brightnessHeld)
-                    root.brightness = parseInt(lines[4]) || 0;
             }
         }
     }
@@ -104,5 +136,42 @@ Singleton {
         triggeredOnStart: true
         running: root._users > 0
         onTriggered: poller.running = true
+    }
+
+    // ── Backlight, event-driven ──────────────────────────────────────────────
+    // One process for the whole session to find the device, then nothing.
+    // The glob has to be resolved once because FileView needs a concrete path.
+
+    property string _backlightDir: ""
+
+    Process {
+        id: findBacklight
+        running: true
+        command: ["bash", "-c", "ls -d /sys/class/backlight/*/ 2>/dev/null | head -n1"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const dir = this.text.trim();
+                if (dir !== "")
+                    root._backlightDir = dir.replace(/\/$/, "");
+            }
+        }
+    }
+
+    FileView {
+        path: root._backlightDir === "" ? "" : root._backlightDir + "/max_brightness"
+        printErrors: false
+        onLoaded: root.brightnessMax = parseInt(text()) || 0
+    }
+
+    FileView {
+        path: root._backlightDir === "" ? "" : root._backlightDir + "/brightness"
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: {
+            root.brightnessRaw = parseInt(text()) || 0;
+            if (!root.brightnessHeld && root.brightnessMax > 0)
+                root.brightness = Math.round(root.brightnessRaw * 100 / root.brightnessMax);
+        }
     }
 }

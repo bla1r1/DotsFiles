@@ -3,37 +3,40 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Services.Mpris
 
 // =============================================================================
-// Owner of the player and equaliser state.
+// Owner of the player state, on MPRIS directly.
 //
-// Lifted out of MusicPopup so a media card can appear anywhere in the Control
-// Center without starting a second poller.
+// Was: `music_info.sh` once a second — playerctl, plus curling the album art
+// and deriving colours from it, all re-done every tick whether or not anything
+// had changed. 60 spawns a minute.
 //
-// Also retires MusicPopup's execCmd(), which built a QML Process out of an
-// interpolated source string on every button press:
+// Now: title, artist, art, status and position come from MPRIS as signals, and
+// the script runs ONLY when the track changes. Roughly one spawn per song.
 //
-//     Qt.createQmlObject(`... command: ["bash", "-c", \`${safeCmd}\`] ...`)
+// Same split as the brightness work: the live values move to the native source,
+// while the script keeps the part it is actually good at. Colour extraction
+// from cover art is not something MPRIS exposes, and reimplementing it blind
+// would be trading a working thing for an unverified one.
 //
-// That compiles QML at runtime to run a fixed command, and escapes the string
-// by hand to stay safe. execDetached does the same work with neither problem.
-//
-// Refcounted like the other services — see Services/Audio.qml.
+// Public shape unchanged — MusicPopup reads `Media.track.*`.
 // =============================================================================
 
 Singleton {
     id: root
 
-    /** Whatever music_info.sh reports: title, artist, status, art, colours. */
+    /** The shape MusicPopup consumes. Live fields from MPRIS, derived from the script. */
     property var track: ({})
-    /** Whatever equalizer.sh reports. */
     property var eq: ({})
 
-    readonly property string status: track && track.status ? track.status : ""
-    readonly property bool playing: status === "Playing"
-    readonly property bool hasPlayer: !!(track && track.title)
+    readonly property var player: Mpris.players.values.find(p => p.canControl) || null
+    readonly property bool hasPlayer: root.player !== null
 
-    property int pollInterval: 1000
+    readonly property string status: !root.player ? ""
+        : (root.player.playbackState === MprisPlaybackState.Playing ? "Playing"
+        : (root.player.playbackState === MprisPlaybackState.Paused ? "Paused" : "Stopped"))
+    readonly property bool playing: root.status === "Playing"
 
     readonly property string _dir: Quickshell.env("HOME") + "/.config/sway/scripts/quickshell/music"
 
@@ -44,27 +47,21 @@ Singleton {
     function release() { if (root._users > 0) root._users--; }
 
     // ── Transport ────────────────────────────────────────────────────────────
-    // The optimistic flip is here rather than in the view: the poller is what
-    // it protects against, and the poller lives here too.
+    // No optimistic flip any more: MPRIS reports the state change itself, and
+    // faking it locally only mattered when the truth arrived a poll later.
 
-    property bool _optimistic: false
-    Timer { id: settle; interval: 1200; onTriggered: root._optimistic = false }
-
-    function playPause() {
-        root._optimistic = true;
-        root.track = Object.assign({}, root.track, { status: root.playing ? "Paused" : "Playing" });
-        settle.restart();
-        Quickshell.execDetached(["playerctl", "play-pause"]);
-    }
-
-    function next()     { Quickshell.execDetached(["playerctl", "next"]);     root.refresh(); }
-    function previous() { Quickshell.execDetached(["playerctl", "previous"]); root.refresh(); }
+    function playPause() { if (root.player) root.player.togglePlaying(); }
+    function next()       { if (root.player) root.player.next(); }
+    function previous()   { if (root.player) root.player.previous(); }
 
     function seek(seconds) {
-        Quickshell.execDetached(["playerctl", "position", String(seconds)]);
+        if (root.player && root.player.canSeek)
+            root.player.position = Number(seconds);
     }
 
     // ── Equaliser ────────────────────────────────────────────────────────────
+    // Stays a script: it is our own EQ over a PipeWire filter chain, not
+    // anything MPRIS or PipeWire expose as a property.
 
     property real _lastEqWrite: 0
 
@@ -80,27 +77,78 @@ Singleton {
         Quickshell.execDetached([root._dir + "/equalizer.sh", "preset", name]);
     }
 
-    function refresh() {
-        musicProc.running = true;
-        eqProc.running = true;
+    function refresh() { infoProc.running = true; }
+
+    // ── Live fields ──────────────────────────────────────────────────────────
+    // Merged over whatever the script last derived, so colours survive while
+    // title and position update at MPRIS speed.
+
+    function _merge() {
+        const p = root.player;
+        root.track = Object.assign({}, root.track, {
+            status: root.status,
+            title: p ? p.trackTitle : "",
+            artist: p ? p.trackArtist : "",
+            album: p ? p.trackAlbum : "",
+            artUrl: p ? p.trackArtUrl : "",
+            playerName: p ? p.identity : "",
+            percent: (p && p.length > 0) ? Math.round(p.position * 100 / p.length) : 0,
+            positionStr: root._clock(p ? p.position : 0),
+            lengthStr: root._clock(p ? p.length : 0)
+        });
     }
 
-    // ── Polling ──────────────────────────────────────────────────────────────
+    function _clock(sec) {
+        if (!sec || sec < 0) return "0:00";
+        const m = Math.floor(sec / 60);
+        const s = Math.floor(sec % 60);
+        return m + ":" + (s < 10 ? "0" : "") + s;
+    }
+
+    Connections {
+        target: root.player
+        ignoreUnknownSignals: true
+        function onTrackTitleChanged() { root._merge(); root.refresh(); }
+        function onTrackArtUrlChanged() { root._merge(); root.refresh(); }
+        function onPlaybackStateChanged() { root._merge(); }
+        function onPositionChanged() { root._merge(); }
+    }
+
+    onPlayerChanged: { root._merge(); root.refresh(); }
+
+    // MPRIS players commonly do not emit position continuously; ask for it while
+    // something is actually playing. This touches nothing outside the process.
+    Timer {
+        interval: 1000
+        repeat: true
+        running: root._users > 0 && root.playing
+        onTriggered: {
+            if (root.player)
+                root.player.positionChanged();
+            root._merge();
+        }
+    }
+
+    // ── Derived fields ───────────────────────────────────────────────────────
+    // Cover-art colours, output device name and icon. Runs on track change, not
+    // on a clock.
 
     Process {
-        id: musicProc
+        id: infoProc
         command: [root._dir + "/music_info.sh"]
         stdout: StdioCollector {
             onStreamFinished: {
                 const out = (this.text || "").trim();
                 if (!out) return;
                 try {
-                    const data = JSON.parse(out);
-                    // A press already moved the button; do not let the poller
-                    // bounce it back before the player has caught up.
-                    if (root._optimistic && root.track)
-                        data.status = root.track.status;
-                    root.track = data;
+                    const d = JSON.parse(out);
+                    // Keep only what MPRIS does not provide; the live fields
+                    // above must win, or a slow script would stutter the UI.
+                    root.track = Object.assign({}, root.track, {
+                        textColor: d.textColor, grad: d.grad, blur: d.blur,
+                        source: d.source, deviceName: d.deviceName,
+                        deviceIcon: d.deviceIcon
+                    });
                 } catch (e) {}
             }
         }
@@ -119,11 +167,8 @@ Singleton {
         }
     }
 
-    Timer {
-        interval: root.pollInterval
-        repeat: true
-        triggeredOnStart: true
-        running: root._users > 0
-        onTriggered: root.refresh()
+    Component.onCompleted: {
+        root._merge();
+        eqProc.running = true;
     }
 }

@@ -121,6 +121,7 @@ arch_packages() {
         starship eza bat ugrep zoxide find-the-command
         wofi python-pywal copyq
         pipewire wireplumber pipewire-pulse pavucontrol pavucontrol-qt pamixer playerctl
+        upower
         brightnessctl ddcutil jq inotify-tools socat
         pacman-contrib flatpak libnotify trash-cli
         networkmanager network-manager-applet networkmanager-dmenu blueman
