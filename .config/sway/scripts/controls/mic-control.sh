@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Tell waybar to re-read instead of having it poll us. Call this ONLY from
+# paths that CHANGE something: a read is what waybar itself runs, and
+# signalling from there would loop — signal, re-exec, signal again. The module is
+# "interval": "once" + "signal": 1; see waybar/modules.json.
+notify_waybar() { pkill -RTMIN+1 waybar 2>/dev/null || true; }
+
 ICON_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/swaync/icons"
 SYNC_HINT="string:x-canonical-private-synchronous:sys-notify-mic"
 
@@ -62,6 +68,7 @@ main() {
                 pamixer --default-source -m
                 notify_msg "$ICON_DIR/mic-mute.png" "Mic: OFF"
             fi
+            notify_waybar
             ;;
         *)
             die "Usage: mic-control.sh [--get|--get-muted|--get-waybar|--get-icon|--toggle]"

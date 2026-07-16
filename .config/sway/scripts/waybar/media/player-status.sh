@@ -1,75 +1,50 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
-max_width=34
-separator="  •  "
-field_sep=$'\x1f'
-
-json_escape() {
-    local value="$1"
-    value=${value//\\/\\\\}
-    value=${value//\"/\\\"}
-    value=${value//$'\n'/\\n}
-    value=${value//$'\r'/}
-    value=${value//$'\t'/\\t}
-    printf '%s' "$value"
-}
+# Waybar player module — continuous, not polled.
+#
+# Was: forked once every 2 seconds, 30 times a minute, whether or not anything
+# was playing. Most of that work was re-rendering a marquee that stepped once
+# per poll — a scroll so coarse it read as a stutter rather than motion.
+#
+# Now: one long-lived `playerctl --follow`, which emits a line only when the
+# track or the playback state actually changes. Long titles elide via
+# `max-length` in modules.json instead of scrolling.
+#
+# Waybar runs this in continuous mode when the module has no `interval`.
+set -uo pipefail
 
 emit() {
-    local text="$1"
-    local class="$2"
-    local tooltip="$3"
-    printf '{"text":"%s","class":"%s","tooltip":"%s"}\n' \
-        "$(json_escape "$text")" \
-        "$(json_escape "$class")" \
-        "$(json_escape "$tooltip")"
+    local text="$1" class="$2" tooltip="$3"
+    text=${text//\\/\\\\}; text=${text//\"/\\\"}
+    tooltip=${tooltip//\\/\\\\}; tooltip=${tooltip//\"/\\\"}
+    printf '{"text":"%s","class":"%s","tooltip":"%s"}\n' "$text" "$class" "$tooltip"
 }
 
 if ! command -v playerctl >/dev/null 2>&1; then
     emit "󰝚" "offline" "No playerctl"
-    exit 0
+    # Nothing to follow — hold the line open so waybar does not respawn us.
+    sleep infinity
 fi
 
-metadata="$(
-    playerctl metadata --format "{{status}}${field_sep}{{artist}}${field_sep}{{title}}${field_sep}{{playerName}}" 2>/dev/null || true
-)"
+# A unit separator keeps titles containing the delimiter from splitting wrong.
+sep=$'\x1f'
 
-if [ -z "$metadata" ]; then
-    emit "" "hidden" "No active player"
-    exit 0
-fi
+playerctl --follow metadata \
+    --format "{{status}}${sep}{{artist}}${sep}{{title}}${sep}{{playerName}}" 2>/dev/null |
+while IFS="$sep" read -r status artist title player; do
+    case "$status" in
+        Playing) icon=""; class="playing" ;;
+        Paused)  icon=""; class="paused" ;;
+        *)       emit "" "hidden" "No active player"; continue ;;
+    esac
 
-IFS="$field_sep" read -r status artist title player <<< "$metadata"
+    label="${title:-Media}"
+    [ -n "$artist" ] && label="$artist - $label"
 
-if [ "$status" != "Playing" ] && [ "$status" != "Paused" ]; then
-    emit "" "hidden" "No active player"
-    exit 0
-fi
+    tooltip="${artist:+$artist - }${title:-Media}"
+    [ -n "$player" ] && tooltip="$tooltip via $player"
 
-case "$status" in
-    Playing) icon=""; class="playing" ;;
-    Paused) icon=""; class="paused" ;;
-    *) icon="󰝚"; class="stopped" ;;
-esac
+    emit "$icon  $label" "$class" "$tooltip"
+done
 
-label="${title:-Media}"
-if [ -n "$artist" ]; then
-    label="$artist - $label"
-fi
-
-display_label="$label"
-if [ "${#label}" -gt "$max_width" ]; then
-    looped_label="${label}${separator}"
-    label_length=${#looped_label}
-    printf -v now '%(%s)T' -1
-    offset=$(( now % label_length ))
-    display_label="${looped_label:$offset}${looped_label:0:$offset}"
-    display_label="${display_label:0:$max_width}"
-fi
-
-tooltip="${artist:+$artist - }${title:-Media}"
-if [ -n "$player" ]; then
-    tooltip="$tooltip\nvia $player"
-fi
-
-emit "$icon  $display_label" "$class" "$tooltip"
+# playerctl exits when the last player goes away; waybar restarts us.
+emit "" "hidden" "No active player"

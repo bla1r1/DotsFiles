@@ -45,6 +45,26 @@ Singleton {
     readonly property alias workspaceAssignments: data.workspaceAssignments
     readonly property alias monitors: data.monitors
 
+    // Key step sizes — how far one press of a media key moves the value.
+    readonly property alias audioStep: data.audioStep
+    readonly property alias brightnessStep: data.brightnessStep
+    readonly property alias keyboardBacklightStep: data.keyboardBacklightStep
+    readonly property alias audioNotifications: data.audioNotifications
+
+    // Lock and idle
+    readonly property alias dimOnLock: data.dimOnLock
+    readonly property alias dimTimeout: data.dimTimeout
+    readonly property alias lockTimeout: data.lockTimeout
+    readonly property alias dpmsTimeout: data.dpmsTimeout
+    readonly property alias autoSuspend: data.autoSuspend
+    readonly property alias suspendTimeout: data.suspendTimeout
+
+    // Weather. The API key lives here rather than in scripts/.env so there is
+    // one store rather than two.
+    readonly property alias weatherApiKey: data.weatherApiKey
+    readonly property alias weatherCityId: data.weatherCityId
+    readonly property alias weatherUnit: data.weatherUnit
+
     /** True once the file has been read at least once. */
     property bool loaded: false
 
@@ -106,7 +126,22 @@ Singleton {
         language: "de,ua",
         kbOptions: "grp:alt_shift_toggle",
         wallpaperDir: Quickshell.env("HOME") + "/.wallpapers",
-        workspaceCount: 10
+        workspaceCount: 10,
+        audioStep: 5,
+        brightnessStep: 5,
+        keyboardBacklightStep: 10,
+        audioNotifications: true,
+        dimOnLock: true,
+        dimTimeout: 240,
+        lockTimeout: 300,
+        dpmsTimeout: 600,
+        autoSuspend: false,
+        suspendTimeout: 1800,
+        weatherApiKey: "",
+        weatherCityId: "",
+        weatherUnit: "metric",
+        workspaceAssignments: [],
+        monitors: []
     })
 
     // ── Store ────────────────────────────────────────────────────────────────
@@ -143,6 +178,22 @@ Singleton {
             property int workspaceCount: 10
             property var workspaceAssignments: []
             property var monitors: []
+
+            property int audioStep: 5
+            property int brightnessStep: 5
+            property int keyboardBacklightStep: 10
+            property bool audioNotifications: true
+
+            property bool dimOnLock: true
+            property int dimTimeout: 240
+            property int lockTimeout: 300
+            property int dpmsTimeout: 600
+            property bool autoSuspend: false
+            property int suspendTimeout: 1800
+
+            property string weatherApiKey: ""
+            property string weatherCityId: ""
+            property string weatherUnit: "metric"
         }
     }
 }

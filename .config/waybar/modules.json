@@ -98,7 +98,6 @@
   "custom/wifi": {
     "exec": "bash ~/.config/sway/scripts/waybar/network/wifi-status.sh",
     "return-type": "json",
-    "interval": 5,
     "format": "{}",
     "on-click": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleNetworkWifi",
     "on-click-right": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleNetworkBt",
@@ -126,7 +125,8 @@
   },
   "custom/mic": {
     "exec": "bash ~/.config/sway/scripts/controls/mic-control.sh --get-waybar",
-    "interval": 5,
+    "interval": "once",
+    "signal": 1,
     "format": "{}",
     "on-click": "bash ~/.config/sway/scripts/controls/mic-control.sh --toggle",
     "on-click-right": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleVolume",
@@ -170,7 +170,7 @@
   "custom/player": {
     "exec": "bash ~/.config/sway/scripts/waybar/media/player-status.sh",
     "return-type": "json",
-    "interval": 2,
+    "max-length": 34,
     "format": "{}",
     "on-click": "playerctl play-pause",
     "on-click-right": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleMusic",
@@ -205,7 +205,8 @@
   "custom/monitor-brightness": {
     "exec": "bash ~/.config/sway/scripts/controls/monitor-brightness.sh waybar",
     "return-type": "json",
-    "interval": 10,
+    "interval": "once",
+    "signal": 3,
     "format": "{}",
     "hide-empty": true,
     "on-click": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleMonitors",
@@ -217,7 +218,8 @@
   "custom/kbd-backlight": {
     "exec-if": "bash ~/.config/sway/scripts/controls/kbd-backlight.sh --available",
     "exec": "bash ~/.config/sway/scripts/controls/kbd-backlight.sh --get",
-    "interval": 10,
+    "interval": "once",
+    "signal": 2,
     "format": "󰌌  {}%",
     "on-scroll-up": "bash ~/.config/sway/scripts/controls/kbd-backlight.sh --inc",
     "on-scroll-down": "bash ~/.config/sway/scripts/controls/kbd-backlight.sh --dec",

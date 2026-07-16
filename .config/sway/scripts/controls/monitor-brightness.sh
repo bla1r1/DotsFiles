@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Tell waybar to re-read instead of having it poll us. Call this ONLY from
+# paths that CHANGE something: a read is what waybar itself runs, and
+# signalling from there would loop — signal, re-exec, signal again. The module is
+# "interval": "once" + "signal": 3; see waybar/modules.json.
+notify_waybar() { pkill -RTMIN+3 waybar 2>/dev/null || true; }
+
 DDC_TIMEOUT="${DDC_TIMEOUT:-2s}"
 STEP="${BRIGHTNESS_STEP:-5}"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/sway"
@@ -228,6 +234,7 @@ case "${1:-list}" in
         ;;
     up|down)
         adjust_ddc_all "$1"
+        notify_waybar
         ;;
     list|list-ddc)
         print_json
@@ -240,6 +247,7 @@ case "${1:-list}" in
         (( value > 100 )) && value=100
 
         set_ddc_percent "$id" "$value"
+        notify_waybar
         ;;
     *)
         printf 'Usage: %s [has|has-ddc|waybar|list|list-ddc|refresh|refresh-ddc|up|down|set id percent]\n' "$(basename "$0")" >&2

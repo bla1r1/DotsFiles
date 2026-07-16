@@ -35,7 +35,7 @@ function getLayout(name, mx, my, mw, mh, userScale) {
         "focustime": { w: s(900, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(900, scale)/2)), ry: Math.floor((mh/2)-(s(720, scale)/2)), comp: "focustime/FocusTimePopup.qml" },
         "guide":     { w: s(1200, scale), h: s(750, scale), rx: Math.floor((mw/2)-(s(1200, scale)/2)), ry: Math.floor((mh/2)-(s(750, scale)/2)), comp: "guide/GuidePopup.qml" },
         "updater":   { w: s(520, scale), h: s(560, scale), rx: Math.floor((mw/2)-(s(520, scale)/2)), ry: Math.floor((mh/2)-(s(560, scale)/2)), comp: "updater/UpdaterPopup.qml" },
-        "settings":  { w: s(450, scale), h: mh - s(0, scale), rx: s(0, scale), ry: s(0, scale), comp: "settings/SettingsPopup.qml" },
+        "settings":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
         "hidden":    { w: 1, h: 1, rx: -5000 - mx, ry: -5000 - my, comp: "" } 
     };
 

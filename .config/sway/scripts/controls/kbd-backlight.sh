@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Tell waybar to re-read instead of having it poll us. Call this ONLY from
+# paths that CHANGE something: a read is what waybar itself runs, and
+# signalling from there would loop — signal, re-exec, signal again. The module is
+# "interval": "once" + "signal": 2; see waybar/modules.json.
+notify_waybar() { pkill -RTMIN+2 waybar 2>/dev/null || true; }
+
 ICON_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/swaync/icons"
 SYNC_HINT="string:x-canonical-private-synchronous:sys-notify-kbd"
 DEVICE="${KBD_BACKLIGHT_DEVICE:-}"
@@ -99,20 +105,24 @@ main() {
         --inc)
             brightnessctl -d "$DEVICE"  set "${step}%+"
             notify_kbd
+            notify_waybar
             ;;
         --dec)
             brightnessctl -d "$DEVICE"  set "${step}%-"
             notify_kbd
+            notify_waybar
             ;;
         --set)
             # Прямое задание значения в процентах, например: kbd-backlight.sh --set 50
             local val="${2:-50}"
             brightnessctl -d "$DEVICE" set "${val}%"
             notify_kbd
+            notify_waybar
             ;;
         --off)
             brightnessctl -d "$DEVICE" set 0
             notify_msg "$ICON_DIR/keyboard.png" "Keyboard backlight: OFF"
+            notify_waybar
             ;;
         *)
             die "Usage: kbd-backlight.sh [--available|--get|--inc|--dec|--set <val>|--off] [step]"
