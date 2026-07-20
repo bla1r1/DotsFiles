@@ -20,14 +20,6 @@ PopupShell {
     readonly property int driftPeriod: 90000
 
 
-    // Durations that are choreography, not styling: a staged entrance, ambient
-    // loops and slow tint crossfades. Deliberately off the motion scale.
-    // PauseAnimation delays are left as they are — that spread is the stagger.
-    readonly property int introDuration: 800
-    readonly property int tintDuration: 1000
-    readonly property int pulsePeriod: 1500
-    readonly property int driftPeriod: 90000
-
 
     // --- Responsive Scaling Logic ---
     
@@ -1131,7 +1123,10 @@ PopupShell {
                                                     }
                                                     Behavior on color { ColorAnimation { duration: Design.duration.slow } }
 
-                                                    Clickable { onEntered: { parent.opacity = 0.7 }; onExited: { parent.opacity = 1.0 } }
+                                                    Clickable {
+                                                        onEntered: parent.opacity = 0.7
+                                                        onExited: parent.opacity = 1.0
+                                                    }
                                                 }
                                             }
                                         }

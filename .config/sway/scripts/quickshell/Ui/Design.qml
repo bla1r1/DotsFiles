@@ -32,6 +32,73 @@ import "../WindowRegistry.js" as LayoutMath
 Singleton {
     id: root
 
+    // Groups are inline components rather than bare QtObject so they carry a
+    // real type. Declared as QtObject their members were invisible to every
+    // checker, and `Design.font.captionn` would read as undefined at runtime
+    // without a word.
+
+    component FontScale: QtObject {
+        readonly property int caption: 11   // metadata, units, timestamps
+        readonly property int body: 13      // the working size
+        readonly property int subhead: 16   // card titles, device names
+        readonly property int title: 20     // page titles
+        readonly property int display: 28   // popup headline
+
+        readonly property string sans: "Fira Sans"
+        readonly property string mono: "JetBrainsMono Nerd Font"
+        readonly property string icon: "JetBrainsMono Nerd Font"
+    }
+
+    // `bold` is the ceiling on purpose: the popups reached for Font.Black 51
+    // times, but JetBrains Mono stops at ExtraBold — there is no 900 in the
+    // family, so Qt was substituting or synthesising every time.
+    component WeightScale: QtObject {
+        readonly property int regular: Font.Normal     // 400 — body
+        readonly property int medium: Font.Medium      // 500 — emphasis in body
+        readonly property int semibold: Font.DemiBold  // 600 — headings
+        readonly property int bold: Font.Bold          // 700 — heaviest real weight
+    }
+
+    // 10 radii collapse to 3. `pill` is not a step, it means round.
+    component RadiusScale: QtObject {
+        readonly property int ctl: 8      // button, field, list row
+        readonly property int card: 12    // card on a panel
+        readonly property int panel: 18   // the popup window itself
+        readonly property int pill: 999   // toggles, chips
+    }
+
+    component SpaceScale: QtObject {
+        readonly property int xs: 4
+        readonly property int sm: 8
+        readonly property int md: 12
+        readonly property int lg: 16
+        readonly property int xl: 24
+        readonly property int xxl: 32
+    }
+
+    // 72 durations collapse to 3. These never scale with screen size:
+    // 250ms is 250ms on any monitor.
+    component DurationScale: QtObject {
+        readonly property int fast: 150   // pointer response: hover, press
+        readonly property int base: 250   // state change: toggle, selection
+        readonly property int slow: 400   // window enter / exit
+    }
+
+    component OpacityScale: QtObject {
+        readonly property real disabled: 0.38
+        readonly property real muted: 0.62
+        readonly property real full: 1.0
+    }
+
+    // MultiEffect params drifted the same way durations did: shadowBlur across
+    // 0.5 / 0.6 / 1.0 / 1.2, shadowOpacity across six values.
+    component ShadowSpec: QtObject {
+        readonly property color tone: "#000000"  // a shadow is black in any theme
+        readonly property real blur: 0.6
+        readonly property real blurStrong: 1.0
+        readonly property real opacity: 0.5
+    }
+
     // =========================================================================
     // SCALE
     // =========================================================================
@@ -125,49 +192,22 @@ Singleton {
     // Font". Both were resolving through fontconfig fallback. One installed
     // family covers mono text and nerd icons alike, so Iosevka is gone.
 
-    readonly property QtObject font: QtObject {
-        readonly property int caption: 11   // metadata, units, timestamps
-        readonly property int body: 13      // the working size
-        readonly property int subhead: 16   // card titles, device names
-        readonly property int title: 20     // page titles
-        readonly property int display: 28   // popup headline
-
-        readonly property string sans: "Fira Sans"
-        readonly property string mono: "JetBrainsMono Nerd Font"
-        readonly property string icon: "JetBrainsMono Nerd Font"
-    }
+    readonly property FontScale font: FontScale {}
 
     // Four weights, and `bold` is the ceiling on purpose: the popups reached for
     // Font.Black 51 times, but JetBrains Mono stops at ExtraBold — there is no
     // 900 in the family, so Qt was substituting or synthesising every time.
     // Verify with: fc-list "JetBrainsMono Nerd Font" | sed 's/.*://'
-    readonly property QtObject weight: QtObject {
-        readonly property int regular: Font.Normal     // 400 — body
-        readonly property int medium: Font.Medium      // 500 — emphasis in body
-        readonly property int semibold: Font.DemiBold  // 600 — headings
-        readonly property int bold: Font.Bold          // 700 — the heaviest real weight
-    }
+    readonly property WeightScale weight: WeightScale {}
 
     // =========================================================================
     // SHAPE
     // =========================================================================
     // 10 radii collapse to 3. `pill` is not a step on the scale, it means round.
 
-    readonly property QtObject radius: QtObject {
-        readonly property int ctl: 8      // button, field, list row
-        readonly property int card: 12    // card on a panel
-        readonly property int panel: 18   // the popup window itself
-        readonly property int pill: 999   // toggles, chips
-    }
+    readonly property RadiusScale radius: RadiusScale {}
 
-    readonly property QtObject space: QtObject {
-        readonly property int xs: 4
-        readonly property int sm: 8
-        readonly property int md: 12
-        readonly property int lg: 16
-        readonly property int xl: 24
-        readonly property int xxl: 32
-    }
+    readonly property SpaceScale space: SpaceScale {}
 
     readonly property int border: 1
 
@@ -177,11 +217,7 @@ Singleton {
     // 72 durations collapse to 3. Durations never scale with screen size:
     // 250ms is 250ms on any monitor.
 
-    readonly property QtObject duration: QtObject {
-        readonly property int fast: 150   // pointer response: hover, press
-        readonly property int base: 250   // state change: toggle, selection
-        readonly property int slow: 400   // window enter / exit
-    }
+    readonly property DurationScale duration: DurationScale {}
 
     // One curve. Reach for another only with a reason.
     // NOTE: this is `Easing.OutCubic`, not `Qt.OutCubic` — the latter is
@@ -189,11 +225,7 @@ Singleton {
     // four animations in UpdaterPopup were doing.
     readonly property int easing: Easing.OutCubic
 
-    readonly property QtObject opacity: QtObject {
-        readonly property real disabled: 0.38
-        readonly property real muted: 0.62
-        readonly property real full: 1.0
-    }
+    readonly property OpacityScale opacity: OpacityScale {}
 
     // ── Depth ────────────────────────────────────────────────────────────────
     // MultiEffect params drifted the same way durations did: shadowBlur across
@@ -207,12 +239,7 @@ Singleton {
     //       shadowBlur: Design.shadow.blur
     //       shadowOpacity: Design.shadow.opacity
     //   }
-    readonly property QtObject shadow: QtObject {
-        readonly property color tone: "#000000"  // a shadow is black in any theme
-        readonly property real blur: 0.6
-        readonly property real blurStrong: 1.0
-        readonly property real opacity: 0.5
-    }
+    readonly property ShadowSpec shadow: ShadowSpec {}
 
     // Blur budget for `layer.effect: MultiEffect { blurEnabled: true }`.
     readonly property int blurMax: 64

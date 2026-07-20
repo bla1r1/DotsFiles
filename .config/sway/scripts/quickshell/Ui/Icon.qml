@@ -25,6 +25,12 @@ Text {
         }
     }
 
+    // `weight` was used at 9 call sites and never declared here — Text has no
+    // such property, so every one of them would have failed. Caught by qmllint,
+    // not by reading.
+    property int weight: Design.weight.regular
+
+    font.weight: root.weight
     font.family: Design.font.icon
     font.pixelSize: Design.s(root._size)
     color: Design.text

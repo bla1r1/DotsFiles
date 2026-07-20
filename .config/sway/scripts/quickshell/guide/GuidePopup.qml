@@ -107,7 +107,6 @@ PopupShell {
     property string dotsVersion: "Loading..."
     property string remoteVersion: ""
     property bool updateAvailable: false
-    readonly property string scriptDir: Quickshell.env("QS_SCRIPT_DIR") || (Quickshell.env("HOME") + "/.config/sway/scripts")
     readonly property string mainQmlPath: scriptDir + "/quickshell/Main.qml"
     readonly property string updaterScriptPath: scriptDir + "/system/dotfiles-update.sh"
 

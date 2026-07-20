@@ -157,6 +157,13 @@ Singleton {
         watchChanges: true
         printErrors: false
 
+        // Verified against quickshell 0.3.1's type info rather than assumed:
+        // FileView really does have atomicWrites, and its default property is
+        // `adapter`, which is why the JsonAdapter below binds by being a child.
+        // Asked for explicitly — the whole point of the store was that a write
+        // interrupted halfway must not leave truncated JSON.
+        atomicWrites: true
+
         onFileChanged: reload()
         onLoaded: {
             root.loaded = true;

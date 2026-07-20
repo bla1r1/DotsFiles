@@ -21,8 +21,6 @@ PopupShell {
 
 
     // --- Responsive Scaling Logic ---
-    
-    readonly property string scriptDir: Quickshell.env("QS_SCRIPT_DIR") || (Quickshell.env("HOME") + "/.config/sway/scripts")
 
     // -------------------------------------------------------------------------
     // KEYBOARD SHORTCUTS
