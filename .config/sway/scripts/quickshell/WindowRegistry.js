@@ -24,17 +24,24 @@ function getLayout(name, mx, my, mw, mh, userScale) {
     let base = {
         // One surface with pages. The four entries it replaces stay below so an
         // existing binding still opens the right page rather than breaking.
-        "control":   { w: s(1120, scale), h: s(780, scale), rx: Math.floor((mw/2)-(s(1120, scale)/2)), ry: s(70, scale), comp: "control/ControlCenter.qml" },
-        "battery":   { w: s(1120, scale), h: s(780, scale), rx: Math.floor((mw/2)-(s(1120, scale)/2)), ry: s(70, scale), comp: "control/ControlCenter.qml" },
-        "volume":    { w: s(1120, scale), h: s(780, scale), rx: Math.floor((mw/2)-(s(1120, scale)/2)), ry: s(70, scale), comp: "control/ControlCenter.qml" },
+        // Top-right, under the bar — a Control Center is a corner panel, not a
+        // window. 380x560 against the old 1120x780: it holds tiles, and detail
+        // opens in the popup that already exists for it.
+        "control":   { w: s(380, scale), h: s(360, scale), rx: mw - s(400, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "battery":    { w: s(380, scale), h: s(360, scale), rx: mw - s(400, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "volume":     { w: s(380, scale), h: s(360, scale), rx: mw - s(400, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
         "calendar":  { w: s(1450, scale), h: s(750, scale), rx: Math.floor((mw/2)-(s(1450, scale)/2)), ry: s(70, scale), comp: "calendar/CalendarPopup.qml" },
-        "music":     { w: s(1120, scale), h: s(780, scale), rx: Math.floor((mw/2)-(s(1120, scale)/2)), ry: s(70, scale), comp: "control/ControlCenter.qml" },
-        "network":   { w: s(1120, scale), h: s(780, scale), rx: Math.floor((mw/2)-(s(1120, scale)/2)), ry: s(70, scale), comp: "control/ControlCenter.qml" },
+        "music":      { w: s(380, scale), h: s(360, scale), rx: mw - s(400, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "network":    { w: s(380, scale), h: s(360, scale), rx: mw - s(400, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "audioFull":  { w: s(480, scale), h: s(760, scale), rx: mw - s(500, scale), ry: s(58, scale), comp: "volume/VolumePopup.qml" },
+        "powerFull":  { w: s(801, scale), h: s(760, scale), rx: mw - s(821, scale), ry: s(58, scale), comp: "battery/BatteryPopup.qml" },
+        "netFull":    { w: s(900, scale), h: s(700, scale), rx: mw - s(920, scale), ry: s(58, scale), comp: "network/NetworkPopup.qml" },
+        "mediaFull":  { w: s(700, scale), h: s(620, scale), rx: s(12, scale), ry: s(58, scale), comp: "music/MusicPopup.qml" },
         "stewart":   { w: s(800, scale), h: s(600, scale), rx: Math.floor((mw/2)-(s(800, scale)/2)), ry: Math.floor((mh/2)-(s(600, scale)/2)), comp: "stewart/stewart.qml" },
         "monitors":  { w: s(850, scale), h: s(580, scale), rx: Math.floor((mw/2)-(s(850, scale)/2)), ry: Math.floor((mh/2)-(s(580, scale)/2)), comp: "monitors/MonitorPopup.qml" },
         "focustime": { w: s(900, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(900, scale)/2)), ry: Math.floor((mh/2)-(s(720, scale)/2)), comp: "focustime/FocusTimePopup.qml" },
         "guide":     { w: s(1200, scale), h: s(750, scale), rx: Math.floor((mw/2)-(s(1200, scale)/2)), ry: Math.floor((mh/2)-(s(750, scale)/2)), comp: "guide/GuidePopup.qml" },
-        "updater":   { w: s(520, scale), h: s(560, scale), rx: Math.floor((mw/2)-(s(520, scale)/2)), ry: Math.floor((mh/2)-(s(560, scale)/2)), comp: "updater/UpdaterPopup.qml" },
+        "updater":   { w: s(520, scale), h: s(360, scale), rx: Math.floor((mw/2)-(s(520, scale)/2)), ry: Math.floor((mh/2)-(s(560, scale)/2)), comp: "updater/UpdaterPopup.qml" },
         "settings":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
         "hidden":    { w: 1, h: 1, rx: -5000 - mx, ry: -5000 - my, comp: "" } 
     };

@@ -28,7 +28,19 @@ Singleton {
     // a D-Bus property read, and it pushes changes instead of being asked.
     readonly property var _bat: UPower.displayDevice
 
-    readonly property int capacity: root._bat ? Math.round(root._bat.percentage * 100) : 0
+    // The scale of UPowerDevice.percentage is genuinely ambiguous from outside:
+    // UPower's own D-Bus Percentage is 0..100, but Quickshell binds it through a
+    // dedicated `PowerPercentage` type, and a converter existing at all suggests
+    // it normalises to 0..1. Getting it wrong shows either 1% or 10000%.
+    //
+    // Handled for both until it can be checked on a machine that runs this.
+    // TO REMOVE: read the real value once, then keep only the correct branch.
+    readonly property int capacity: {
+        if (!root._bat)
+            return 0;
+        const p = root._bat.percentage;
+        return Math.round(p <= 1.0 ? p * 100 : p);
+    }
     readonly property bool charging: root._bat
         ? (root._bat.state === UPowerDeviceState.Charging
            || root._bat.state === UPowerDeviceState.FullyCharged)

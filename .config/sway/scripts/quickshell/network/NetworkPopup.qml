@@ -156,40 +156,6 @@ PopupShell {
         }
     }
 
-    Process {
-        id: connectProcess
-        property string targetId: ""
-        property string targetSsid: ""
-
-        onExited: {
-            let code = exitCode;
-            let bt = window.busyTasks;
-            delete bt[targetId];
-            window.busyTasks = Object.assign({}, bt);
-            
-            if (code !== 0) {
-                window.failedId = targetId;
-                failClearTimer.restart();
-                window.playSfx("error.wav"); 
-                
-                if (window.activeMode === "wifi" && targetSsid !== "") {
-                    Quickshell.execDetached(["bash", "-c", "nmcli connection delete '" + targetSsid + "' 2>/dev/null"]);
-                    
-                    let newSaved = [];
-                    for(let i = 0; i < window.savedWifiNetworks.length; i++) {
-                        if(window.savedWifiNetworks[i] !== targetSsid) {
-                            newSaved.push(window.savedWifiNetworks[i]);
-                        }
-                    }
-                    window.savedWifiNetworks = newSaved;
-                }
-            }
-            
-            window.connectingId = "";
-            if (window.activeMode === "wifi") Network.refresh(); else Network.refresh();
-        }
-    }
-
     function connectDevice(mode, id, macOrSsid, password) {
         window.connectingId = id;
         window.failedId = "";
@@ -198,19 +164,13 @@ PopupShell {
         window.busyTasks = Object.assign({}, bt);
         busyTimeout.restart();
 
-        connectProcess.targetId = id;
-        connectProcess.targetSsid = (mode === "wifi") ? macOrSsid : ""; 
-        
-        if (mode === "wifi") {
-            if (password !== "") {
-                connectProcess.command = ["bash", "-c", "nmcli device wifi connect '" + macOrSsid + "' password '" + password + "'"];
-            } else {
-                connectProcess.command = ["bash", "-c", "nmcli device wifi connect '" + macOrSsid + "'"];
-            }
-        } else {
-            connectProcess.command = ["bash", "-c", window.scriptsDir + "/bluetooth_panel_logic.sh --connect '" + macOrSsid + "'"];
-        }
-        connectProcess.running = true;
+        // The connect itself is a method call on a live object now, not a
+        // process whose exit code has to be read back. Services/Network marks
+        // the row busy and clears it when the state actually changes.
+        if (mode === "wifi")
+            Network.connectWifi(macOrSsid, password || "");
+        else
+            Network.connectDevice(macOrSsid);
     }
 
     property var currentCores: [null, null, null, null, null]
@@ -735,7 +695,7 @@ PopupShell {
                 
                 onPaint: {
                     var ctx = getContext("2d");
-                    var s = window.s;
+                    var s = Design.s;
                     ctx.clearRect(0, 0, width, height);
                     if (!window.currentConn || !window.showInfoView || !window.currentPower) return;
                     
@@ -985,7 +945,7 @@ PopupShell {
 
                                 onPaint: {
                                     var ctx = getContext("2d");
-                                    var s = window.s;
+                                    var s = Design.s;
                                     ctx.clearRect(0, 0, width, height);
                                     if (centralCore.disconnectFill <= 0.001) return;
 
@@ -1323,10 +1283,11 @@ PopupShell {
                                     window.disconnectingDevices = Object.assign({}, dd);
                                     busyTimeout.restart();
                                     
-                                    let cmd = window.activeMode === "wifi" 
-                                        ? "nmcli device disconnect $(nmcli -t -f DEVICE,TYPE d | grep wifi | cut -d: -f1 | head -n1)"
-                                        : "bash " + window.scriptsDir + "/bluetooth_panel_logic.sh --disconnect '" + coreContainer.myDevice.mac + "'"
-                                    Quickshell.execDetached(["sh", "-c", cmd])
+                                    // Both sides go through the native module now.
+                                    if (window.activeMode === "wifi")
+                                        Network.disconnectWifi();
+                                    else
+                                        Network.disconnectDevice(coreContainer.myDevice.mac);
                                     
                                     centralCore.disconnectFill = 0.0;
                                     centralCore.disconnectTriggered = false;
@@ -1635,7 +1596,7 @@ PopupShell {
 
                                     onPaint: {
                                         var ctx = getContext("2d");
-                                        var s = window.s;
+                                        var s = Design.s;
                                         ctx.clearRect(0, 0, width, height);
                                         if (floatCard.renderFill <= 0.001) return;
 
@@ -2046,7 +2007,7 @@ PopupShell {
                             
                             wifiPendingReset.restart();
                             window.wifiPower = window.expectedWifiPower; // Optimistic
-                            Quickshell.execDetached(["nmcli", "radio", "wifi", window.wifiPower]);
+                            Network.setWifiEnabled(window.wifiPower === "on");
                             Network.refresh();
                         } else {
                             if (window.btPowerPending) return;
@@ -2057,7 +2018,7 @@ PopupShell {
                             
                             btPendingReset.restart();
                             window.btPower = window.expectedBtPower; // Optimistic
-                            Quickshell.execDetached(["bash", window.scriptsDir + "/bluetooth_panel_logic.sh", "--toggle"]);
+                            Network.setBluetoothEnabled(!(Network.bluetooth.power === "on"));
                             Network.refresh();
                         }
                     }

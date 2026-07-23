@@ -32,7 +32,7 @@ Rectangle {
         text: button.label
         role: "caption"
         weight: button.active ? Design.weight.semibold : Design.weight.medium
-        color: button.active ? Design.onAccent : (area.containsMouse ? Design.text : Design.textDim)
+        color: button.active ? Design.accentText : (area.containsMouse ? Design.text : Design.textDim)
         Behavior on color { ColorAnimation { duration: Design.duration.fast } }
     }
 

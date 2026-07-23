@@ -5,6 +5,7 @@ singleton Design 1.0 Design.qml
 # frame
 PopupShell 1.0 PopupShell.qml
 Card       1.0 Card.qml
+Tile       1.0 Tile.qml
 ScrollArea 1.0 ScrollArea.qml
 
 # primitives

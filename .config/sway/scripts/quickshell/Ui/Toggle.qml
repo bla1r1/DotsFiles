@@ -58,7 +58,7 @@ RowLayout {
                     width: parent.height - Design.s(6)
                     height: width
                     radius: width / 2
-                    color: row.checked ? Design.onAccent : Design.ground
+                    color: row.checked ? Design.accentText : Design.ground
                     y: Design.s(3)
                     x: row.checked ? parent.width - width - Design.s(3) : Design.s(3)
 

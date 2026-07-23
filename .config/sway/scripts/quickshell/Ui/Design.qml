@@ -149,7 +149,11 @@ Singleton {
     // One accent. `accentAlt` is a second simultaneous selection level, not
     // variety. If an element wants a colour "to look nice", it gets `accent`.
     readonly property color accent: _p.primary
-    readonly property color onAccent: _p.onPrimary      // text ON an accent fill
+    // NOT `onAccent`: QML reads any property named on<Capital> as a signal
+    // handler, so `onError` on the palette object failed at load with "Cannot
+    // assign a value to a signal". The Material You naming collides with the
+    // language. Found by running it, not by any static check.
+    readonly property color accentText: _p.primaryText      // text ON an accent fill
     readonly property color accentSoft: _p.primaryBox   // tinted accent surface
     readonly property color accentAlt: _p.tertiary
 
@@ -160,7 +164,7 @@ Singleton {
     readonly property color ok: "#a6e3a1"
     readonly property color warn: "#fab387"
     readonly property color danger: _p.error
-    readonly property color onDanger: _p.onError
+    readonly property color dangerText: _p.errorText
 
     // Tinted status surface — the "NEW UPDATE AVAILABLE" badge pattern, which
     // every popup currently rebuilds by hand with Qt.rgba(c.r, c.g, c.b, 0.1).
@@ -273,12 +277,12 @@ Singleton {
         property color outlineVariant: "#45475a"
 
         property color primary: "#89b4fa"
-        property color onPrimary: "#11111b"
+        property color primaryText: "#11111b"
         property color primaryBox: "#45475a"
         property color tertiary: "#cba6f7"
 
         property color error: "#f38ba8"
-        property color onError: "#11111b"
+        property color errorText: "#11111b"
     }
 
     function _applyPalette(txt) {
@@ -309,12 +313,12 @@ Singleton {
         set("outlineVariant", "line", "surface1");
 
         set("primary", "accent", "blue");
-        set("onPrimary", "onAccent");
+        set("primaryText", "accentText", "onAccent");
         set("primaryBox", "accentSoft", "sapphire");
         set("tertiary", "accentAlt", "mauve");
 
         set("error", "danger", "red");
-        set("onError", "onDanger");
+        set("errorText", "dangerText", "onDanger");
 
         root._p.loaded = true;
     }

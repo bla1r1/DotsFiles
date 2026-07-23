@@ -51,7 +51,12 @@ PopupShell {
         // ── Rail ─────────────────────────────────────────────────────────────
         ColumnLayout {
             Layout.fillHeight: true
+            // maximumWidth as well as preferred: a wrapping Label in this column
+            // pushes its implicitWidth up, and implicit beats preferred in a
+            // RowLayout — without the cap the rail ate the whole window. Only a
+            // screenshot showed this; it lints clean and runs without error.
             Layout.preferredWidth: Design.s(168)
+            Layout.maximumWidth: Design.s(168)
             spacing: Design.s(Design.space.xs)
 
             Label {
@@ -85,14 +90,14 @@ PopupShell {
                         Icon {
                             text: railRow.modelData.icon
                             role: "body"
-                            color: railRow.active ? Design.onAccent : Design.textDim
+                            color: railRow.active ? Design.accentText : Design.textDim
                         }
                         Label {
                             text: railRow.modelData.label
                             Layout.fillWidth: true
                             elide: Text.ElideRight
                             weight: railRow.active ? Design.weight.semibold : Design.weight.regular
-                            color: railRow.active ? Design.onAccent : Design.textDim
+                            color: railRow.active ? Design.accentText : Design.textDim
                         }
                     }
 

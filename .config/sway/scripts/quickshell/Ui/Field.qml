@@ -62,7 +62,7 @@ Rectangle {
         font.pixelSize: Design.s(Design.font.body)
         color: Design.text
         selectionColor: Design.accent
-        selectedTextColor: Design.onAccent
+        selectedTextColor: Design.accentText
 
         // A field the pointer can reach but the keyboard cannot is a dead end.
         activeFocusOnPress: true

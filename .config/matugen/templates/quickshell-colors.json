@@ -12,12 +12,12 @@
   "line": "{{colors.outline_variant.default.hex}}",
 
   "accent": "{{colors.primary.default.hex}}",
-  "onAccent": "{{colors.on_primary.default.hex}}",
+  "accentText": "{{colors.on_primary.default.hex}}",
   "accentSoft": "{{colors.primary_container.default.hex}}",
   "accentAlt": "{{colors.tertiary.default.hex}}",
 
   "danger": "{{colors.error.default.hex}}",
-  "onDanger": "{{colors.on_error.default.hex}}",
+  "dangerText": "{{colors.on_error.default.hex}}",
 
   "base": "{{colors.surface_container_lowest.default.hex}}",
   "mantle": "{{colors.surface_container_low.default.hex}}",

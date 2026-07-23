@@ -134,9 +134,11 @@ PanelWindow {
         }
     }
 
-    onIsVisibleChanged: {
-        if (isVisible) masterWindow.requestActivate();
-    }
+    // `requestActivate()` is not a method on a layer-shell window — this threw
+    // a TypeError every single time a popup opened, aborting the handler.
+    // Pre-existing, and only visible once the shell was actually run.
+    // Keyboard focus comes from `focusable: isVisible` above; nothing else is
+    // needed.
 
     Item {
         x: masterWindow.animX
