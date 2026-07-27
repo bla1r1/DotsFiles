@@ -12,4 +12,4 @@ cleanup() {
 bash "$DDCALL" dim >/dev/null 2>&1 || true
 trap cleanup EXIT INT TERM
 
-quickshell -p ~/.config/sway/scripts/quickshell/Lock.qml
+quickshell -p ~/.config/quickshell/Lock.qml

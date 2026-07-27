@@ -3,10 +3,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 QT_ENV="$SCRIPT_DIR/core/qt-env.sh"
-MAIN_QML="$SCRIPT_DIR/quickshell/Main.qml"
+MAIN_QML="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/Main.qml"
 SETTINGS_WATCHER="$SCRIPT_DIR/core/settings_watcher.sh"
 SETTINGS_FILE="$HOME/.config/sway/settings.json"
-FOCUSTIME_DAEMON="$SCRIPT_DIR/quickshell/focustime/focus_daemon.py"
+FOCUSTIME_DAEMON="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/focustime/focus_daemon.py"
 WAYBAR_LAUNCHER="$SCRIPT_DIR/core/waybar.sh"
 QS_LOG_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/quickshell"
 GUIDE_STARTUP_MARKER="${XDG_RUNTIME_DIR:-/tmp}/qs-guide-startup-opened"
@@ -28,10 +28,6 @@ start_once() {
 start_once "$SETTINGS_WATCHER" bash "$SETTINGS_WATCHER"
 start_once "quickshell.*Main\.qml" env QS_SCRIPT_DIR="$SCRIPT_DIR" quickshell -p "$MAIN_QML"
 start_once "$FOCUSTIME_DAEMON" python3 "$FOCUSTIME_DAEMON"
-
-if command -v swaync >/dev/null 2>&1; then
-    start_once "swaync$" swaync
-fi
 
 if command -v waybar >/dev/null 2>&1; then
     start_once "$WAYBAR_LAUNCHER" bash "$WAYBAR_LAUNCHER"

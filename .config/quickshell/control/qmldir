@@ -1,0 +1,8 @@
+module control
+MiniView 1.0 MiniView.qml
+BatteryPill 1.0 BatteryPill.qml
+WifiMiniView 1.0 WifiMiniView.qml
+BluetoothMiniView 1.0 BluetoothMiniView.qml
+SoundMiniView 1.0 SoundMiniView.qml
+PowerMiniView 1.0 PowerMiniView.qml
+NotificationsMiniView 1.0 NotificationsMiniView.qml

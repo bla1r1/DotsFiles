@@ -4,6 +4,11 @@ set -euo pipefail
 STATE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/sway/state"
 STATE_FILE="$STATE_DIR/monitors-layout.json"
 
+# Called from the shell as well as from sway itself, and swaymsg will not hunt
+# for its own socket.
+: "${SWAYSOCK:=$(ls -t "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"/sway-ipc.*.sock 2>/dev/null | head -1)}"
+export SWAYSOCK
+
 command -v swaymsg >/dev/null 2>&1 || exit 0
 command -v jq >/dev/null 2>&1 || exit 0
 

@@ -68,7 +68,7 @@
     "format": "󰂯",
     "format-disabled": "󰂲",
     "format-connected": " {num_connections}",
-    "on-click": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleNetworkBt",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleNetworkBt",
     "on-click-right": "blueman-manager",
     "tooltip-format": " {device_alias}",
     "tooltip-format-connected": "{device_enumerate}",
@@ -99,17 +99,17 @@
     "exec": "bash ~/.config/sway/scripts/waybar/network/wifi-status.sh",
     "return-type": "json",
     "format": "{}",
-    "on-click": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleNetworkWifi",
-    "on-click-right": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleNetworkBt",
-    "on-click-middle": "networkmanager_dmenu",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleNetworkWifi",
+    "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleNetworkBt",
+    "on-click-middle": "qs -p ~/.config/quickshell/Main.qml ipc call main open settings network",
     "tooltip": false
   },
   "pulseaudio": {
     "format": "{icon}    {volume}%",
     "format-muted": "",
-    "on-click": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleVolume",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleVolume",
     "on-click-middle": "bash ~/.config/sway/scripts/controls/audio-control.sh --toggle",
-    "on-click-right": "pavucontrol-qt",
+    "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main open settings audio",
     "on-scroll-up": "bash ~/.config/sway/scripts/controls/audio-control.sh --inc 5",
     "on-scroll-down": "bash ~/.config/sway/scripts/controls/audio-control.sh --dec 5",
     "tooltip-format": "{icon} {desc}",
@@ -129,7 +129,7 @@
     "signal": 1,
     "format": "{}",
     "on-click": "bash ~/.config/sway/scripts/controls/mic-control.sh --toggle",
-    "on-click-right": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleVolume",
+    "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleVolume",
     "tooltip-format": "Left click: toggle mic\nRight click: volume panel",
     "tooltip": true
   },
@@ -144,26 +144,26 @@
     "format-plugged": "󰚥  {capacity}%",
     "format-full": "󰁹  Full",
     "format-icons": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
-    "on-click": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleBattery",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleBattery",
     "on-click-right": "gnome-power-statistics",
     "tooltip-format": "{timeTo} — {power}W  ({capacity}%)",
     "interval": 30
 },
   "custom/qs-settings": {
     "format": "󰒓",
-    "on-click": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleSettings",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleSettings",
     "tooltip-format": "Quickshell settings",
     "tooltip": true
   },
   "custom/qs-updater": {
     "format": "󰚰",
-    "on-click": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleUpdater",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleUpdater",
     "tooltip-format": "DotsFiles updater",
     "tooltip": true
   },
   "custom/qs-music": {
     "format": "󰝚",
-    "on-click": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleMusic",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleMusic",
     "tooltip-format": "Music panel",
     "tooltip": true
   },
@@ -173,7 +173,7 @@
     "max-length": 34,
     "format": "{}",
     "on-click": "playerctl play-pause",
-    "on-click-right": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleMusic",
+    "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleMusic",
     "on-click-middle": "playerctl next",
     "on-scroll-up": "playerctl next",
     "on-scroll-down": "playerctl previous",
@@ -181,13 +181,13 @@
   },
   "custom/qs-monitors": {
     "format": "󰍹",
-    "on-click": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleMonitors",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleMonitors",
     "tooltip-format": "Monitor layout",
     "tooltip": true
   },
   "custom/qs-guide": {
     "format": "󰋖",
-    "on-click": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleGuide",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleGuide",
     "tooltip-format": "Guide",
     "tooltip": true
   },
@@ -195,8 +195,8 @@
     "exec-if": "bash ~/.config/sway/scripts/controls/brightness-control.sh available",
     "format": "{icon}  {percent}%",
     "format-icons": ["󰃞", "󰃟", "󰃠"],
-    "on-click": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleMonitors",
-    "on-click-right": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleMonitors",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleMonitors",
+    "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleMonitors",
     "on-scroll-up": "bash ~/.config/sway/scripts/controls/brightness-control.sh up",
     "on-scroll-down": "bash ~/.config/sway/scripts/controls/brightness-control.sh down",
     "tooltip-format": "Scroll: laptop brightness\nClick: monitor brightness panel",
@@ -209,8 +209,8 @@
     "signal": 3,
     "format": "{}",
     "hide-empty": true,
-    "on-click": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleMonitors",
-    "on-click-right": "qs -p ~/.config/sway/scripts/quickshell/Main.qml ipc call main toggleMonitors",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleMonitors",
+    "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleMonitors",
     "on-scroll-up": "bash ~/.config/sway/scripts/controls/monitor-brightness.sh up",
     "on-scroll-down": "bash ~/.config/sway/scripts/controls/monitor-brightness.sh down",
     "tooltip": true
@@ -268,23 +268,9 @@
   },
   "custom/swaync": {
     "tooltip": false,
-    "format": "{icon} {text}",
-    "format-icons": {
-      "notification": "󰂚",
-      "none": "󰂜",
-      "dnd-notification": "󰂛",
-      "dnd-none": "󰂛",
-      "inhibited-notification": "󰂚",
-      "inhibited-none": "󰂜",
-      "dnd-inhibited-notification": "󰂛",
-      "dnd-inhibited-none": "󰂛"
-    },
-    "return-type": "json",
-    "exec-if": "which swaync-client",
-    "exec": "swaync-client -swb",
-    "on-click": "swaync-client -t -sw",
-    "on-click-right": "swaync-client -d -sw",
-    "escape": true
+    "format": "󰂚",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleControl",
+    "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main open control notifications"
   },
   "sway/language": {
     "format": "󰌌   {}",

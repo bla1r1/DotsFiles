@@ -39,5 +39,6 @@
   "pink": "{{colors.tertiary_container.default.hex}}",
   "yellow": "{{colors.secondary_container.default.hex}}",
   "maroon": "{{colors.error_container.default.hex}}",
-  "teal": "{{colors.secondary.default.hex}}"
+  "teal": "{{colors.secondary.default.hex}}",
+  "lavender": "{{colors.tertiary.default.hex}}"
 }

@@ -1,0 +1,77 @@
+.pragma library
+
+function getScale(mw, userScale) {
+    if (mw <= 0) return 1.0;
+    let r = mw / 1920.0;
+    let baseScale = 1.0;
+    
+    if (r <= 1.0) {
+        baseScale = Math.max(0.35, Math.pow(r, 0.85));
+    } else {
+        baseScale = Math.pow(r, 0.5);
+    }
+    
+    return baseScale * (userScale !== undefined ? userScale : 1.0);
+}
+
+function s(val, scale) {
+    return Math.round(val * scale);
+}
+
+function getLayout(name, mx, my, mw, mh, userScale) {
+    let scale = getScale(mw, userScale);
+
+    let base = {
+        // One surface with pages. The four entries it replaces stay below so an
+        // existing binding still opens the right page rather than breaking.
+        // Top-right, under the bar — a Control Center is a corner panel, not a
+        // window. 380x560 against the old 1120x780: it holds tiles, and detail
+        // opens in the popup that already exists for it.
+        "control":       { w: s(390, scale), h: s(490, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "notifications": { w: s(390, scale), h: s(490, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "wifi":          { w: s(390, scale), h: s(490, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "bluetooth": { w: s(390, scale), h: s(490, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "sound":     { w: s(390, scale), h: s(490, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "power":     { w: s(390, scale), h: s(490, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "battery":   { w: s(390, scale), h: s(490, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "volume":    { w: s(390, scale), h: s(490, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "network":   { w: s(390, scale), h: s(490, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "calendar":  { w: s(1450, scale), h: s(750, scale), rx: Math.floor((mw/2)-(s(1450, scale)/2)), ry: s(70, scale), comp: "calendar/CalendarPopup.qml" },
+        "music":     { w: s(700, scale), h: s(620, scale), rx: s(12, scale), ry: s(58, scale), comp: "music/MusicPopup.qml" },
+        "audioFull":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
+        "powerFull":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
+        "netFull":    { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
+        "appearance": { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
+        "nightlight": { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
+        "input":      { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
+        "wallpaper":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
+        "mediaFull":  { w: s(700, scale), h: s(620, scale), rx: s(12, scale), ry: s(58, scale), comp: "music/MusicPopup.qml" },
+        "stewart":   { w: s(800, scale), h: s(600, scale), rx: Math.floor((mw/2)-(s(800, scale)/2)), ry: Math.floor((mh/2)-(s(600, scale)/2)), comp: "stewart/stewart.qml" },
+        "monitors":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
+        "focustime": { w: s(900, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(900, scale)/2)), ry: Math.floor((mh/2)-(s(720, scale)/2)), comp: "focustime/FocusTimePopup.qml" },
+        "guide":     { w: s(1200, scale), h: s(750, scale), rx: Math.floor((mw/2)-(s(1200, scale)/2)), ry: Math.floor((mh/2)-(s(750, scale)/2)), comp: "guide/GuidePopup.qml" },
+        "updater":   { w: s(520, scale), h: s(360, scale), rx: Math.floor((mw/2)-(s(520, scale)/2)), ry: Math.floor((mh/2)-(s(560, scale)/2)), comp: "updater/UpdaterPopup.qml" },
+        "settings":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
+        "hidden":    { w: 1, h: 1, rx: -5000 - mx, ry: -5000 - my, comp: "" } 
+    };
+
+    if (!base[name]) return null;
+    
+    let t = base[name];
+    t.x = mx + t.rx;
+    t.y = my + t.ry;
+    
+    return t;
+}
+
+function getPopupLayout(mw, userScale) {
+    let scale = getScale(mw, userScale);
+    return {
+        w: s(350, scale),
+        marginTop: s(70, scale),
+        marginRight: s(20, scale),
+        spacing: s(12, scale),
+        radius: s(14, scale),
+        padding: s(12, scale)
+    };
+}
