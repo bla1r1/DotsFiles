@@ -7,7 +7,6 @@ set -euo pipefail
 # "interval": "once" + "signal": 2; see waybar/modules.json.
 notify_waybar() { pkill -RTMIN+2 waybar 2>/dev/null || true; }
 
-ICON_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/swaync/icons"
 SYNC_HINT="string:x-canonical-private-synchronous:sys-notify-kbd"
 DEVICE="${KBD_BACKLIGHT_DEVICE:-}"
 DEFAULT_STEP=10

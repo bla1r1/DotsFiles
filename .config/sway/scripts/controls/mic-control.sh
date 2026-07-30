@@ -7,7 +7,6 @@ set -euo pipefail
 # "interval": "once" + "signal": 1; see waybar/modules.json.
 notify_waybar() { pkill -RTMIN+1 waybar 2>/dev/null || true; }
 
-ICON_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/swaync/icons"
 SYNC_HINT="string:x-canonical-private-synchronous:sys-notify-mic"
 
 die() {
@@ -33,9 +32,9 @@ source_volume() {
 
 mic_icon() {
     if [ "$(source_muted)" = "true" ]; then
-        printf '%s\n' "$ICON_DIR/mic-mute.png"
+        printf '%s\n' "audio-input-microphone-muted"
     else
-        printf '%s\n' "$ICON_DIR/mic.png"
+        printf '%s\n' "audio-input-microphone"
     fi
 }
 

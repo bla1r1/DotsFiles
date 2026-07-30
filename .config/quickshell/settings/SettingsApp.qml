@@ -38,11 +38,13 @@ PopupShell {
         { id: "bluetooth",  icon: "\u{f00af}", label: "Bluetooth",        color: Design.mauve },
         { id: "audio",      icon: "\u{f057e}", label: "Sound",            color: Design.teal },
         { id: "power",      icon: "\u{f0084}", label: "Power & Sleep",    color: Design.green },
+        { id: "focus",      icon: "\u{f051e}", label: "Screen Time",      color: Design.teal },
         { id: "input",      icon: "\u{f0523}", label: "Mouse & Touchpad", color: Design.peach },
         { id: "keyboard",   icon: "\u{f030c}", label: "Keyboard",         color: Design.peach },
         { id: "wallpaper",  icon: "\u{f02ca}", label: "Wallpaper",        color: Design.pink },
         { id: "startup",    icon: "\u{f0459}", label: "Startup",          color: Design.yellow },
-        { id: "weather",    icon: "\u{f0590}", label: "Weather",          color: Design.sapphire }
+        { id: "weather",    icon: "\u{f0590}", label: "Weather",          color: Design.sapphire },
+        { id: "about",      icon: "\u{f035b}", label: "About & Health",   color: Design.mauve }
     ]
 
     function open(id) {
@@ -204,16 +206,22 @@ PopupShell {
                 }
 
                 Sections.PowerSettingsSection {
-                    Layout.preferredWidth: pageScroll.availableWidth
+                    Layout.fillWidth: true
                     visible: app.page === "power"
                 }
 
+                Sections.FocusSettingsSection {
+                    Layout.fillWidth: true
+                    visible: app.page === "focus"
+                }
+
                 Sections.InputSettingsSection {
-                    Layout.preferredWidth: pageScroll.availableWidth
+                    Layout.fillWidth: true
                     visible: app.page === "input"
                 }
 
                 Sections.KeyboardSettingsSection {
+                    Layout.fillWidth: true
                     visible: app.page === "keyboard"
                     language: Settings.language
                     kbOptions: Settings.kbOptions
@@ -230,13 +238,14 @@ PopupShell {
                 }
 
                 Sections.WallpaperSettingsSection {
-                    Layout.preferredWidth: pageScroll.availableWidth
+                    Layout.fillWidth: true
                     visible: app.page === "wallpaper"
                     wallpaperDir: Settings.wallpaperDir
                     onWallpaperDirChangedByUser: v => Settings.set("wallpaperDir", v)
                 }
 
                 Sections.StartupSettingsSection {
+                    Layout.fillWidth: true
                     visible: app.page === "startup"
                     openGuideAtStartup: Settings.openGuideAtStartup
                     guideShortcut: Settings.guideShortcut
@@ -245,6 +254,7 @@ PopupShell {
                 }
 
                 Sections.WeatherSettingsSection {
+                    Layout.fillWidth: true
                     visible: app.page === "weather"
                     apiKey: Settings.weatherApiKey
                     cityId: Settings.weatherCityId
@@ -252,6 +262,11 @@ PopupShell {
                     onApiKeyChangedByUser: v => Settings.set("weatherApiKey", v)
                     onCityIdChangedByUser: v => Settings.set("weatherCityId", v)
                     onUnitChangedByUser: v => Settings.set("weatherUnit", v)
+                }
+
+                Sections.AboutSettingsSection {
+                    Layout.fillWidth: true
+                    visible: app.page === "about"
                 }
 
                 Item { Layout.fillHeight: true }

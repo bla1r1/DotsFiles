@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ICON_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/swaync/icons"
 SYNC_HINT="string:x-canonical-private-synchronous:sys-notify"
 DEFAULT_STEP=5
 
@@ -30,13 +29,13 @@ sink_icon() {
     local vol
     vol="$(sink_volume)"
     if [ "$vol" -eq 0 ] || [ "$(sink_muted)" = "true" ]; then
-        printf '%s\n' "$ICON_DIR/volume-mute.png"
+        printf '%s\n' "audio-volume-muted"
     elif [ "$vol" -le 30 ]; then
-        printf '%s\n' "$ICON_DIR/volume-low.png"
+        printf '%s\n' "audio-volume-low"
     elif [ "$vol" -le 60 ]; then
-        printf '%s\n' "$ICON_DIR/volume-mid.png"
+        printf '%s\n' "audio-volume-medium"
     else
-        printf '%s\n' "$ICON_DIR/volume-high.png"
+        printf '%s\n' "audio-volume-high"
     fi
 }
 

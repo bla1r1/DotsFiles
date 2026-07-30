@@ -39,6 +39,7 @@ PanelWindow {
         function toggleUpdater() { masterWindow.handleIpcCommand("toggle:updater:", true) }
         function toggleSettings() { masterWindow.handleIpcCommand("toggle:settings:", true) }
         function toggleCalendar() { masterWindow.handleIpcCommand("toggle:calendar:", true) }
+        function toggleClipboard() { masterWindow.handleIpcCommand("toggle:clipboard:", true) }
         function toggleFocusTime() { masterWindow.handleIpcCommand("toggle:focustime:", true) }
         function toggleNetworkWifi() { masterWindow.handleIpcCommand("toggle:network:wifi", true) }
         function toggleNetworkBt() { masterWindow.handleIpcCommand("toggle:network:bt", true) }
@@ -270,6 +271,8 @@ PanelWindow {
         if (w === "network") return (a === "bt" || a === "bluetooth") ? "bluetooth" : "wifi";
         if (w === "control") return a || "main";
         if (w === "notifications") return "notifications";
+        if (w === "guide") return "about";
+        if (w === "focus") return "focus";
         // Lets a bar button or a keybinding land on a specific settings page:
         // `ipc call main open settings audio`.
         if (w === "settings") return a || "";
