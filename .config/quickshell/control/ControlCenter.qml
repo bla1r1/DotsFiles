@@ -391,31 +391,35 @@ PopupShell {
                     }
                 }
 
-                ColumnLayout {
+                Item {
                     Layout.fillWidth: true
-                    spacing: Design.s(2)
+                    Layout.preferredHeight: Design.s(36)
 
-                    Label {
-                        text: Media.track.title || (Media.hasPlayer ? "Nothing playing" : "No media player")
-                        weight: Design.weight.semibold
-                        color: Media.hasPlayer ? Design.text : Design.textDim
-                        Layout.fillWidth: true
-                        elide: Text.ElideRight
+                    ColumnLayout {
+                        anchors.fill: parent
+                        spacing: 2
+
+                        Label {
+                            text: Media.track.title || (Media.hasPlayer ? "Nothing playing" : "No media player")
+                            weight: Design.weight.semibold
+                            color: Media.hasPlayer ? Design.text : Design.textDim
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
+                        }
+
+                        Label {
+                            text: Media.track.artist || (Media.hasPlayer ? "Press play to resume" : "Start one to control it here")
+                            role: "caption"
+                            dim: true
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
+                        }
                     }
 
-                    Label {
-                        text: Media.track.artist || (Media.hasPlayer ? "Press play to resume" : "Start one to control it here")
-                        role: "caption"
-                        dim: true
-                        Layout.fillWidth: true
-                        elide: Text.ElideRight
-                    }
-
-                    // The card-wide "open the player" area, sized to the text
-                    // rather than to `parent.width - 120`, which at any other
-                    // scale reached under the transport buttons.
-                    Clickable {
+                    MouseArea {
+                        anchors.fill: parent
                         enabled: Media.hasPlayer
+                        cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                         onClicked: center.openFull("music")
                     }
                 }

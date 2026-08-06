@@ -151,7 +151,6 @@ PanelWindow {
         width: masterWindow.animW
         height: masterWindow.animH
         clip: true 
-        layer.enabled: masterWindow.isVisible 
 
         // Smoother easing type: OutExpo makes animations feel snappy yet perfectly fluid
         Behavior on x { enabled: !masterWindow.disableMorph; NumberAnimation { duration: masterWindow.morphDuration; easing.type: Easing.OutExpo } }
@@ -207,7 +206,6 @@ PanelWindow {
 
         prepTimer.stop();
         delayedClear.stop();
-        cacheExpireTimer.stop();
 
         if (newWidget === "hidden") {
             if (currentActive !== "hidden") {

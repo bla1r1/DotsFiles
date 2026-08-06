@@ -53,27 +53,13 @@ Singleton {
                 }
             }
         }
+        onExited: restartTimer.start()
     }
 
-    // Backup polling timer (every 1s) to catch any clips if watcher process exits
     Timer {
-        interval: 1000
-        repeat: true
-        running: true
-        onTriggered: pollClip.running = true
-    }
-
-    Process {
-        id: pollClip
-        running: false
-        command: ["bash", "-c", "wl-paste --no-newline 2>/dev/null || true"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                if (this.text) {
-                    root._handleNewClip(this.text);
-                }
-            }
-        }
+        id: restartTimer
+        interval: 3000
+        onTriggered: watcher.running = true
     }
 
     function _detectType(text) {

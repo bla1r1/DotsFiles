@@ -64,7 +64,7 @@ PopupShell {
         from: 0; to: 1.0
         duration: root.introDuration // Slowed down significantly for a graceful, constant flow
         loops: Animation.Infinite
-        running: true
+        running: root.visible
     }
 
     property real globalOrbitAngle: 0
@@ -72,7 +72,7 @@ PopupShell {
         from: 0; to: Math.PI * 2
         duration: root.driftPeriod
         loops: Animation.Infinite
-        running: true
+        running: false
     }
 
     // --- CANVAS LIGHTNING ANIMATION STATE ---
@@ -413,13 +413,11 @@ PopupShell {
                     Behavior on opacity { NumberAnimation { duration: root.introDuration; easing.type: Easing.InOutQuad } }
                 }
 
-                // LAYER 1.5: Flowing Orbits
+                // LAYER 1.5: Ambient Accents
                 Rectangle {
                     width: parent.width * 0.8; height: width; radius: width / 2
-                    x: (parent.width / 2 - width / 2) + Math.cos(root.globalOrbitAngle * 2) * Design.s(150)
-                    y: (parent.height / 2 - height / 2) + Math.sin(root.globalOrbitAngle * 2) * Design.s(100)
+                    anchors.centerIn: parent
                     
-                    // Fixed: Hides orbits when stopped
                     opacity: root.musicData.status === "Playing" ? 0.08 : (root.musicData.status === "Paused" ? 0.04 : 0.0)
                     color: root.musicData.status === "Playing" ? Design.accentAlt : Design.active
                     Behavior on color { ColorAnimation { duration: root.tintDuration } }
@@ -428,10 +426,8 @@ PopupShell {
                 
                 Rectangle {
                     width: parent.width * 0.9; height: width; radius: width / 2
-                    x: (parent.width / 2 - width / 2) + Math.sin(root.globalOrbitAngle * 1.5) * Design.s(-150)
-                    y: (parent.height / 2 - height / 2) + Math.cos(root.globalOrbitAngle * 1.5) * Design.s(-100)
+                    anchors.centerIn: parent
                     
-                    // Fixed: Hides orbits when stopped
                     opacity: root.musicData.status === "Playing" ? 0.08 : (root.musicData.status === "Paused" ? 0.02 : 0.0)
                     color: root.musicData.status === "Playing" ? Design.accent : Design.hover
                     Behavior on color { ColorAnimation { duration: root.tintDuration } }

@@ -137,7 +137,7 @@ PopupShell {
 
     property real globalOrbitAngle: 0
     NumberAnimation on globalOrbitAngle {
-        from: 0; to: Math.PI * 2; duration: window.driftPeriod; loops: Animation.Infinite; running: true
+        from: 0; to: Math.PI * 2; duration: window.driftPeriod; loops: Animation.Infinite; running: false
     }
 
     // -------------------------------------------------------------------------
@@ -145,20 +145,11 @@ PopupShell {
     // -------------------------------------------------------------------------
     property var currentTime: new Date()
     property real currentEpoch: currentTime.getTime() / 1000
-    
-    property real secondPulse: 1.0
-    NumberAnimation on secondPulse { 
-        id: pulseReset 
-        to: 1.0; duration: window.introDuration; easing.type: Easing.OutQuint; running: false 
-    }
 
     Timer {
-        interval: 1000; running: true; repeat: true
+        interval: 10000; running: window.visible; repeat: true
         onTriggered: {
             window.currentTime = new Date();
-            window.secondPulse = 1.06; // Gentle pulse
-            pulseReset.start();        
-            
             if (window.currentTime.getHours() === 0 && window.currentTime.getMinutes() === 0 && window.currentTime.getSeconds() === 0) {
                 updateCalendarGrid();
             }
@@ -316,15 +307,6 @@ PopupShell {
                     schedulePoller.running = true; // Safe to start polling
                 } else {
                     window.scheduleModuleExists = false;
-                    
-                    // --- DYNAMICALLY SHRINK THE MASTER WINDOW ---
-                    // Reach out to the global 'masterWindow' ID and update both
-                    // the morphing wrapper (animH) and the content wrapper (targetH)
-                    if (typeof masterWindow !== "undefined") {
-                        let newHeight = Design.s(510);
-                        masterWindow.animH = newHeight;
-                        masterWindow.targetH = newHeight;
-                    }
                 }
             }
         }
@@ -455,8 +437,8 @@ PopupShell {
             // =======================================================
             Rectangle {
                 width: Design.s(parent.width * 0.5); height: width; radius: width / 2
-                x: (parent.width * 0.75 - width / 2) + Math.cos(window.globalOrbitAngle * 1.5) * Design.s(350)
-                y: (parent.height * 0.3 - height / 2) + Math.sin(window.globalOrbitAngle * 1.5) * Design.s(200)
+                x: parent.width * 0.6 - width / 2
+                y: parent.height * 0.3 - height / 2
                 opacity: 0.025 * window.introAmbient
                 color: window.activeWeatherHex
                 Behavior on color { ColorAnimation { duration: window.tintDuration } }
@@ -464,8 +446,8 @@ PopupShell {
 
             Rectangle {
                 width: Design.s(parent.width * 0.6); height: width; radius: width / 2
-                x: (parent.width * 0.25 - width / 2) + Math.sin(window.globalOrbitAngle * 1.2) * Design.s(-300)
-                y: (parent.height * 0.7 - height / 2) + Math.cos(window.globalOrbitAngle * 1.2) * Design.s(-250)
+                x: parent.width * 0.25 - width / 2
+                y: parent.height * 0.7 - height / 2
                 opacity: 0.02 * window.introAmbient
                 color: window.timeColor
                 Behavior on color { ColorAnimation { duration: window.tintDuration } }
@@ -473,40 +455,15 @@ PopupShell {
 
             Rectangle {
                 width: Design.s(parent.width * 0.45); height: width; radius: width / 2
-                x: (parent.width * 0.5 - width / 2) + Math.cos(window.globalOrbitAngle * -1.8) * Design.s(400)
-                y: (parent.height * 0.5 - height / 2) + Math.sin(window.globalOrbitAngle * -1.8) * Design.s(-350)
+                x: parent.width * 0.5 - width / 2
+                y: parent.height * 0.5 - height / 2
                 opacity: 0.015 * window.introAmbient
                 color: window.timeAccent
                 Behavior on color { ColorAnimation { duration: window.tintDuration } }
             }
 
-            // Big Parallax Weather Icon (Tied to Weather Transition)
-            Text {
-                anchors.centerIn: parent
-                anchors.verticalCenterOffset: window.centerOffset
-                text: window.weatherData && window.weatherData.forecast[window.weatherView] ? window.weatherData.forecast[window.weatherView].icon : ""
-                font.family: Design.font.icon
-                font.pixelSize: Design.s(800)
-                color: window.activeWeatherHex
-                opacity: (0.03 + (0.01 * Math.sin(window.globalOrbitAngle * 4))) * window.introAmbient * window.weatherContentOpacity
-                z: 0
-                Behavior on color { ColorAnimation { duration: window.tintDuration } }
-                
-                property real drift: 0
-                SequentialAnimation on drift {
-                    loops: Animation.Infinite
-                    NumberAnimation { to: Design.s(-20); duration: window.pulsePeriod; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: 0; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
-                }
-                
-                transform: [
-                    Translate { y: parent.drift },
-                    Translate { x: window.weatherContentOffset * 2 } // Exaggerated shift for background depth
-                ]
-            }
-
             // =======================================================
-            // CENTRAL HERO: THE BREATHING TIME HUB & 3D HOURLY ORBIT
+            // CENTRAL HERO: THE TIME HUB
             // =======================================================
             Item {
                 id: centralHub
@@ -517,92 +474,16 @@ PopupShell {
 
                 opacity: introClock
                 scale: 0.85 + (0.15 * introClock)
-
-                property real levitation: 0
-                SequentialAnimation on levitation {
-                    loops: Animation.Infinite
-                    NumberAnimation { to: Design.s(-15); duration: window.pulsePeriod; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: 0; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
-                }
-
-                property real orbitBreath: 1.0
-                SequentialAnimation on orbitBreath {
-                    loops: Animation.Infinite
-                    running: true
-                    NumberAnimation { to: 1.035; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: 1.0; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
-                }
-
-                // 3D Perspective Wobble (Pitch, Yaw, Roll)
-                property real pitchBreath: 0
-                SequentialAnimation on pitchBreath {
-                    loops: Animation.Infinite; running: true
-                    NumberAnimation { to: 3.5; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: -3.5; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
-                }
-
-                property real yawBreath: 0
-                SequentialAnimation on yawBreath {
-                    loops: Animation.Infinite; running: true
-                    NumberAnimation { to: 2.5; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: -2.5; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
-                }
-
-                property real rollBreath: 0
-                SequentialAnimation on rollBreath {
-                    loops: Animation.Infinite; running: true
-                    NumberAnimation { to: 1.5; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
-                    NumberAnimation { to: -1.5; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
-                }
                 
                 transform: [
-                    Translate { y: Design.s(25) * (1.0 - introClock) },
-                    Translate { y: centralHub.levitation },
-                    Rotation { axis { x: 1; y: 0; z: 0 } angle: centralHub.pitchBreath },
-                    Rotation { axis { x: 0; y: 1; z: 0 } angle: centralHub.yawBreath },
-                    Rotation { axis { x: 0; y: 0; z: 1 } angle: centralHub.rollBreath }
+                    Translate { y: Design.s(25) * (1.0 - introClock) }
                 ]
-
-                // OPTIMIZATION: Moved scale property out of the onPaint function to prevent redrawing every frame.
-                // It now draws once, and scales using the GPU.
-                Canvas {
-                    id: orbitCanvas
-                    z: -10
-                    x: Design.s(-400)   // Widened to prevent clipping when scaled
-                    y: Design.s(-200)   // Heightened to prevent clipping when scaled
-                    width: Design.s(800)
-                    height: Design.s(400)
-                    opacity: 0.25
-
-                    scale: centralHub.orbitBreath
-
-                    onWidthChanged: requestPaint()
-
-                    onPaint: {
-                        var ctx = getContext("2d");
-                        ctx.clearRect(0, 0, width, height);
-                        ctx.beginPath();
-                        var currentRx = Design.s(320);
-                        var currentRy = Design.s(140);
-                        for (var i = 0; i <= Math.PI * 2; i += 0.05) {
-                            var xx = width/2 + Math.cos(i) * currentRx;
-                            var yy = height/2 + Math.sin(i) * currentRy;
-                            if (i === 0) ctx.moveTo(xx, yy); else ctx.lineTo(xx, yy);
-                        }
-                        ctx.strokeStyle = window.textAccent;
-                        ctx.lineWidth = Design.s(1.5);
-                        ctx.setLineDash([Design.s(4), Design.s(10)]);
-                        ctx.stroke();
-                    }
-                    Behavior on opacity { NumberAnimation { duration: window.introDuration } }
-                }
 
                 // Core Clock
                 ColumnLayout {
                     anchors.centerIn: parent
                     spacing: 0
                     z: 0 
-                    scale: 0.95 + (0.05 * window.secondPulse) 
                     
                     RowLayout {
                         Layout.alignment: Qt.AlignHCenter
@@ -613,19 +494,6 @@ PopupShell {
                             font.weight: Design.weight.bold
                             font.pixelSize: Design.s(84)
                             color: Design.text
-                            style: Text.Outline; styleColor: Qt.alpha(Design.ground, 0.4)
-                        }
-                        Text {
-                            text: Qt.formatTime(window.currentTime, ":ss")
-                            font.family: Design.font.mono
-                            font.weight: Design.weight.semibold
-                            font.pixelSize: Design.s(32)
-                            color: window.textAccent
-                            Layout.alignment: Qt.AlignBottom
-                            Layout.bottomMargin: Design.s(15)
-                            opacity: window.secondPulse > 1.02 ? 1.0 : 0.6 
-                            style: Text.Outline; styleColor: Qt.alpha(Design.ground, 0.4)
-                            Behavior on color { ColorAnimation { duration: window.tintDuration } }
                         }
                     }
 
@@ -657,25 +525,19 @@ PopupShell {
                             property bool isToday: window.weatherView === 0
                             property bool isHighlighted: isToday && index === window.activeHourIndex
                             
-                            property real rx: Design.s(320) * centralHub.orbitBreath
-                            property real ry: Design.s(140) * centralHub.orbitBreath
+                            property real rx: Design.s(320)
+                            property real ry: Design.s(140)
                             
                             property int relIdx: isToday ? (index - window.activeHourIndex) : index
-                            
                             property real targetAngleDeg: isToday ? (65 + (relIdx * 30)) : (index * (360 / Math.max(1, mCount)))
-                            
-                            property real orbitOffset: isToday ? 0 : (window.globalOrbitAngle * (180 / Math.PI) * -1.5)
-                            property real osc: isToday ? (Math.sin(window.globalOrbitAngle * 10 + index) * 5) : 0 
-                            
-                            // Integrated window.transitionSpin directly into the final angle calculation
-                            property real rad: (targetAngleDeg + orbitOffset + osc + window.transitionSpin) * (Math.PI / 180)
+                            property real rad: (targetAngleDeg + window.transitionSpin) * (Math.PI / 180)
 
                             x: Math.cos(rad) * rx - width/2
                             y: Math.sin(rad) * ry - height/2
                             z: Math.sin(rad) * Design.s(100) 
                             
-                            scale: isHighlighted ? 1.4 : (isToday ? (0.95 + 0.20 * Math.sin(rad)) : (0.90 + 0.25 * Math.sin(rad)))
-                            opacity: isHighlighted ? 1.0 : (isToday ? (0.7 + 0.3 * ((Math.sin(rad) + 1) / 2)) : (0.65 + 0.35 * ((Math.sin(rad) + 1) / 2)))
+                            scale: isHighlighted ? 1.3 : 1.0
+                            opacity: isHighlighted ? 1.0 : 0.85
 
                             width: Design.s(56); height: Design.s(95)
                             
@@ -886,18 +748,10 @@ PopupShell {
                             id: wPrevMa; width: Design.s(30); height: Design.s(30); hoverEnabled: true
                             onClicked: window.setWeatherView(window.targetWeatherView - 1) 
                             
-                            property real pulseOffset: 0
-                            SequentialAnimation on pulseOffset {
-                                loops: Animation.Infinite; running: true
-                                NumberAnimation { to: Design.s(-3); duration: window.pulsePeriod; easing.type: Easing.InOutSine }
-                                NumberAnimation { to: 0; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
-                            }
-                            
                             Text { 
                                 anchors.centerIn: parent; text: ""; font.family: Design.font.icon; font.pixelSize: Design.s(18)
-                                color: parent.containsMouse ? window.textAccent : Design.textFaint
-                                transform: Translate { x: parent.containsMouse ? Design.s(-5) : wPrevMa.pulseOffset }
-                                Behavior on transform { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutBack } }
+                                color: wPrevMa.containsMouse ? window.textAccent : Design.textFaint
+                                transform: Translate { x: wPrevMa.containsMouse ? Design.s(-3) : 0 }
                             }
                         }
                         
@@ -913,18 +767,10 @@ PopupShell {
                             id: wNextMa; width: Design.s(30); height: Design.s(30); hoverEnabled: true
                             onClicked: window.setWeatherView(window.targetWeatherView + 1)
                             
-                            property real pulseOffset: 0
-                            SequentialAnimation on pulseOffset {
-                                loops: Animation.Infinite; running: true
-                                NumberAnimation { to: Design.s(3); duration: window.pulsePeriod; easing.type: Easing.InOutSine }
-                                NumberAnimation { to: 0; duration: window.pulsePeriod; easing.type: Easing.InOutSine }
-                            }
-                            
                             Text { 
                                 anchors.centerIn: parent; text: ""; font.family: Design.font.icon; font.pixelSize: Design.s(18)
-                                color: parent.containsMouse ? window.textAccent : Design.textFaint
-                                transform: Translate { x: parent.containsMouse ? Design.s(5) : wNextMa.pulseOffset }
-                                Behavior on transform { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutBack } }
+                                color: wNextMa.containsMouse ? window.textAccent : Design.textFaint
+                                transform: Translate { x: wNextMa.containsMouse ? Design.s(3) : 0 }
                             }
                         }
                     }
@@ -1013,48 +859,26 @@ PopupShell {
                                     width: Design.s(68); height: Design.s(68)
                                     anchors.top: parent.top
                                     anchors.horizontalCenter: parent.horizontalCenter
-                                    
-                                    Canvas {
-                                        id: gaugeCanvas
+
+                                    Rectangle {
+                                        id: gaugeCircle
                                         anchors.fill: parent
-                                        rotation: -90 
-                                        
-                                        property real animProgress: gaugeWrapper.gaugeFill
-                                        
-                                        Behavior on animProgress {
-                                            NumberAnimation { duration: window.introDuration; easing.type: Easing.OutExpo }
-                                        }
-                                        
-                                        // Ensuring canvas draws properly regardless of initialization speed
-                                        onAnimProgressChanged: requestPaint()
-                                        onWidthChanged: requestPaint()
-                                        Component.onCompleted: requestPaint()
-                                        
-                                        onPaint: {
-                                            var ctx = getContext("2d");
-                                            ctx.clearRect(0, 0, width, height);
-                                            var r = width / 2;
-                                            
-                                            ctx.beginPath();
-                                            ctx.arc(r, r, r - Design.s(4), 0, 2 * Math.PI);
-                                            ctx.strokeStyle = Qt.alpha(Design.text, 0.1);
-                                            ctx.lineWidth = Design.s(3);
-                                            ctx.stroke();
-                                            
-                                            if (animProgress > 0) {
-                                                ctx.beginPath();
-                                                ctx.arc(r, r, r - Design.s(4), 0, animProgress * 2 * Math.PI);
-                                                var grad = ctx.createLinearGradient(0, 0, width, height);
-                                                grad.addColorStop(0, window.timeAccent);
-                                                grad.addColorStop(1, Design.accentSoft);
-                                                ctx.strokeStyle = grad;
-                                                ctx.lineWidth = Design.s(4);
-                                                ctx.lineCap = "round";
-                                                ctx.stroke();
-                                            }
+                                        radius: width / 2
+                                        color: "transparent"
+                                        border.color: Qt.alpha(Design.text, 0.12)
+                                        border.width: Design.s(3)
+
+                                        Rectangle {
+                                            anchors.fill: parent
+                                            radius: width / 2
+                                            color: "transparent"
+                                            border.color: window.timeAccent
+                                            border.width: Design.s(3)
+                                            opacity: gaugeWrapper.gaugeFill > 0 ? 0.85 : 0.0
+                                            Behavior on opacity { NumberAnimation { duration: Design.duration.base } }
                                         }
                                     }
-                                    
+
                                     Label {
                                         anchors.centerIn: parent
                                         text: gaugeWrapper.gaugeVal
@@ -1116,87 +940,11 @@ PopupShell {
 
                 Rectangle { anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right; height: 1; color: Qt.alpha(Design.hover, 0.5) }
 
-                // OPTIMIZATION: Separated the massive continuous Canvas path-drawing loop into three pre-rendered hardware-accelerated static layers.
-                Item {
+                Rectangle {
                     anchors.fill: parent
                     z: -1
-                    opacity: 0.15
-                    clip: true
-
-                    // Wave 1 - Mauve
-                    Canvas {
-                        id: wave1
-                        property real wLen: Design.s(100) * 2 * Math.PI
-                        width: parent.width + wLen
-                        height: parent.height
-                        
-                        NumberAnimation on x { from: 0; to: -wave1.wLen; duration: window.introDuration; loops: Animation.Infinite; running: window.scheduleModuleExists }
-                        
-                        onWidthChanged: requestPaint()
-                        onPaint: {
-                            var ctx = getContext("2d");
-                            ctx.clearRect(0, 0, width, height);
-                            var cy = height / 2;
-                            ctx.beginPath();
-                            ctx.moveTo(0, cy);
-                            for(var i = 0; i <= width + Design.s(20); i += Design.s(10)) {
-                                ctx.lineTo(i, cy + Math.sin(i/Design.s(100)) * Design.s(30));
-                            }
-                            ctx.strokeStyle = Design.accentAlt;
-                            ctx.lineWidth = Design.s(2);
-                            ctx.stroke();
-                        }
-                    }
-
-                    // Wave 2 - Sapphire
-                    Canvas {
-                        id: wave2
-                        property real wLen: Design.s(120) * 2 * Math.PI
-                        width: parent.width + wLen
-                        height: parent.height
-                        
-                        NumberAnimation on x { from: -wave2.wLen; to: 0; duration: window.introDuration; loops: Animation.Infinite; running: window.scheduleModuleExists }
-                        
-                        onWidthChanged: requestPaint()
-                        onPaint: {
-                            var ctx = getContext("2d");
-                            ctx.clearRect(0, 0, width, height);
-                            var cy = height / 2;
-                            ctx.beginPath();
-                            ctx.moveTo(0, cy);
-                            for(var i = 0; i <= width + Design.s(20); i += Design.s(10)) {
-                                ctx.lineTo(i, cy + Math.sin(i/Design.s(120)) * Design.s(40));
-                            }
-                            ctx.strokeStyle = Design.accentSoft;
-                            ctx.lineWidth = Design.s(2);
-                            ctx.stroke();
-                        }
-                    }
-
-                    // Wave 3 - Peach
-                    Canvas {
-                        id: wave3
-                        property real wLen: Design.s(80) * 2 * Math.PI
-                        width: parent.width + wLen
-                        height: parent.height
-                        
-                        NumberAnimation on x { from: 0; to: -wave3.wLen; duration: window.introDuration; loops: Animation.Infinite; running: window.scheduleModuleExists }
-                        
-                        onWidthChanged: requestPaint()
-                        onPaint: {
-                            var ctx = getContext("2d");
-                            ctx.clearRect(0, 0, width, height);
-                            var cy = height / 2;
-                            ctx.beginPath();
-                            ctx.moveTo(0, cy);
-                            for(var i = 0; i <= width + Design.s(20); i += Design.s(10)) {
-                                ctx.lineTo(i, cy + Math.sin(i/Design.s(80)) * Design.s(20));
-                            }
-                            ctx.strokeStyle = Design.warn;
-                            ctx.lineWidth = Design.s(2);
-                            ctx.stroke();
-                        }
-                    }
+                    opacity: 0.04
+                    color: Design.accentAlt
                 }
 
                 ColumnLayout {
@@ -1305,33 +1053,17 @@ PopupShell {
                                             property bool isActive: parent.isClass && window.currentEpoch >= (modelData.start || 0) && window.currentEpoch <= (modelData.end || 0)
                                             property bool isPast: parent.isClass && window.currentEpoch > (modelData.end || 0)
                                             
-                                            Canvas {
+                                            Rectangle {
                                                 anchors.fill: parent
                                                 visible: classMa.containsMouse || classNode.isActive
-                                                opacity: classMa.containsMouse ? 0.2 : 0.08
+                                                opacity: classMa.containsMouse ? 0.15 : 0.06
+                                                radius: Design.s(8)
+                                                gradient: Gradient {
+                                                    orientation: Gradient.Horizontal
+                                                    GradientStop { position: 0.0; color: Design.accentAlt }
+                                                    GradientStop { position: 1.0; color: "transparent" }
+                                                }
                                                 Behavior on opacity { NumberAnimation { duration: Design.duration.base } }
-                                                
-                                                property real wavePhase: 0
-                                                NumberAnimation on wavePhase {
-                                                    from: 0; to: Math.PI * 2; duration: window.introDuration; loops: Animation.Infinite; running: parent.visible
-                                                }
-                                                onWavePhaseChanged: requestPaint()
-                                                onPaint: {
-                                                    var ctx = getContext("2d");
-                                                    ctx.clearRect(0, 0, width, height);
-                                                    ctx.beginPath();
-                                                    ctx.moveTo(0, height);
-                                                    for(var x = 0; x <= width; x += Design.s(10)) {
-                                                        ctx.lineTo(x, height/2 + Math.sin(x/Design.s(25) + wavePhase) * Design.s(20));
-                                                    }
-                                                    ctx.lineTo(width, height);
-                                                    ctx.lineTo(0, height);
-                                                    var grad = ctx.createLinearGradient(0, 0, width, 0);
-                                                    grad.addColorStop(0, Design.accentAlt);
-                                                    grad.addColorStop(1, "transparent");
-                                                    ctx.fillStyle = grad;
-                                                    ctx.fill();
-                                                }
                                             }
 
                                             Rectangle {

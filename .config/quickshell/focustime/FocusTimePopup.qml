@@ -170,7 +170,7 @@ PopupShell {
 
     property real globalOrbitAngle: 0
     NumberAnimation on globalOrbitAngle {
-        from: 0; to: Math.PI * 2; duration: window.driftPeriod; loops: Animation.Infinite; running: true
+        from: 0; to: Math.PI * 2; duration: window.driftPeriod; loops: Animation.Infinite; running: false
     }
 
     // --- SHARED DATA INGESTION ---
@@ -280,8 +280,8 @@ PopupShell {
     }
 
     Timer { 
-        interval: 1000
-        running: window.isTodaySelected 
+        interval: 3000
+        running: window.isTodaySelected && window.visible
         repeat: true
         onTriggered: window.requestDataUpdate()
     }
@@ -508,15 +508,13 @@ PopupShell {
 
             Rectangle {
                 width: parent.width * 1.2; height: width; radius: width / 2
-                x: (parent.width / 2 - width / 2) + Math.cos(window.globalOrbitAngle * 2) * Design.s(150)
-                y: (parent.height / 2 - height / 2) + Math.sin(window.globalOrbitAngle * 2) * Design.s(100)
+                anchors.centerIn: parent
                 opacity: 0.015
                 color: Design.accentAlt
             }
             Rectangle {
                 width: parent.width * 1.1; height: width; radius: width / 2
-                x: (parent.width / 2 - width / 2) + Math.sin(window.globalOrbitAngle * 1.5) * Design.s(-150)
-                y: (parent.height / 2 - height / 2) + Math.cos(window.globalOrbitAngle * 1.5) * Design.s(-100)
+                anchors.centerIn: parent
                 opacity: 0.010
                 color: Design.accent
             }

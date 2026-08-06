@@ -34,37 +34,17 @@ PopupShell {
         
         // 5. Slow Color Temperature Drift (Fixed for Live Theme Reloading)
         property real baseBlend: 0.0
-        SequentialAnimation on baseBlend {
-            loops: Animation.Infinite; running: true
-            NumberAnimation { to: 1.0; duration: root.pulsePeriod; easing.type: Easing.InOutSine }
-            NumberAnimation { to: 0.0; duration: root.pulsePeriod; easing.type: Easing.InOutSine }
-        }
-        // Dynamically tints between mauve and pink based on the live theme properties
-        property color currentBasePurple: Qt.tint(Design.accentAlt, Qt.rgba(Design.accentAlt.r, Design.accentAlt.g, Design.accentAlt.b, baseBlend))
-
+        property color currentBasePurple: Design.accentAlt
         property real accentBlend: 0.0
-        SequentialAnimation on accentBlend {
-            loops: Animation.Infinite; running: true
-            NumberAnimation { to: 1.0; duration: root.pulsePeriod; easing.type: Easing.InOutSine }
-            NumberAnimation { to: 0.0; duration: root.pulsePeriod; easing.type: Easing.InOutSine }
-        }
-        // Dynamically tints between blue and sapphire based on the live theme properties
-        property color currentAccentLavender: Qt.tint(Design.accent, Qt.rgba(Design.accentSoft.r, Design.accentSoft.g, Design.accentSoft.b, accentBlend))
+        property color currentAccentLavender: Design.accent
 
         // Animation States
         property real calmState: 0.0 
         property real popShockwave: 0.0 
-
-        // 9. Breathing Phase Offsets (Continuous Time Engine)
         property real time: 0
-        NumberAnimation on time { 
-            from: 0; to: Math.PI * 2; duration: root.driftPeriod; loops: Animation.Infinite; running: true 
-        }
-        
-        // 3 separate breathing phases for organic offset
-        property real breathA: (Math.sin(time * 3) + 1) / 2       // Glow phase
-        property real breathB: (Math.sin(time * 3 + 0.6) + 1) / 2 // Core phase
-        property real breathC: (Math.sin(time * 3 + 1.2) + 1) / 2 // Background phase
+        property real breathA: 0.5
+        property real breathB: 0.5
+        property real breathC: 0.5
 
         // Window Entrance Animation
         opacity: 0.0
@@ -79,9 +59,6 @@ PopupShell {
         }
 
         property real globalOrbitAngle: 0
-        NumberAnimation on globalOrbitAngle {
-            from: 0; to: Math.PI * 2; duration: root.driftPeriod; loops: Animation.Infinite; running: true
-        }
 
         // ---------------------------------------------------------------------
         // BACKGROUND ARTIFACTS
@@ -93,19 +70,9 @@ PopupShell {
             width: parent.width * 0.8
             height: width
             radius: width / 2
-            
-            // 1. Subtle Depth Parallax (Follows worldCenter drift slightly)
-            // 6. Energy Density Shift After Calm (Reduced amplitude)
-            x: (parent.width / 2 - width / 2) + Math.cos(windowContent.globalOrbitAngle * 2) * (250 - windowContent.calmState * 60) + (worldCenter.driftX * 0.4)
-            y: (parent.height / 2 - height / 2) + Math.sin(windowContent.globalOrbitAngle * 2) * (150 - windowContent.calmState * 40) + (worldCenter.driftY * 0.4)
-            
-            // Offset breathing C
-            opacity: 0.025 + (windowContent.breathC * 0.015 * (1.0 - (windowContent.calmState * 0.3)))
+            anchors.centerIn: parent
+            opacity: 0.03
             color: windowContent.currentBasePurple
-            antialiasing: true
-            
-            layer.enabled: true
-            layer.effect: MultiEffect { blurEnabled: true; blurMax: 64; blur: 1.0 }
         }
 
         // 2. Large Flowing Background Orb B
@@ -114,16 +81,9 @@ PopupShell {
             width: parent.width * 0.9
             height: width
             radius: width / 2
-            
-            x: (parent.width / 2 - width / 2) + Math.sin(windowContent.globalOrbitAngle * 1.5) * -(250 - windowContent.calmState * 60) + (worldCenter.driftX * 0.3)
-            y: (parent.height / 2 - height / 2) + Math.cos(windowContent.globalOrbitAngle * 1.5) * -(150 - windowContent.calmState * 40) + (worldCenter.driftY * 0.3)
-            
-            opacity: 0.020 + (windowContent.breathC * 0.012 * (1.0 - (windowContent.calmState * 0.3)))
+            anchors.centerIn: parent
+            opacity: 0.02
             color: windowContent.currentAccentLavender
-            antialiasing: true
-            
-            layer.enabled: true
-            layer.effect: MultiEffect { blurEnabled: true; blurMax: 80; blur: 1.0 }
         }
 
         // 3. Gravitational Floating Particles (Improved Naturalism)

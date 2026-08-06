@@ -128,7 +128,7 @@ ShellRoot {
 
                 property real globalOrbitAngle: 0
                 NumberAnimation on globalOrbitAngle {
-                    from: 0; to: Math.PI * 2; duration: root.driftPeriod; loops: Animation.Infinite; running: true
+                    from: 0; to: Math.PI * 2; duration: root.driftPeriod; loops: Animation.Infinite; running: false
                 }
 
                 // Auto-hide input field if empty and idle for 15 seconds
@@ -260,9 +260,7 @@ ShellRoot {
 
                     Rectangle {
                         width: parent.width * 0.8; height: width; radius: width / 2
-                        x: (parent.width / 2 - width / 2) + Math.cos(screenRoot.globalOrbitAngle * 2) * (200 * screenRoot.sc)
-                        y: (parent.height / 2 - height / 2) + Math.sin(screenRoot.globalOrbitAngle * 2) * (150 * screenRoot.sc)
-                        scale: 1.0 + Math.sin(screenRoot.globalOrbitAngle * 6) * 0.05
+                        anchors.centerIn: parent
                         opacity: screenRoot.inputActive ? 0.04 : 0.08
                         color: Design.accentAlt
                         Behavior on color { ColorAnimation { duration: root.tintDuration } }
@@ -271,9 +269,7 @@ ShellRoot {
                     
                     Rectangle {
                         width: parent.width * 0.9; height: width; radius: width / 2
-                        x: (parent.width / 2 - width / 2) + Math.sin(screenRoot.globalOrbitAngle * 1.5) * (-200 * screenRoot.sc)
-                        y: (parent.height / 2 - height / 2) + Math.cos(screenRoot.globalOrbitAngle * 1.5) * (-150 * screenRoot.sc)
-                        scale: 1.0 + Math.cos(screenRoot.globalOrbitAngle * 5) * 0.05
+                        anchors.centerIn: parent
                         opacity: screenRoot.inputActive ? 0.03 : 0.06
                         color: Design.accent
                         Behavior on color { ColorAnimation { duration: root.tintDuration } }
