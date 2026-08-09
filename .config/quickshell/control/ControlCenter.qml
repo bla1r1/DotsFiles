@@ -64,8 +64,9 @@ PopupShell {
     // tile and the power branch could never be true.
     readonly property int visibleTileCount: (wifiTile.visible ? 1 : 0) + (btTile.visible ? 1 : 0)
                                           + (dndTile.visible ? 1 : 0) + (nightTile.visible ? 1 : 0)
-                                          + (powerTile.visible ? 1 : 0)
-    readonly property Item lastTile: powerTile.visible ? powerTile : nightTile
+                                          + (powerTile.visible ? 1 : 0) + (gameTile.visible ? 1 : 0)
+                                          + (screenTile.visible ? 1 : 0)
+    readonly property Item lastTile: screenTile.visible ? screenTile : (gameTile.visible ? gameTile : (powerTile.visible ? powerTile : nightTile))
 
     // Only worth filling a hole when there are two columns to leave one in —
     // a columnSpan of 2 in a one-column grid collapses the item to nothing.
@@ -290,6 +291,43 @@ PopupShell {
                 onToggled: Power.setProfile(Power.profile === "balanced" ? "performance"
                                           : (Power.profile === "performance" ? "power-saver" : "balanced"))
                 onActivated: center.currentView = "power"
+            }
+
+            QuickTile {
+                id: gameTile
+                Layout.fillWidth: true
+                Layout.columnSpan: center.spanOf(gameTile)
+                glyph: "\u{f11b}"
+                title: "Game Mode"
+                on: Settings.gameModeEnabled !== undefined ? Settings.gameModeEnabled : false
+                activeColor: Design.red
+                glyphTone: on ? Design.red : Design.textDim
+                detail: on ? "Performance" : "Off"
+                trailingGlyph: ""
+                onToggled: {
+                    const next = !(Settings.gameModeEnabled !== undefined ? Settings.gameModeEnabled : false);
+                    Settings.set("gameModeEnabled", next);
+                    Quickshell.execDetached(["bash", Quickshell.env("HOME") + "/.config/sway/scripts/tools/game-mode.sh", next ? "on" : "off"]);
+                }
+                onActivated: center.openFull("settings:gamemode")
+            }
+
+            QuickTile {
+                id: screenTile
+                Layout.fillWidth: true
+                Layout.columnSpan: center.spanOf(screenTile)
+                glyph: "\u{f016d}"
+                title: "Screenshot"
+                on: false
+                circleToggles: false
+                activeColor: Design.pink
+                glyphTone: Design.pink
+                detail: "Capture area"
+                trailingGlyph: ""
+                onActivated: {
+                    center.close();
+                    Quickshell.execDetached(["bash", Quickshell.env("HOME") + "/.config/sway/scripts/tools/screenshot.sh", "area"]);
+                }
             }
         }
 

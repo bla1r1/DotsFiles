@@ -65,6 +65,44 @@ Singleton {
     readonly property alias weatherCityId: data.weatherCityId
     readonly property alias weatherUnit: data.weatherUnit
 
+    // Window Management & Gaps
+    readonly property alias gapsInner: data.gapsInner
+    readonly property alias gapsOuter: data.gapsOuter
+    readonly property alias borderWidth: data.borderWidth
+    readonly property alias smartBorders: data.smartBorders
+    readonly property alias smartGaps: data.smartGaps
+    readonly property alias inactiveOpacity: data.inactiveOpacity
+
+    // Screenshots & Screen Recording
+    readonly property alias screenshotDir: data.screenshotDir
+    readonly property alias screenshotFormat: data.screenshotFormat
+    readonly property alias screenshotCopyToClipboard: data.screenshotCopyToClipboard
+    readonly property alias screenshotSaveToFile: data.screenshotSaveToFile
+    readonly property alias screenshotDelay: data.screenshotDelay
+
+    // Default Applications
+    readonly property alias defaultBrowser: data.defaultBrowser
+    readonly property alias defaultTerminal: data.defaultTerminal
+    readonly property alias defaultFileManager: data.defaultFileManager
+    readonly property alias defaultEditor: data.defaultEditor
+
+    // Game Mode
+    readonly property alias gameModeEnabled: data.gameModeEnabled
+    readonly property alias gameModeInhibitIdle: data.gameModeInhibitIdle
+    readonly property alias gameModeMuteNotifs: data.gameModeMuteNotifs
+
+    // Top Bar (Waybar)
+    readonly property alias barPosition: data.barPosition
+    readonly property alias barShowCava: data.barShowCava
+    readonly property alias barShowWeather: data.barShowWeather
+    readonly property alias barShowMedia: data.barShowMedia
+    readonly property alias barShowTray: data.barShowTray
+    readonly property alias barClock24h: data.barClock24h
+
+    // Night Light
+    readonly property alias nightLightEnabled: data.nightLightEnabled
+    readonly property alias nightLightTemp: data.nightLightTemp
+
     // Device management
     readonly property alias disabledAudioDevices: data.disabledAudioDevices
     readonly property alias disabledOutputs: data.disabledOutputs
@@ -144,6 +182,32 @@ Singleton {
         weatherApiKey: "",
         weatherCityId: "",
         weatherUnit: "metric",
+        gapsInner: 8,
+        gapsOuter: 4,
+        borderWidth: 2,
+        smartBorders: true,
+        smartGaps: false,
+        inactiveOpacity: 1.0,
+        screenshotDir: Quickshell.env("HOME") + "/Pictures/Screenshots",
+        screenshotFormat: "png",
+        screenshotCopyToClipboard: true,
+        screenshotSaveToFile: true,
+        screenshotDelay: 0,
+        defaultBrowser: "brave",
+        defaultTerminal: "kitty",
+        defaultFileManager: "thunar",
+        defaultEditor: "code",
+        gameModeEnabled: false,
+        gameModeInhibitIdle: true,
+        gameModeMuteNotifs: true,
+        barPosition: "top",
+        barShowCava: true,
+        barShowWeather: true,
+        barShowMedia: true,
+        barShowTray: true,
+        barClock24h: true,
+        nightLightEnabled: false,
+        nightLightTemp: 4000,
         workspaceAssignments: [],
         monitors: [],
         disabledAudioDevices: [],
@@ -151,23 +215,11 @@ Singleton {
     })
 
     // ── Store ────────────────────────────────────────────────────────────────
-    // NOTE: verify the FileView / JsonAdapter property names against the
-    // Quickshell docs on the target machine before relying on this — this file
-    // was written without a Quickshell install to check against:
-    //     qs --help  /  https://quickshell.org/docs/
-    // The design is right regardless; only the spelling is in question.
-
     FileView {
         id: file
         path: root.path
         watchChanges: true
         printErrors: false
-
-        // Verified against quickshell 0.3.1's type info rather than assumed:
-        // FileView really does have atomicWrites, and its default property is
-        // `adapter`, which is why the JsonAdapter below binds by being a child.
-        // Asked for explicitly — the whole point of the store was that a write
-        // interrupted halfway must not leave truncated JSON.
         atomicWrites: true
 
         onFileChanged: reload()
@@ -175,8 +227,6 @@ Singleton {
             root.loaded = true;
             root.changed();
         }
-        // A missing file is the first-run case, not an error: the adapter keeps
-        // the schema defaults and the next write creates it.
         onLoadFailed: root.loaded = true
 
         JsonAdapter {
@@ -209,6 +259,38 @@ Singleton {
             property string weatherApiKey: ""
             property string weatherCityId: ""
             property string weatherUnit: "metric"
+
+            property int gapsInner: 8
+            property int gapsOuter: 4
+            property int borderWidth: 2
+            property bool smartBorders: true
+            property bool smartGaps: false
+            property real inactiveOpacity: 1.0
+
+            property string screenshotDir: Quickshell.env("HOME") + "/Pictures/Screenshots"
+            property string screenshotFormat: "png"
+            property bool screenshotCopyToClipboard: true
+            property bool screenshotSaveToFile: true
+            property int screenshotDelay: 0
+
+            property string defaultBrowser: "brave"
+            property string defaultTerminal: "kitty"
+            property string defaultFileManager: "thunar"
+            property string defaultEditor: "code"
+
+            property bool gameModeEnabled: false
+            property bool gameModeInhibitIdle: true
+            property bool gameModeMuteNotifs: true
+
+            property string barPosition: "top"
+            property bool barShowCava: true
+            property bool barShowWeather: true
+            property bool barShowMedia: true
+            property bool barShowTray: true
+            property bool barClock24h: true
+
+            property bool nightLightEnabled: false
+            property int nightLightTemp: 4000
         }
     }
 }

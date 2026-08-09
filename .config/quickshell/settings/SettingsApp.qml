@@ -30,21 +30,27 @@ PopupShell {
     Component.onCompleted: if (!app.page) app.page = "interface"
 
     readonly property var pages: [
-        { id: "interface",  icon: "\u{f0b60}", label: "Interface",        color: Design.blue },
-        { id: "appearance", icon: "\u{f0376}", label: "Appearance",       color: Design.mauve },
-        { id: "monitors",   icon: "\u{f0379}", label: "Displays",         color: Design.sapphire },
-        { id: "nightlight", icon: "\u{f0599}", label: "Night Light",      color: Design.yellow },
-        { id: "network",    icon: "\u{f0928}", label: "Network",          color: Design.lavender },
-        { id: "bluetooth",  icon: "\u{f00af}", label: "Bluetooth",        color: Design.mauve },
-        { id: "audio",      icon: "\u{f057e}", label: "Sound",            color: Design.teal },
-        { id: "power",      icon: "\u{f0084}", label: "Power & Sleep",    color: Design.green },
-        { id: "focus",      icon: "\u{f051e}", label: "Screen Time",      color: Design.teal },
-        { id: "input",      icon: "\u{f0523}", label: "Mouse & Touchpad", color: Design.peach },
-        { id: "keyboard",   icon: "\u{f030c}", label: "Keyboard",         color: Design.peach },
-        { id: "wallpaper",  icon: "\u{f02ca}", label: "Wallpaper",        color: Design.pink },
-        { id: "startup",    icon: "\u{f0459}", label: "Startup",          color: Design.yellow },
-        { id: "weather",    icon: "\u{f0590}", label: "Weather",          color: Design.sapphire },
-        { id: "about",      icon: "\u{f035b}", label: "About & Health",   color: Design.mauve }
+        { id: "interface",   icon: "\u{f0b60}", label: "Interface",        color: Design.blue },
+        { id: "windows",     icon: "\u{f0379}", label: "Window & Gaps",    color: Design.sapphire },
+        { id: "appearance",  icon: "\u{f0376}", label: "Appearance",       color: Design.mauve },
+        { id: "monitors",    icon: "\u{f0379}", label: "Displays",         color: Design.sapphire },
+        { id: "bar",         icon: "\u{f07e}",  label: "Top Bar (Waybar)", color: Design.blue },
+        { id: "capture",     icon: "\u{f016d}", label: "Screenshots",      color: Design.pink },
+        { id: "defaultapps", icon: "\u{f0ac}",  label: "Default Apps",     color: Design.teal },
+        { id: "gamemode",    icon: "\u{f11b}",  label: "Game Mode",        color: Design.red },
+        { id: "maintenance", icon: "\u{f0187}", label: "Maintenance",      color: Design.green },
+        { id: "nightlight",  icon: "\u{f0599}", label: "Night Light",      color: Design.yellow },
+        { id: "network",     icon: "\u{f0928}", label: "Network",          color: Design.lavender },
+        { id: "bluetooth",   icon: "\u{f00af}", label: "Bluetooth",        color: Design.mauve },
+        { id: "audio",       icon: "\u{f057e}", label: "Sound",            color: Design.teal },
+        { id: "power",       icon: "\u{f0084}", label: "Power & Sleep",    color: Design.green },
+        { id: "focus",       icon: "\u{f051e}", label: "Screen Time",      color: Design.teal },
+        { id: "input",       icon: "\u{f0523}", label: "Mouse & Touchpad", color: Design.peach },
+        { id: "keyboard",    icon: "\u{f030c}", label: "Keyboard",         color: Design.peach },
+        { id: "wallpaper",   icon: "\u{f02ca}", label: "Wallpaper",        color: Design.pink },
+        { id: "startup",     icon: "\u{f0459}", label: "Startup",          color: Design.yellow },
+        { id: "weather",     icon: "\u{f0590}", label: "Weather",          color: Design.sapphire },
+        { id: "about",       icon: "\u{f035b}", label: "About & Health",   color: Design.mauve }
     ]
 
     function open(id) {
@@ -175,6 +181,11 @@ PopupShell {
                     onWorkspaceCountChangedByUser: v => Settings.set("workspaceCount", v)
                 }
 
+                Sections.WindowSettingsSection {
+                    Layout.fillWidth: true
+                    visible: app.page === "windows"
+                }
+
                 Sections.AppearanceSettingsSection {
                     Layout.preferredWidth: pageScroll.availableWidth
                     visible: app.page === "appearance"
@@ -183,6 +194,31 @@ PopupShell {
                 Sections.MonitorSettingsSection {
                     Layout.preferredWidth: pageScroll.availableWidth
                     visible: app.page === "monitors"
+                }
+
+                Sections.BarSettingsSection {
+                    Layout.fillWidth: true
+                    visible: app.page === "bar"
+                }
+
+                Sections.CaptureSettingsSection {
+                    Layout.fillWidth: true
+                    visible: app.page === "capture"
+                }
+
+                Sections.DefaultAppsSettingsSection {
+                    Layout.fillWidth: true
+                    visible: app.page === "defaultapps"
+                }
+
+                Sections.GameModeSettingsSection {
+                    Layout.fillWidth: true
+                    visible: app.page === "gamemode"
+                }
+
+                Sections.MaintenanceSettingsSection {
+                    Layout.fillWidth: true
+                    visible: app.page === "maintenance"
                 }
 
                 Sections.NightLightSettingsSection {

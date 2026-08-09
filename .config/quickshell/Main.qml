@@ -48,6 +48,8 @@ PanelWindow {
         function openPowerFull() { masterWindow.handleIpcCommand("open:powerFull:", true) }
         function openNetFull() { masterWindow.handleIpcCommand("open:netFull:", true) }
         function openMediaFull() { masterWindow.handleIpcCommand("open:mediaFull:", true) }
+        function openSession() { masterWindow.handleIpcCommand("open:session:", true) }
+        function toggleSession() { masterWindow.handleIpcCommand("toggle:session:", true) }
     }
 
     WlrLayershell.namespace: "qs-master"
@@ -413,5 +415,10 @@ PanelWindow {
     Loader {
         active: true
         source: "notifications/NotificationToasts.qml"
+    }
+
+    Loader {
+        active: true
+        source: "osd/OsdOverlay.qml"
     }
 }

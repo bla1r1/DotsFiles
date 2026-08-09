@@ -23,7 +23,20 @@ current_subset() {
             language: (.language // "us"),
             workspaceCount: (.workspaceCount // 8),
             guideShortcut: (.guideShortcut // true),
-            topbarHelpIcon: (.topbarHelpIcon // false)
+            topbarHelpIcon: (.topbarHelpIcon // false),
+            barPosition: (.barPosition // "top"),
+            barShowCava: (.barShowCava // true),
+            barShowWeather: (.barShowWeather // true),
+            barShowMedia: (.barShowMedia // true),
+            barShowTray: (.barShowTray // true),
+            barClock24h: (.barClock24h // true)
+        },
+        windows: {
+            gapsInner: (.gapsInner // 8),
+            gapsOuter: (.gapsOuter // 4),
+            borderWidth: (.borderWidth // 2),
+            smartBorders: (.smartBorders // true),
+            smartGaps: (.smartGaps // false)
         },
         monitors: {
             workspaceAssignments: (.monitors.workspaceAssignments // [])
@@ -98,12 +111,29 @@ apply_monitor_workspaces() {
     done
 }
 
+apply_windows_settings() {
+    command -v swaymsg >/dev/null 2>&1 || return 0
+    local gi go bw sb sg
+    gi="$(jq -r '.windows.gapsInner // 8' <<<"$current")"
+    go="$(jq -r '.windows.gapsOuter // 4' <<<"$current")"
+    bw="$(jq -r '.windows.borderWidth // 2' <<<"$current")"
+    sb="$(jq -r '.windows.smartBorders // true' <<<"$current")"
+    sg="$(jq -r '.windows.smartGaps // false' <<<"$current")"
+
+    swaymsg gaps inner all set "$gi" >/dev/null 2>&1 || true
+    swaymsg gaps outer all set "$go" >/dev/null 2>&1 || true
+    swaymsg default_border pixel "$bw" >/dev/null 2>&1 || true
+    swaymsg smart_borders "$([[ "$sb" == "true" ]] && echo "on" || echo "off")" >/dev/null 2>&1 || true
+    swaymsg smart_gaps "$([[ "$sg" == "true" ]] && echo "on" || echo "off")" >/dev/null 2>&1 || true
+}
+
 current="$(current_subset)"
 previous="$(previous_subset)"
 
 input_changed=0
 waybar_changed=0
 monitors_changed=0
+windows_changed=0
 
 if [[ "$(jq -c '.input // {}' <<<"$current")" != "$(jq -c '.input // {}' <<<"$previous")" ]]; then
     input_changed=1
@@ -117,6 +147,10 @@ if [[ "$(jq -c '.monitors // {}' <<<"$current")" != "$(jq -c '.monitors // {}' <
     monitors_changed=1
 fi
 
+if [[ "$(jq -c '.windows // {}' <<<"$current")" != "$(jq -c '.windows // {}' <<<"$previous")" ]]; then
+    windows_changed=1
+fi
+
 layout="$(jq -r '.input.language' <<<"$current")"
 options="$(jq -r '.input.kbOptions' <<<"$current")"
 
@@ -127,6 +161,10 @@ if [[ "$input_changed" -eq 1 ]]; then
         :
     fi
     reload_sway
+fi
+
+if [[ "$windows_changed" -eq 1 ]]; then
+    apply_windows_settings
 fi
 
 if [[ "$waybar_changed" -eq 1 ]]; then
