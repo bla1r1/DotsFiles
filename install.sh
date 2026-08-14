@@ -113,18 +113,17 @@ arch_packages() {
     local pkgs=(
         base-devel git rsync curl unzip
         swaybg swayidle swaylock xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk
-        waybar rofi-wayland swaync wlogout quickshell
-        kitty firefox nautilus geany fish fastfetch btop telegram-desktop
+        waybar rofi-wayland quickshell
+        kitty firefox thunar nautilus fish fastfetch btop telegram-desktop
         wl-clipboard cliphist grim slurp swappy
         xorg-xwayland autotiling
         gnome-power-manager
         starship eza bat ugrep zoxide find-the-command
-        wofi python-pywal copyq
-        pipewire wireplumber pipewire-pulse pavucontrol pavucontrol-qt pamixer playerctl
+        pipewire wireplumber pipewire-pulse pavucontrol pamixer playerctl
         upower
         brightnessctl ddcutil jq inotify-tools socat
         pacman-contrib flatpak libnotify trash-cli
-        networkmanager network-manager-applet networkmanager-dmenu blueman
+        networkmanager network-manager-applet blueman
         polkit-gnome
         qt5ct qt6ct kvantum qt6-svg qt6-virtualkeyboard
         yad nwg-look nwg-displays
@@ -398,7 +397,7 @@ post_install_checks() {
 
     if [[ "$SKIP_DOTFILES" -eq 0 ]]; then
         [[ -d "$HOME/.config/sway" ]] || issues+=("Sway config not found")
-        [[ -d "$HOME/.config/sway/scripts/quickshell" ]] || issues+=("Quickshell Sway config not found")
+        [[ -d "$HOME/.config/quickshell" ]] || issues+=("Quickshell config not found")
         [[ -d "$HOME/.wallpapers" ]] || issues+=("Wallpapers not found")
         [[ -d "/usr/share/fontconfig/conf.avail" ]] || issues+=("fontconfig conf.avail not found")
         [[ -d "/usr/share/sddm/themes/blair" ]] || issues+=("SDDM theme not installed")

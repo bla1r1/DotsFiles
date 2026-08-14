@@ -30,8 +30,7 @@
 
     "modules-right": [
         "group/stats",
-        "group/quickshell",
         "group/devices",
         "group/system"
-    ],
+    ]
 }

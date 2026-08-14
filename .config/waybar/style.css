@@ -242,15 +242,12 @@ tooltip {
 
 #cpu, #memory, #temperature, #mpris, #backlight, #battery,
 #custom-spotify, #custom-mode,
-#custom-copyq, #custom-swaync,
-#custom-qs-settings, #custom-qs-music,
-#custom-qs-monitors, #custom-qs-guide,
+#custom-controlcenter, #custom-power,
 #custom-player,
 #bluetooth, #pulseaudio, #wireplumber, #custom-wifi,
 #custom-misc, #idle_inhibitor,
 #custom-filemanager, #custom-browser, #custom-terminal, #custom-editor,
 #custom-monitor-brightness, #custom-kbd-backlight, #custom-mic,#custom-updates,
-#custom-qs-updater,
 #window, #language {
     padding: 0px 9px;
     margin: 3px 2px;
@@ -258,6 +255,26 @@ tooltip {
     background: transparent;
     color: @tn-fg;
     transition: color 0.2s ease, background 0.2s ease;
+}
+
+#custom-controlcenter {
+    color: @tn-blue;
+}
+
+#custom-controlcenter:hover {
+    color: @tn-fg;
+    background: rgba(122, 162, 247, 0.20);
+    box-shadow: 0 0 8px rgba(122, 162, 247, 0.30);
+}
+
+#custom-power {
+    color: @tn-red;
+}
+
+#custom-power:hover {
+    color: @tn-fg;
+    background: rgba(247, 118, 142, 0.25);
+    box-shadow: 0 0 8px rgba(247, 118, 142, 0.35);
 }
 
 #bluetooth,
@@ -279,37 +296,6 @@ tooltip {
     color: @tn-fg-dim;
 }
 
-#custom-swaync {
-    color: @tn-fg-dim;
-}
-
-#custom-qs-settings {
-    color: @tn-purple;
-}
-
-#custom-qs-updater {
-    color: @tn-green;
-}
-
-#custom-qs-music {
-    color: @tn-green;
-}
-
-#custom-qs-monitors {
-    color: @tn-cyan;
-}
-
-#custom-qs-guide {
-    color: @tn-yellow;
-}
-
-#custom-swaync:hover,
-#custom-copyq:hover,
-#custom-qs-settings:hover,
-#custom-qs-updater:hover,
-#custom-qs-music:hover,
-#custom-qs-monitors:hover,
-#custom-qs-guide:hover,
 #language:hover {
     color: @tn-fg;
     background: rgba(192, 202, 245, 0.08);
@@ -614,29 +600,4 @@ tooltip {
 #custom-updates.critical:hover {
     background: rgba(247, 118, 142, 0.20);
     box-shadow: 0 0 10px rgba(247, 118, 142, 0.35);
-}
-
-/*
-    ┏┓┏┓┏┓┓┏┏┓
-    ┃ ┃┃┃┃┗┫┃┃
-    ┗┛┗┛┣┛┗┛┗┛
-*/
-
-#custom-copyq {
-    color: @tn-purple;
-}
-
-#custom-copyq:hover {
-    color: @tn-fg;
-    background: rgba(187, 154, 247, 0.12);
-}
-
-#custom-qs-updater {
-    color: @tn-green;
-}
-
-#custom-qs-updater:hover {
-    color: @tn-fg;
-    background: rgba(115, 218, 202, 0.15);
-    box-shadow: 0 0 8px rgba(115, 218, 202, 0.25);
 }

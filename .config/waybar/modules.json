@@ -25,8 +25,8 @@
     "modules": [
       "sway/language",
       "custom/updates",
-      "custom/swaync",
-      "custom/copyq"
+      "custom/controlcenter",
+      "custom/power"
     ]
   },
   "group/stats": {
@@ -37,30 +37,29 @@
       "temperature"
     ]
   },
-  "group/quickshell": {
-    "orientation": "horizontal",
-    "modules": [
-      "custom/qs-settings",
-      "custom/qs-updater",
-      "custom/qs-monitors",
-      "custom/qs-guide"
-    ]
-  },
   "include": [
     "~/.config/waybar/dcol_modules/clock.json"
   ],
-  "custom/copyq": {
-    "format": "󰅍",
-    "on-click": "copyq toggle",
-    "tooltip": false
-},
+  "custom/controlcenter": {
+    "format": "󰂚",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleControl",
+    "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleSettings",
+    "tooltip-format": "Control Center & Notifications\nRight click: Settings",
+    "tooltip": true
+  },
+  "custom/power": {
+    "format": "⏻",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleSession",
+    "tooltip-format": "Power & Session Menu ($mod+Shift+E)",
+    "tooltip": true
+  },
   "custom/updates": {
     "format": "  {}",
     "exec": "~/.config/sway/scripts/system/updates.sh",
     "restart-interval": 60,
     "return-type": "json",
     "escape": true,
-    "on-click": "~/.config/sway/scripts/system/updates.sh up",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main open settings maintenance",
     "tooltip-format": "{}",
     "tooltip": true
   },
@@ -69,14 +68,14 @@
     "format-disabled": "󰂲",
     "format-connected": " {num_connections}",
     "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleNetworkBt",
-    "on-click-right": "blueman-manager",
+    "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main open settings bluetooth",
     "tooltip-format": " {device_alias}",
     "tooltip-format-connected": "{device_enumerate}",
     "tooltip-format-enumerate-connected": " {device_alias}"
   },
   "custom/filemanager": {
     "format": "",
-    "on-click": "nautilus",
+    "on-click": "thunar || nautilus",
     "tooltip": false
   },
   "custom/terminal": {
@@ -86,7 +85,7 @@
   },
   "custom/browser": {
     "format": "",
-    "on-click": "firefox",
+    "on-click": "brave || firefox",
     "tooltip": false
   },
   "custom/appmenu": {
@@ -145,27 +144,9 @@
     "format-full": "󰁹  Full",
     "format-icons": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
     "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleBattery",
-    "on-click-right": "gnome-power-statistics",
+    "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main open settings power",
     "tooltip-format": "{timeTo} — {power}W  ({capacity}%)",
     "interval": 30
-},
-  "custom/qs-settings": {
-    "format": "󰒓",
-    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleSettings",
-    "tooltip-format": "Quickshell settings",
-    "tooltip": true
-  },
-  "custom/qs-updater": {
-    "format": "󰚰",
-    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleUpdater",
-    "tooltip-format": "DotsFiles updater",
-    "tooltip": true
-  },
-  "custom/qs-music": {
-    "format": "󰝚",
-    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleMusic",
-    "tooltip-format": "Music panel",
-    "tooltip": true
   },
   "custom/player": {
     "exec": "bash ~/.config/sway/scripts/waybar/media/player-status.sh",
@@ -179,24 +160,12 @@
     "on-scroll-down": "playerctl previous",
     "tooltip": true
   },
-  "custom/qs-monitors": {
-    "format": "󰍹",
-    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleMonitors",
-    "tooltip-format": "Monitor layout",
-    "tooltip": true
-  },
-  "custom/qs-guide": {
-    "format": "󰋖",
-    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleGuide",
-    "tooltip-format": "Guide",
-    "tooltip": true
-  },
   "backlight": {
     "exec-if": "bash ~/.config/sway/scripts/controls/brightness-control.sh available",
     "format": "{icon}  {percent}%",
     "format-icons": ["󰃞", "󰃟", "󰃠"],
     "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleMonitors",
-    "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleMonitors",
+    "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main open settings monitors",
     "on-scroll-up": "bash ~/.config/sway/scripts/controls/brightness-control.sh up",
     "on-scroll-down": "bash ~/.config/sway/scripts/controls/brightness-control.sh down",
     "tooltip-format": "Scroll: laptop brightness\nClick: monitor brightness panel",
@@ -210,7 +179,7 @@
     "format": "{}",
     "hide-empty": true,
     "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleMonitors",
-    "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleMonitors",
+    "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main open settings monitors",
     "on-scroll-up": "bash ~/.config/sway/scripts/controls/monitor-brightness.sh up",
     "on-scroll-down": "bash ~/.config/sway/scripts/controls/monitor-brightness.sh down",
     "tooltip": true
@@ -256,7 +225,6 @@
     "on-click-middle": "close",
     "on-click-right": "fullscreen",
     "ignore-list": [
-      "com.github.hluk.copyq",
       "alacritty-dropterm",
       "feathernotes",
       "ranger",
@@ -265,12 +233,6 @@
     "app_ids-mapping": {
       "firefoxdeveloperedition": "firefox-developer-edition"
     }
-  },
-  "custom/swaync": {
-    "tooltip": false,
-    "format": "󰂚",
-    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleControl",
-    "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main open control notifications"
   },
   "sway/language": {
     "format": "󰌌   {}",
@@ -288,5 +250,5 @@
     "persistent-workspaces": {
       "*": 5
     }
-}
+  }
 }
