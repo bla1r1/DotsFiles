@@ -30,7 +30,6 @@
 
     "modules-right": [
         "group/stats",
-        "group/devices",
         "group/system"
     ]
 }

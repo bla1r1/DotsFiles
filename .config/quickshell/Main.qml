@@ -50,6 +50,8 @@ PanelWindow {
         function openMediaFull() { masterWindow.handleIpcCommand("open:mediaFull:", true) }
         function openSession() { masterWindow.handleIpcCommand("open:session:", true) }
         function toggleSession() { masterWindow.handleIpcCommand("toggle:session:", true) }
+        function openKeyboard() { masterWindow.handleIpcCommand("open:keyboard:", true) }
+        function toggleKeyboard() { masterWindow.handleIpcCommand("toggle:keyboard:", true) }
     }
 
     WlrLayershell.namespace: "qs-master"

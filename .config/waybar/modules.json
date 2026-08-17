@@ -24,6 +24,8 @@
     "orientation": "horizontal",
     "modules": [
       "sway/language",
+      "pulseaudio",
+      "battery",
       "custom/updates",
       "custom/controlcenter",
       "custom/power"
@@ -235,12 +237,22 @@
     }
   },
   "sway/language": {
-    "format": "󰌌   {}",
-    "format-en": "EN",
+    "format": "{short}",
+    "format-en": "ABC",
+    "format-us": "ABC",
     "format-uk": "UA",
+    "format-ua": "UA",
     "format-de": "DE",
-    "on-click": "swaymsg input type:keyboard xkb_switch_layout next",
-    "tooltip": false
+    "format-fr": "FR",
+    "format-es": "ES",
+    "format-pl": "PL",
+    "format-it": "IT",
+    "format-ru": "RU",
+    "min-length": 3,
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleKeyboard",
+    "on-click-right": "swaymsg input type:keyboard xkb_switch_layout next",
+    "tooltip-format": "Input Source: {long}\nLeft click: input menu\nRight click: switch layout",
+    "tooltip": true
   },
   "sway/workspaces": {
     "on-scroll-up": "swaymsg workspace prev",
