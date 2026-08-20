@@ -23,7 +23,7 @@
   "group/system": {
     "orientation": "horizontal",
     "modules": [
-      "sway/language",
+      "custom/language",
       "pulseaudio",
       "battery",
       "custom/updates",
@@ -236,22 +236,13 @@
       "firefoxdeveloperedition": "firefox-developer-edition"
     }
   },
-  "sway/language": {
-    "format": "{short}",
-    "format-en": "ABC",
-    "format-us": "ABC",
-    "format-uk": "UA",
-    "format-ua": "UA",
-    "format-de": "DE",
-    "format-fr": "FR",
-    "format-es": "ES",
-    "format-pl": "PL",
-    "format-it": "IT",
-    "format-ru": "RU",
-    "min-length": 3,
+  "custom/language": {
+    "exec": "bash ~/.config/sway/scripts/waybar/language-status.sh",
+    "interval": 2,
+    "format": "{}",
     "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleKeyboard",
     "on-click-right": "swaymsg input type:keyboard xkb_switch_layout next",
-    "tooltip-format": "Input Source: {long}\nLeft click: input menu\nRight click: switch layout",
+    "tooltip-format": "Input Sources\nLeft click: input menu\nRight click: switch layout",
     "tooltip": true
   },
   "sway/workspaces": {

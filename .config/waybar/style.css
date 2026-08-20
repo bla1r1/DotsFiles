@@ -38,7 +38,7 @@
 */
 
 * {
-    font-family: "Fira Sans SemiBold", "Noto Sans", sans-serif;
+    font-family: "Fira Sans SemiBold", "JetBrainsMono Nerd Font", "Symbols Nerd Font", "Noto Sans", sans-serif;
     font-weight: 600;
     font-size: 12px;
     min-height: 0;
@@ -292,8 +292,9 @@ tooltip {
     background: rgba(125, 207, 255, 0.10);
 }
 
+#custom-language,
 #language {
-    font-family: "Fira Sans SemiBold", "Noto Sans", sans-serif;
+    font-family: "Fira Sans SemiBold", "JetBrainsMono Nerd Font", "Noto Sans", sans-serif;
     font-weight: 700;
     font-size: 11px;
     color: @tn-fg;
@@ -305,6 +306,7 @@ tooltip {
     transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
 }
 
+#custom-language:hover,
 #language:hover {
     color: @tn-blue;
     background: rgba(122, 162, 247, 0.22);
