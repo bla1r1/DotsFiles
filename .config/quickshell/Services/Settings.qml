@@ -165,7 +165,7 @@ Singleton {
         openGuideAtStartup: false,
         topbarHelpIcon: true,
         guideShortcut: "Mod+H",
-        language: "de,ua",
+        language: "us,ua",
         kbOptions: "grp:alt_shift_toggle",
         wallpaperDir: Quickshell.env("HOME") + "/.wallpapers",
         workspaceCount: 10,
@@ -182,8 +182,8 @@ Singleton {
         weatherApiKey: "",
         weatherCityId: "",
         weatherUnit: "metric",
-        gapsInner: 8,
-        gapsOuter: 4,
+        gapsInner: 5,
+        gapsOuter: 10,
         borderWidth: 2,
         smartBorders: true,
         smartGaps: false,
@@ -193,9 +193,9 @@ Singleton {
         screenshotCopyToClipboard: true,
         screenshotSaveToFile: true,
         screenshotDelay: 0,
-        defaultBrowser: "brave",
+        defaultBrowser: "firefox",
         defaultTerminal: "kitty",
-        defaultFileManager: "thunar",
+        defaultFileManager: "nautilus",
         defaultEditor: "code",
         gameModeEnabled: false,
         gameModeInhibitIdle: true,
@@ -235,7 +235,7 @@ Singleton {
             property bool openGuideAtStartup: false
             property bool topbarHelpIcon: true
             property string guideShortcut: "Mod+H"
-            property string language: "de,ua"
+            property string language: "us,ua"
             property string kbOptions: "grp:alt_shift_toggle"
             property string wallpaperDir: Quickshell.env("HOME") + "/.wallpapers"
             property int workspaceCount: 10
@@ -260,8 +260,8 @@ Singleton {
             property string weatherCityId: ""
             property string weatherUnit: "metric"
 
-            property int gapsInner: 8
-            property int gapsOuter: 4
+            property int gapsInner: 5
+            property int gapsOuter: 10
             property int borderWidth: 2
             property bool smartBorders: true
             property bool smartGaps: false
@@ -273,9 +273,9 @@ Singleton {
             property bool screenshotSaveToFile: true
             property int screenshotDelay: 0
 
-            property string defaultBrowser: "brave"
+            property string defaultBrowser: "firefox"
             property string defaultTerminal: "kitty"
-            property string defaultFileManager: "thunar"
+            property string defaultFileManager: "nautilus"
             property string defaultEditor: "code"
 
             property bool gameModeEnabled: false

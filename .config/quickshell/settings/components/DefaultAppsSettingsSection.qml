@@ -14,9 +14,9 @@ ColumnLayout {
     Layout.fillWidth: true
     spacing: Design.s(Design.space.lg)
 
-    property string defaultBrowser: Settings.defaultBrowser || "brave"
+    property string defaultBrowser: Settings.defaultBrowser || "firefox"
     property string defaultTerminal: Settings.defaultTerminal || "kitty"
-    property string defaultFileManager: Settings.defaultFileManager || "thunar"
+    property string defaultFileManager: Settings.defaultFileManager || "nautilus"
     property string defaultEditor: Settings.defaultEditor || "code"
 
     function setBrowser(appId) {

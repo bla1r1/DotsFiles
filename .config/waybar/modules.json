@@ -87,7 +87,7 @@
   },
   "custom/browser": {
     "format": "",
-    "on-click": "brave || firefox",
+    "on-click": "firefox",
     "tooltip": false
   },
   "custom/appmenu": {
