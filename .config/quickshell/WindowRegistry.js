@@ -27,15 +27,15 @@ function getLayout(name, mx, my, mw, mh, userScale) {
         // Top-right, under the bar — a Control Center is a corner panel, not a
         // window. 380x560 against the old 1120x780: it holds tiles, and detail
         // opens in the popup that already exists for it.
-        "control":       { w: s(390, scale), h: s(490, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "notifications": { w: s(390, scale), h: s(490, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "wifi":          { w: s(390, scale), h: s(490, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "bluetooth": { w: s(390, scale), h: s(490, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "sound":     { w: s(390, scale), h: s(490, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "power":     { w: s(390, scale), h: s(490, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "battery":   { w: s(390, scale), h: s(490, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "volume":    { w: s(390, scale), h: s(490, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "network":   { w: s(390, scale), h: s(490, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "control":       { w: s(390, scale), h: s(580, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "notifications": { w: s(390, scale), h: s(580, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "wifi":          { w: s(390, scale), h: s(580, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "bluetooth": { w: s(390, scale), h: s(580, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "sound":     { w: s(390, scale), h: s(580, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "power":     { w: s(390, scale), h: s(580, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "battery":   { w: s(390, scale), h: s(580, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "volume":    { w: s(390, scale), h: s(580, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "network":   { w: s(390, scale), h: s(580, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
         "calendar":  { w: s(1450, scale), h: s(750, scale), rx: Math.floor((mw/2)-(s(1450, scale)/2)), ry: s(70, scale), comp: "calendar/CalendarPopup.qml" },
         "music":     { w: s(700, scale), h: s(620, scale), rx: s(12, scale), ry: s(58, scale), comp: "music/MusicPopup.qml" },
         "audioFull":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
@@ -54,6 +54,7 @@ function getLayout(name, mx, my, mw, mh, userScale) {
         "updater":   { w: s(520, scale), h: s(360, scale), rx: Math.floor((mw/2)-(s(520, scale)/2)), ry: Math.floor((mh/2)-(s(560, scale)/2)), comp: "updater/UpdaterPopup.qml" },
         "session":   { w: s(680, scale), h: s(280, scale), rx: Math.floor((mw/2)-(s(680, scale)/2)), ry: Math.floor((mh/2)-(s(280, scale)/2)), comp: "session/SessionMenu.qml" },
         "keyboard":  { w: s(250, scale), h: s(170, scale), rx: mw - s(330, scale), ry: s(58, scale), comp: "keyboard/KeyboardPopup.qml" },
+        "launcher":  { w: s(640, scale), h: s(440, scale), rx: Math.floor((mw/2)-(s(640, scale)/2)), ry: s(120, scale), comp: "launcher/SpotlightLauncher.qml" },
         "settings":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
         "hidden":    { w: 1, h: 1, rx: -5000 - mx, ry: -5000 - my, comp: "" } 
     };

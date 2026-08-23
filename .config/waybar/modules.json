@@ -92,9 +92,10 @@
   },
   "custom/appmenu": {
     "format": "APPS",
-    "on-click": "rofi -show drun -theme ~/.config/rofi/launchpad.rasi",
-    "on-click-right": "rofi -show drun -theme ~/.config/rofi/spotlight.rasi",
-    "tooltip": false
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleLauncher",
+    "on-click-right": "rofi -show drun -theme ~/.config/rofi/launchpad.rasi",
+    "tooltip-format": "Left click: Spotlight Launcher & Calculator\nRight click: Launchpad Grid",
+    "tooltip": true
   },
   "custom/wifi": {
     "exec": "bash ~/.config/sway/scripts/waybar/network/wifi-status.sh",

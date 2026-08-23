@@ -15,6 +15,7 @@ PopupShell {
 
     padding: Design.space.lg
 
+    property string page: "main"
     property string currentView: (center.page && center.page !== "") ? center.page : "main"
 
     onPageChanged: currentView = (center.page && center.page !== "") ? center.page : "main"
@@ -387,6 +388,63 @@ PopupShell {
                     }
 
                     Clickable { id: soundBtnMa; onClicked: center.currentView = "sound" }
+                }
+            }
+        }
+
+        // ── 3.5 Live Weather Card ──────────────────────────────────────────
+        Rectangle {
+            id: weatherCard
+            Layout.fillWidth: true
+            Layout.preferredHeight: Design.s(52)
+            radius: Design.s(Design.radius.card)
+            color: Design.glassCard
+            border.color: Design.glassBorder
+            border.width: Design.border
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: Design.s(Design.space.md)
+                anchors.rightMargin: Design.s(Design.space.md)
+                spacing: Design.s(Design.space.md)
+
+                Rectangle {
+                    Layout.preferredWidth: Design.s(34)
+                    Layout.preferredHeight: Design.s(34)
+                    radius: Design.s(Design.radius.ctl)
+                    color: Design.tint(Design.yellow, 0.15)
+
+                    Icon {
+                        anchors.centerIn: parent
+                        text: Weather.icon
+                        role: "subhead"
+                        color: Design.yellow
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+
+                    Label {
+                        text: Weather.condition + " • " + Weather.temp
+                        weight: Design.weight.semibold
+                        Layout.fillWidth: true
+                        elide: Text.ElideRight
+                    }
+
+                    Label {
+                        text: Weather.location
+                        role: "caption"
+                        color: Design.textDim
+                        Layout.fillWidth: true
+                        elide: Text.ElideRight
+                    }
+                }
+
+                Badge {
+                    text: "Live"
+                    tone: Design.ok
                 }
             }
         }

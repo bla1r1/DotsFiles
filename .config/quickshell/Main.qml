@@ -52,6 +52,8 @@ PanelWindow {
         function toggleSession() { masterWindow.handleIpcCommand("toggle:session:", true) }
         function openKeyboard() { masterWindow.handleIpcCommand("open:keyboard:", true) }
         function toggleKeyboard() { masterWindow.handleIpcCommand("toggle:keyboard:", true) }
+        function openLauncher() { masterWindow.handleIpcCommand("open:launcher:", true) }
+        function toggleLauncher() { masterWindow.handleIpcCommand("toggle:launcher:", true) }
     }
 
     WlrLayershell.namespace: "qs-master"

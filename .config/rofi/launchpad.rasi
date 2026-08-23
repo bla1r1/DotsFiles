@@ -1,7 +1,6 @@
 /*
-    macOS Launchpad style — rofi fullscreen grid
-    Matugen palette — rofi 2.0.0 wayland native
-    argb: AA RRGGBB  (AA = alpha hex, e0=88%, cc=80%, 99=60%)
+    macOS Launchpad Fullscreen App Grid for Rofi
+    Tokyo Night Glass Style
 */
 
 @import "~/.config/rofi/matugen-colors.rasi"
@@ -14,7 +13,7 @@ configuration {
 
 * {
     font:               "Fira Sans SemiBold 13";
-    background-color:   @matugen-bg0;
+    background-color:   transparent;
     text-color:         @matugen-fg0;
     margin:             0px;
     padding:            0px;
@@ -27,21 +26,29 @@ window {
 }
 
 mainbox {
-    background-color:   transparent;
-    children:           [ inputbar, listview ];
-    spacing:            40px;
-    padding:            80px 120px 60px 120px;
+    spacing:            36px;
+    padding:            80px 140px 60px 140px;
+    children:           [ inputbar-box, listview ];
+}
+
+inputbar-box {
+    orientation:        horizontal;
+    children:           [ dummy-left, inputbar, dummy-right ];
+}
+
+dummy-left, dummy-right {
+    expand:             true;
 }
 
 inputbar {
     background-color:   @matugen-bg1;
-    border-radius:      14px;
-    padding:            14px 20px;
+    border:             1px solid;
+    border-color:       @matugen-border;
+    border-radius:      16px;
+    padding:            14px 22px;
     spacing:            14px;
     children:           [ icon-search, entry ];
-    width:              500px;
-    expand:             false;
-    horizontal-align:   0.5;
+    width:              540px;
 }
 
 icon-search {
@@ -53,34 +60,32 @@ icon-search {
 
 entry {
     font:               "Fira Sans SemiBold 16";
-    placeholder:        "Search apps…";
+    placeholder:        "Search apps...";
     placeholder-color:  @matugen-fg2;
     vertical-align:     0.5;
-    background-color:   transparent;
     text-color:         @matugen-fg0;
 }
 
 listview {
-    columns:            7;
+    columns:            6;
     lines:              4;
     fixed-columns:      true;
     fixed-height:       false;
     flow:               horizontal;
-    spacing:            10px;
-    background-color:   transparent;
+    spacing:            16px;
     scrollbar:          false;
 }
 
 element {
     orientation:        vertical;
-    background-color:   transparent;
-    border-radius:      16px;
-    padding:            18px 10px 14px 10px;
-    spacing:            10px;
+    border-radius:      18px;
+    padding:            20px 12px 16px 12px;
+    spacing:            12px;
     cursor:             pointer;
 }
 
-element normal normal {
+element normal normal,
+element alternate normal {
     background-color:   transparent;
     text-color:         @matugen-fg0;
 }
@@ -88,25 +93,20 @@ element normal normal {
 element selected normal,
 element selected active {
     background-color:   @matugen-bg3;
-    text-color:         @matugen-fg0;
-}
-
-element alternate normal {
-    background-color:   transparent;
+    border:             1px solid;
+    border-color:       @matugen-border;
     text-color:         @matugen-fg0;
 }
 
 element-icon {
-    size:               72px;
+    size:               64px;
     horizontal-align:   0.5;
     vertical-align:     0.5;
-    background-color:   transparent;
 }
 
 element-text {
-    font:               "Fira Sans SemiBold 11";
+    font:               "Fira Sans SemiBold 12";
     horizontal-align:   0.5;
     vertical-align:     0.5;
     text-color:         inherit;
-    background-color:   transparent;
 }

@@ -1,10 +1,10 @@
 * {
-    matugen-bg0: #11111BE6;
-    matugen-bg1: #313244CC;
-    matugen-bg2: #89B4FAE6;
-    matugen-bg3: #74C7EC66;
-    matugen-fg0: #CDD6F4;
-    matugen-fg1: #11111B;
-    matugen-fg2: #A6ADC8CC;
-    matugen-border: #585B70;
+    matugen-bg0: rgba(26, 27, 38, 0.88);
+    matugen-bg1: rgba(36, 40, 59, 0.85);
+    matugen-bg2: #7aa2f7;
+    matugen-bg3: rgba(122, 162, 247, 0.20);
+    matugen-fg0: #c0caf5;
+    matugen-fg1: #1a1b26;
+    matugen-fg2: #a9b1d6;
+    matugen-border: rgba(122, 162, 247, 0.35);
 }
