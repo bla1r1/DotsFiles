@@ -129,7 +129,7 @@ arch_packages() {
         yad nwg-look nwg-displays
         python python-gobject imagemagick
         noto-fonts noto-fonts-emoji ttf-jetbrains-mono-nerd ttf-fira-sans
-        papirus-icon-theme sddm
+        papirus-icon-theme sddm adw-gtk-theme
         gnome-keyring libsecret
         virt-manager steam discord
     )

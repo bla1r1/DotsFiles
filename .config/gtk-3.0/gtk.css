@@ -1,85 +1,48 @@
 /*
- * Keep this file intentionally small.
- *
- * GTK already loads the selected theme from settings.ini. A full copied theme
- * here fights with the selected GTK theme and makes common widgets such as
- * buttons, entries, popovers and sidebars render inconsistently.
+ * Tokyo Night Glass theme definitions for GTK 3
+ * Clean, standard color variables without brittle widget overrides.
  */
 
-@define-color accent_color #89b4fa;
-@define-color accent_bg_color #89b4fa;
-@define-color accent_fg_color #1e1e2e;
-@define-color window_bg_color #1e1e2e;
-@define-color window_fg_color #cdd6f4;
-@define-color view_bg_color #181825;
-@define-color view_fg_color #cdd6f4;
-@define-color card_bg_color rgba(49, 50, 68, 0.72);
-@define-color card_fg_color #cdd6f4;
-@define-color borders rgba(205, 214, 244, 0.16);
+@define-color accent_color #7aa2f7;
+@define-color accent_bg_color #7aa2f7;
+@define-color accent_fg_color #1a1b26;
 
-* {
-  caret-color: currentColor;
-  -gtk-secondary-caret-color: @accent_color;
-}
+@define-color window_bg_color #1a1b26;
+@define-color window_fg_color #c0caf5;
 
-selection,
-entry selection,
-textview text selection {
-  background-color: alpha(@accent_color, 0.32);
-  color: @window_fg_color;
-}
+@define-color view_bg_color #16161e;
+@define-color view_fg_color #c0caf5;
 
-window.background,
-.background {
-  background-color: @window_bg_color;
-  color: @window_fg_color;
-}
+@define-color headerbar_bg_color #1f2335;
+@define-color headerbar_fg_color #c0caf5;
+@define-color headerbar_border_color rgba(122, 162, 247, 0.18);
+@define-color headerbar_backdrop_color #1a1b26;
 
-entry,
-spinbutton:not(.vertical),
-spinbutton.vertical {
-  background-color: alpha(@view_fg_color, 0.08);
-  color: @view_fg_color;
-  border-color: @borders;
-}
+@define-color card_bg_color #24283b;
+@define-color card_fg_color #c0caf5;
+@define-color card_border_color rgba(122, 162, 247, 0.15);
 
-entry:focus,
-spinbutton:not(.vertical):focus,
-spinbutton.vertical:focus {
-  border-color: alpha(@accent_color, 0.55);
-  box-shadow: inset 0 0 0 1px alpha(@accent_color, 0.55);
-}
+@define-color popover_bg_color #1f2335;
+@define-color popover_fg_color #c0caf5;
 
-button {
-  color: @window_fg_color;
-}
+@define-color dialog_bg_color #1a1b26;
+@define-color dialog_fg_color #c0caf5;
 
-button:not(.flat):not(.titlebutton) {
-  border-color: @borders;
-}
+@define-color borders rgba(122, 162, 247, 0.18);
+@define-color scrollbar_outline_color rgba(0, 0, 0, 0.5);
 
-button:hover,
-button:focus {
-  border-color: alpha(@accent_color, 0.38);
-}
+@define-color warning_color #e0af68;
+@define-color warning_bg_color #e0af68;
+@define-color warning_fg_color #1a1b26;
 
-button:checked,
-button:active,
-button.suggested-action {
-  background-color: alpha(@accent_color, 0.28);
-  color: @window_fg_color;
-}
+@define-color error_color #f7768e;
+@define-color error_bg_color #f7768e;
+@define-color error_fg_color #1a1b26;
 
-popover,
-popover.background,
-menu,
-.menu {
-  background-color: @view_bg_color;
-  color: @view_fg_color;
-  border-color: @borders;
-}
+@define-color success_color #9ece6a;
+@define-color success_bg_color #9ece6a;
+@define-color success_fg_color #1a1b26;
 
-separator,
-separator.sidebar {
-  background-color: @borders;
-}
+@define-color destructive_color #f7768e;
+@define-color destructive_bg_color #f7768e;
+@define-color destructive_fg_color #ffffff;

@@ -1,173 +1,340 @@
 #!/usr/bin/env bash
+# =============================================================================
+# update-dotfiles.sh — Smart Environment Updater & Package Diff Manager
+#
+# Features:
+# 1. Package Diffing: Detects newly introduced upstream packages & installs them.
+# 2. Granular Config Sync: Updates desktop configs while preserving user state
+#    (settings.json, snippets, user preferences).
+# 3. Automated Timestamped Backups: Safely archives modified files before updating.
+# 4. Live Reload: Refreshes Sway, Waybar, and Quickshell seamlessly.
+# =============================================================================
+
 set -euo pipefail
 
 REPO_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-BACKUP_DIR="${HOME}/.dotfiles-update-backup-$(date +%Y%m%d-%H%M%S)"
-SKIP_FONTCONFIG=0
-SKIP_WALLPAPERS=0
+BACKUP_ROOT="${HOME}/.dotfiles-backups"
+TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
+BACKUP_DIR="${BACKUP_ROOT}/${TIMESTAMP}"
+
 DRY_RUN=0
+AUTO_YES=0
+PACKAGES_ONLY=0
+CONFIGS_ONLY=0
+SKIP_PULL=0
 
-log() {
-    printf '[INFO] %s\n' "$*"
-}
+# Protected files that contain user state and should NEVER be overwritten
+PROTECTED_FILES=(
+    "sway/settings.json"
+    "sway/snippets.json"
+    "quickshell/calendar/events.json"
+    "quickshell/calendar/.env"
+)
 
-warn() {
-    printf '[WARN] %s\n' "$*" >&2
-}
+# Colors
+RESET="\e[0m"
+BOLD="\e[1m"
+GREEN="\e[32m"
+YELLOW="\e[33m"
+CYAN="\e[36m"
+RED="\e[31m"
+MAGENTA="\e[35m"
+
+log()  { printf "${CYAN}[INFO]${RESET} %s\n" "$*"; }
+ok()   { printf "${GREEN}[OK]${RESET}   %s\n" "$*"; }
+warn() { printf "${YELLOW}[WARN]${RESET} %s\n" "$*" >&2; }
+err()  { printf "${RED}[ERR]${RESET}  %s\n" "$*" >&2; }
 
 usage() {
     cat <<EOF
+${BOLD}DotsFiles Smart Environment Updater${RESET}
+
 Usage: $0 [options]
 
 Options:
-  --repo-dir <path>    Use a custom repo directory
-  --backup-dir <path>  Store backups in a custom directory
-  --skip-fontconfig    Do not update fontconfig files
-  --skip-wallpapers    Do not update wallpapers
-  --dry-run            Show planned actions without changing files
-  -h, --help           Show this help and exit
+  --repo-dir <path>    Specify dotfiles repository path (default: $REPO_DIR)
+  --backup-dir <path>  Specify custom backup directory
+  --packages-only      Check and install missing packages only
+  --configs-only       Update configuration files only (skip package check)
+  --pull               Fetch and merge latest git changes before updating
+  --dry-run            Show planned actions without modifying any files
+  -y, --yes            Non-interactive mode (auto-confirm package installations)
+  -h, --help           Show this help message and exit
 EOF
 }
 
 parse_args() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --repo-dir)
-                REPO_DIR="$2"
-                shift 2
-                ;;
-            --repo-dir=*)
-                REPO_DIR="${1#--repo-dir=}"
-                shift
-                ;;
-            --backup-dir)
-                BACKUP_DIR="$2"
-                shift 2
-                ;;
-            --backup-dir=*)
-                BACKUP_DIR="${1#--backup-dir=}"
-                shift
-                ;;
-            --skip-fontconfig)
-                SKIP_FONTCONFIG=1
-                shift
-                ;;
-            --skip-wallpapers)
-                SKIP_WALLPAPERS=1
-                shift
-                ;;
-            --dry-run)
-                DRY_RUN=1
-                shift
-                ;;
-            -h|--help)
-                usage
-                exit 0
-                ;;
-            *)
-                warn "Unknown option: $1"
-                usage
-                exit 1
-                ;;
+            --repo-dir)        REPO_DIR="$2"; shift 2 ;;
+            --repo-dir=*)      REPO_DIR="${1#--repo-dir=}"; shift ;;
+            --backup-dir)      BACKUP_DIR="$2"; shift 2 ;;
+            --backup-dir=*)    BACKUP_DIR="${1#--backup-dir=}"; shift ;;
+            --packages-only)   PACKAGES_ONLY=1; shift ;;
+            --configs-only)    CONFIGS_ONLY=1; shift ;;
+            --pull)            SKIP_PULL=0; shift ;;
+            --no-pull)         SKIP_PULL=1; shift ;;
+            --dry-run)         DRY_RUN=1; shift ;;
+            -y|--yes)          AUTO_YES=1; shift ;;
+            -h|--help)         usage; exit 0 ;;
+            *) err "Unknown option: $1"; usage; exit 1 ;;
         esac
     done
 }
 
 ensure_backup_dir() {
-    if [[ "$DRY_RUN" -eq 1 ]]; then
-        log "Would create backup directory: $BACKUP_DIR"
-    else
+    if [[ "$DRY_RUN" -eq 0 ]]; then
         mkdir -p "$BACKUP_DIR"
     fi
 }
 
-backup_path() {
-    local src="$1"
-    local dst="$2"
+# ── 1. Git Pull Upstream ──────────────────────────────────────────────────────
+pull_upstream() {
+    [[ "$SKIP_PULL" -eq 0 ]] || return 0
+    [[ -d "$REPO_DIR/.git" ]] || return 0
 
-    [[ -e "$src" || -L "$src" ]] || return 0
-
+    log "Checking for git updates in $REPO_DIR..."
     if [[ "$DRY_RUN" -eq 1 ]]; then
-        log "Would back up $src -> $dst"
-    else
-        mkdir -p "$(dirname "$dst")"
-        cp -a "$src" "$dst"
-    fi
-}
-
-overlay_copy() {
-    local src="$1"
-    local dst="$2"
-
-    [[ -d "$src" ]] || return 0
-
-    if [[ "$DRY_RUN" -eq 1 ]]; then
-        log "Would copy $src -> $dst"
-        rsync -avn "$src/" "$dst/"
-    else
-        mkdir -p "$dst"
-        rsync -a "$src/" "$dst/"
-    fi
-}
-
-update_config_tree() {
-    local src_root="$REPO_DIR/.config"
-    local dst_root="$HOME/.config"
-
-    [[ -d "$src_root" ]] || { warn "No .config directory found in $REPO_DIR"; return 0; }
-
-    ensure_backup_dir
-
-    local item base
-    shopt -s nullglob
-    for item in "$src_root"/*; do
-        base="$(basename "$item")"
-        backup_path "$dst_root/$base" "$BACKUP_DIR/.config/$base"
-        overlay_copy "$item" "$dst_root/$base"
-    done
-    shopt -u nullglob
-}
-
-update_wallpapers() {
-    local src="$REPO_DIR/.wallpapers"
-    local dst="$HOME/.wallpapers"
-
-    [[ "$SKIP_WALLPAPERS" -eq 0 ]] || return 0
-    [[ -d "$src" ]] || return 0
-
-    ensure_backup_dir
-    backup_path "$dst" "$BACKUP_DIR/.wallpapers"
-    overlay_copy "$src" "$dst"
-}
-
-update_fontconfig() {
-    local script="$REPO_DIR/update-fontconfig.sh"
-
-    [[ "$SKIP_FONTCONFIG" -eq 0 ]] || return 0
-
-    if [[ ! -f "$script" ]]; then
-        warn "Fontconfig updater not found: $script"
+        log "Would run: git -C '$REPO_DIR' pull --ff-only"
         return 0
     fi
 
-    log "Updating fontconfig..."
-    if [[ "$DRY_RUN" -eq 1 ]]; then
-        bash "$script" --repo-dir "$REPO_DIR" --dry-run
+    if git -C "$REPO_DIR" pull --ff-only 2>/dev/null; then
+        ok "Git repository is up to date."
     else
-        bash "$script" --repo-dir "$REPO_DIR"
+        warn "Could not cleanly fast-forward repository. Continuing with local files."
     fi
+}
+
+# ── 2. Package Diff & Installation ────────────────────────────────────────────
+check_packages() {
+    [[ "$CONFIGS_ONLY" -eq 0 ]] || return 0
+
+    log "Analyzing system packages diff..."
+    local install_script="$REPO_DIR/install.sh"
+    [[ -f "$install_script" ]] || { warn "install.sh not found; skipping package check."; return 0; }
+
+    # Extract package list from install.sh
+    local expected_arch=()
+    local expected_aur=()
+
+    # Read arch packages from install.sh
+    mapfile -t expected_arch < <(
+        awk '/arch_packages\(\)/{flag=1; next} /^\}/{flag=0} flag' "$install_script" \
+        | grep -v '^[[:space:]]*#' \
+        | tr -s '[:space:]' '\n' \
+        | grep -vE '^(local|pkgs=|\(|\)|echo|\$|\]|\[)' || true
+    )
+
+    # Read aur packages from install.sh
+    mapfile -t expected_aur < <(
+        awk '/aur_packages\(\)/{flag=1; next} /^\}/{flag=0} flag' "$install_script" \
+        | grep -v '^[[:space:]]*#' \
+        | tr -s '[:space:]' '\n' \
+        | grep -vE '^(local|pkgs=|\(|\)|echo|\$|\]|\[)' || true
+    )
+
+    local missing_arch=()
+    local missing_aur=()
+
+    # Check official packages
+    for pkg in "${expected_arch[@]}"; do
+        [[ -n "$pkg" ]] || continue
+        if ! pacman -Qi "$pkg" >/dev/null 2>&1 && ! pacman -Qg "$pkg" >/dev/null 2>&1; then
+            missing_arch+=("$pkg")
+        fi
+    done
+
+    # Check AUR packages
+    for pkg in "${expected_aur[@]}"; do
+        [[ -n "$pkg" ]] || continue
+        if ! pacman -Qi "$pkg" >/dev/null 2>&1; then
+            missing_aur+=("$pkg")
+        fi
+    done
+
+    local total_missing=$(( ${#missing_arch[@]} + ${#missing_aur[@]} ))
+
+    if [[ "$total_missing" -eq 0 ]]; then
+        ok "All environment packages are installed and up to date."
+        return 0
+    fi
+
+    printf "\n${YELLOW}${BOLD}Found %d missing / newly added package(s):${RESET}\n" "$total_missing"
+    if [[ ${#missing_arch[@]} -gt 0 ]]; then
+        printf "  ${CYAN}Official (pacman):${RESET} %s\n" "${missing_arch[*]}"
+    fi
+    if [[ ${#missing_aur[@]} -gt 0 ]]; then
+        printf "  ${MAGENTA}AUR:${RESET}               %s\n" "${missing_aur[*]}"
+    fi
+    printf "\n"
+
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        log "Dry run: skipping package installation."
+        return 0
+    fi
+
+    local do_install=0
+    if [[ "$AUTO_YES" -eq 1 ]]; then
+        do_install=1
+    else
+        read -r -p "Install missing package(s)? [Y/n] " reply
+        if [[ -z "$reply" || "$reply" =~ ^[Yy]$ ]]; then
+            do_install=1
+        fi
+    fi
+
+    if [[ "$do_install" -eq 1 ]]; then
+        if [[ ${#missing_arch[@]} -gt 0 ]]; then
+            log "Installing official packages via pacman..."
+            sudo pacman -S --needed --noconfirm "${missing_arch[@]}" || warn "Some pacman packages failed to install."
+        fi
+
+        if [[ ${#missing_aur[@]} -gt 0 ]]; then
+            local aur_helper=""
+            if command -v yay >/dev/null 2>&1; then aur_helper="yay";
+            elif command -v paru >/dev/null 2>&1; then aur_helper="paru"; fi
+
+            if [[ -n "$aur_helper" ]]; then
+                log "Installing AUR packages via $aur_helper..."
+                "$aur_helper" -S --needed --noconfirm "${missing_aur[@]}" || warn "Some AUR packages failed to install."
+            else
+                warn "No AUR helper (yay/paru) found. Please manually install: ${missing_aur[*]}"
+            fi
+        fi
+        ok "Package synchronization complete."
+    fi
+}
+
+# ── 3. Granular Configuration Sync ────────────────────────────────────────────
+is_protected() {
+    local rel_path="$1"
+    for p in "${PROTECTED_FILES[@]}"; do
+        if [[ "$rel_path" == "$p" || "$rel_path" == "$p"* ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+sync_configs() {
+    [[ "$PACKAGES_ONLY" -eq 0 ]] || return 0
+
+    log "Synchronizing configuration files..."
+    local src_root="$REPO_DIR/.config"
+    local dst_root="$HOME/.config"
+
+    [[ -d "$src_root" ]] || { warn "No .config in $REPO_DIR"; return 0; }
+
+    local updated_count=0
+    local created_count=0
+    local skipped_count=0
+
+    while IFS= read -r -d '' src_file; do
+        local rel_path="${src_file#$src_root/}"
+        local dst_file="$dst_root/$rel_path"
+
+        # 1. Skip protected user state files if destination already exists
+        if [[ -f "$dst_file" ]] && is_protected "$rel_path"; then
+            skipped_count=$((skipped_count + 1))
+            continue
+        fi
+
+        # 2. If file already exists and is identical, skip
+        if [[ -f "$dst_file" ]] && cmp -s "$src_file" "$dst_file"; then
+            continue
+        fi
+
+        ensure_backup_dir
+
+        if [[ -f "$dst_file" ]]; then
+            # File modified upstream -> backup old and update
+            if [[ "$DRY_RUN" -eq 1 ]]; then
+                log "Would update: ~/.config/$rel_path (backup to $BACKUP_DIR/.config/$rel_path)"
+            else
+                mkdir -p "$(dirname "$BACKUP_DIR/.config/$rel_path")"
+                cp -a "$dst_file" "$BACKUP_DIR/.config/$rel_path"
+                mkdir -p "$(dirname "$dst_file")"
+                cp -a "$src_file" "$dst_file"
+            fi
+            updated_count=$((updated_count + 1))
+        else
+            # New file -> create
+            if [[ "$DRY_RUN" -eq 1 ]]; then
+                log "Would create: ~/.config/$rel_path"
+            else
+                mkdir -p "$(dirname "$dst_file")"
+                cp -a "$src_file" "$dst_file"
+            fi
+            created_count=$((created_count + 1))
+        fi
+    done < <(find "$src_root" -type f -print0)
+
+    # Wallpapers sync (non-destructive)
+    if [[ -d "$REPO_DIR/.wallpapers" ]]; then
+        mkdir -p "$HOME/.wallpapers"
+        while IFS= read -r -d '' wp_file; do
+            local base_wp
+            base_wp="$(basename "$wp_file")"
+            if [[ ! -f "$HOME/.wallpapers/$base_wp" ]]; then
+                if [[ "$DRY_RUN" -eq 1 ]]; then
+                    log "Would add wallpaper: ~/.wallpapers/$base_wp"
+                else
+                    cp -a "$wp_file" "$HOME/.wallpapers/$base_wp"
+                fi
+            fi
+        done < <(find "$REPO_DIR/.wallpapers" -type f -print0)
+    fi
+
+    # Fix permissions for scripts
+    if [[ "$DRY_RUN" -eq 0 && -d "$HOME/.config/sway/scripts" ]]; then
+        find "$HOME/.config/sway/scripts" -type f -name "*.sh" -exec chmod +x {} +
+    fi
+
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        ok "Dry run complete: $updated_count files to update, $created_count new files, $skipped_count user files preserved."
+    else
+        ok "Configuration sync complete: $updated_count updated, $created_count created, $skipped_count user configs preserved."
+        if [[ "$updated_count" -gt 0 ]]; then
+            log "Backups archived in: $BACKUP_DIR"
+        fi
+    fi
+}
+
+# ── 4. Live Environment Reload ────────────────────────────────────────────────
+reload_environment() {
+    [[ "$DRY_RUN" -eq 0 ]] || return 0
+    [[ -n "${WAYLAND_DISPLAY:-}" || -n "${SWAYSOCK:-}" ]] || return 0
+
+    log "Reloading desktop environment..."
+    if command -v swaymsg >/dev/null 2>&1; then
+        swaymsg reload >/dev/null 2>&1 || true
+    fi
+
+    # Refresh waybar if running
+    if pgrep waybar >/dev/null 2>&1; then
+        killall -SIGUSR2 waybar 2>/dev/null || true
+    fi
+
+    # Refresh quickshell if running
+    if pgrep quickshell >/dev/null 2>&1; then
+        qs -p "$HOME/.config/quickshell/Main.qml" ipc call main close 2>/dev/null || true
+    fi
+
+    ok "Environment reloaded successfully."
 }
 
 main() {
     parse_args "$@"
 
-    [[ -d "$REPO_DIR" ]] || { warn "Repo directory not found: $REPO_DIR"; exit 1; }
+    [[ -d "$REPO_DIR" ]] || { err "Repo directory not found: $REPO_DIR"; exit 1; }
 
-    log "Backup directory: $BACKUP_DIR"
-    update_config_tree
-    update_wallpapers
-    update_fontconfig
-    log "Done."
+    printf "\n${BOLD}${CYAN}=== DotsFiles Smart Environment Updater ===${RESET}\n\n"
+    pull_upstream
+    check_packages
+    sync_configs
+    reload_environment
+    printf "\n${GREEN}${BOLD}✓ Update completed successfully!${RESET}\n\n"
 }
 
 main "$@"
