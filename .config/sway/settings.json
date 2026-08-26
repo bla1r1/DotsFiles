@@ -11,7 +11,7 @@
   "smartGaps": false,
   "defaultBrowser": "firefox",
   "defaultTerminal": "kitty",
-  "defaultFileManager": "nautilus",
+  "defaultFileManager": "thunar",
   "defaultEditor": "code",
   "screenshotDir": "~/Pictures/Screenshots",
   "screenshotFormat": "png",
@@ -32,7 +32,7 @@
   "touchpadSwipeWorkspace": true,
   "touchpadNaturalSwipe": true,
   "touchpadPinchZoom": true,
-  "autostartApps": ["waybar", "polkit", "quickshell", "mako"],
+  "autostartApps": ["waybar", "b1air-shell"],
   "autostartCustom": [],
   "notificationRules": {
     "telegram": true,

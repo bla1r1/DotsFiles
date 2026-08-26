@@ -6,3 +6,6 @@
 *.o
 src/b1air-daemon
 b1air-daemon
+src/shell/build/
+shell/build/
+build/

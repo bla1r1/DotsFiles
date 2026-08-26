@@ -26,6 +26,7 @@ Key components:
 * **Compositor**: SwayFX with hardware-accelerated rounded corners, soft shadows, and selective blur. The entire environment uses the Tokyo Night color palette (`#1a1b26`), from the login screen to the terminal and system popups.
 * **Core Daemon (`b1air-daemon`)**: A single compiled C++20 binary that manages window autotiling, focus tracking (SQLite3), audio and microphone controls (PipeWire via `wpctl`), PAM user profiles, and power management without shell script overhead.
 * **Desktop Shell**: Lightweight Qt6/QML overlays providing an application launcher, clipboard history, control center, emoji picker, and a visual Alt+Tab window switcher.
+* **Remote Access**: Built-in headless WayVNC support and unattended screencasting configuration for AnyDesk, RustDesk, and OBS with persistent uinput permissions.
 
 ---
 
@@ -39,7 +40,7 @@ Graphical desktop configuration:
 * Wallpaper selection with live color palette generation.
 * Audio sink selector and per-stream volume controls.
 * Focus time and screen usage analytics stored in SQLite.
-* Toggles for Night Light and Game Mode (disables blur and pins performance governor).
+* Toggles for Night Light, Game Mode (disables blur and pins performance governor), and Remote Desktop.
 
 ### SDDM Greeter
 Matches the desktop Tokyo Night theme with digital clock, user avatar synchronization, session selection, and virtual keyboard support.
@@ -124,6 +125,12 @@ b1air-daemon mic toggle            # Toggle microphone mute
 b1air-daemon brightness up 5       # Screen brightness +5%
 b1air-daemon color-picker          # Eyedropper hex to clipboard
 
+# Remote Desktop & Screencast
+b1air-daemon remote start          # Start headless WayVNC server
+b1air-daemon remote stop           # Stop WayVNC
+b1air-daemon remote status         # JSON status of remote service
+b1air-daemon remote prompt-free on # Enable unattended screencasting
+
 # Session Management
 b1air-daemon lock                  # Lock screen immediately
 b1air-daemon game-mode toggle      # Switch between power-save and low-latency mode
@@ -141,12 +148,13 @@ DotsFiles/
 │   ├── matugen/               # Dynamic Material You color palette generator
 │   ├── sway/                  # SwayFX compositor keybinds, rules, look & feel
 │   ├── systemd/               # Systemd user services for b1air session
-│   └── waybar/                # Top status bar modules and CSS styling
+│   ├── waybar/                # Top status bar modules and CSS styling
+│   └── xdg-desktop-portal-wlr # Unattended screencast configuration
 ├── src/                       # Compiled C++20 desktop suite & Qt6 shell
 │   ├── main.cpp               # b1air-daemon CLI dispatcher
 │   ├── session_manager.cpp    # Autotiling & desktop session supervisor
 │   ├── settings_manager.cpp   # Persistent JSON settings engine
-│   ├── system_control.cpp     # Hardware controls, GameMode, Polkit agent
+│   ├── system_control.cpp     # Hardware controls, GameMode, WayVNC, Polkit
 │   ├── user_manager.cpp       # POSIX user & SDDM avatar synchronizer
 │   ├── focustime_db.cpp       # SQLite screen time analytics engine
 │   ├── sway_ipc.cpp           # Direct Sway UNIX domain socket client
@@ -158,6 +166,9 @@ DotsFiles/
 ├── etc/                       # System-wide configurations
 │   ├── sddm.conf              # SDDM display manager config
 │   └── tiny-dfr/              # MacBook Touch Bar daemon config
+├── tools/                     # Development & remote control utilities
+│   ├── controller.py          # Web deck for testing desktop windows
+│   └── controller.sh          # Terminal single-key interactive controller
 ├── docs/                      # Technical documentation
 │   └── ROADMAP.md             # Milestone roadmap & feature specs (M0-M14)
 ├── bootstrap.sh               # One-line remote installer

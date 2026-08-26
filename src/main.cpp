@@ -298,6 +298,32 @@ int main(int argc, char* argv[]) {
     } else if (cmd == "media-info" || cmd == "media-art") {
         std::cout << SystemControl::media_get_info_json() << "\n";
         return 0;
+    } else if (cmd == "remote") {
+        std::string sub = (argc > 2) ? argv[2] : "status";
+        if (sub == "start") {
+            int port = (argc > 3) ? std::atoi(argv[3]) : 5900;
+            std::string pass = (argc > 4) ? argv[4] : "";
+            return SystemControl::remote_desktop_start(port, pass) ? 0 : 1;
+        } else if (sub == "stop") {
+            return SystemControl::remote_desktop_stop() ? 0 : 1;
+        } else if (sub == "toggle") {
+            return SystemControl::remote_desktop_toggle() ? 0 : 1;
+        } else if (sub == "prompt-free") {
+            bool en = (argc > 3 && std::string(argv[3]) == "off") ? false : true;
+            return SystemControl::set_screencast_prompt_free(en) ? 0 : 1;
+        } else {
+            std::cout << SystemControl::remote_desktop_status_json() << "\n";
+            return 0;
+        }
+    } else if (cmd == "sidecar") {
+        std::string sub = (argc > 2) ? argv[2] : "create";
+        if (sub == "remove" || sub == "destroy") {
+            return SystemControl::sidecar_remove_virtual_display() ? 0 : 1;
+        } else {
+            int w = (argc > 3) ? std::atoi(argv[3]) : 1920;
+            int h = (argc > 4) ? std::atoi(argv[4]) : 1080;
+            return SystemControl::sidecar_create_virtual_display(w, h) ? 0 : 1;
+        }
     } else if (cmd == "diary") {
         return SystemControl::diary_open() ? 0 : 1;
     } else if (cmd == "schedule") {

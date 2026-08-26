@@ -121,7 +121,7 @@ arch_packages() {
         base-devel git rsync curl unzip jq cmake ccache
         # Wayland Compositor & Shell
         swaybg swayidle swaylock xdg-desktop-portal xdg-desktop-portal-wlr xorg-xwayland
-        waybar layer-shell-qt
+        waybar layer-shell-qt wayvnc
         # Modern CLI & Shell
         fish starship eza bat fzf zoxide fastfetch btop
         # Terminal Emulators
@@ -131,7 +131,7 @@ arch_packages() {
         # Clipboard & Screenshots
         wl-clipboard grim slurp swappy
         # Audio & Media
-        pipewire wireplumber pipewire-pulse playerctl libcanberra
+        pipewire wireplumber pipewire-pulse playerctl libcanberra cava
         # System & Hardware
         upower brightnessctl ddcutil pacman-contrib libnotify
         # Network & Bluetooth
@@ -310,7 +310,7 @@ deploy_dotfiles() {
     fi
 
     # Build and install b1air-daemon C++ suite
-    build_b1air_daemon
+    build_b1air_suite
 
     # Deploy Wayland session files & portals
     deploy_session_files
@@ -341,9 +341,12 @@ detect_and_install_vm_guest_tools() {
                     fi
                     ;;
                 vmware)
-        virt="$(systemd-detect-virt || true)"
-        if [[ "$virt" == "oracle" || "$virt" == "kvm" || "$virt" == "qemu" || "$virt" == "vmware" ]]; then
-            log "Virtual Machine detected ($virt). Installing guest integration..."
+                    pkg_install open-vm-tools
+                    if [[ "$DRY_RUN" -eq 0 ]]; then
+                        sudo systemctl enable --now vmtoolsd 2>/dev/null || true
+                    fi
+                    ;;
+            esac
             pkg_install mesa
         fi
     fi
@@ -391,6 +394,14 @@ build_b1air_suite() {
     fi
 }
 
+configure_remote_desktop_permissions() {
+    log "Configuring uinput & screencast permissions for prompt-free remote desktop..."
+    echo 'KERNEL=="uinput", GROUP="input", MODE="0660", OPTIONS+="static_node=uinput"' | sudo tee /etc/udev/rules.d/99-uinput.rules >/dev/null 2>&1 || true
+    sudo udevadm control --reload-rules >/dev/null 2>&1 || true
+    sudo udevadm trigger --name-match=uinput >/dev/null 2>&1 || true
+    sudo usermod -aG input "$USER" >/dev/null 2>&1 || true
+}
+
 post_install_checks() {
     log "Running environment verification..."
     local commands=(sway swaylock kitty fish starship eza bat fzf sddm b1air-daemon b1air-shell)
@@ -433,7 +444,8 @@ main() {
 
     if [[ "$SKIP_DOTFILES" -eq 0 ]]; then
         deploy_dotfiles
-        build_b1air_daemon
+        build_b1air_suite
+        configure_remote_desktop_permissions
     else
         warn "Skipping dotfiles deployment."
     fi

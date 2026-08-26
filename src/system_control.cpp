@@ -1032,12 +1032,15 @@ std::string SystemControl::get_media_status_json() {
 
 // ── Volume & Microphone ──────────────────────────────────────────────────────
 int SystemControl::get_volume() {
-    std::string v = exec_cmd("pamixer --get-volume 2>/dev/null");
+    std::string v = exec_cmd("wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | awk '{print int($2*100)}'");
+    if (v.empty()) v = exec_cmd("pamixer --get-volume 2>/dev/null");
     try { return std::stoi(v); } catch (...) { return 0; }
 }
 
 bool SystemControl::volume_up(int step) {
-    std::system(("pamixer -i " + std::to_string(step) + " 2>/dev/null").c_str());
+    if (std::system(("wpctl set-volume -l 1.5 @DEFAULT_AUDIO_SINK@ " + std::to_string(step) + "%+ 2>/dev/null").c_str()) != 0) {
+        std::system(("pamixer -i " + std::to_string(step) + " 2>/dev/null").c_str());
+    }
     int vol = get_volume();
     std::string icon = (vol > 60) ? "audio-volume-high" : ((vol > 30) ? "audio-volume-medium" : "audio-volume-low");
     std::system(("notify-send -h string:x-canonical-private-synchronous:sys-notify -u low -i " + icon + " 'Volume: " + std::to_string(vol) + "%' 2>/dev/null || true").c_str());
@@ -1045,7 +1048,9 @@ bool SystemControl::volume_up(int step) {
 }
 
 bool SystemControl::volume_down(int step) {
-    std::system(("pamixer -d " + std::to_string(step) + " 2>/dev/null").c_str());
+    if (std::system(("wpctl set-volume @DEFAULT_AUDIO_SINK@ " + std::to_string(step) + "%- 2>/dev/null").c_str()) != 0) {
+        std::system(("pamixer -d " + std::to_string(step) + " 2>/dev/null").c_str());
+    }
     int vol = get_volume();
     std::string icon = (vol > 60) ? "audio-volume-high" : ((vol > 30) ? "audio-volume-medium" : "audio-volume-low");
     std::system(("notify-send -h string:x-canonical-private-synchronous:sys-notify -u low -i " + icon + " 'Volume: " + std::to_string(vol) + "%' 2>/dev/null || true").c_str());
@@ -1053,8 +1058,13 @@ bool SystemControl::volume_down(int step) {
 }
 
 bool SystemControl::volume_toggle_mute() {
-    std::system("pamixer -t 2>/dev/null");
-    std::string mute = exec_cmd("pamixer --get-mute 2>/dev/null");
+    if (std::system("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle 2>/dev/null") != 0) {
+        std::system("pamixer -t 2>/dev/null");
+    }
+    std::string mute = exec_cmd("wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | grep -q MUTED && echo 'true' || echo 'false'");
+    if (mute != "true") {
+        mute = exec_cmd("pamixer --get-mute 2>/dev/null");
+    }
     if (mute == "true") {
         std::system("notify-send -h string:x-canonical-private-synchronous:sys-notify -u low -i audio-volume-muted 'Volume Muted' 2>/dev/null || true");
     } else {
@@ -1065,12 +1075,18 @@ bool SystemControl::volume_toggle_mute() {
 }
 
 std::string SystemControl::get_mic_status() {
-    std::string mute = exec_cmd("pamixer --default-source --get-mute 2>/dev/null");
-    return (mute == "true") ? "muted" : "unmuted";
+    std::string mute = exec_cmd("wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null | grep -q MUTED && echo 'muted' || echo 'unmuted'");
+    if (mute != "muted") {
+        std::string pm = exec_cmd("pamixer --default-source --get-mute 2>/dev/null");
+        if (pm == "true") mute = "muted";
+    }
+    return mute;
 }
 
 bool SystemControl::mic_toggle() {
-    std::system("pamixer --default-source -t 2>/dev/null || wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle 2>/dev/null");
+    if (std::system("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle 2>/dev/null") != 0) {
+        std::system("pamixer --default-source -t 2>/dev/null || true");
+    }
     std::string status = get_mic_status();
     if (status == "muted") {
         std::system("notify-send -h string:x-canonical-private-synchronous:sys-notify -u low -i microphone-sensitivity-muted 'Microphone Muted' 2>/dev/null || true");
@@ -2387,6 +2403,98 @@ int SystemControl::polkit_agent_run() {
         std::this_thread::sleep_for(std::chrono::seconds(60));
     }
     return 0;
+}
+
+// ── Remote Desktop (WayVNC) & Screencast Management ───────────────────────────
+bool SystemControl::remote_desktop_start(int port, const std::string& password) {
+    remote_desktop_stop();
+    std::string cmd = "setsid wayvnc --render-cursor 0.0.0.0 " + std::to_string(port);
+    if (!password.empty()) {
+        const char* home = std::getenv("HOME");
+        if (home) {
+            std::string pass_file = std::string(home) + "/.cache/wayvnc_pass";
+            std::ofstream out(pass_file);
+            if (out) out << password;
+        }
+    }
+    cmd += " >/tmp/wayvnc.log 2>&1 < /dev/null &";
+    std::system(cmd.c_str());
+    return true;
+}
+
+bool SystemControl::remote_desktop_stop() {
+    std::system("pkill -x wayvnc 2>/dev/null || true");
+    return true;
+}
+
+bool SystemControl::remote_desktop_toggle() {
+    if (std::system("pgrep -x wayvnc >/dev/null 2>&1") == 0) {
+        return remote_desktop_stop();
+    } else {
+        return remote_desktop_start();
+    }
+}
+
+std::string SystemControl::remote_desktop_status_json() {
+    bool running = (std::system("pgrep -x wayvnc >/dev/null 2>&1") == 0);
+    std::string ip = exec_cmd("ip route get 1.1.1.1 2>/dev/null | awk '{print $7; exit}'");
+    while (!ip.empty() && (ip.back() == '\n' || ip.back() == '\r' || ip.back() == ' ')) ip.pop_back();
+    if (ip.empty()) ip = "127.0.0.1";
+    
+    std::string json = "{";
+    json += "\"running\":" + std::string(running ? "true" : "false") + ",";
+    json += "\"port\":5900,";
+    json += "\"ip\":\"" + ip + "\",";
+    json += "\"promptFreeScreencast\":" + std::string(is_screencast_prompt_free() ? "true" : "false") + ",";
+    json += "\"uinputReady\":" + std::string(access("/dev/uinput", W_OK) == 0 ? "true" : "false");
+    json += "}";
+    return json;
+}
+
+bool SystemControl::set_screencast_prompt_free(bool enable) {
+    const char* home = std::getenv("HOME");
+    if (!home) return false;
+    std::string dir = std::string(home) + "/.config/xdg-desktop-portal-wlr";
+    std::system(("mkdir -p " + dir).c_str());
+    std::string cfg = dir + "/config";
+    std::string content = "[screencast]\nmax_fps=60\nchooser_type=" + std::string(enable ? "none" : "simple") + "\n";
+    std::ofstream out(cfg);
+    if (out) {
+        out << content;
+        return true;
+    }
+    return false;
+}
+
+bool SystemControl::is_screencast_prompt_free() {
+    const char* home = std::getenv("HOME");
+    if (!home) return true;
+    std::string cfg = std::string(home) + "/.config/xdg-desktop-portal-wlr/config";
+    std::ifstream in(cfg);
+    if (!in) return false;
+    std::string line;
+    while (std::getline(in, line)) {
+        if (line.find("chooser_type=none") != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool SystemControl::sidecar_create_virtual_display(int width, int height) {
+    SwayIPC ipc;
+    if (!ipc.connect()) return false;
+    ipc.send_command(0, "create_output");
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    ipc.send_command(0, "output HEADLESS-1 mode " + std::to_string(width) + "x" + std::to_string(height));
+    return true;
+}
+
+bool SystemControl::sidecar_remove_virtual_display() {
+    SwayIPC ipc;
+    if (!ipc.connect()) return false;
+    ipc.send_command(0, "output HEADLESS-1 unplug");
+    return true;
 }
 
 } // namespace b1air
