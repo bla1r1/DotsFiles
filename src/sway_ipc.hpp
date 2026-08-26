@@ -27,6 +27,7 @@ public:
     std::string send_command(uint32_t type, const std::string& payload = "");
     std::string get_tree();
     std::string get_inputs();
+    std::string get_outputs();
     WindowInfo get_focused_window();
     bool toggle_fullscreen();
 

@@ -23,8 +23,6 @@ ColumnLayout {
     property string dotfilesRemote: "..."
     property bool dotfilesUpdateAvail: false
 
-    readonly property string updaterScript: Quickshell.env("HOME") + "/.config/sway/scripts/system/dotfiles-update.sh"
-
     Process {
         id: updateChecker
         command: ["bash", "-c", "checkupdates 2>/dev/null | wc -l || echo 0"]
@@ -41,7 +39,7 @@ ColumnLayout {
 
     Process {
         id: dotfilesChecker
-        command: ["bash", section.updaterScript, "status"]
+        command: ["b1air-daemon", "dotfiles", "status"]
         running: true
         stdout: StdioCollector {
             onStreamFinished: {
@@ -65,11 +63,11 @@ ColumnLayout {
     }
 
     function runSystemUpdate() {
-        Quickshell.execDetached(["bash", section.updaterScript, "sys"]);
+        Quickshell.execDetached(["b1air-daemon", "dotfiles", "sys"]);
     }
 
     function runDotfilesUpdate() {
-        Quickshell.execDetached(["bash", section.updaterScript, "env"]);
+        Quickshell.execDetached(["b1air-daemon", "dotfiles", "sync"]);
     }
 
     function viewBackups() {

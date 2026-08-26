@@ -176,7 +176,7 @@
     "tooltip": true
   },
   "custom/monitor-brightness": {
-    "exec": "bash ~/.config/sway/scripts/controls/monitor-brightness.sh waybar",
+    "exec": "b1air-daemon ddc waybar",
     "return-type": "json",
     "interval": "once",
     "signal": 3,
@@ -184,8 +184,8 @@
     "hide-empty": true,
     "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleMonitors",
     "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main open settings monitors",
-    "on-scroll-up": "bash ~/.config/sway/scripts/controls/monitor-brightness.sh up",
-    "on-scroll-down": "bash ~/.config/sway/scripts/controls/monitor-brightness.sh down",
+    "on-scroll-up": "b1air-daemon ddc up",
+    "on-scroll-down": "b1air-daemon ddc down",
     "tooltip": true
   },
   "custom/kbd-backlight": {

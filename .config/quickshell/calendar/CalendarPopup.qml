@@ -267,7 +267,7 @@ PopupShell {
 
     Process {
         id: weatherPoller
-        command: ["bash", window.scriptsDir + "/weather.sh", "--json"]
+        command: ["b1air-daemon", "weather", "json"]
         running: true
         stdout: StdioCollector {
             onStreamFinished: {

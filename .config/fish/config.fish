@@ -36,7 +36,7 @@ if status is-interactive
     set -gx BUN_INSTALL $HOME/.bun
 
     # PATH setup
-    set -gx PATH $HOME/.local/bin $HOME/.cargo/bin $BUN_INSTALL/bin $HOME/.config/sway/scripts/tools $HOME/.config/sway/scripts/system $PATH
+    set -gx PATH $HOME/.local/bin $HOME/.cargo/bin $BUN_INSTALL/bin $PATH
 
     # ── Modern Tool Integrations ─────────────────────────────────────────────
     # Starship Prompt
@@ -102,8 +102,8 @@ if status is-interactive
 
     # ── Dotfiles & Desktop Environment Helpers ───────────────────────────────
     alias dots 'cd ~/.config/sway/../.. 2>/dev/null; or cd ~/Documents/GitHub/DotsFiles'
-    alias dots-sync 'bash ~/.config/sway/scripts/system/dotfiles-update.sh --pull'
-    alias dots-diff 'bash ~/.config/sway/scripts/system/dotfiles-update.sh --status'
+    alias dots-sync 'b1air-daemon dotfiles sync'
+    alias dots-diff 'b1air-daemon dotfiles status'
     alias sway-reload 'swaymsg reload'
     alias qs-reload 'pkill -9 quickshell; quickshell -p ~/.config/quickshell/Main.qml >/dev/null 2>&1 & disown'
     alias game-mode 'b1air-daemon game-mode'

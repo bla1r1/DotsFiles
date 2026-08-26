@@ -21,8 +21,7 @@ ColumnLayout {
     property int screenshotDelay: Settings.screenshotDelay !== undefined ? Settings.screenshotDelay : 0
 
     function takeScreenshot(mode) {
-        const script = Quickshell.env("HOME") + "/.config/sway/scripts/tools/screenshot.sh";
-        Quickshell.execDetached(["bash", script, mode]);
+        Quickshell.execDetached(["b1air-daemon", "capture", "--" + mode]);
     }
 
     // ── 1. Storage & Output ──────────────────────────────────────────────────

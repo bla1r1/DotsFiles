@@ -937,7 +937,7 @@ PopupShell {
                                         root.lastEqUpdate = Date.now(); 
                                         
                                         root.triggerEqLightning();
-                                        Quickshell.execDetached(["bash", "-c", "$HOME/.config/quickshell/music/equalizer.sh apply"]);
+                                        Quickshell.execDetached(["b1air-daemon", "eq", "apply"]);
                                     }
                                 }
                             }
@@ -1054,7 +1054,7 @@ PopupShell {
                                                     // Set lock here too to protect individual slider tweaks
                                                     root.lastEqUpdate = Date.now();
                                                     
-                                                    Quickshell.execDetached([Quickshell.env("HOME") + "/.config/quickshell/music/equalizer.sh", "set_band", String(modelData.idx), String(Math.round(value))]);
+                                                    Quickshell.execDetached(["b1air-daemon", "eq", "set_band", String(modelData.idx), String(Math.round(value))]);
                                                 }
                                             }
 

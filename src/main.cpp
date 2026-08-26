@@ -28,6 +28,7 @@ static void print_usage(const char* prog) {
               << "Core Desktop & Session Management:\n"
               << "  session                            Start full b1air desktop session (replaces all startup scripts)\n"
               << "  settings [apply|watch]             Manage & live-apply desktop configuration from settings.json\n"
+              << "  monitors [restore|apply <json>]    Manage and apply multi-monitor layouts via Sway IPC\n"
               << "  focus                              Run event-driven Sway window focus tracker daemon\n"
               << "  stats [YYYY-MM-DD]                 Get FocusTime statistics as formatted JSON\n"
               << "  user get                           Get user profile details as formatted JSON\n"
@@ -40,13 +41,21 @@ static void print_usage(const char* prog) {
               << "  fullscreen-toggle                  Toggle fullscreen & auto-center floating window\n"
               << "  wifi-status                        Get Waybar-formatted Wi-Fi JSON\n"
               << "  media-status                       Get Waybar-formatted Media Player JSON\n"
+              << "  media-info                         Get full MPRIS & album art palette JSON for player\n"
+              << "  weather [json|current|icon|temp]   Get live weather forecast JSON or current conditions\n"
+              << "  schedule                           Get calendar schedule JSON\n"
+              << "  diary                              Open or create today's Obsidian diary note\n"
+              << "  dotfiles [status|sync|sys]         Git sync dotfiles repository or launch system upgrade\n"
               << "  updates [check|up]                 Get package updates JSON or launch system upgrade\n\n"
               << "Controls & Hardware:\n"
               << "  volume {get|up [N]|down [N]|mute}  Control audio sink volume & mute\n"
               << "  mic {get|toggle|mute}              Control microphone mute status\n"
+              << "  eq {get|apply|preset <name>|set_band <idx> <val>}\n"
+              << "                                     10-band EasyEffects equalizer control\n"
               << "  brightness {available|get|up [N]|down [N]|set <pct>}\n"
               << "                                     Control screen backlight brightness\n"
-              << "  ddc {dim|undim}                    Universal display dim/undim (backlight + DDC/CI)\n"
+              << "  ddc {list|get <id>|set <id> <pct>|up [N]|down [N]|waybar|refresh|dim|undim}\n"
+              << "                                     Control external monitor brightness via DDC/CI\n"
               << "  kbd-backlight {available|get|up [N]|down [N]|set <pct>|off}\n"
               << "                                     Control keyboard backlight\n"
               << "  wallpaper {set <file>|random [dir]|restore}\n"
@@ -58,9 +67,13 @@ static void print_usage(const char* prog) {
               << "  game-mode {on|off|toggle|status}   Control zero-overhead gaming optimizations\n"
               << "  power {lock|logout|suspend|reboot|shutdown}\n"
               << "                                     Execute session power state transitions\n"
-              << "  screenshot [full|area|window]      Capture screen, copy to clipboard & save\n"
+              << "  capture [--geometry <geom>] [--edit] [--full|--area|--window]\n"
+              << "                                     Capture screen, copy to clipboard & annotate\n"
+              << "  record [toggle|stop] [--geometry <geom>] [--desk-vol <v>] [--mic-vol <v>]\n"
+              << "                                     Hardware-accelerated GPU screen & audio recording\n"
+              << "  scan-qr [geometry]                 Scan QR code on screen and decode\n"
               << "  reload                             Reload compositor, Quickshell and Waybar\n"
-              << "  lock                               Lock session with b1air theme\n"
+              << "  lock [quickshell|swaylock]         Lock session with b1air theme\n"
               << "  version                            Print version information\n"
               << "  help                               Show this help message\n";
 }
@@ -209,6 +222,27 @@ int main(int argc, char* argv[]) {
     } else if (cmd == "media-status" || cmd == "media") {
         std::cout << SystemControl::get_media_status_json() << "\n";
         return 0;
+    } else if (cmd == "media-info" || cmd == "media-art") {
+        std::cout << SystemControl::media_get_info_json() << "\n";
+        return 0;
+    } else if (cmd == "diary") {
+        return SystemControl::diary_open() ? 0 : 1;
+    } else if (cmd == "schedule") {
+        std::cout << SystemControl::schedule_get_json() << "\n";
+        return 0;
+    } else if (cmd == "dotfiles") {
+        std::string sub = (argc >= 3) ? argv[2] : "status";
+        if (sub == "status") {
+            std::cout << SystemControl::dotfiles_status_json() << "\n";
+            return 0;
+        } else if (sub == "sync" || sub == "update" || sub == "run") {
+            return SystemControl::dotfiles_sync() ? 0 : 1;
+        } else if (sub == "sys" || sub == "system") {
+            return SystemControl::dotfiles_sys() ? 0 : 1;
+        } else {
+            std::cerr << "Usage: " << argv[0] << " dotfiles {status|sync|sys}\n";
+            return 1;
+        }
     } else if (cmd == "updates") {
         std::string sub = (argc >= 3) ? argv[2] : "check";
         if (sub == "up" || sub == "upgrade") {
@@ -245,6 +279,39 @@ int main(int argc, char* argv[]) {
             std::cerr << "Usage: " << argv[0] << " mic {get|toggle}\n";
             return 1;
         }
+    } else if (cmd == "eq" || cmd == "equalizer") {
+        std::string sub = (argc >= 3) ? argv[2] : "get";
+        if (sub == "get") {
+            std::cout << SystemControl::eq_get_state_json() << "\n";
+            return 0;
+        } else if (sub == "apply") {
+            return SystemControl::eq_apply() ? 0 : 1;
+        } else if (sub == "preset") {
+            if (argc < 4) {
+                std::cerr << "Usage: " << argv[0] << " eq preset <Flat|Bass|Treble|Vocal|Pop|Rock|Jazz|Classic>\n";
+                return 1;
+            }
+            return SystemControl::eq_set_preset(argv[3]) ? 0 : 1;
+        } else if (sub == "set_band") {
+            if (argc < 5) {
+                std::cerr << "Usage: " << argv[0] << " eq set_band <1..10> <gain>\n";
+                return 1;
+            }
+            int band = std::atoi(argv[3]);
+            int val = std::atoi(argv[4]);
+            return SystemControl::eq_set_band(band, val) ? 0 : 1;
+        } else if (sub == "set") {
+            if (argc < 13) {
+                std::cerr << "Usage: " << argv[0] << " eq set <b1> <b2> ... <b10>\n";
+                return 1;
+            }
+            std::vector<int> b(10);
+            for (int i = 0; i < 10; ++i) b[i] = std::atoi(argv[3 + i]);
+            return SystemControl::eq_set_all(b) ? 0 : 1;
+        } else {
+            std::cerr << "Usage: " << argv[0] << " eq {get|apply|preset <name>|set_band <idx> <val>|set <b1..b10>}\n";
+            return 1;
+        }
     } else if (cmd == "brightness" || cmd == "backlight") {
         std::string sub = (argc >= 3) ? argv[2] : "get";
         int step = (argc >= 4) ? std::atoi(argv[3]) : 5;
@@ -263,12 +330,71 @@ int main(int argc, char* argv[]) {
             std::cerr << "Usage: " << argv[0] << " brightness {available|get|up [N]|down [N]|set <pct>}\n";
             return 1;
         }
+    } else if (cmd == "monitors") {
+        std::string sub = (argc >= 3) ? argv[2] : "restore";
+        if (sub == "restore") {
+            return SystemControl::monitors_restore() ? 0 : 1;
+        } else if (sub == "apply") {
+            if (argc < 4) {
+                std::cerr << "Usage: " << argv[0] << " monitors apply <layout-json>\n";
+                return 1;
+            }
+            return SystemControl::monitors_apply(argv[3]) ? 0 : 1;
+        } else if (sub == "save") {
+            if (argc < 4) {
+                std::cerr << "Usage: " << argv[0] << " monitors save <layout-json>\n";
+                return 1;
+            }
+            return SystemControl::monitors_save(argv[3]) ? 0 : 1;
+        } else {
+            std::cerr << "Usage: " << argv[0] << " monitors {restore|apply <json>|save <json>}\n";
+            return 1;
+        }
     } else if (cmd == "ddc") {
-        std::string sub = (argc >= 3) ? argv[2] : "dim";
-        if (sub == "dim") return SystemControl::ddc_dim() ? 0 : 1;
-        if (sub == "undim") return SystemControl::ddc_undim() ? 0 : 1;
-        std::cerr << "Usage: " << argv[0] << " ddc {dim|undim}\n";
-        return 1;
+        std::string sub = (argc >= 3) ? argv[2] : "waybar";
+        if (sub == "list" || sub == "list-ddc" || sub == "has" || sub == "has-ddc") {
+            std::cout << SystemControl::ddc_list_json(false) << "\n";
+            return 0;
+        } else if (sub == "refresh" || sub == "refresh-ddc") {
+            std::cout << SystemControl::ddc_list_json(true) << "\n";
+            return 0;
+        } else if (sub == "waybar") {
+            std::cout << SystemControl::ddc_get_waybar_json() << "\n";
+            return 0;
+        } else if (sub == "set") {
+            if (argc < 5) {
+                std::cerr << "Usage: " << argv[0] << " ddc set <id> <percent>\n";
+                return 1;
+            }
+            std::string id = argv[3];
+            int pct = std::atoi(argv[4]);
+            return SystemControl::ddc_set(id, pct) ? 0 : 1;
+        } else if (sub == "up" || sub == "inc") {
+            int step = (argc >= 4) ? std::atoi(argv[3]) : 5;
+            return SystemControl::ddc_adjust_all(step) ? 0 : 1;
+        } else if (sub == "down" || sub == "dec") {
+            int step = (argc >= 4) ? std::atoi(argv[3]) : 5;
+            return SystemControl::ddc_adjust_all(-step) ? 0 : 1;
+        } else if (sub == "dim") {
+            return SystemControl::ddc_dim() ? 0 : 1;
+        } else if (sub == "undim") {
+            return SystemControl::ddc_undim() ? 0 : 1;
+        } else {
+            std::cerr << "Usage: " << argv[0] << " ddc {list|set <id> <val>|up [N]|down [N]|waybar|refresh|dim|undim}\n";
+            return 1;
+        }
+    } else if (cmd == "weather") {
+        std::string sub = (argc >= 3) ? argv[2] : "json";
+        if (sub == "json" || sub == "--json") {
+            std::cout << SystemControl::weather_get_json(false) << "\n";
+            return 0;
+        } else if (sub == "refresh" || sub == "--getdata") {
+            std::cout << SystemControl::weather_get_json(true) << "\n";
+            return 0;
+        } else {
+            std::cout << SystemControl::weather_get_current_info(sub) << "\n";
+            return 0;
+        }
     } else if (cmd == "kbd-backlight" || cmd == "kbd") {
         std::string sub = (argc >= 3) ? argv[2] : "get";
         int step = (argc >= 4) ? std::atoi(argv[3]) : 10;
@@ -367,11 +493,57 @@ int main(int argc, char* argv[]) {
         if (sub == "shutdown" || sub == "poweroff") return SystemControl::shutdown_system() ? 0 : 1;
         std::cerr << "Unknown power command: " << sub << "\n";
         return 1;
-    } else if (cmd == "screenshot") {
-        std::string mode = (argc >= 3) ? argv[2] : "full";
-        return SystemControl::capture_screenshot(mode) ? 0 : 1;
+    } else if (cmd == "screenshot" || cmd == "capture") {
+        std::string mode = "full";
+        std::string geom = "";
+        bool edit = false;
+
+        for (int i = 2; i < argc; ++i) {
+            std::string arg = argv[i];
+            if (arg == "--edit" || arg == "-e" || arg == "edit") edit = true;
+            else if (arg == "--geometry" || arg == "-g") {
+                if (i + 1 < argc) geom = argv[++i];
+            } else if (arg == "--full" || arg == "full") mode = "full";
+            else if (arg == "--area" || arg == "area") mode = "area";
+            else if (arg == "--window" || arg == "window") mode = "window";
+            else if (arg.front() != '-') mode = arg;
+        }
+        return SystemControl::capture(mode, geom, edit) ? 0 : 1;
+    } else if (cmd == "record") {
+        std::string sub = (argc >= 3) ? argv[2] : "toggle";
+        if (sub == "stop") return SystemControl::record_stop() ? 0 : 1;
+
+        std::string geom = "";
+        double desk_vol = 1.0;
+        double mic_vol = 1.0;
+        bool desk_mute = false;
+        bool mic_mute = false;
+        std::string mic_dev = "";
+
+        for (int i = 2; i < argc; ++i) {
+            std::string arg = argv[i];
+            if (arg == "--geometry" || arg == "-g") {
+                if (i + 1 < argc) geom = argv[++i];
+            } else if (arg == "--desk-vol") {
+                if (i + 1 < argc) desk_vol = std::atof(argv[++i]);
+            } else if (arg == "--mic-vol") {
+                if (i + 1 < argc) mic_vol = std::atof(argv[++i]);
+            } else if (arg == "--desk-mute") {
+                if (i + 1 < argc) desk_mute = (std::string(argv[++i]) == "true");
+            } else if (arg == "--mic-mute") {
+                if (i + 1 < argc) mic_mute = (std::string(argv[++i]) == "true");
+            } else if (arg == "--mic-dev") {
+                if (i + 1 < argc) mic_dev = argv[++i];
+            }
+        }
+        return SystemControl::record_toggle(geom, desk_vol, mic_vol, desk_mute, mic_mute, mic_dev) ? 0 : 1;
+    } else if (cmd == "scan-qr" || cmd == "qr-scan") {
+        std::string geom = (argc >= 3) ? argv[2] : "";
+        std::cout << SystemControl::scan_qr(geom) << "\n";
+        return 0;
     } else if (cmd == "lock") {
-        return SystemControl::lock_session() ? 0 : 1;
+        std::string mode = (argc >= 3) ? argv[2] : "auto";
+        return SystemControl::lock_session(mode) ? 0 : 1;
     } else if (cmd == "version" || cmd == "-v" || cmd == "--version") {
         std::cout << "b1air-daemon v2.5.0 (C++20, Session Manager, Inotify, Sway-IPC, Tokyo Night)\n";
         return 0;

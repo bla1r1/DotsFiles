@@ -170,6 +170,10 @@ std::string SwayIPC::get_inputs() {
     return send_command(100); // 100 = GET_INPUTS
 }
 
+std::string SwayIPC::get_outputs() {
+    return send_command(3); // 3 = GET_OUTPUTS
+}
+
 // Quick helper to search for focused window in tree JSON
 static bool parse_focused_node(const std::string& json, WindowInfo& out) {
     // Find `"focused":true` or `"focused": true`

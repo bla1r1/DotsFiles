@@ -31,9 +31,6 @@ Singleton {
     readonly property string scriptDir: (Quickshell.env("QS_SCRIPT_DIR")
         || (Quickshell.env("HOME") + "/.config/quickshell")).replace(/\/quickshell\/?$/, "")
 
-    readonly property string layoutScript: root.scriptDir + "/tools/monitors.sh"
-    readonly property string brightnessScript: root.scriptDir + "/controls/monitor-brightness.sh"
-
     // ── Consumers ────────────────────────────────────────────────────────────
     // Only the settings page reads this, and only while it is open: probing DDC
     // spawns ddcutil, which is slow and wakes the panel's i2c bus.
@@ -68,7 +65,7 @@ Singleton {
 
     Process {
         id: brightnessReader
-        command: ["bash", root.brightnessScript, "list-ddc"]
+        command: ["b1air-daemon", "ddc", "list"]
         stdout: StdioCollector {
             onStreamFinished: root._parseBrightness(this.text)
         }
@@ -136,11 +133,11 @@ Singleton {
 
     // ── Writes ───────────────────────────────────────────────────────────────
 
-    /** layout: [{name, resW, resH, rate, sysScale, x, y, transform, active}] — the script normalises. */
+    /** layout: [{name, resW, resH, rate, sysScale, x, y, transform, active}] — the daemon normalises. */
     function apply(layout) {
         if (!layout || layout.length === 0)
             return;
-        Quickshell.execDetached(["bash", root.layoutScript, "apply", JSON.stringify(layout)]);
+        Quickshell.execDetached(["b1air-daemon", "monitors", "apply", JSON.stringify(layout)]);
         applyRecheck.restart();
     }
 
@@ -168,7 +165,7 @@ Singleton {
         const v = Math.max(1, Math.min(100, Math.round(pct)));
         // Optimistic: ddcutil takes the better part of a second to answer.
         root.brightness = root.brightness.map(d => d.id === id ? Object.assign({}, d, { brightness: v }) : d);
-        Quickshell.execDetached(["bash", root.brightnessScript, "set", id, String(v)]);
+        Quickshell.execDetached(["b1air-daemon", "ddc", "set", id, String(v)]);
     }
 
     function redetect() {
@@ -177,7 +174,7 @@ Singleton {
 
     Process {
         id: redetector
-        command: ["bash", root.brightnessScript, "refresh-ddc"]
+        command: ["b1air-daemon", "ddc", "refresh"]
         stdout: StdioCollector {
             onStreamFinished: root._parseBrightness(this.text)
         }

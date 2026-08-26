@@ -6,12 +6,6 @@ set -euo pipefail
 
 REPO_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 BACKUP_DIR="$HOME/.dotfiles-backup-$(date +%Y%m%d-%H%M%S)"
-PLATFORM_LIB="$REPO_DIR/.config/sway/scripts/lib/platform.sh"
-
-if [[ -f "$PLATFORM_LIB" ]]; then
-    # shellcheck disable=SC1090
-    source "$PLATFORM_LIB"
-fi
 
 DISTRO=""
 SKIP_PACKAGES=0
@@ -307,17 +301,42 @@ deploy_dotfiles() {
     fi
 
     # Build and install b1air-daemon C++ suite
-    build_and_install_b1air_daemon
+    build_b1air_daemon
 
     # Refresh user font cache
     fc-cache -f >/dev/null 2>&1 || true
 
-    # Make all helper scripts executable
-    if [[ -d "$HOME/.config/sway/scripts" ]]; then
-        find "$HOME/.config/sway/scripts" -type f -name "*.sh" -exec chmod +x {} +
-    fi
-
     ok "Dotfiles deployed. Previous configs backed up in: $BACKUP_DIR"
+}
+
+detect_and_install_vm_guest_tools() {
+    if command -v systemd-detect-virt >/dev/null 2>&1; then
+        local virt
+        virt="$(systemd-detect-virt 2>/dev/null || true)"
+        if [[ -n "$virt" && "$virt" != "none" ]]; then
+            log "Detected Virtual Machine environment: $virt"
+            case "$virt" in
+                kvm|qemu|bochs)
+                    pkg_install qemu-guest-agent spice-vdagent
+                    if [[ "$DRY_RUN" -eq 0 ]]; then
+                        sudo systemctl enable --now qemu-guest-agent 2>/dev/null || true
+                    fi
+                    ;;
+                oracle)
+                    pkg_install virtualbox-guest-utils
+                    if [[ "$DRY_RUN" -eq 0 ]]; then
+                        sudo systemctl enable --now vboxservice 2>/dev/null || true
+                    fi
+                    ;;
+                vmware)
+                    pkg_install open-vm-tools
+                    if [[ "$DRY_RUN" -eq 0 ]]; then
+                        sudo systemctl enable --now vmtoolsd 2>/dev/null || true
+                    fi
+                    ;;
+            esac
+        fi
+    fi
 }
 
 enable_services() {
@@ -387,6 +406,8 @@ main() {
         else
             warn "Skipping AUR packages (--no-aur)."
         fi
+
+        detect_and_install_vm_guest_tools
     else
         warn "Skipping packages installation (--skip-packages)."
     fi

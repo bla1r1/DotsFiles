@@ -68,19 +68,19 @@ Singleton {
     function setEqBands(bands) {
         root.eq = Object.assign({}, root.eq, { bands: bands });
         root._lastEqWrite = Date.now();
-        Quickshell.execDetached([root._dir + "/equalizer.sh", "set"].concat(bands.map(String)));
+        Quickshell.execDetached(["b1air-daemon", "eq", "set"].concat(bands.map(String)));
     }
 
     function setEqPreset(name, bands) {
         root.eq = Object.assign({}, root.eq, { preset: name, bands: bands });
         root._lastEqWrite = Date.now();
-        Quickshell.execDetached([root._dir + "/equalizer.sh", "preset", name]);
+        Quickshell.execDetached(["b1air-daemon", "eq", "preset", name]);
     }
 
     function refresh() { infoProc.running = true; }
 
     // ── Live fields ──────────────────────────────────────────────────────────
-    // Merged over whatever the script last derived, so colours survive while
+    // Merged over whatever the daemon last derived, so colours survive while
     // title and position update at MPRIS speed.
 
     function _merge() {
@@ -135,7 +135,7 @@ Singleton {
 
     Process {
         id: infoProc
-        command: [root._dir + "/music_info.sh"]
+        command: ["b1air-daemon", "media-info"]
         stdout: StdioCollector {
             onStreamFinished: {
                 const out = (this.text || "").trim();
@@ -156,7 +156,7 @@ Singleton {
 
     Process {
         id: eqProc
-        command: [root._dir + "/equalizer.sh", "get"]
+        command: ["b1air-daemon", "eq", "get"]
         stdout: StdioCollector {
             onStreamFinished: {
                 if (Date.now() - root._lastEqWrite < 2000) return;

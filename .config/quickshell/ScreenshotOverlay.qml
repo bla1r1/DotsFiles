@@ -717,7 +717,7 @@ PanelWindow {
     function performQrScan() {
         Quickshell.execDetached(["bash", "-c", "rm -f /tmp/qs_qr_result"])
         root.isScanningQr = true; root.showQrPopup = false; qrModel.clear()
-        let cmd = `bash "${root.scriptDir}/tools/screenshot.sh" --geometry "${root.geometryString}" --scan-qr`
+        let cmd = `b1air-daemon scan-qr "${root.geometryString}"`
         Quickshell.execDetached(["bash", "-c", cmd])
         qrWaitTimer.start()
     }   
@@ -735,14 +735,14 @@ PanelWindow {
     }
     
     function executeCapture(openEditor, isRecord) {
-        let cmd = `bash "${root.scriptDir}/tools/screenshot.sh" --geometry "${root.geometryString}"`
+        let cmd = ""
         if (isRecord) {
-            cmd += " --record"
-            cmd += ` --desk-vol ${root.deskVol} --desk-mute ${root.deskMute}`
-            cmd += ` --mic-vol ${root.micVol} --mic-mute ${root.micMute}`
+            cmd = `b1air-daemon record toggle --geometry "${root.geometryString}" --desk-vol ${root.deskVol} --desk-mute ${root.deskMute} --mic-vol ${root.micVol} --mic-mute ${root.micMute}`
             if (root.micDevice !== "") cmd += ` --mic-dev "${root.micDevice}"`
+        } else {
+            cmd = `b1air-daemon capture --geometry "${root.geometryString}"`
+            if (openEditor) cmd += " --edit"
         }
-        if (openEditor) cmd += " --edit"
     
         root.visible = false          // hide overlay immediately
         captureTimer.pendingCmd = cmd
