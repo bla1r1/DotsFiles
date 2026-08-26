@@ -20,6 +20,27 @@ public:
 
     // Screenshot helper
     static bool capture_screenshot(const std::string& mode = "full"); // "full", "area", "window"
+
+    // Waybar & Layout helpers
+    static std::string get_layout_shorthand();
+    static bool toggle_fullscreen();
+    static std::string get_wifi_status_json();
+    static std::string get_media_status_json();
+
+    // Volume & Microphone controls
+    static int get_volume();
+    static bool volume_up(int step = 5);
+    static bool volume_down(int step = 5);
+    static bool volume_toggle_mute();
+    static std::string get_mic_status();
+    static bool mic_toggle();
+
+    // Screen Brightness controls
+    static bool brightness_available();
+    static int brightness_get();
+    static bool brightness_up(int step = 5);
+    static bool brightness_down(int step = 5);
+    static bool brightness_set(int pct);
 };
 
 } // namespace b1air

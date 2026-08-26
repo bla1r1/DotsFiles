@@ -10,6 +10,9 @@ struct WindowInfo {
     std::string app_class;
     std::string title;
     bool focused = false;
+    bool fullscreen = false;
+    bool floating = false;
+    int64_t id = 0;
 };
 
 class SwayIPC {
@@ -23,7 +26,9 @@ public:
 
     std::string send_command(uint32_t type, const std::string& payload = "");
     std::string get_tree();
+    std::string get_inputs();
     WindowInfo get_focused_window();
+    bool toggle_fullscreen();
 
     // Event listener loop (subscribes to window and workspace events)
     using EventCallback = std::function<void(const std::string& event_type, const std::string& payload)>;

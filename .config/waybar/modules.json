@@ -98,9 +98,10 @@
     "tooltip": true
   },
   "custom/wifi": {
-    "exec": "bash ~/.config/sway/scripts/waybar/network/wifi-status.sh",
+    "exec": "b1air-daemon wifi-status",
     "return-type": "json",
     "format": "{}",
+    "interval": 10,
     "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleNetworkWifi",
     "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleNetworkBt",
     "on-click-middle": "qs -p ~/.config/quickshell/Main.qml ipc call main open settings network",
@@ -110,10 +111,10 @@
     "format": "{icon}    {volume}%",
     "format-muted": "",
     "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleVolume",
-    "on-click-middle": "bash ~/.config/sway/scripts/controls/audio-control.sh --toggle",
+    "on-click-middle": "b1air-daemon volume mute",
     "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main open settings audio",
-    "on-scroll-up": "bash ~/.config/sway/scripts/controls/audio-control.sh --inc 5",
-    "on-scroll-down": "bash ~/.config/sway/scripts/controls/audio-control.sh --dec 5",
+    "on-scroll-up": "b1air-daemon volume up 5",
+    "on-scroll-down": "b1air-daemon volume down 5",
     "tooltip-format": "{icon} {desc}",
     "format-icons": {
       "headphone": ["", "", ""],
@@ -126,11 +127,10 @@
     }
   },
   "custom/mic": {
-    "exec": "bash ~/.config/sway/scripts/controls/mic-control.sh --get-waybar",
-    "interval": "once",
-    "signal": 1,
+    "exec": "b1air-daemon mic waybar",
+    "interval": 2,
     "format": "{}",
-    "on-click": "bash ~/.config/sway/scripts/controls/mic-control.sh --toggle",
+    "on-click": "b1air-daemon mic toggle",
     "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleVolume",
     "tooltip-format": "Left click: toggle mic\nRight click: volume panel",
     "tooltip": true
@@ -152,8 +152,9 @@
     "interval": 30
   },
   "custom/player": {
-    "exec": "bash ~/.config/sway/scripts/waybar/media/player-status.sh",
+    "exec": "b1air-daemon media-status",
     "return-type": "json",
+    "interval": 2,
     "max-length": 34,
     "format": "{}",
     "on-click": "playerctl play-pause",
@@ -164,13 +165,13 @@
     "tooltip": true
   },
   "backlight": {
-    "exec-if": "bash ~/.config/sway/scripts/controls/brightness-control.sh available",
+    "exec-if": "b1air-daemon brightness available",
     "format": "{icon}  {percent}%",
     "format-icons": ["󰃞", "󰃟", "󰃠"],
     "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleMonitors",
     "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main open settings monitors",
-    "on-scroll-up": "bash ~/.config/sway/scripts/controls/brightness-control.sh up",
-    "on-scroll-down": "bash ~/.config/sway/scripts/controls/brightness-control.sh down",
+    "on-scroll-up": "b1air-daemon brightness up 5",
+    "on-scroll-down": "b1air-daemon brightness down 5",
     "tooltip-format": "Scroll: laptop brightness\nClick: monitor brightness panel",
     "tooltip": true
   },
@@ -238,7 +239,7 @@
     }
   },
   "custom/language": {
-    "exec": "bash ~/.config/sway/scripts/waybar/language-status.sh",
+    "exec": "b1air-daemon layout",
     "interval": 2,
     "format": "{}",
     "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleKeyboard",

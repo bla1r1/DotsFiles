@@ -109,7 +109,7 @@ if status is-interactive
     alias game-mode 'b1air-daemon game-mode'
     alias b1air-lock 'b1air-daemon power lock'
     alias b1air-stats 'b1air-daemon stats'
-    alias fs-toggle 'bash ~/.config/sway/scripts/tools/fullscreen-toggle.sh'
+    alias fs-toggle 'b1air-daemon fullscreen-toggle'
 
     # ── Fastfetch on Startup ─────────────────────────────────────────────────
     if test -z "$TMUX" && type -q fastfetch

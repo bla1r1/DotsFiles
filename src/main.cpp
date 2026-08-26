@@ -23,14 +23,24 @@ static void handle_signal(int) {
 static void print_usage(const char* prog) {
     std::cout << "b1air-daemon — Native C++20 Desktop Suite & Background Services\n\n"
               << "Usage: " << prog << " <command> [options...]\n\n"
-              << "Commands:\n"
+              << "Core Services & Analytics:\n"
               << "  focus                              Run event-driven Sway window focus tracker daemon\n"
               << "  stats [YYYY-MM-DD]                 Get FocusTime statistics as formatted JSON\n"
               << "  user get                           Get user profile details as formatted JSON\n"
               << "  user set-avatar <path>             Update user profile avatar and sync with SDDM\n"
               << "  user set-name <name>               Update user display / full name\n"
               << "  user set-shell <path>              Update user login shell\n"
-              << "  user change-password               Launch secure interactive password prompt\n"
+              << "  user change-password               Launch secure interactive password prompt\n\n"
+              << "Compositor & Waybar Helpers (Priority 1):\n"
+              << "  layout                             Get active keyboard layout shorthand (US, UA, DE...)\n"
+              << "  fullscreen-toggle                  Toggle fullscreen & auto-center floating window\n"
+              << "  wifi-status                        Get Waybar-formatted Wi-Fi JSON\n"
+              << "  media-status                       Get Waybar-formatted Media Player JSON\n\n"
+              << "Controls & Hardware (Priority 2):\n"
+              << "  volume {get|up [N]|down [N]|mute}  Control audio sink volume & mute\n"
+              << "  mic {get|toggle|mute}              Control microphone mute status\n"
+              << "  brightness {available|get|up [N]|down [N]|set <pct>}\n"
+              << "                                     Control screen backlight brightness\n"
               << "  game-mode {on|off|toggle|status}   Control zero-overhead gaming optimizations\n"
               << "  power {lock|logout|suspend|reboot|shutdown}\n"
               << "                                     Execute session power state transitions\n"
@@ -161,6 +171,63 @@ int main(int argc, char* argv[]) {
             std::cerr << "Unknown user command: " << sub << "\n";
             return 1;
         }
+    } else if (cmd == "layout" || cmd == "lang") {
+        std::cout << SystemControl::get_layout_shorthand() << "\n";
+        return 0;
+    } else if (cmd == "fullscreen-toggle" || cmd == "fullscreen") {
+        return SystemControl::toggle_fullscreen() ? 0 : 1;
+    } else if (cmd == "wifi-status" || cmd == "wifi") {
+        std::cout << SystemControl::get_wifi_status_json() << "\n";
+        return 0;
+    } else if (cmd == "media-status" || cmd == "media") {
+        std::cout << SystemControl::get_media_status_json() << "\n";
+        return 0;
+    } else if (cmd == "volume") {
+        std::string sub = (argc >= 3) ? argv[2] : "get";
+        int step = (argc >= 4) ? std::atoi(argv[3]) : 5;
+        if (sub == "get") {
+            std::cout << SystemControl::get_volume() << "\n";
+            return 0;
+        } else if (sub == "up" || sub == "inc") {
+            return SystemControl::volume_up(step) ? 0 : 1;
+        } else if (sub == "down" || sub == "dec") {
+            return SystemControl::volume_down(step) ? 0 : 1;
+        } else if (sub == "mute" || sub == "toggle") {
+            return SystemControl::volume_toggle_mute() ? 0 : 1;
+        } else {
+            std::cerr << "Usage: " << argv[0] << " volume {get|up [N]|down [N]|mute}\n";
+            return 1;
+        }
+    } else if (cmd == "mic") {
+        std::string sub = (argc >= 3) ? argv[2] : "toggle";
+        if (sub == "get" || sub == "waybar") {
+            std::string status = SystemControl::get_mic_status();
+            std::cout << (status == "muted" ? "" : "") << "\n";
+            return 0;
+        } else if (sub == "toggle" || sub == "mute") {
+            return SystemControl::mic_toggle() ? 0 : 1;
+        } else {
+            std::cerr << "Usage: " << argv[0] << " mic {get|toggle}\n";
+            return 1;
+        }
+    } else if (cmd == "brightness" || cmd == "backlight") {
+        std::string sub = (argc >= 3) ? argv[2] : "get";
+        int step = (argc >= 4) ? std::atoi(argv[3]) : 5;
+        if (sub == "available") {
+            return SystemControl::brightness_available() ? 0 : 1;
+        } else if (sub == "get") {
+            std::cout << SystemControl::brightness_get() << "\n";
+            return 0;
+        } else if (sub == "up" || sub == "inc") {
+            return SystemControl::brightness_up(step) ? 0 : 1;
+        } else if (sub == "down" || sub == "dec") {
+            return SystemControl::brightness_down(step) ? 0 : 1;
+        } else if (sub == "set") {
+            return SystemControl::brightness_set(step) ? 0 : 1;
+        } else {
+            std::cerr << "Usage: " << argv[0] << " brightness {available|get|up [N]|down [N]|set <pct>}\n";
+            return 1;
+        }
     } else if (cmd == "game-mode" || cmd == "gamemode") {
         std::string sub = (argc >= 3) ? argv[2] : "toggle";
         if (sub == "on" || sub == "enable") {
@@ -195,7 +262,7 @@ int main(int argc, char* argv[]) {
     } else if (cmd == "lock") {
         return SystemControl::lock_session() ? 0 : 1;
     } else if (cmd == "version" || cmd == "-v" || cmd == "--version") {
-        std::cout << "b1air-daemon v2.1.0 (C++20, SQLite3, Sway-IPC, Tokyo Night)\n";
+        std::cout << "b1air-daemon v2.2.0 (C++20, SQLite3, Sway-IPC, Tokyo Night)\n";
         return 0;
     } else if (cmd == "help" || cmd == "-h" || cmd == "--help") {
         print_usage(argv[0]);

@@ -1,17 +1,19 @@
 #include "sway_ipc.hpp"
+
+#include <iostream>
+#include <vector>
+#include <cstring>
+#include <cstdlib>
+#include <unistd.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <unistd.h>
-#include <cstdlib>
-#include <cstring>
-#include <iostream>
-#include <sstream>
+#include <dirent.h>
 
 namespace b1air {
 
-static const char I3_MAGIC[] = "i3-ipc";
+static const char* I3_MAGIC = "i3-ipc";
 static const size_t I3_MAGIC_LEN = 6;
-static const size_t I3_HEADER_LEN = 14; // 6 (magic) + 4 (length) + 4 (type)
+static const size_t I3_HEADER_LEN = 14;
 
 SwayIPC::SwayIPC() {
     socket_path_ = find_socket_path();
@@ -22,29 +24,43 @@ SwayIPC::~SwayIPC() {
 }
 
 std::string SwayIPC::find_socket_path() {
-    const char* swaysock = std::getenv("SWAYSOCK");
-    if (swaysock && swaysock[0] != '\0') {
-        return std::string(swaysock);
+    const char* env = std::getenv("SWAYSOCK");
+    if (env && env[0] != '\0') {
+        return std::string(env);
     }
-    const char* i3sock = std::getenv("I3SOCK");
-    if (i3sock && i3sock[0] != '\0') {
-        return std::string(i3sock);
+    const char* i3_env = std::getenv("I3SOCK");
+    if (i3_env && i3_env[0] != '\0') {
+        return std::string(i3_env);
     }
+
+    // Fallback: look in /run/user/<UID>/sway-ipc.*.sock
+    uid_t uid = getuid();
+    std::string user_run = "/run/user/" + std::to_string(uid);
+    DIR* dir = opendir(user_run.c_str());
+    if (dir) {
+        struct dirent* entry;
+        while ((entry = readdir(dir)) != nullptr) {
+            if (std::strncmp(entry->d_name, "sway-ipc.", 9) == 0) {
+                std::string res = user_run + "/" + entry->d_name;
+                closedir(dir);
+                return res;
+            }
+        }
+        closedir(dir);
+    }
+
     return "";
 }
 
 bool SwayIPC::connect() {
+    if (fd_ >= 0) return true;
     if (socket_path_.empty()) {
         socket_path_ = find_socket_path();
-    }
-    if (socket_path_.empty()) {
-        return false;
+        if (socket_path_.empty()) return false;
     }
 
-    fd_ = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (fd_ < 0) {
-        return false;
-    }
+    fd_ = ::socket(AF_UNIX, SOCK_STREAM, 0);
+    if (fd_ < 0) return false;
 
     struct sockaddr_un addr;
     std::memset(&addr, 0, sizeof(addr));
@@ -112,6 +128,7 @@ bool SwayIPC::read_message(uint32_t& out_type, std::string& out_payload) {
     }
 
     if (std::memcmp(header, I3_MAGIC, I3_MAGIC_LEN) != 0) {
+        disconnect();
         return false;
     }
 
@@ -149,7 +166,11 @@ std::string SwayIPC::get_tree() {
     return send_command(4); // 4 = GET_TREE
 }
 
-// Quick helper to search for focused window in tree or container JSON
+std::string SwayIPC::get_inputs() {
+    return send_command(100); // 100 = GET_INPUTS
+}
+
+// Quick helper to search for focused window in tree JSON
 static bool parse_focused_node(const std::string& json, WindowInfo& out) {
     // Find `"focused":true` or `"focused": true`
     size_t f_pos = json.find("\"focused\":true");
@@ -160,16 +181,15 @@ static bool parse_focused_node(const std::string& json, WindowInfo& out) {
         return false;
     }
 
-    // Find the enclosing node start by finding previous '{' or "id"
+    // Find enclosing node start
     size_t node_start = json.rfind('{', f_pos);
     size_t node_end = json.find('}', f_pos);
     if (node_start == std::string::npos || node_end == std::string::npos) {
         return false;
     }
 
-    std::string chunk = json.substr(node_start, (node_end - node_start) + 200);
+    std::string chunk = json.substr(node_start, (node_end - node_start) + 300);
 
-    // Extract app_id
     auto extract_field = [](const std::string& s, const std::string& key) -> std::string {
         size_t kp = s.find("\"" + key + "\":");
         if (kp == std::string::npos) return "";
@@ -197,6 +217,23 @@ static bool parse_focused_node(const std::string& json, WindowInfo& out) {
         }
     }
 
+    // Fullscreen check
+    size_t fs_pos = chunk.find("\"fullscreen_mode\":");
+    if (fs_pos != std::string::npos) {
+        size_t num_start = chunk.find_first_of("0123456789", fs_pos + 18);
+        if (num_start != std::string::npos && chunk[num_start] > '0') {
+            out.fullscreen = true;
+        }
+    }
+
+    // Floating check
+    if (chunk.find("\"floating\":\"auto_on\"") != std::string::npos ||
+        chunk.find("\"floating\": \"auto_on\"") != std::string::npos ||
+        chunk.find("\"floating\":\"user_on\"") != std::string::npos ||
+        chunk.find("\"floating\": \"user_on\"") != std::string::npos) {
+        out.floating = true;
+    }
+
     if (!app_id.empty() || !name.empty()) {
         out.app_class = app_id.empty() ? name : app_id;
         out.title = name;
@@ -208,19 +245,33 @@ static bool parse_focused_node(const std::string& json, WindowInfo& out) {
 }
 
 WindowInfo SwayIPC::get_focused_window() {
-    WindowInfo win;
+    WindowInfo info;
     std::string tree = get_tree();
     if (!tree.empty()) {
-        parse_focused_node(tree, win);
+        parse_focused_node(tree, info);
     }
-    return win;
+    return info;
+}
+
+bool SwayIPC::toggle_fullscreen() {
+    WindowInfo win = get_focused_window();
+    if (win.fullscreen) {
+        send_command(0, "fullscreen disable");
+        if (win.floating) {
+            send_command(0, "resize set width 1280 px height 720 px; move position center");
+        }
+    } else {
+        send_command(0, "fullscreen enable");
+    }
+    return true;
 }
 
 bool SwayIPC::subscribe_events(const std::vector<std::string>& events, EventCallback callback) {
-    if (!connect()) {
+    if (fd_ < 0 && !connect()) {
         return false;
     }
 
+    // Format JSON array: ["window", "workspace"]
     std::string payload = "[";
     for (size_t i = 0; i < events.size(); ++i) {
         payload += "\"" + events[i] + "\"";
@@ -228,18 +279,17 @@ bool SwayIPC::subscribe_events(const std::vector<std::string>& events, EventCall
     }
     payload += "]";
 
-    // Send SUBSCRIBE (type 2)
-    if (!send_message(2, payload)) {
+    if (!send_message(2, payload)) { // 2 = SUBSCRIBE
         return false;
     }
 
-    uint32_t reply_type = 0;
-    std::string reply;
-    if (!read_message(reply_type, reply)) {
+    uint32_t resp_type = 0;
+    std::string response;
+    if (!read_message(resp_type, response)) {
         return false;
     }
 
-    // Event loop
+    // Read loop
     while (true) {
         uint32_t evt_type = 0;
         std::string evt_payload;
@@ -247,12 +297,17 @@ bool SwayIPC::subscribe_events(const std::vector<std::string>& events, EventCall
             break;
         }
 
-        // IPC event types have the highest bit set (0x80000000)
-        uint32_t clean_type = evt_type & 0x7FFFFFFF;
-        std::string evt_name = (clean_type == 0) ? "workspace" : ((clean_type == 3) ? "window" : "event");
-        if (callback) {
-            callback(evt_name, evt_payload);
-        }
+        // Mask out the highest bit indicating an event
+        uint32_t pure_type = evt_type & 0x7FFFFFFF;
+        std::string type_name = "unknown";
+        if (pure_type == 0) type_name = "workspace";
+        else if (pure_type == 3) type_name = "window";
+        else if (pure_type == 4) type_name = "barconfig_update";
+        else if (pure_type == 5) type_name = "mode";
+        else if (pure_type == 6) type_name = "shutdown";
+        else if (pure_type == 7) type_name = "tick";
+
+        callback(type_name, evt_payload);
     }
 
     return true;
