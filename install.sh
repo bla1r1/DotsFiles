@@ -118,26 +118,26 @@ enable_multilib_repo() {
 arch_packages() {
     local pkgs=(
         # Core & Build
-        base-devel git rsync curl unzip jq inotify-tools socat
+        base-devel git rsync curl unzip jq inotify-tools socat cmake ccache
         # Wayland Compositor & Shell
         swaybg swayidle swaylock xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk
-        waybar rofi-wayland quickshell xorg-xwayland autotiling
+        waybar layer-shell-qt xorg-xwayland autotiling
         # Modern CLI & Shell
         fish starship eza bat fzf zoxide fastfetch btop trash-cli
         # Terminal Emulators
         kitty foot
         # GUI Applications
-        firefox thunar nautilus pavucontrol
+        firefox thunar
         # Clipboard & Screenshots
-        wl-clipboard cliphist grim slurp swappy
+        wl-clipboard grim slurp swappy
         # Audio & Media
-        pipewire wireplumber pipewire-pulse pamixer playerctl
+        pipewire wireplumber pipewire-pulse pamixer playerctl libcanberra
         # System & Hardware
-        upower brightnessctl ddcutil pacman-contrib libnotify polkit-gnome
+        upower brightnessctl ddcutil pacman-contrib libnotify
         # Network & Bluetooth
-        networkmanager network-manager-applet blueman
+        networkmanager
         # Display Manager (SDDM) & Qt6 Components
-        sddm qt6-5compat qt6-declarative qt6-svg qt6-multimedia qt6-virtualkeyboard
+        sddm qt6-5compat qt6-declarative qt6-wayland qt6-svg qt6-multimedia qt6-virtualkeyboard
         # Theming & Fonts
         qt5ct qt6ct kvantum nwg-look
         noto-fonts noto-fonts-emoji noto-fonts-cjk ttf-jetbrains-mono-nerd ttf-fira-sans
@@ -345,39 +345,30 @@ detect_and_install_vm_guest_tools() {
                     fi
                     ;;
                 vmware)
-                    pkg_install open-vm-tools
-                    if [[ "$DRY_RUN" -eq 0 ]]; then
-                        sudo systemctl enable --now vmtoolsd 2>/dev/null || true
-                    fi
-                    ;;
-            esac
+        virt="$(systemd-detect-virt || true)"
+        if [[ "$virt" == "oracle" || "$virt" == "kvm" || "$virt" == "qemu" || "$virt" == "vmware" ]]; then
+            log "Virtual Machine detected ($virt). Installing guest integration..."
+            pkg_install mesa
         fi
     fi
 }
 
 enable_services() {
-    log "Enabling core system services..."
+    log "Enabling system services..."
     if [[ "$DRY_RUN" -eq 1 ]]; then
-        log "Would enable NetworkManager, bluetooth, and sddm"
+        log "Would enable: NetworkManager, bluetooth, sddm"
         return 0
     fi
 
-    sudo systemctl enable --now NetworkManager || warn "Failed to enable NetworkManager"
-    sudo systemctl enable --now bluetooth || warn "Failed to enable bluetooth"
-
-    # Disable conflicting display managers
-    for dm in lightdm gdm gdm3 lxdm xdm; do
-        if systemctl is-enabled "$dm" 2>/dev/null; then
-            sudo systemctl disable "$dm" || true
-        fi
-    done
-
+    sudo systemctl enable NetworkManager || warn "Failed to enable NetworkManager"
+    sudo systemctl enable bluetooth || warn "Failed to enable Bluetooth"
     sudo systemctl enable sddm || warn "Failed to enable SDDM"
 }
 
-build_b1air_daemon() {
-    log "Building and installing b1air-daemon (C++20 Desktop Suite)..."
+build_b1air_suite() {
+    log "Building and installing b1air-daemon & b1air-shell (Native C++20 Desktop Suite)..."
     if [[ -d "$REPO_DIR/src" ]]; then
+        # 1. Daemon
         make -C "$REPO_DIR/src" clean >/dev/null 2>&1 || true
         make -C "$REPO_DIR/src" PREFIX="${HOME}/.local/bin" install || warn "Failed to build b1air-daemon"
         if sudo install -m 755 "$REPO_DIR/src/b1air-daemon" /usr/local/bin/b1air-daemon 2>/dev/null; then
@@ -385,12 +376,24 @@ build_b1air_daemon() {
         else
             ok "b1air-daemon installed to ~/.local/bin/b1air-daemon"
         fi
+
+        # 2. Native b1air-shell
+        if [[ -d "$REPO_DIR/src/shell" ]]; then
+            cmake -B "$REPO_DIR/src/shell/build" "$REPO_DIR/src/shell" >/dev/null 2>&1 || true
+            cmake --build "$REPO_DIR/src/shell/build" -j"$(nproc 2>/dev/null || echo 4)" || warn "Failed to build b1air-shell"
+            if sudo install -m 755 "$REPO_DIR/src/shell/build/b1air-shell" /usr/local/bin/b1air-shell 2>/dev/null; then
+                ok "b1air-shell installed to /usr/local/bin/b1air-shell"
+            elif [[ -f "$REPO_DIR/src/shell/build/b1air-shell" ]]; then
+                install -m 755 "$REPO_DIR/src/shell/build/b1air-shell" "${HOME}/.local/bin/b1air-shell"
+                ok "b1air-shell installed to ~/.local/bin/b1air-shell"
+            fi
+        fi
     fi
 }
 
 post_install_checks() {
     log "Running environment verification..."
-    local commands=(sway swaylock quickshell kitty fish starship eza bat fzf sddm b1air-daemon)
+    local commands=(sway swaylock kitty fish starship eza bat fzf sddm b1air-daemon b1air-shell)
     local missing=()
 
     for cmd in "${commands[@]}"; do
