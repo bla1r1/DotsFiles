@@ -147,20 +147,26 @@ run_update() {
 
     pull_cmd="git -C $(printf '%q' "$repo_dir") pull --ff-only"
     update_cmd="bash $(printf '%q' "$repo_dir/update-dotfiles.sh") --repo-dir $(printf '%q' "$repo_dir")"
-    full_cmd="$pull_cmd && $update_cmd; status=\$?; if command -v notify-send >/dev/null 2>&1; then if [ \$status -eq 0 ]; then notify-send 'DotsFiles Update' 'Pull and update finished successfully'; else notify-send 'DotsFiles Update' 'Update finished with errors'; fi; fi; printf '\nPress Enter to close...'; read -r _; exit \$status"
-
     launch_terminal "$full_cmd"
+}
+
+run_system_update() {
+    local cmd="if command -v yay >/dev/null 2>&1; then yay -Syu; elif command -v paru >/dev/null 2>&1; then paru -Syu; else sudo pacman -Syu; fi; status=\$?; if command -v notify-send >/dev/null 2>&1; then if [ \$status -eq 0 ]; then notify-send 'System Update' 'System packages updated successfully'; else notify-send 'System Update' 'System update encountered errors'; fi; fi; printf '\nPress Enter to close...'; read -r _; exit \$status"
+    launch_terminal "$cmd"
 }
 
 case "${1:-status}" in
     status)
         print_status_json
         ;;
-    run)
+    run|env)
         run_update
         ;;
+    sys|system)
+        run_system_update
+        ;;
     *)
-        printf 'Usage: %s [status|run]\n' "$0" >&2
+        printf 'Usage: %s [status|env|sys]\n' "$0" >&2
         exit 1
         ;;
 esac
