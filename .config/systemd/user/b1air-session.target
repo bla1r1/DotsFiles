@@ -1,0 +1,6 @@
+[Unit]
+Description=b1air Desktop Environment Session Target
+Documentation=https://github.com/bla1r1/DotsFiles
+BindsTo=graphical-session.target
+Wants=graphical-session-pre.target
+After=graphical-session-pre.target

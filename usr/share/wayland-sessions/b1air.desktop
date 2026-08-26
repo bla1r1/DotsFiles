@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=b1air Desktop
+Comment=Modern Tokyo Night Tiling Desktop Environment
+Exec=b1air-session
+Type=Application
+DesktopNames=b1air;sway
+Keywords=tiling;wayland;compositor;sway;b1air;

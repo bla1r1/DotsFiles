@@ -253,20 +253,32 @@ deploy_sddm_theme() {
     fi
 }
 
-build_and_install_b1air_daemon() {
-    local src_dir="$REPO_DIR/src"
-    local bin_dir="$HOME/.local/bin"
+deploy_session_files() {
+    log "Deploying b1air FreeDesktop Wayland session files & portals..."
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        log "Would install b1air.desktop, b1air-session, and b1air-portals.conf"
+        return 0
+    fi
 
-    if [[ -d "$src_dir" && -f "$src_dir/Makefile" ]]; then
-        log "Compiling b1air-daemon C++ suite..."
-        if [[ "$DRY_RUN" -eq 1 ]]; then
-            log "Would build $src_dir and install to $bin_dir/b1air-daemon"
-        else
-            make -C "$src_dir" clean all
-            install -d -m 755 "$bin_dir"
-            install -m 755 "$src_dir/b1air-daemon" "$bin_dir/b1air-daemon"
-            log "Installed b1air-daemon to $bin_dir/b1air-daemon"
-        fi
+    # 1. Wayland session entry for SDDM/GDM
+    if [[ -f "$REPO_DIR/usr/share/wayland-sessions/b1air.desktop" ]]; then
+        sudo install -d -m 755 /usr/share/wayland-sessions
+        sudo install -m 644 "$REPO_DIR/usr/share/wayland-sessions/b1air.desktop" /usr/share/wayland-sessions/b1air.desktop
+        ok "Installed /usr/share/wayland-sessions/b1air.desktop"
+    fi
+
+    # 2. b1air-session binary
+    if [[ -f "$REPO_DIR/usr/bin/b1air-session" ]]; then
+        sudo install -d -m 755 /usr/bin
+        sudo install -m 755 "$REPO_DIR/usr/bin/b1air-session" /usr/bin/b1air-session
+        ok "Installed /usr/bin/b1air-session"
+    fi
+
+    # 3. XDG Desktop Portals config
+    if [[ -f "$REPO_DIR/usr/share/xdg-desktop-portal/b1air-portals.conf" ]]; then
+        sudo install -d -m 755 /usr/share/xdg-desktop-portal
+        sudo install -m 644 "$REPO_DIR/usr/share/xdg-desktop-portal/b1air-portals.conf" /usr/share/xdg-desktop-portal/b1air-portals.conf
+        ok "Installed /usr/share/xdg-desktop-portal/b1air-portals.conf"
     fi
 }
 
@@ -275,6 +287,7 @@ deploy_dotfiles() {
     if [[ "$DRY_RUN" -eq 1 ]]; then
         log "Would deploy .config and .wallpapers to $HOME"
         deploy_sddm_theme
+        deploy_session_files
         return 0
     fi
 
@@ -302,6 +315,9 @@ deploy_dotfiles() {
 
     # Build and install b1air-daemon C++ suite
     build_b1air_daemon
+
+    # Deploy Wayland session files & portals
+    deploy_session_files
 
     # Refresh user font cache
     fc-cache -f >/dev/null 2>&1 || true

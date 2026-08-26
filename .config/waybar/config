@@ -20,6 +20,7 @@
         "custom/appmenu",
         "group/quicklinks",
         "sway/workspaces",
+        "custom/minimized",
         "wlr/taskbar",
         "custom/player"
     ],
@@ -29,6 +30,7 @@
     ],
 
     "modules-right": [
+        "custom/caffeine",
         "group/stats",
         "group/system"
     ]

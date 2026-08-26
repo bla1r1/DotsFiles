@@ -1,0 +1,50 @@
+[Default Applications]
+# Text and Code
+text/plain=nvim.desktop;micro.desktop;kitty.desktop;
+text/markdown=nvim.desktop;micro.desktop;
+text/x-c=nvim.desktop;micro.desktop;
+text/x-c++=nvim.desktop;micro.desktop;
+text/x-python=nvim.desktop;micro.desktop;
+text/x-shellscript=nvim.desktop;micro.desktop;
+application/json=nvim.desktop;micro.desktop;
+application/xml=nvim.desktop;micro.desktop;
+application/x-yaml=nvim.desktop;micro.desktop;
+
+# Web & URLs
+text/html=firefox.desktop;chromium.desktop;
+x-scheme-handler/http=firefox.desktop;chromium.desktop;
+x-scheme-handler/https=firefox.desktop;chromium.desktop;
+x-scheme-handler/about=firefox.desktop;chromium.desktop;
+x-scheme-handler/unknown=firefox.desktop;chromium.desktop;
+
+# File Manager & Directories
+inode/directory=thunar.desktop;yazi.desktop;kitty.desktop;
+
+# Images
+image/jpeg=imv.desktop;org.gnome.Loupe.desktop;
+image/png=imv.desktop;org.gnome.Loupe.desktop;
+image/gif=imv.desktop;org.gnome.Loupe.desktop;
+image/webp=imv.desktop;org.gnome.Loupe.desktop;
+image/svg+xml=imv.desktop;org.gnome.Loupe.desktop;
+
+# Audio & Video
+audio/mpeg=mpv.desktop;
+audio/flac=mpv.desktop;
+audio/ogg=mpv.desktop;
+audio/wav=mpv.desktop;
+video/mp4=mpv.desktop;
+video/mkv=mpv.desktop;
+video/webm=mpv.desktop;
+video/x-matroska=mpv.desktop;
+
+# Archives
+application/zip=xarchiver.desktop;org.gnome.FileRoller.desktop;
+application/x-tar=xarchiver.desktop;org.gnome.FileRoller.desktop;
+application/x-7z-compressed=xarchiver.desktop;org.gnome.FileRoller.desktop;
+application/x-rar=xarchiver.desktop;org.gnome.FileRoller.desktop;
+
+# PDF & Documents
+application/pdf=zathura.desktop;org.gnome.Evince.desktop;firefox.desktop;
+
+# Terminal
+x-scheme-handler/terminal=kitty.desktop;

@@ -7,7 +7,7 @@ import "../Ui"
 import "../Services"
 
 // =============================================================================
-// Native Quickshell Spotlight Launcher & Command Palette
+// Native Quickshell Spotlight Launcher & Command Palette (Dynamic Apps Scanner)
 // =============================================================================
 
 PopupShell {
@@ -18,25 +18,50 @@ PopupShell {
     property string query: ""
     property int selectedIndex: 0
     property string calcResult: ""
+    property var systemApps: []
 
-    // ── Quick Commands & Apps ────────────────────────────────────────────────
+    Process {
+        id: appLoader
+        running: true
+        command: ["b1air-daemon", "apps", "all"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    let items = JSON.parse(this.text);
+                    let res = [];
+                    for (let app of items) {
+                        res.push({
+                            name: app.name,
+                            desc: app.comment || "Installed Application",
+                            icon: app.icon || "\u{f108}",
+                            app_id: app.icon || "",
+                            cmd: app.exec,
+                            cat: "Applications"
+                        });
+                    }
+                    window.systemApps = res;
+                } catch (e) {}
+            }
+        }
+    }
+
+    // ── Quick Commands & Core Actions ────────────────────────────────────────
     readonly property var baseApps: [
         { name: "Terminal", desc: "Launch Kitty Terminal emulator", icon: "\u{f120}", cmd: "kitty", cat: "System" },
         { name: "Web Browser", desc: "Browse the web (Firefox)", icon: "\u{f269}", cmd: "firefox", cat: "Internet" },
-        { name: "File Manager", desc: "Browse files and folders", icon: "\u{f07b}", cmd: "nautilus", cat: "System" },
+        { name: "File Manager", desc: "Browse files and folders", icon: "\u{f07b}", cmd: "thunar", cat: "System" },
         { name: "Settings", desc: "Open System & Desktop Settings", icon: "\u{f013}", cmd: "qs -p " + Quickshell.env("HOME") + "/.config/quickshell/Main.qml ipc call main toggleSettings", cat: "System" },
         { name: "Control Center", desc: "Quick toggles & notifications", icon: "\u{f0f3}", cmd: "qs -p " + Quickshell.env("HOME") + "/.config/quickshell/Main.qml ipc call main toggleControl", cat: "System" },
         { name: "Clipboard Manager", desc: "Search clipboard history & snippets", icon: "\u{f0ea}", cmd: "qs -p " + Quickshell.env("HOME") + "/.config/quickshell/Main.qml ipc call main toggleClipboard", cat: "Utilities" },
+        { name: "Color Dropper", desc: "Pick any color on screen to clipboard", icon: "\u{f1fb}", cmd: Quickshell.env("HOME") + "/.local/bin/b1air-daemon color-picker", cat: "Utilities" },
+        { name: "Window Switcher", desc: "Visual Alt+Tab task manager", icon: "\u{f009}", cmd: "qs -p " + Quickshell.env("HOME") + "/.config/quickshell/Main.qml ipc call main toggleSwitcher", cat: "System" },
         { name: "Wallpaper Gallery", desc: "Browse and set desktop wallpapers", icon: "\u{f03e}", cmd: "qs -p " + Quickshell.env("HOME") + "/.config/quickshell/Main.qml ipc call main open settings wallpaper", cat: "Appearance" },
         { name: "Focus & Screen Time", desc: "Pomodoro timer & usage breakdown", icon: "\u{f017}", cmd: "qs -p " + Quickshell.env("HOME") + "/.config/quickshell/Main.qml ipc call main toggleFocusTime", cat: "Utilities" },
         { name: "Lock Screen", desc: "Lock current user session", icon: "\u{f023}", cmd: Quickshell.env("HOME") + "/.local/bin/b1air-daemon power lock", cat: "Session" },
         { name: "Power & Session", desc: "Shutdown, reboot, sleep options", icon: "\u{f011}", cmd: "qs -p " + Quickshell.env("HOME") + "/.config/quickshell/Main.qml ipc call main open session", cat: "Session" },
         { name: "Screenshot (Area)", desc: "Capture selected region", icon: "\u{f030}", cmd: Quickshell.env("HOME") + "/.local/bin/b1air-daemon screenshot area", cat: "Utilities" },
         { name: "Screenshot (Full)", desc: "Capture entire screen", icon: "\u{f108}", cmd: Quickshell.env("HOME") + "/.local/bin/b1air-daemon screenshot full", cat: "Utilities" },
-        { name: "Btop System Monitor", desc: "Terminal task manager", icon: "\u{f080}", cmd: "kitty btop", cat: "System" },
-        { name: "Discord", desc: "Chat and messaging", icon: "\u{f392}", cmd: "discord", cat: "Internet" },
-        { name: "Telegram", desc: "Telegram messaging app", icon: "\u{f2c6}", cmd: "telegram-desktop", cat: "Internet" },
-        { name: "Steam", desc: "Gaming platform", icon: "\u{f1b6}", cmd: "steam", cat: "Games" }
+        { name: "Btop System Monitor", desc: "Terminal task manager", icon: "\u{f080}", cmd: "kitty btop", cat: "System" }
     ]
 
     function evaluateMath(expr) {
@@ -66,10 +91,12 @@ PopupShell {
         window.selectedIndex = 0;
     }
 
+    readonly property var allApps: window.baseApps.concat(window.systemApps)
+
     readonly property var filteredApps: {
         const q = window.query.trim().toLowerCase();
         if (!q) return window.baseApps;
-        return window.baseApps.filter(a => {
+        return window.allApps.filter(a => {
             return a.name.toLowerCase().includes(q) ||
                    a.desc.toLowerCase().includes(q) ||
                    a.cat.toLowerCase().includes(q) ||
@@ -127,7 +154,7 @@ PopupShell {
                     id: searchInput
                     Layout.fillWidth: true
                     verticalAlignment: TextInput.AlignVCenter
-                    font.family: Design.font.base
+                    font.family: Design.font.sans
                     font.weight: Design.weight.medium
                     font.pixelSize: Design.s(15)
                     color: Design.text
@@ -153,13 +180,15 @@ PopupShell {
                             const adjIdx = window.calcResult ? window.selectedIndex - 1 : window.selectedIndex;
                             if (adjIdx >= 0 && adjIdx < window.filteredApps.length) {
                                 window.execute(window.filteredApps[adjIdx]);
+                            } else if (window.query.trim()) {
+                                window.execute(window.query.trim());
                             }
                         }
                     }
 
                     Label {
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "Search apps, calculate (e.g. 45 * 12), or run commands..."
+                        text: "Search all apps, calculate (e.g. 45 * 12), or run command..."
                         color: Design.textDim
                         role: "body"
                         visible: !searchInput.text && !searchInput.activeFocus
@@ -257,9 +286,18 @@ PopupShell {
                     anchors.rightMargin: Design.s(Design.space.md)
                     spacing: Design.s(Design.space.md)
 
+                    Image {
+                        Layout.preferredWidth: Design.s(22)
+                        Layout.preferredHeight: Design.s(22)
+                        source: rowRect.modelData.app_id ? (rowRect.modelData.app_id.startsWith("/") ? "file://" + rowRect.modelData.app_id : "image://icon/" + rowRect.modelData.app_id) : ""
+                        visible: source.toString() !== ""
+                        fillMode: Image.PreserveAspectFit
+                    }
+
                     Icon {
-                        text: rowRect.modelData.icon
-                        color: isSelected ? Design.accent : Design.text
+                        visible: !parent.children[0].visible
+                        text: rowRect.modelData.icon || "\u{f108}"
+                        color: rowRect.isSelected ? Design.accent : Design.text
                         role: "body"
                     }
 
@@ -270,7 +308,7 @@ PopupShell {
                         Label {
                             text: rowRect.modelData.name
                             weight: Design.weight.semibold
-                            color: isSelected ? Design.text : Design.text
+                            color: rowRect.isSelected ? Design.text : Design.text
                             elide: Text.ElideRight
                             Layout.fillWidth: true
                         }
@@ -286,7 +324,7 @@ PopupShell {
 
                     Badge {
                         text: rowRect.modelData.cat
-                        tone: isSelected ? Design.accent : Design.textDim
+                        tone: rowRect.isSelected ? Design.accent : Design.textDim
                     }
                 }
 

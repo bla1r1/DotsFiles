@@ -1,0 +1,15 @@
+[Unit]
+Description=b1air Desktop Environment Core Daemon
+Documentation=https://github.com/bla1r1/DotsFiles
+PartOf=b1air-session.target
+After=b1air-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/b1air-daemon session
+ExecReload=%h/.local/bin/b1air-daemon reload
+Restart=on-failure
+RestartSec=1s
+
+[Install]
+WantedBy=b1air-session.target

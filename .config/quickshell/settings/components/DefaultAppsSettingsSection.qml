@@ -1,11 +1,12 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Io
 import "../../Ui"
 import "../../Services"
 
 // =============================================================================
-// Default Applications Settings
+// Default Applications Settings (Dynamic Desktop App Discovery)
 // =============================================================================
 
 ColumnLayout {
@@ -16,44 +17,129 @@ ColumnLayout {
 
     property string defaultBrowser: Settings.defaultBrowser || "firefox"
     property string defaultTerminal: Settings.defaultTerminal || "kitty"
-    property string defaultFileManager: Settings.defaultFileManager || "nautilus"
+    property string defaultFileManager: Settings.defaultFileManager || "thunar"
     property string defaultEditor: Settings.defaultEditor || "code"
+    property string defaultPlayer: Settings.defaultPlayer || "mpv"
 
-    function setBrowser(appId) {
-        if (!appId || !appId.trim()) return;
-        const val = appId.trim();
+    // ── Dynamic App Scanner Models ───────────────────────────────────────────
+    readonly property ListModel browserList: ListModel {}
+    readonly property ListModel terminalList: ListModel {}
+    readonly property ListModel fileManagerList: ListModel {}
+    readonly property ListModel editorList: ListModel {}
+    readonly property ListModel playerList: ListModel {}
+
+    Process {
+        id: appScanner
+        running: true
+        command: ["b1air-daemon", "apps", "all"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    let items = JSON.parse(this.text);
+                    section.browserList.clear();
+                    section.terminalList.clear();
+                    section.fileManagerList.clear();
+                    section.editorList.clear();
+                    section.playerList.clear();
+
+                    // Standard fallbacks if system scan is empty
+                    let bFound = false, tFound = false, fFound = false, eFound = false, pFound = false;
+
+                    for (let app of items) {
+                        let e = (app.exec || "").toLowerCase();
+                        let n = (app.name || "").toLowerCase();
+                        let f = (app.desktopFile || "").toLowerCase();
+
+                        if (e.includes("firefox") || e.includes("chrome") || e.includes("chromium") || e.includes("brave") || e.includes("zen") || e.includes("vivaldi") || e.includes("librewolf") || e.includes("floorp") || e.includes("qutebrowser")) {
+                            section.browserList.append({ name: app.name, exec: app.exec, desktopFile: app.desktopFile, icon: app.icon });
+                            bFound = true;
+                        }
+                        if (e.includes("kitty") || e.includes("foot") || e.includes("alacritty") || e.includes("ghostty") || e.includes("wezterm") || e.includes("konsole") || e.includes("xterm")) {
+                            section.terminalList.append({ name: app.name, exec: app.exec, desktopFile: app.desktopFile, icon: app.icon });
+                            tFound = true;
+                        }
+                        if (e.includes("thunar") || e.includes("nautilus") || e.includes("dolphin") || e.includes("nemo") || e.includes("pcmanfm") || e.includes("yazi") || e.includes("ranger")) {
+                            section.fileManagerList.append({ name: app.name, exec: app.exec, desktopFile: app.desktopFile, icon: app.icon });
+                            fFound = true;
+                        }
+                        if (e.includes("code") || e.includes("cursor") || e.includes("nvim") || e.includes("zed") || e.includes("kate") || e.includes("gedit") || e.includes("micro") || e.includes("sublime")) {
+                            section.editorList.append({ name: app.name, exec: app.exec, desktopFile: app.desktopFile, icon: app.icon });
+                            eFound = true;
+                        }
+                        if (e.includes("mpv") || e.includes("vlc") || e.includes("spotify") || e.includes("celluloid") || e.includes("audacious")) {
+                            section.playerList.append({ name: app.name, exec: app.exec, desktopFile: app.desktopFile, icon: app.icon });
+                            pFound = true;
+                        }
+                    }
+
+                    // Pre-populate if empty
+                    if (!bFound) {
+                        section.browserList.append({ name: "Firefox", exec: "firefox", desktopFile: "firefox.desktop", icon: "firefox" });
+                        section.browserList.append({ name: "Chromium", exec: "chromium", desktopFile: "chromium.desktop", icon: "chromium" });
+                    }
+                    if (!tFound) {
+                        section.terminalList.append({ name: "Kitty", exec: "kitty", desktopFile: "kitty.desktop", icon: "kitty" });
+                        section.terminalList.append({ name: "Foot", exec: "foot", desktopFile: "foot.desktop", icon: "foot" });
+                    }
+                    if (!fFound) {
+                        section.fileManagerList.append({ name: "Thunar", exec: "thunar", desktopFile: "thunar.desktop", icon: "thunar" });
+                        section.fileManagerList.append({ name: "Nautilus", exec: "nautilus", desktopFile: "org.gnome.Nautilus.desktop", icon: "org.gnome.Nautilus" });
+                    }
+                    if (!eFound) {
+                        section.editorList.append({ name: "VS Code", exec: "code", desktopFile: "code.desktop", icon: "code" });
+                        section.editorList.append({ name: "Neovim", exec: "nvim", desktopFile: "nvim.desktop", icon: "nvim" });
+                    }
+                    if (!pFound) {
+                        section.playerList.append({ name: "MPV", exec: "mpv", desktopFile: "mpv.desktop", icon: "mpv" });
+                    }
+                } catch (err) {}
+            }
+        }
+    }
+
+    function setBrowser(appExec, desktopFile) {
+        if (!appExec || !appExec.trim()) return;
+        const val = appExec.trim();
         section.defaultBrowser = val;
         Settings.set("defaultBrowser", val);
-        const desktopFile = val === "brave" ? "brave-browser.desktop" 
-                          : (val === "firefox" ? "firefox.desktop" 
-                          : (val === "zen" ? "zen.desktop" 
-                          : (val === "chromium" ? "chromium.desktop" : val + ".desktop")));
-        Quickshell.execDetached(["xdg-mime", "default", desktopFile, "x-scheme-handler/http", "x-scheme-handler/https", "text/html"]);
+        const df = desktopFile || (val.endsWith(".desktop") ? val : val + ".desktop");
+        Quickshell.execDetached(["xdg-mime", "default", df, "x-scheme-handler/http", "x-scheme-handler/https", "text/html"]);
     }
 
-    function setTerminal(appId) {
-        if (!appId || !appId.trim()) return;
-        const val = appId.trim();
+    function setTerminal(appExec, desktopFile) {
+        if (!appExec || !appExec.trim()) return;
+        const val = appExec.trim();
         section.defaultTerminal = val;
         Settings.set("defaultTerminal", val);
+        const df = desktopFile || (val.endsWith(".desktop") ? val : val + ".desktop");
+        Quickshell.execDetached(["xdg-mime", "default", df, "x-scheme-handler/terminal"]);
     }
 
-    function setFileManager(appId) {
-        if (!appId || !appId.trim()) return;
-        const val = appId.trim();
+    function setFileManager(appExec, desktopFile) {
+        if (!appExec || !appExec.trim()) return;
+        const val = appExec.trim();
         section.defaultFileManager = val;
         Settings.set("defaultFileManager", val);
-        const desktopFile = (val === "thunar" ? "thunar.desktop" : (val === "nautilus" ? "org.gnome.Nautilus.desktop" : (val === "dolphin" ? "org.kde.dolphin.desktop" : val + ".desktop")));
-        Quickshell.execDetached(["xdg-mime", "default", desktopFile, "inode/directory"]);
+        const df = desktopFile || (val.endsWith(".desktop") ? val : val + ".desktop");
+        Quickshell.execDetached(["xdg-mime", "default", df, "inode/directory"]);
     }
 
-    function setEditor(appId) {
-        if (!appId || !appId.trim()) return;
-        const val = appId.trim();
+    function setEditor(appExec, desktopFile) {
+        if (!appExec || !appExec.trim()) return;
+        const val = appExec.trim();
         section.defaultEditor = val;
         Settings.set("defaultEditor", val);
-        const desktopFile = (val === "code" ? "code.desktop" : (val === "cursor" ? "cursor.desktop" : val + ".desktop"));
-        Quickshell.execDetached(["xdg-mime", "default", desktopFile, "text/plain"]);
+        const df = desktopFile || (val.endsWith(".desktop") ? val : val + ".desktop");
+        Quickshell.execDetached(["xdg-mime", "default", df, "text/plain", "text/markdown", "application/json"]);
+    }
+
+    function setPlayer(appExec, desktopFile) {
+        if (!appExec || !appExec.trim()) return;
+        const val = appExec.trim();
+        section.defaultPlayer = val;
+        Settings.set("defaultPlayer", val);
+        const df = desktopFile || (val.endsWith(".desktop") ? val : val + ".desktop");
+        Quickshell.execDetached(["xdg-mime", "default", df, "video/mp4", "video/mkv", "audio/mpeg", "audio/flac"]);
     }
 
     // ── 1. Web Browser ───────────────────────────────────────────────────────
@@ -68,18 +154,14 @@ ColumnLayout {
             spacing: Design.s(Design.space.xs)
 
             Repeater {
-                model: [
-                    { id: "brave", label: "Brave" },
-                    { id: "firefox", label: "Firefox" },
-                    { id: "zen", label: "Zen" },
-                    { id: "chromium", label: "Chromium" }
-                ]
+                model: section.browserList
                 delegate: Pill {
-                    label: modelData.label
-                    active: section.defaultBrowser === modelData.id
+                    required property var model
+                    label: model.name
+                    active: section.defaultBrowser.toLowerCase().includes(model.exec.toLowerCase()) || model.exec.toLowerCase().includes(section.defaultBrowser.toLowerCase())
                     onClicked: {
                         browserCustomInput.text = "";
-                        section.setBrowser(modelData.id);
+                        section.setBrowser(model.exec, model.desktopFile);
                     }
                 }
             }
@@ -111,7 +193,6 @@ ColumnLayout {
                         font.pixelSize: Design.font.caption
                         clip: true
                         selectByMouse: true
-                        text: ["brave", "firefox", "zen", "chromium"].includes(section.defaultBrowser) ? "" : section.defaultBrowser
                         Text {
                             text: "Custom binary / executable (e.g. librewolf, floorp, qutebrowser)..."
                             color: Design.textDim
@@ -119,7 +200,7 @@ ColumnLayout {
                             anchors.fill: parent
                             font: browserCustomInput.font
                         }
-                        onAccepted: section.setBrowser(text)
+                        onAccepted: section.setBrowser(text, "")
                     }
                 }
             }
@@ -128,7 +209,7 @@ ColumnLayout {
                 icon: "󰄬"
                 label: "Set"
                 tone: Design.sapphire
-                onActivated: section.setBrowser(browserCustomInput.text)
+                onActivated: section.setBrowser(browserCustomInput.text, "")
             }
         }
     }
@@ -145,17 +226,14 @@ ColumnLayout {
             spacing: Design.s(Design.space.xs)
 
             Repeater {
-                model: [
-                    { id: "kitty", label: "Kitty" },
-                    { id: "foot", label: "Foot" },
-                    { id: "alacritty", label: "Alacritty" }
-                ]
+                model: section.terminalList
                 delegate: Pill {
-                    label: modelData.label
-                    active: section.defaultTerminal === modelData.id
+                    required property var model
+                    label: model.name
+                    active: section.defaultTerminal.toLowerCase().includes(model.exec.toLowerCase()) || model.exec.toLowerCase().includes(section.defaultTerminal.toLowerCase())
                     onClicked: {
                         termCustomInput.text = "";
-                        section.setTerminal(modelData.id);
+                        section.setTerminal(model.exec, model.desktopFile);
                     }
                 }
             }
@@ -187,7 +265,6 @@ ColumnLayout {
                         font.pixelSize: Design.font.caption
                         clip: true
                         selectByMouse: true
-                        text: ["kitty", "foot", "alacritty"].includes(section.defaultTerminal) ? "" : section.defaultTerminal
                         Text {
                             text: "Custom binary / executable (e.g. wezterm, ghostty, xterm)..."
                             color: Design.textDim
@@ -195,7 +272,7 @@ ColumnLayout {
                             anchors.fill: parent
                             font: termCustomInput.font
                         }
-                        onAccepted: section.setTerminal(text)
+                        onAccepted: section.setTerminal(text, "")
                     }
                 }
             }
@@ -204,7 +281,7 @@ ColumnLayout {
                 icon: "󰄬"
                 label: "Set"
                 tone: Design.green
-                onActivated: section.setTerminal(termCustomInput.text)
+                onActivated: section.setTerminal(termCustomInput.text, "")
             }
         }
     }
@@ -221,17 +298,14 @@ ColumnLayout {
             spacing: Design.s(Design.space.xs)
 
             Repeater {
-                model: [
-                    { id: "thunar", label: "Thunar" },
-                    { id: "nautilus", label: "Nautilus" },
-                    { id: "dolphin", label: "Dolphin" }
-                ]
+                model: section.fileManagerList
                 delegate: Pill {
-                    label: modelData.label
-                    active: section.defaultFileManager === modelData.id
+                    required property var model
+                    label: model.name
+                    active: section.defaultFileManager.toLowerCase().includes(model.exec.toLowerCase()) || model.exec.toLowerCase().includes(section.defaultFileManager.toLowerCase())
                     onClicked: {
                         fmCustomInput.text = "";
-                        section.setFileManager(modelData.id);
+                        section.setFileManager(model.exec, model.desktopFile);
                     }
                 }
             }
@@ -263,7 +337,6 @@ ColumnLayout {
                         font.pixelSize: Design.font.caption
                         clip: true
                         selectByMouse: true
-                        text: ["thunar", "nautilus", "dolphin"].includes(section.defaultFileManager) ? "" : section.defaultFileManager
                         Text {
                             text: "Custom binary / executable (e.g. pcmanfm, nemo, yazi, ranger)..."
                             color: Design.textDim
@@ -271,7 +344,7 @@ ColumnLayout {
                             anchors.fill: parent
                             font: fmCustomInput.font
                         }
-                        onAccepted: section.setFileManager(text)
+                        onAccepted: section.setFileManager(text, "")
                     }
                 }
             }
@@ -280,12 +353,12 @@ ColumnLayout {
                 icon: "󰄬"
                 label: "Set"
                 tone: Design.peach
-                onActivated: section.setFileManager(fmCustomInput.text)
+                onActivated: section.setFileManager(fmCustomInput.text, "")
             }
         }
     }
 
-    // ── 4. Code Editor ───────────────────────────────────────────────────────
+    // ── 4. Code & Text Editor ────────────────────────────────────────────────
     Card {
         title: "Code & Text Editor"
         subtitle: "Application for editing text and source files"
@@ -297,18 +370,14 @@ ColumnLayout {
             spacing: Design.s(Design.space.xs)
 
             Repeater {
-                model: [
-                    { id: "code", label: "VS Code" },
-                    { id: "cursor", label: "Cursor" },
-                    { id: "nvim", label: "Neovim" },
-                    { id: "zed", label: "Zed" }
-                ]
+                model: section.editorList
                 delegate: Pill {
-                    label: modelData.label
-                    active: section.defaultEditor === modelData.id
+                    required property var model
+                    label: model.name
+                    active: section.defaultEditor.toLowerCase().includes(model.exec.toLowerCase()) || model.exec.toLowerCase().includes(section.defaultEditor.toLowerCase())
                     onClicked: {
                         editorCustomInput.text = "";
-                        section.setEditor(modelData.id);
+                        section.setEditor(model.exec, model.desktopFile);
                     }
                 }
             }
@@ -340,7 +409,6 @@ ColumnLayout {
                         font.pixelSize: Design.font.caption
                         clip: true
                         selectByMouse: true
-                        text: ["code", "cursor", "nvim", "zed"].includes(section.defaultEditor) ? "" : section.defaultEditor
                         Text {
                             text: "Custom binary / executable (e.g. helix, emacs, gedit, sublime)..."
                             color: Design.textDim
@@ -348,7 +416,7 @@ ColumnLayout {
                             anchors.fill: parent
                             font: editorCustomInput.font
                         }
-                        onAccepted: section.setEditor(text)
+                        onAccepted: section.setEditor(text, "")
                     }
                 }
             }
@@ -357,7 +425,79 @@ ColumnLayout {
                 icon: "󰄬"
                 label: "Set"
                 tone: Design.mauve
-                onActivated: section.setEditor(editorCustomInput.text)
+                onActivated: section.setEditor(editorCustomInput.text, "")
+            }
+        }
+    }
+
+    // ── 5. Media Player ──────────────────────────────────────────────────────
+    Card {
+        title: "Media Player"
+        subtitle: "Application for playing audio, video, and stream files"
+        icon: "\u{f008}"
+        accentColor: Design.teal
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: Design.s(Design.space.xs)
+
+            Repeater {
+                model: section.playerList
+                delegate: Pill {
+                    required property var model
+                    label: model.name
+                    active: section.defaultPlayer.toLowerCase().includes(model.exec.toLowerCase()) || model.exec.toLowerCase().includes(section.defaultPlayer.toLowerCase())
+                    onClicked: {
+                        playerCustomInput.text = "";
+                        section.setPlayer(model.exec, model.desktopFile);
+                    }
+                }
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: Design.s(Design.space.sm)
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: Design.s(36)
+                radius: Design.s(Design.radius.ctl)
+                color: Design.surface
+                border.color: playerCustomInput.activeFocus ? Design.teal : Design.tint(Design.line, 0.4)
+                border.width: 1
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.margins: Design.s(Design.space.sm)
+                    spacing: Design.s(Design.space.xs)
+
+                    Icon { text: "󰌹"; role: "caption"; color: Design.textDim }
+
+                    TextInput {
+                        id: playerCustomInput
+                        Layout.fillWidth: true
+                        color: Design.text
+                        font.pixelSize: Design.font.caption
+                        clip: true
+                        selectByMouse: true
+                        Text {
+                            text: "Custom binary / executable (e.g. celluloid, vlc, mpv)..."
+                            color: Design.textDim
+                            visible: !playerCustomInput.text && !playerCustomInput.activeFocus
+                            anchors.fill: parent
+                            font: playerCustomInput.font
+                        }
+                        onAccepted: section.setPlayer(text, "")
+                    }
+                }
+            }
+
+            ActionButton {
+                icon: "󰄬"
+                label: "Set"
+                tone: Design.teal
+                onActivated: section.setPlayer(playerCustomInput.text, "")
             }
         }
     }

@@ -124,13 +124,8 @@ int SessionManager::run_session() {
     settings_th.detach();
 
     // 7. Launch Polkit Agent
-    if (!is_process_running("polkit-gnome")) {
-        spawn_detached("/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1");
-    }
-
-    // 8. Launch SwayOSD
-    if (!is_process_running("swayosd-server")) {
-        spawn_detached("swayosd-server");
+    if (!is_process_running("b1air-daemon polkit") && !is_process_running("polkit-gnome")) {
+        spawn_detached("b1air-daemon polkit-agent");
     }
 
     // 9. Launch Swayidle

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# b1air Desktop Environment Session Launcher
+# ==============================================================================
+
+export XDG_CURRENT_DESKTOP="b1air:sway"
+export XDG_SESSION_DESKTOP="b1air"
+export XDG_SESSION_TYPE="wayland"
+
+# Wayland & Toolkit Defaults
+export MOZ_ENABLE_WAYLAND=1
+export QT_QPA_PLATFORM="wayland;xcb"
+export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+export GDK_BACKEND="wayland,x11,*"
+export CLUTTER_BACKEND="wayland"
+export SDL_VIDEODRIVER="wayland"
+export _JAVA_AWT_WM_NONREPARENTING=1
+
+# Import environment to systemd user instance & D-Bus
+if command -v dbus-update-activation-environment >/dev/null 2>&1; then
+    dbus-update-activation-environment --systemd --all
+fi
+
+# Fallback software rendering if in VM
+if [ -n "$WLR_RENDERER_ALLOW_SOFTWARE" ] || lspci 2>/dev/null | grep -iE 'qemu|virtualbox|vmware' >/dev/null 2>&1; then
+    export WLR_NO_HARDWARE_CURSORS=1
+    export WLR_RENDERER_ALLOW_SOFTWARE=1
+fi
+
+# Launch SwayFX with b1air config
+exec sway -c "${HOME}/.config/sway/config" "$@"

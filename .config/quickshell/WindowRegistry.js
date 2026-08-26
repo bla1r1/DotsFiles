@@ -55,6 +55,8 @@ function getLayout(name, mx, my, mw, mh, userScale) {
         "session":   { w: s(680, scale), h: s(280, scale), rx: Math.floor((mw/2)-(s(680, scale)/2)), ry: Math.floor((mh/2)-(s(280, scale)/2)), comp: "session/SessionMenu.qml" },
         "keyboard":  { w: s(250, scale), h: s(170, scale), rx: mw - s(330, scale), ry: s(58, scale), comp: "keyboard/KeyboardPopup.qml" },
         "launcher":  { w: s(640, scale), h: s(440, scale), rx: Math.floor((mw/2)-(s(640, scale)/2)), ry: s(120, scale), comp: "launcher/SpotlightLauncher.qml" },
+        "switcher":  { w: s(760, scale), h: s(240, scale), rx: Math.floor((mw/2)-(s(760, scale)/2)), ry: Math.floor((mh/2)-(s(240, scale)/2)), comp: "switcher/WindowSwitcher.qml" },
+        "emoji":     { w: s(480, scale), h: s(440, scale), rx: Math.floor((mw/2)-(s(480, scale)/2)), ry: Math.floor((mh/2)-(s(440, scale)/2)), comp: "emoji/EmojiPickerPopup.qml" },
         "settings":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
         "hidden":    { w: 1, h: 1, rx: -5000 - mx, ry: -5000 - my, comp: "" } 
     };

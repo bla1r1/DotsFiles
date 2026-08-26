@@ -15,6 +15,8 @@
 #include <memory>
 #include <random>
 #include <vector>
+#include <unordered_set>
+#include <unordered_map>
 #include <thread>
 #include <cstring>
 #include <dirent.h>
@@ -229,15 +231,383 @@ bool SystemControl::logout_session() {
 
 bool SystemControl::suspend_system() {
     lock_session();
-    return (std::system("systemctl suspend 2>/dev/null || loginctl suspend") == 0);
+    return (std::system("systemctl suspend 2>/dev/null || loginctl suspend 2>/dev/null || zzz 2>/dev/null || elogind-tool suspend 2>/dev/null || echo mem > /sys/power/state 2>/dev/null") == 0);
 }
 
 bool SystemControl::reboot_system() {
-    return (std::system("systemctl reboot 2>/dev/null || loginctl reboot") == 0);
+    return (std::system("systemctl reboot 2>/dev/null || loginctl reboot 2>/dev/null || /sbin/reboot 2>/dev/null || reboot 2>/dev/null") == 0);
 }
 
 bool SystemControl::shutdown_system() {
-    return (std::system("systemctl poweroff 2>/dev/null || loginctl poweroff") == 0);
+    return (std::system("systemctl poweroff 2>/dev/null || loginctl poweroff 2>/dev/null || /sbin/poweroff 2>/dev/null || poweroff 2>/dev/null") == 0);
+}
+
+// ── Power Profiles ───────────────────────────────────────────────────────────
+std::string SystemControl::power_profile_get() {
+    std::string out = exec_cmd("powerprofilesctl get 2>/dev/null");
+    if (!out.empty()) return out;
+    std::string gov = exec_cmd("cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null");
+    if (gov == "performance") return "performance";
+    if (gov == "powersave") return "power-saver";
+    return "balanced";
+}
+
+bool SystemControl::power_profile_set(const std::string& profile) {
+    if (std::system(("powerprofilesctl set " + profile + " >/dev/null 2>&1").c_str()) == 0) {
+        return true;
+    }
+    std::string gov = (profile == "performance" ? "performance" : (profile == "power-saver" ? "powersave" : "schedutil"));
+    return (std::system(("echo " + gov + " | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1").c_str()) == 0);
+}
+
+// ── Caffeine / Idle Inhibitor (Stay Awake Mode) ──────────────────────────────
+static const char* CAFFEINE_STATE_FILE = "/tmp/b1air-caffeine.state";
+
+bool SystemControl::caffeine_is_active() {
+    return (access(CAFFEINE_STATE_FILE, F_OK) == 0);
+}
+
+bool SystemControl::caffeine_set(bool active) {
+    if (active) {
+        int fd = open(CAFFEINE_STATE_FILE, O_CREAT | O_WRONLY | O_TRUNC, 0644);
+        if (fd >= 0) close(fd);
+        std::system("swaymsg inhibit_idle focus >/dev/null 2>&1");
+        std::system("notify-send -a \"b1air DE\" -i caffeine \"Caffeine Mode Active\" \"Screen sleep and idle lock disabled\" 2>/dev/null");
+    } else {
+        unlink(CAFFEINE_STATE_FILE);
+        std::system("swaymsg inhibit_idle none >/dev/null 2>&1");
+        std::system("notify-send -a \"b1air DE\" -i caffeine \"Caffeine Mode Disabled\" \"Normal screen sleep restored\" 2>/dev/null");
+    }
+    return true;
+}
+
+bool SystemControl::caffeine_toggle() {
+    bool current = caffeine_is_active();
+    return caffeine_set(!current);
+}
+
+// ── Dynamic Applications Scanner (.desktop parser) ───────────────────────────
+struct DesktopAppEntry {
+    std::string name;
+    std::string exec;
+    std::string desktop_file;
+    std::string icon;
+    std::string comment;
+    std::string categories;
+    std::string mime_type;
+    bool no_display = false;
+    bool terminal = false;
+};
+
+std::string SystemControl::apps_list_json(const std::string& category) {
+    std::vector<std::string> search_dirs = {
+        "/usr/share/applications",
+        "/var/lib/flatpak/exports/share/applications"
+    };
+    const char* home = std::getenv("HOME");
+    if (home) {
+        search_dirs.push_back(std::string(home) + "/.local/share/applications");
+    }
+
+    std::unordered_map<std::string, DesktopAppEntry> apps;
+
+    for (const auto& dir_path : search_dirs) {
+        DIR* d = opendir(dir_path.c_str());
+        if (!d) continue;
+        struct dirent* ent;
+        while ((ent = readdir(d)) != nullptr) {
+            std::string fname = ent->d_name;
+            if (fname.size() > 8 && fname.substr(fname.size() - 8) == ".desktop") {
+                if (apps.count(fname)) continue;
+
+                std::ifstream f(dir_path + "/" + fname);
+                if (!f) continue;
+                std::string line;
+                DesktopAppEntry entry;
+                entry.desktop_file = fname;
+                bool in_desktop_entry = false;
+
+                while (std::getline(f, line)) {
+                    if (line == "[Desktop Entry]") {
+                        in_desktop_entry = true;
+                        continue;
+                    } else if (!line.empty() && line[0] == '[' && in_desktop_entry) {
+                        break;
+                    }
+                    if (!in_desktop_entry) continue;
+
+                    size_t eq = line.find('=');
+                    if (eq != std::string::npos) {
+                        std::string key = line.substr(0, eq);
+                        std::string val = line.substr(eq + 1);
+
+                        if (key == "Name" && entry.name.empty()) entry.name = val;
+                        else if (key == "Exec" && entry.exec.empty()) {
+                            size_t p;
+                            while ((p = val.find("%")) != std::string::npos && p + 1 < val.size()) {
+                                val.erase(p, 2);
+                            }
+                            while (!val.empty() && val.back() == ' ') val.pop_back();
+                            entry.exec = val;
+                        }
+                        else if (key == "Icon" && entry.icon.empty()) entry.icon = val;
+                        else if (key == "Comment" && entry.comment.empty()) entry.comment = val;
+                        else if (key == "Categories") entry.categories = val;
+                        else if (key == "MimeType") entry.mime_type = val;
+                        else if (key == "NoDisplay") entry.no_display = (val == "true" || val == "1");
+                        else if (key == "Terminal") entry.terminal = (val == "true" || val == "1");
+                    }
+                }
+
+                if (!entry.name.empty() && !entry.exec.empty() && !entry.no_display) {
+                    apps[fname] = entry;
+                }
+            }
+        }
+        closedir(d);
+    }
+
+    std::vector<DesktopAppEntry> matched;
+    std::string cat_low = category;
+    std::transform(cat_low.begin(), cat_low.end(), cat_low.begin(), ::tolower);
+
+    for (const auto& [_, app] : apps) {
+        std::string n_low = app.name;
+        std::string e_low = app.exec;
+        std::string c_low = app.categories;
+        std::string m_low = app.mime_type;
+        std::transform(n_low.begin(), n_low.end(), n_low.begin(), ::tolower);
+        std::transform(e_low.begin(), e_low.end(), e_low.begin(), ::tolower);
+        std::transform(c_low.begin(), c_low.end(), c_low.begin(), ::tolower);
+        std::transform(m_low.begin(), m_low.end(), m_low.begin(), ::tolower);
+
+        bool match = false;
+        if (cat_low == "all") {
+            match = true;
+        } else if (cat_low == "browser" || cat_low == "web-browser") {
+            match = (c_low.find("webbrowser") != std::string::npos || m_low.find("text/html") != std::string::npos ||
+                     e_low.find("firefox") != std::string::npos || e_low.find("chrome") != std::string::npos ||
+                     e_low.find("chromium") != std::string::npos || e_low.find("brave") != std::string::npos ||
+                     e_low.find("zen") != std::string::npos || e_low.find("vivaldi") != std::string::npos ||
+                     e_low.find("opera") != std::string::npos || e_low.find("librewolf") != std::string::npos ||
+                     e_low.find("floorp") != std::string::npos || e_low.find("qutebrowser") != std::string::npos);
+        } else if (cat_low == "terminal") {
+            match = (c_low.find("terminalemulator") != std::string::npos ||
+                     e_low.find("kitty") != std::string::npos || e_low.find("foot") != std::string::npos ||
+                     e_low.find("alacritty") != std::string::npos || e_low.find("ghostty") != std::string::npos ||
+                     e_low.find("wezterm") != std::string::npos || e_low.find("konsole") != std::string::npos ||
+                     e_low.find("xterm") != std::string::npos || e_low.find("blackbox") != std::string::npos);
+        } else if (cat_low == "filemanager" || cat_low == "file-manager") {
+            match = (c_low.find("filemanager") != std::string::npos || m_low.find("inode/directory") != std::string::npos ||
+                     e_low.find("thunar") != std::string::npos || e_low.find("nautilus") != std::string::npos ||
+                     e_low.find("dolphin") != std::string::npos || e_low.find("nemo") != std::string::npos ||
+                     e_low.find("pcmanfm") != std::string::npos || e_low.find("yazi") != std::string::npos ||
+                     e_low.find("ranger") != std::string::npos);
+        } else if (cat_low == "editor" || cat_low == "text-editor") {
+            match = (c_low.find("texteditor") != std::string::npos || c_low.find("ide") != std::string::npos ||
+                     e_low.find("code") != std::string::npos || e_low.find("cursor") != std::string::npos ||
+                     e_low.find("nvim") != std::string::npos || e_low.find("zed") != std::string::npos ||
+                     e_low.find("sublime") != std::string::npos || e_low.find("kate") != std::string::npos ||
+                     e_low.find("gedit") != std::string::npos || e_low.find("micro") != std::string::npos ||
+                     e_low.find("helix") != std::string::npos);
+        } else if (cat_low == "player" || cat_low == "media-player" || cat_low == "media") {
+            match = (c_low.find("audiovideo") != std::string::npos || c_low.find("player") != std::string::npos ||
+                     e_low.find("mpv") != std::string::npos || e_low.find("vlc") != std::string::npos ||
+                     e_low.find("spotify") != std::string::npos || e_low.find("celluloid") != std::string::npos);
+        } else if (cat_low == "image" || cat_low == "image-viewer") {
+            match = (c_low.find("viewer") != std::string::npos || c_low.find("rastergraphics") != std::string::npos ||
+                     e_low.find("imv") != std::string::npos || e_low.find("loupe") != std::string::npos ||
+                     e_low.find("eog") != std::string::npos || e_low.find("gwenview") != std::string::npos ||
+                     e_low.find("ristretto") != std::string::npos);
+        }
+
+        if (match) {
+            matched.push_back(app);
+        }
+    }
+
+    std::sort(matched.begin(), matched.end(), [](const DesktopAppEntry& a, const DesktopAppEntry& b) {
+        return a.name < b.name;
+    });
+
+    std::string res = "[";
+    for (size_t i = 0; i < matched.size(); ++i) {
+        const auto& a = matched[i];
+        std::string item = "{\"name\":\"" + json_escape(a.name) + "\","
+                           "\"exec\":\"" + json_escape(a.exec) + "\","
+                           "\"desktopFile\":\"" + json_escape(a.desktop_file) + "\","
+                           "\"icon\":\"" + json_escape(a.icon) + "\","
+                           "\"comment\":\"" + json_escape(a.comment) + "\"}";
+        res += item;
+        if (i + 1 < matched.size()) res += ",";
+    }
+    res += "]";
+    return res;
+}
+
+// ── Color Dropper / Pixel Picker ─────────────────────────────────────────────
+std::string SystemControl::pick_color() {
+    std::string pos = exec_cmd("slurp -p 2>/dev/null");
+    if (pos.empty()) return "";
+    while (!pos.empty() && (pos.back() == '\n' || pos.back() == '\r' || pos.back() == ' ')) pos.pop_back();
+
+    std::string hex = exec_cmd("grim -g \"" + pos + " 1x1\" -t ppm - 2>/dev/null | convert - -format '%[pixel:p{0,0}]' info: 2>/dev/null || grim -g \"" + pos + " 1x1\" -t png - 2>/dev/null | python3 -c 'import sys; from PIL import Image; im=Image.open(sys.stdin.buffer); r,g,b=im.getpixel((0,0))[:3]; print(f\"#{r:02x}{g:02x}{b:02x}\")' 2>/dev/null");
+    
+    if (hex.empty() || hex[0] != '#') {
+        hex = exec_cmd("grim -g \"" + pos + " 1x1\" -t ppm - 2>/dev/null | tail -c 3 | xxd -p | sed 's/^/#/' 2>/dev/null");
+    }
+
+    if (!hex.empty()) {
+        while (!hex.empty() && (hex.back() == '\n' || hex.back() == '\r' || hex.back() == ' ')) hex.pop_back();
+        std::system(("wl-copy \"" + hex + "\" 2>/dev/null").c_str());
+        std::system(("notify-send -a \"b1air DE\" -i color-picker \"Color Picked\" \"" + hex + " copied to clipboard\" 2>/dev/null").c_str());
+        return hex;
+    }
+    return "";
+}
+
+// ── Window Minimization & Window Switcher ────────────────────────────────────
+bool SystemControl::window_minimize() {
+    SwayIPC ipc;
+    if (!ipc.connect()) return false;
+    std::string resp = ipc.send_command(0, "mark --add _b1air_minimized; move scratchpad");
+    return (resp.find("\"success\":true") != std::string::npos || resp.find("\"success\": true") != std::string::npos);
+}
+
+bool SystemControl::window_restore(int64_t con_id) {
+    SwayIPC ipc;
+    if (!ipc.connect()) return false;
+    std::string cmd;
+    if (con_id > 0) {
+        cmd = "[con_id=" + std::to_string(con_id) + "] scratchpad show; [con_id=" + std::to_string(con_id) + "] focus; [con_id=" + std::to_string(con_id) + "] mark --toggle _b1air_minimized";
+    } else {
+        cmd = "[con_mark=\"_b1air_minimized\"] scratchpad show; [con_mark=\"_b1air_minimized\"] focus; [con_mark=\"_b1air_minimized\"] mark --toggle _b1air_minimized";
+    }
+    std::string resp = ipc.send_command(0, cmd);
+    return (resp.find("\"success\":true") != std::string::npos || resp.find("\"success\": true") != std::string::npos);
+}
+
+bool SystemControl::window_toggle_minimize() {
+    return window_minimize();
+}
+
+std::string SystemControl::window_list_minimized_json() {
+    SwayIPC ipc;
+    if (!ipc.connect()) return "[]";
+    std::string tree = ipc.send_command(4, "");
+    
+    std::vector<std::string> items;
+    size_t pos = 0;
+    while ((pos = tree.find("\"marks\"", pos)) != std::string::npos) {
+        size_t end_marks = tree.find("]", pos);
+        if (end_marks != std::string::npos) {
+            std::string marks_substr = tree.substr(pos, end_marks - pos);
+            if (marks_substr.find("_b1air_minimized") != std::string::npos) {
+                size_t node_start = tree.rfind("{\"id\":", pos);
+                if (node_start != std::string::npos) {
+                    std::string node_chunk = tree.substr(node_start, 600);
+                    int64_t id = 0;
+                    std::string name = "Window";
+                    std::string app_id = "application";
+                    
+                    size_t id_pos = node_chunk.find("\"id\":");
+                    if (id_pos != std::string::npos) {
+                        try { id = std::stoll(node_chunk.substr(id_pos + 5)); } catch (...) {}
+                    }
+                    size_t name_pos = node_chunk.find("\"name\":\"");
+                    if (name_pos != std::string::npos) {
+                        size_t name_end = node_chunk.find("\"", name_pos + 8);
+                        if (name_end != std::string::npos) {
+                            name = node_chunk.substr(name_pos + 8, name_end - (name_pos + 8));
+                        }
+                    }
+                    size_t app_pos = node_chunk.find("\"app_id\":\"");
+                    if (app_pos != std::string::npos) {
+                        size_t app_end = node_chunk.find("\"", app_pos + 10);
+                        if (app_end != std::string::npos) {
+                            app_id = node_chunk.substr(app_pos + 10, app_end - (app_pos + 10));
+                        }
+                    }
+                    
+                    if (id > 0) {
+                        items.push_back("{\"id\":" + std::to_string(id) + ",\"name\":\"" + json_escape(name) + "\",\"app_id\":\"" + json_escape(app_id) + "\"}");
+                    }
+                }
+            }
+        }
+        pos += 7;
+    }
+    
+    std::string res = "[";
+    for (size_t i = 0; i < items.size(); ++i) {
+        res += items[i];
+        if (i + 1 < items.size()) res += ",";
+    }
+    res += "]";
+    return res;
+}
+
+std::string SystemControl::window_list_open_json() {
+    SwayIPC ipc;
+    if (!ipc.connect()) return "[]";
+    std::string tree = ipc.send_command(4, ""); // GET_TREE
+
+    std::vector<std::string> items;
+    size_t pos = 0;
+
+    while ((pos = tree.find("{\"id\":", pos)) != std::string::npos) {
+        size_t node_end = tree.find("{\"id\":", pos + 6);
+        std::string node_chunk = (node_end != std::string::npos) ? tree.substr(pos, node_end - pos) : tree.substr(pos, 800);
+
+        if ((node_chunk.find("\"app_id\":") != std::string::npos || node_chunk.find("\"window_properties\":") != std::string::npos) &&
+            node_chunk.find("\"type\":\"con\"") != std::string::npos) {
+            
+            int64_t id = 0;
+            std::string name = "Window";
+            std::string app_id = "application";
+            bool focused = (node_chunk.find("\"focused\":true") != std::string::npos || node_chunk.find("\"focused\": true") != std::string::npos);
+
+            size_t id_pos = node_chunk.find("\"id\":");
+            if (id_pos != std::string::npos) {
+                try { id = std::stoll(node_chunk.substr(id_pos + 5)); } catch (...) {}
+            }
+            size_t name_pos = node_chunk.find("\"name\":\"");
+            if (name_pos != std::string::npos) {
+                size_t name_end = node_chunk.find("\"", name_pos + 8);
+                if (name_end != std::string::npos) {
+                    name = node_chunk.substr(name_pos + 8, name_end - (name_pos + 8));
+                }
+            }
+            size_t app_pos = node_chunk.find("\"app_id\":\"");
+            if (app_pos != std::string::npos) {
+                size_t app_end = node_chunk.find("\"", app_pos + 10);
+                if (app_end != std::string::npos) {
+                    app_id = node_chunk.substr(app_pos + 10, app_end - (app_pos + 10));
+                }
+            } else {
+                size_t cls_pos = node_chunk.find("\"class\":\"");
+                if (cls_pos != std::string::npos) {
+                    size_t cls_end = node_chunk.find("\"", cls_pos + 9);
+                    if (cls_end != std::string::npos) {
+                        app_id = node_chunk.substr(cls_pos + 9, cls_end - (cls_pos + 9));
+                    }
+                }
+            }
+
+            if (id > 0 && !name.empty() && name != "null" && app_id != "quickshell" && app_id != "waybar") {
+                items.push_back("{\"id\":" + std::to_string(id) + ",\"name\":\"" + json_escape(name) + "\",\"app_id\":\"" + json_escape(app_id) + "\",\"focused\":" + (focused ? "true" : "false") + "}");
+            }
+        }
+        pos += 6;
+    }
+
+    std::string res = "[";
+    for (size_t i = 0; i < items.size(); ++i) {
+        res += items[i];
+        if (i + 1 < items.size()) res += ",";
+    }
+    res += "]";
+    return res;
 }
 
 // ── Multi-Monitor Layout Manager ─────────────────────────────────────────────
@@ -502,6 +872,130 @@ std::string SystemControl::get_wifi_status_json() {
     }
 
     return "{\"text\":\"󰤯\",\"class\":\"disconnected\"}";
+}
+
+// ── Interactive Wi-Fi Management ─────────────────────────────────────────────
+std::string SystemControl::wifi_list_json() {
+    std::string out = exec_cmd("nmcli -t -f SSID,BSSID,SIGNAL,SECURITY,IN-USE device wifi list 2>/dev/null");
+    std::istringstream stream(out);
+    std::string line;
+    std::vector<std::string> json_items;
+    std::unordered_set<std::string> seen_ssids;
+
+    while (std::getline(stream, line)) {
+        if (line.empty()) continue;
+        std::vector<std::string> parts;
+        std::string cur;
+        for (size_t i = 0; i < line.size(); ++i) {
+            if (line[i] == '\\' && i + 1 < line.size() && line[i + 1] == ':') {
+                cur += ':';
+                ++i;
+            } else if (line[i] == ':') {
+                parts.push_back(cur);
+                cur.clear();
+            } else {
+                cur += line[i];
+            }
+        }
+        parts.push_back(cur);
+
+        if (parts.size() >= 5) {
+            std::string ssid = parts[0];
+            std::string bssid = parts[1];
+            int signal = 0;
+            try { signal = std::stoi(parts[2]); } catch (...) {}
+            std::string security = parts[3];
+            bool in_use = (parts[4] == "*");
+
+            if (ssid.empty()) continue;
+            if (seen_ssids.count(ssid)) continue;
+            seen_ssids.insert(ssid);
+
+            std::string item = "{\"ssid\":\"" + json_escape(ssid) + "\","
+                               "\"bssid\":\"" + json_escape(bssid) + "\","
+                               "\"signal\":" + std::to_string(signal) + ","
+                               "\"security\":\"" + json_escape(security) + "\","
+                               "\"secured\":" + std::string((security.empty() || security == "--") ? "false" : "true") + ","
+                               "\"active\":" + std::string(in_use ? "true" : "false") + "}";
+            json_items.push_back(item);
+        }
+    }
+
+    std::string res = "[";
+    for (size_t i = 0; i < json_items.size(); ++i) {
+        res += json_items[i];
+        if (i + 1 < json_items.size()) res += ",";
+    }
+    res += "]";
+    return res;
+}
+
+std::string SystemControl::wifi_connect(const std::string& ssid, const std::string& password) {
+    std::string cmd;
+    if (password.empty()) {
+        cmd = "nmcli device wifi connect \"" + ssid + "\" 2>&1";
+    } else {
+        cmd = "nmcli device wifi connect \"" + ssid + "\" password \"" + password + "\" 2>&1";
+    }
+    std::string out = exec_cmd(cmd);
+    bool ok = (out.find("successfully") != std::string::npos || out.find("Connection successfully activated") != std::string::npos);
+    return "{\"success\":" + std::string(ok ? "true" : "false") + ",\"message\":\"" + json_escape(out) + "\"}";
+}
+
+// ── Interactive Bluetooth Management ─────────────────────────────────────────
+std::string SystemControl::bt_list_json() {
+    std::string paired_out = exec_cmd("bluetoothctl paired-devices 2>/dev/null");
+    std::string all_out = exec_cmd("bluetoothctl devices 2>/dev/null");
+    std::string info_out = exec_cmd("bluetoothctl info 2>/dev/null");
+
+    std::unordered_map<std::string, std::pair<std::string, bool>> devs;
+
+    auto parse_lines = [&](const std::string& text, bool is_paired) {
+        std::istringstream st(text);
+        std::string l;
+        while (std::getline(st, l)) {
+            if (l.rfind("Device ", 0) == 0 && l.size() > 25) {
+                std::string mac = l.substr(7, 17);
+                std::string name = l.size() > 25 ? l.substr(25) : mac;
+                if (!devs.count(mac) || is_paired) {
+                    devs[mac] = {name, is_paired};
+                }
+            }
+        }
+    };
+
+    parse_lines(paired_out, true);
+    parse_lines(all_out, false);
+
+    std::vector<std::string> json_items;
+    for (const auto& [mac, info] : devs) {
+        bool connected = (info_out.find(mac) != std::string::npos && info_out.find("Connected: yes") != std::string::npos);
+        std::string item = "{\"mac\":\"" + json_escape(mac) + "\","
+                           "\"name\":\"" + json_escape(info.first) + "\","
+                           "\"paired\":" + std::string(info.second ? "true" : "false") + ","
+                           "\"connected\":" + std::string(connected ? "true" : "false") + "}";
+        json_items.push_back(item);
+    }
+
+    std::string res = "[";
+    for (size_t i = 0; i < json_items.size(); ++i) {
+        res += json_items[i];
+        if (i + 1 < json_items.size()) res += ",";
+    }
+    res += "]";
+    return res;
+}
+
+bool SystemControl::bt_connect(const std::string& mac) {
+    return std::system(("bluetoothctl connect " + mac + " >/dev/null 2>&1").c_str()) == 0;
+}
+
+bool SystemControl::bt_disconnect(const std::string& mac) {
+    return std::system(("bluetoothctl disconnect " + mac + " >/dev/null 2>&1").c_str()) == 0;
+}
+
+bool SystemControl::bt_pair(const std::string& mac) {
+    return std::system(("bluetoothctl pair " + mac + " >/dev/null 2>&1").c_str()) == 0;
 }
 
 // ── Media Player Status ──────────────────────────────────────────────────────
@@ -1843,6 +2337,56 @@ std::string SystemControl::scan_qr(const std::string& geom) {
     out << result << "\n";
     out.close();
     return result;
+}
+
+// ── Native Polkit Agent & Authentication Dialog ──────────────────────────────
+std::string SystemControl::polkit_prompt_dialog(const std::string& action_id, const std::string& message, const std::string& user) {
+    const char* home = std::getenv("HOME");
+    std::string home_str = home ? home : "/tmp";
+    std::string qml_path = home_str + "/.config/quickshell/polkit/PolkitDialog.qml";
+    
+    std::string resp_file = "/tmp/polkit_resp_" + std::to_string(getpid()) + "_" + std::to_string(time(nullptr));
+    unlink(resp_file.c_str());
+
+    std::string target_user = user.empty() ? (std::getenv("USER") ? std::getenv("USER") : "root") : user;
+
+    std::string cmd = "env POLKIT_ACTION=\"" + action_id + "\" "
+                      "POLKIT_MESSAGE=\"" + message + "\" "
+                      "POLKIT_USER=\"" + target_user + "\" "
+                      "POLKIT_RESP_FILE=\"" + resp_file + "\" "
+                      "quickshell -p \"" + qml_path + "\" >/dev/null 2>&1";
+
+    std::system(cmd.c_str());
+
+    // Wait for response file (up to 30s)
+    std::string password = "";
+    for (int i = 0; i < 300; ++i) {
+        if (access(resp_file.c_str(), F_OK) == 0) {
+            std::ifstream in(resp_file);
+            if (in) {
+                std::stringstream buffer;
+                buffer << in.rdbuf();
+                password = buffer.str();
+            }
+            unlink(resp_file.c_str());
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    if (password == "CANCELLED\n" || password == "CANCELLED") return "";
+    while (!password.empty() && (password.back() == '\n' || password.back() == '\r')) {
+        password.pop_back();
+    }
+    return password;
+}
+
+int SystemControl::polkit_agent_run() {
+    std::cout << "b1air Polkit Authentication Agent running..." << std::endl;
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::seconds(60));
+    }
+    return 0;
 }
 
 } // namespace b1air

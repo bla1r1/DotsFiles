@@ -54,6 +54,10 @@ PanelWindow {
         function toggleKeyboard() { masterWindow.handleIpcCommand("toggle:keyboard:", true) }
         function openLauncher() { masterWindow.handleIpcCommand("open:launcher:", true) }
         function toggleLauncher() { masterWindow.handleIpcCommand("toggle:launcher:", true) }
+        function openSwitcher() { masterWindow.handleIpcCommand("open:switcher:", true) }
+        function toggleSwitcher() { masterWindow.handleIpcCommand("toggle:switcher:", true) }
+        function openEmoji() { masterWindow.handleIpcCommand("open:emoji:", true) }
+        function toggleEmoji() { masterWindow.handleIpcCommand("toggle:emoji:", true) }
     }
 
     WlrLayershell.namespace: "qs-master"

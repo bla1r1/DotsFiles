@@ -72,6 +72,8 @@ static void print_usage(const char* prog) {
               << "  record [toggle|stop] [--geometry <geom>] [--desk-vol <v>] [--mic-vol <v>]\n"
               << "                                     Hardware-accelerated GPU screen & audio recording\n"
               << "  scan-qr [geometry]                 Scan QR code on screen and decode\n"
+              << "  polkit [agent|dialog <action> <msg> [user]]\n"
+              << "                                     Native Polkit authentication agent & dialog\n"
               << "  reload                             Reload compositor, Quickshell and Waybar\n"
               << "  lock [quickshell|swaylock]         Lock session with b1air theme\n"
               << "  version                            Print version information\n"
@@ -216,9 +218,80 @@ int main(int argc, char* argv[]) {
         return 0;
     } else if (cmd == "fullscreen-toggle" || cmd == "fullscreen") {
         return SystemControl::toggle_fullscreen() ? 0 : 1;
-    } else if (cmd == "wifi-status" || cmd == "wifi") {
+    } else if (cmd == "window" || cmd == "win") {
+        std::string sub = (argc >= 3) ? argv[2] : "toggle";
+        if (sub == "minimize" || sub == "min") {
+            return SystemControl::window_minimize() ? 0 : 1;
+        } else if (sub == "restore" || sub == "unminimize") {
+            int64_t id = (argc >= 4) ? std::stoll(argv[3]) : -1;
+            return SystemControl::window_restore(id) ? 0 : 1;
+        } else if (sub == "toggle") {
+            return SystemControl::window_toggle_minimize() ? 0 : 1;
+        } else if (sub == "list" || sub == "minimized") {
+            std::cout << SystemControl::window_list_minimized_json() << "\n";
+            return 0;
+        } else if (sub == "open" || sub == "all") {
+            std::cout << SystemControl::window_list_open_json() << "\n";
+            return 0;
+        } else {
+            std::cerr << "Usage: " << argv[0] << " window {minimize|restore [id]|toggle|list|open}\n";
+            return 1;
+        }
+    } else if (cmd == "color-picker" || cmd == "color" || cmd == "picker") {
+        std::string col = SystemControl::pick_color();
+        if (!col.empty()) {
+            std::cout << col << "\n";
+            return 0;
+        }
+        return 1;
+    } else if (cmd == "wifi-status") {
         std::cout << SystemControl::get_wifi_status_json() << "\n";
         return 0;
+    } else if (cmd == "wifi") {
+        std::string sub = (argc >= 3) ? argv[2] : "status";
+        if (sub == "list" || sub == "scan") {
+            std::cout << SystemControl::wifi_list_json() << "\n";
+            return 0;
+        } else if (sub == "connect") {
+            if (argc < 4) {
+                std::cerr << "Usage: " << argv[0] << " wifi connect <ssid> [password]\n";
+                return 1;
+            }
+            std::string ssid = argv[3];
+            std::string pwd = (argc >= 5) ? argv[4] : "";
+            std::cout << SystemControl::wifi_connect(ssid, pwd) << "\n";
+            return 0;
+        } else {
+            std::cout << SystemControl::get_wifi_status_json() << "\n";
+            return 0;
+        }
+    } else if (cmd == "bt" || cmd == "bluetooth") {
+        std::string sub = (argc >= 3) ? argv[2] : "list";
+        if (sub == "list" || sub == "scan" || sub == "devices") {
+            std::cout << SystemControl::bt_list_json() << "\n";
+            return 0;
+        } else if (sub == "connect") {
+            if (argc < 4) {
+                std::cerr << "Usage: " << argv[0] << " bt connect <mac>\n";
+                return 1;
+            }
+            return SystemControl::bt_connect(argv[3]) ? 0 : 1;
+        } else if (sub == "disconnect") {
+            if (argc < 4) {
+                std::cerr << "Usage: " << argv[0] << " bt disconnect <mac>\n";
+                return 1;
+            }
+            return SystemControl::bt_disconnect(argv[3]) ? 0 : 1;
+        } else if (sub == "pair") {
+            if (argc < 4) {
+                std::cerr << "Usage: " << argv[0] << " bt pair <mac>\n";
+                return 1;
+            }
+            return SystemControl::bt_pair(argv[3]) ? 0 : 1;
+        } else {
+            std::cerr << "Usage: " << argv[0] << " bt {list|connect <mac>|disconnect <mac>|pair <mac>}\n";
+            return 1;
+        }
     } else if (cmd == "media-status" || cmd == "media") {
         std::cout << SystemControl::get_media_status_json() << "\n";
         return 0;
@@ -493,6 +566,36 @@ int main(int argc, char* argv[]) {
         if (sub == "shutdown" || sub == "poweroff") return SystemControl::shutdown_system() ? 0 : 1;
         std::cerr << "Unknown power command: " << sub << "\n";
         return 1;
+    } else if (cmd == "power-profile" || cmd == "profile") {
+        std::string sub = (argc >= 3) ? argv[2] : "get";
+        if (sub == "get") {
+            std::cout << SystemControl::power_profile_get() << "\n";
+            return 0;
+        } else if (sub == "set") {
+            if (argc < 4) {
+                std::cerr << "Usage: " << argv[0] << " power-profile set <performance|balanced|power-saver>\n";
+                return 1;
+            }
+            return SystemControl::power_profile_set(argv[3]) ? 0 : 1;
+        } else {
+            return SystemControl::power_profile_set(sub) ? 0 : 1;
+        }
+    } else if (cmd == "caffeine" || cmd == "idle-inhibit") {
+        std::string sub = (argc >= 3) ? argv[2] : "toggle";
+        if (sub == "status" || sub == "get") {
+            std::cout << (SystemControl::caffeine_is_active() ? "active" : "inactive") << "\n";
+            return 0;
+        } else if (sub == "on" || sub == "enable") {
+            return SystemControl::caffeine_set(true) ? 0 : 1;
+        } else if (sub == "off" || sub == "disable") {
+            return SystemControl::caffeine_set(false) ? 0 : 1;
+        } else {
+            return SystemControl::caffeine_toggle() ? 0 : 1;
+        }
+    } else if (cmd == "apps" || cmd == "applications") {
+        std::string cat = (argc >= 3) ? argv[2] : "all";
+        std::cout << SystemControl::apps_list_json(cat) << "\n";
+        return 0;
     } else if (cmd == "screenshot" || cmd == "capture") {
         std::string mode = "full";
         std::string geom = "";
@@ -544,6 +647,18 @@ int main(int argc, char* argv[]) {
     } else if (cmd == "lock") {
         std::string mode = (argc >= 3) ? argv[2] : "auto";
         return SystemControl::lock_session(mode) ? 0 : 1;
+    } else if (cmd == "polkit" || cmd == "polkit-agent") {
+        std::string sub = (argc >= 3) ? argv[2] : "agent";
+        if (sub == "dialog") {
+            std::string action_id = (argc >= 4) ? argv[3] : "org.freedesktop.policykit.exec";
+            std::string msg = (argc >= 5) ? argv[4] : "Authentication is required.";
+            std::string user = (argc >= 6) ? argv[5] : "";
+            std::string pwd = SystemControl::polkit_prompt_dialog(action_id, msg, user);
+            std::cout << pwd << "\n";
+            return pwd.empty() ? 1 : 0;
+        } else {
+            return SystemControl::polkit_agent_run();
+        }
     } else if (cmd == "version" || cmd == "-v" || cmd == "--version") {
         std::cout << "b1air-daemon v2.5.0 (C++20, Session Manager, Inotify, Sway-IPC, Tokyo Night)\n";
         return 0;

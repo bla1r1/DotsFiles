@@ -66,8 +66,8 @@ PopupShell {
     readonly property int visibleTileCount: (wifiTile.visible ? 1 : 0) + (btTile.visible ? 1 : 0)
                                           + (dndTile.visible ? 1 : 0) + (nightTile.visible ? 1 : 0)
                                           + (powerTile.visible ? 1 : 0) + (gameTile.visible ? 1 : 0)
-                                          + (screenTile.visible ? 1 : 0)
-    readonly property Item lastTile: screenTile.visible ? screenTile : (gameTile.visible ? gameTile : (powerTile.visible ? powerTile : nightTile))
+                                          + (caffeineTile.visible ? 1 : 0) + (screenTile.visible ? 1 : 0)
+    readonly property Item lastTile: screenTile.visible ? screenTile : (caffeineTile.visible ? caffeineTile : (gameTile.visible ? gameTile : (powerTile.visible ? powerTile : nightTile)))
 
     // Only worth filling a hole when there are two columns to leave one in —
     // a columnSpan of 2 in a one-column grid collapses the item to nothing.
@@ -311,6 +311,28 @@ PopupShell {
                     Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/b1air-daemon", "game-mode", next ? "on" : "off"]);
                 }
                 onActivated: center.openFull("settings:gamemode")
+            }
+
+            QuickTile {
+                id: caffeineTile
+                Layout.fillWidth: true
+                Layout.columnSpan: center.spanOf(caffeineTile)
+                glyph: "\u{f0f4}"
+                title: "Caffeine"
+                property bool active: false
+                on: caffeineTile.active
+                activeColor: Design.teal
+                glyphTone: on ? Design.teal : Design.textDim
+                detail: on ? "Stay Awake" : "Sleep Normal"
+                trailingGlyph: ""
+                onToggled: {
+                    caffeineTile.active = !caffeineTile.active;
+                    Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/b1air-daemon", "caffeine", caffeineTile.active ? "on" : "off"]);
+                }
+                onActivated: {
+                    caffeineTile.active = !caffeineTile.active;
+                    Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/b1air-daemon", "caffeine", caffeineTile.active ? "on" : "off"]);
+                }
             }
 
             QuickTile {

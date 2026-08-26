@@ -255,5 +255,21 @@
     "persistent-workspaces": {
       "*": 5
     }
+  },
+  "custom/minimized": {
+    "exec": "python3 -c 'import subprocess, json; out = subprocess.getoutput(\"b1air-daemon window list 2>/dev/null\"); data = json.loads(out) if out.startswith(\"[\") else []; print(f\"󰖰 {len(data)}\" if len(data) > 0 else \"\")'",
+    "interval": 2,
+    "format": "{}",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleSwitcher",
+    "tooltip-format": "Minimized Windows\nClick to open Window Switcher",
+    "tooltip": true
+  },
+  "custom/caffeine": {
+    "exec": "test -f /tmp/b1air-caffeine.state && echo '󰅶' || echo ''",
+    "interval": 2,
+    "format": "{}",
+    "on-click": "b1air-daemon caffeine toggle",
+    "tooltip-format": "Caffeine Mode (Stay Awake)\nClick to toggle",
+    "tooltip": true
   }
 }

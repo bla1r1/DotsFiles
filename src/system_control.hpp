@@ -35,6 +35,38 @@ public:
     static std::string get_wifi_status_json();
     static std::string get_media_status_json();
 
+    // Dynamic Applications Scanner (.desktop parser)
+    static std::string apps_list_json(const std::string& category = "all");
+
+    // Power Profiles (performance, balanced, power-saver)
+    static std::string power_profile_get();
+    static bool power_profile_set(const std::string& profile);
+
+    // Caffeine / Idle Inhibitor (Stay Awake Mode)
+    static bool caffeine_is_active();
+    static bool caffeine_toggle();
+    static bool caffeine_set(bool active);
+
+    // Color Dropper / Pixel Picker
+    static std::string pick_color();
+
+    // Window Minimization & Window Switcher (Alt+Tab)
+    static bool window_minimize();
+    static bool window_restore(int64_t con_id = -1);
+    static bool window_toggle_minimize();
+    static std::string window_list_minimized_json();
+    static std::string window_list_open_json();
+
+    // Wi-Fi & Network interactive management
+    static std::string wifi_list_json();
+    static std::string wifi_connect(const std::string& ssid, const std::string& password = "");
+
+    // Bluetooth interactive management
+    static std::string bt_list_json();
+    static bool bt_connect(const std::string& mac);
+    static bool bt_disconnect(const std::string& mac);
+    static bool bt_pair(const std::string& mac);
+
     // Volume & Microphone controls
     static int get_volume();
     static bool volume_up(int step = 5);
@@ -122,6 +154,10 @@ public:
 
     // Desktop Reload
     static bool reload_desktop();
+
+    // Native Polkit Authentication Agent
+    static int polkit_agent_run();
+    static std::string polkit_prompt_dialog(const std::string& action_id, const std::string& message, const std::string& user = "");
 };
 
 } // namespace b1air

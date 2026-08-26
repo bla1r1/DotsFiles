@@ -119,7 +119,7 @@ Singleton {
 
     function setProfile(name) {
         root.profile = name;                       // optimistic, poller confirms
-        Quickshell.execDetached(["powerprofilesctl", "set", name]);
+        Quickshell.execDetached(["b1air-daemon", "power-profile", "set", name]);
     }
 
     function setBrightness(pct) {
@@ -145,7 +145,7 @@ Singleton {
     Process {
         id: poller
         command: ["bash", "-c",
-            "powerprofilesctl get 2>/dev/null || echo 'balanced'; " +
+            "b1air-daemon power-profile get 2>/dev/null || echo 'balanced'; " +
             "awk '{print int($1/3600)\"h \"int(($1%3600)/60)\"m\"}' /proc/uptime 2>/dev/null || echo '0h 0m'"
         ]
         stdout: StdioCollector {
