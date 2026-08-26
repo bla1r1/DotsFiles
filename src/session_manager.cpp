@@ -66,6 +66,18 @@ static void focus_tracker_thread() {
         std::string new_app = is_locked ? "Screen Locked" : (win.app_class.empty() ? "Desktop" : win.app_class);
         std::string new_title = is_locked ? "Locked" : win.title;
 
+        // Native zero-overhead autotiling (replaces external autotiling python daemon)
+        if (!is_locked && !win.floating && !win.fullscreen && win.width > 0 && win.height > 0) {
+            SwayIPC split_ipc;
+            if (split_ipc.connect()) {
+                if (win.width > win.height) {
+                    split_ipc.send_command(0, "split h");
+                } else {
+                    split_ipc.send_command(0, "split v");
+                }
+            }
+        }
+
         if (new_app != current_app || is_locked != current_locked) {
             flush_interval(new_app, new_title, is_locked);
         }
