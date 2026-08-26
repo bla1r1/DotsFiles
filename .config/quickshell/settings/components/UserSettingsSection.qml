@@ -8,11 +8,12 @@ import "../../Ui"
 import "../../Services"
 
 // =============================================================================
-// UserSettingsSection — User profile, avatar, display name, shell & password
+// User Profile & Account Settings Section (C++20 b1air-daemon backed)
 // =============================================================================
 
 ColumnLayout {
     id: section
+    Layout.fillWidth: true
     spacing: Design.s(Design.space.lg)
 
     property var userInfo: ({
@@ -22,10 +23,10 @@ ColumnLayout {
         home: "/home/user",
         shell: "/usr/bin/fish",
         avatar: "",
-        groups: ""
+        groups: "wheel, input, audio, video"
     })
 
-    property string userScript: Quickshell.env("HOME") + "/.config/sway/scripts/system/user-manager.sh"
+    property string daemonCmd: Quickshell.env("HOME") + "/.local/bin/b1air-daemon"
 
     function loadUserInfo() {
         userInfoProcess.running = true;
@@ -33,11 +34,14 @@ ColumnLayout {
 
     Process {
         id: userInfoProcess
-        command: ["bash", section.userScript, "get"]
-        stdout: SplitParser {
-            onRead: data => {
+        command: [section.daemonCmd, "user", "get"]
+        stdout: StdioCollector {
+            onStreamFinished: {
                 try {
-                    section.userInfo = JSON.parse(data);
+                    let raw = this.text.trim();
+                    if (raw !== "") {
+                        section.userInfo = JSON.parse(raw);
+                    }
                 } catch (e) {}
             }
         }
@@ -45,32 +49,38 @@ ColumnLayout {
 
     Component.onCompleted: loadUserInfo()
 
-    // ── Header ───────────────────────────────────────────────────────────────
-    SettingsCard {
-        Layout.fillWidth: true
+    // ── 1. Header ────────────────────────────────────────────────────────────
+    SectionLabel {
+        text: "User Profile & Account"
+    }
+
+    // ── 2. Profile Overview Card ─────────────────────────────────────────────
+    Card {
+        title: section.userInfo.name || section.userInfo.username
+        subtitle: "@" + section.userInfo.username + " • UID " + section.userInfo.uid + " • " + section.userInfo.home
+        icon: "\u{f007}"
+        accentColor: Design.mauve
 
         RowLayout {
-            anchors.fill: parent
-            anchors.margins: Design.s(Design.space.md)
+            Layout.fillWidth: true
             spacing: Design.s(Design.space.lg)
 
-            // Circular Avatar with Tokyo Night accent border
+            // Circular Avatar with Accent Frame
             Rectangle {
-                Layout.preferredWidth: Design.s(76)
-                Layout.preferredHeight: Design.s(76)
+                Layout.preferredWidth: Design.s(72)
+                Layout.preferredHeight: Design.s(72)
                 radius: width / 2
                 color: Design.surface
                 border.width: Design.s(2)
                 border.color: Design.accent
+                clip: true
 
                 Image {
-                    id: avatarImg
                     anchors.fill: parent
-                    anchors.margins: Design.s(3)
+                    anchors.margins: Design.s(2)
                     visible: section.userInfo.avatar !== ""
                     source: section.userInfo.avatar ? "file://" + section.userInfo.avatar : ""
                     fillMode: Image.PreserveAspectCrop
-                    layer.enabled: true
                 }
 
                 Icon {
@@ -90,65 +100,47 @@ ColumnLayout {
 
             ColumnLayout {
                 Layout.fillWidth: true
-                spacing: Design.s(Design.space.xs)
+                spacing: Design.s(Design.space.sm)
 
                 RowLayout {
                     spacing: Design.s(Design.space.sm)
 
-                    Label {
-                        text: section.userInfo.name || section.userInfo.username
-                        role: "title"
-                        weight: Design.weight.bold
+                    ActionButton {
+                        icon: "\u{f03e}"
+                        label: "Change Avatar"
+                        onActivated: avatarFileDialog.open()
                     }
 
-                    Badge {
-                        text: "UID: " + section.userInfo.uid
-                        color: Design.accent
+                    ActionButton {
+                        icon: "\u{f084}"
+                        label: "Change Password"
+                        tone: Design.sapphire
+                        onActivated: {
+                            Quickshell.execDetached([section.daemonCmd, "user", "change-password"]);
+                        }
                     }
                 }
 
                 Label {
-                    text: "@" + section.userInfo.username + " • " + section.userInfo.home
+                    text: "Synchronized with SDDM and ~/.face.icon automatically"
                     dim: true
-                }
-
-                RowLayout {
-                    spacing: Design.s(Design.space.sm)
-
-                    Button {
-                        text: "Change Avatar"
-                        icon.text: "\u{f03e}"
-                        onClicked: avatarFileDialog.open()
-                    }
-
-                    Button {
-                        text: "Change Password"
-                        icon.text: "\u{f084}"
-                        onClicked: {
-                            Quickshell.execDetached(["bash", section.userScript, "change-password"]);
-                        }
-                    }
                 }
             }
         }
     }
 
-    // ── Profile Details & Display Name ───────────────────────────────────────
-    SettingsCard {
-        Layout.fillWidth: true
+    // ── 3. Account Details Card ──────────────────────────────────────────────
+    Card {
+        title: "Account Details & Shell"
+        subtitle: "System user configurations and login preferences"
+        icon: "\u{f013}"
+        accentColor: Design.blue
 
         ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: Design.s(Design.space.md)
+            Layout.fillWidth: true
             spacing: Design.s(Design.space.md)
 
-            Label {
-                text: "Account Details"
-                role: "subtitle"
-                weight: Design.weight.bold
-            }
-
-            // Real / Display Name
+            // Full Name Input
             RowLayout {
                 Layout.fillWidth: true
                 spacing: Design.s(Design.space.md)
@@ -158,33 +150,57 @@ ColumnLayout {
                     spacing: Design.s(Design.space.xs)
 
                     Label {
-                        text: "Full / Display Name"
+                        text: "Display / Full Name"
                         weight: Design.weight.medium
                     }
                     Label {
-                        text: "Used across SDDM login screen and system session greeting"
+                        text: "Real name shown on lockscreen and greeter"
                         dim: true
                     }
                 }
 
-                TextField {
-                    id: nameField
+                Rectangle {
                     Layout.preferredWidth: Design.s(220)
-                    text: section.userInfo.name || ""
-                    placeholderText: "Enter full name..."
-                    onAccepted: {
-                        if (text.trim().length > 0) {
-                            Quickshell.execDetached(["bash", section.userScript, "set-name", text.trim()]);
-                            section.loadUserInfo();
+                    Layout.preferredHeight: Design.s(Design.size.action)
+                    radius: Design.s(Design.radius.ctl)
+                    color: Design.surface
+                    border.color: nameInput.activeFocus ? Design.accent : Design.border
+                    border.width: 1
+
+                    TextInput {
+                        id: nameInput
+                        anchors.fill: parent
+                        anchors.margins: Design.s(8)
+                        color: Design.text
+                        text: section.userInfo.name || ""
+                        verticalAlignment: TextInput.AlignVCenter
+                        selectByMouse: true
+                        font.pixelSize: Design.s(Design.font.body)
+
+                        Text {
+                            text: "Enter full name..."
+                            color: Design.textDim
+                            visible: !nameInput.text && !nameInput.activeFocus
+                            anchors.fill: parent
+                            font: nameInput.font
+                        }
+
+                        onAccepted: {
+                            if (text.trim().length > 0) {
+                                Quickshell.execDetached([section.daemonCmd, "user", "set-name", text.trim()]);
+                                section.loadUserInfo();
+                            }
                         }
                     }
                 }
 
-                Button {
-                    text: "Save"
-                    onClicked: {
-                        if (nameField.text.trim().length > 0) {
-                            Quickshell.execDetached(["bash", section.userScript, "set-name", nameField.text.trim()]);
+                ActionButton {
+                    icon: "\u{f00c}"
+                    label: "Save"
+                    tone: Design.sapphire
+                    onActivated: {
+                        if (nameInput.text.trim().length > 0) {
+                            Quickshell.execDetached([section.daemonCmd, "user", "set-name", nameInput.text.trim()]);
                             section.loadUserInfo();
                         }
                     }
@@ -211,7 +227,7 @@ ColumnLayout {
                         weight: Design.weight.medium
                     }
                     Label {
-                        text: "Login shell executed when opening terminals and virtual consoles"
+                        text: "Login shell executed for terminals and virtual consoles"
                         dim: true
                     }
                 }
@@ -226,7 +242,7 @@ ColumnLayout {
                     }
                     onActivated: {
                         let chosen = model[currentIndex];
-                        Quickshell.execDetached(["bash", section.userScript, "set-shell", chosen]);
+                        Quickshell.execDetached([section.daemonCmd, "user", "set-shell", chosen]);
                         section.loadUserInfo();
                     }
                 }
@@ -238,7 +254,7 @@ ColumnLayout {
                 color: Design.border
             }
 
-            // User Groups
+            // Assigned Groups
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: Design.s(Design.space.xs)
@@ -257,24 +273,19 @@ ColumnLayout {
         }
     }
 
-    // ── Session & Lockscreen Integration ─────────────────────────────────────
-    SettingsCard {
-        Layout.fillWidth: true
+    // ── 4. Desktop Environment & SDDM Badges Card ────────────────────────────
+    Card {
+        title: "Desktop Session & SDDM Greeter"
+        subtitle: "Integrated b1air environment status"
+        icon: "\u{f108}"
+        accentColor: Design.green
 
         ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: Design.s(Design.space.md)
+            Layout.fillWidth: true
             spacing: Design.s(Design.space.md)
-
-            Label {
-                text: "Desktop Session & SDDM"
-                role: "subtitle"
-                weight: Design.weight.bold
-            }
 
             RowLayout {
                 Layout.fillWidth: true
-                spacing: Design.s(Design.space.md)
 
                 ColumnLayout {
                     Layout.fillWidth: true
@@ -285,7 +296,7 @@ ColumnLayout {
                         weight: Design.weight.medium
                     }
                     Label {
-                        text: "Active session name and display manager theme"
+                        text: "Active window manager and native C++20 daemons"
                         dim: true
                     }
                 }
@@ -304,18 +315,17 @@ ColumnLayout {
 
             RowLayout {
                 Layout.fillWidth: true
-                spacing: Design.s(Design.space.md)
 
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: Design.s(Design.space.xs)
 
                     Label {
-                        text: "SDDM Display Manager Theme"
+                        text: "SDDM Greeter Theme"
                         weight: Design.weight.medium
                     }
                     Label {
-                        text: "Active login greeter theme with shared wallpaper caching"
+                        text: "Active login screen with shared wallpaper caching"
                         dim: true
                     }
                 }
@@ -328,14 +338,14 @@ ColumnLayout {
         }
     }
 
-    // ── File Dialog for Avatar Selection ─────────────────────────────────────
+    // ── 5. File Dialog for Avatar Selection ──────────────────────────────────
     FileDialog {
         id: avatarFileDialog
         title: "Select Avatar Image"
         nameFilters: ["Image files (*.png *.jpg *.jpeg *.svg)"]
         onAccepted: {
             let path = selectedFile.toString().replace(/^file:\/\//, "");
-            Quickshell.execDetached(["bash", section.userScript, "set-avatar", path]);
+            Quickshell.execDetached([section.daemonCmd, "user", "set-avatar", path]);
             section.loadUserInfo();
         }
     }

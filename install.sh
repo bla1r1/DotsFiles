@@ -259,6 +259,23 @@ deploy_sddm_theme() {
     fi
 }
 
+build_and_install_b1air_daemon() {
+    local src_dir="$REPO_DIR/src"
+    local bin_dir="$HOME/.local/bin"
+
+    if [[ -d "$src_dir" && -f "$src_dir/Makefile" ]]; then
+        log "Compiling b1air-daemon C++ suite..."
+        if [[ "$DRY_RUN" -eq 1 ]]; then
+            log "Would build $src_dir and install to $bin_dir/b1air-daemon"
+        else
+            make -C "$src_dir" clean all
+            install -d -m 755 "$bin_dir"
+            install -m 755 "$src_dir/b1air-daemon" "$bin_dir/b1air-daemon"
+            log "Installed b1air-daemon to $bin_dir/b1air-daemon"
+        fi
+    fi
+}
+
 deploy_dotfiles() {
     log "Deploying user dotfiles..."
     if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -289,15 +306,15 @@ deploy_dotfiles() {
         rsync -a --delete "$REPO_DIR/.wallpapers/" "$HOME/.wallpapers/"
     fi
 
-    # Deploy SDDM Theme
-    deploy_sddm_theme
+    # Build and install b1air-daemon C++ suite
+    build_and_install_b1air_daemon
 
     # Refresh user font cache
     fc-cache -f >/dev/null 2>&1 || true
 
     # Make all helper scripts executable
     if [[ -d "$HOME/.config/sway/scripts" ]]; then
-        find "$HOME/.config/sway/scripts" -type f \( -name "*.sh" -o -name "*.py" \) -exec chmod +x {} +
+        find "$HOME/.config/sway/scripts" -type f -name "*.sh" -exec chmod +x {} +
     fi
 
     ok "Dotfiles deployed. Previous configs backed up in: $BACKUP_DIR"

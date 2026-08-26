@@ -28,7 +28,7 @@ ColumnLayout {
     // Scan wallpaper folder for images
     Process {
         id: dirScanner
-        command: ["bash", "-c", "find " + (section.wallpaperDir.replace(/^~/, Quickshell.env("HOME"))) + " -maxdepth 2 -type f \\( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \\) 2>/dev/null | sort"]
+        command: ["bash", "-c", "find " + (section.wallpaperDir.replace(/^~/, Quickshell.env("HOME"))) + " -maxdepth 2 -type f ! -name '.*' \\( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \\) 2>/dev/null | sort"]
         stdout: StdioCollector {
             onStreamFinished: {
                 const lines = (this.text || "").trim().split("\n").filter(l => l.trim() !== "");

@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 QT_ENV="$SCRIPT_DIR/core/qt-env.sh"
 MAIN_QML="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/Main.qml"
 SETTINGS_WATCHER="$SCRIPT_DIR/core/settings_watcher.sh"
-SETTINGS_FILE="$HOME/.config/sway/settings.json"
+B1AIR_DAEMON="$HOME/.local/bin/b1air-daemon"
 FOCUSTIME_DAEMON="${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/focustime/focus_daemon.sh"
 WAYBAR_LAUNCHER="$SCRIPT_DIR/core/waybar.sh"
 QS_LOG_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/quickshell"
@@ -27,7 +27,12 @@ start_once() {
 
 start_once "$SETTINGS_WATCHER" bash "$SETTINGS_WATCHER"
 start_once "quickshell.*Main\.qml" env QS_SCRIPT_DIR="$SCRIPT_DIR" quickshell -p "$MAIN_QML"
-start_once "$FOCUSTIME_DAEMON" bash "$FOCUSTIME_DAEMON"
+
+if [[ -x "$B1AIR_DAEMON" ]]; then
+    start_once "b1air-daemon focus" "$B1AIR_DAEMON" focus
+elif [[ -f "$FOCUSTIME_DAEMON" ]]; then
+    start_once "$FOCUSTIME_DAEMON" bash "$FOCUSTIME_DAEMON"
+fi
 
 if command -v waybar >/dev/null 2>&1; then
     start_once "$WAYBAR_LAUNCHER" bash "$WAYBAR_LAUNCHER"

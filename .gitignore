@@ -1,2 +1,8 @@
-# macOS Finder metadata
+# macOS Finder metadata & resource forks
 .DS_Store
+._*
+
+# Compiled C++ Objects & Binaries
+*.o
+src/b1air-daemon
+b1air-daemon
