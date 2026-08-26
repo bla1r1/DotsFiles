@@ -5,7 +5,7 @@ LDFLAGS = -lsqlite3
 TARGET = b1air-daemon
 PREFIX ?= $(HOME)/.local/bin
 
-SRCS = main.cpp sway_ipc.cpp focustime_db.cpp user_manager.cpp system_control.cpp
+SRCS = main.cpp sway_ipc.cpp focustime_db.cpp user_manager.cpp system_control.cpp settings_manager.cpp session_manager.cpp
 OBJS = $(SRCS:.cpp=.o)
 
 all: $(TARGET)

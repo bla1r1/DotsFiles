@@ -274,8 +274,6 @@ fi
 # ---------------------------------------------------------
 QML_PATH="$HOME/.config/quickshell/ScreenshotOverlay.qml"
 SCRIPT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/sway/scripts"
-QT_ENV="$SCRIPT_DIR/core/qt-env.sh"
-[[ -f "$QT_ENV" ]] && source "$QT_ENV"
 
 if pgrep -f "quickshell -p $QML_PATH" > /dev/null; then
     pkill -f "quickshell -p $QML_PATH"

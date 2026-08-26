@@ -2,6 +2,8 @@
 #include "focustime_db.hpp"
 #include "user_manager.hpp"
 #include "system_control.hpp"
+#include "settings_manager.hpp"
+#include "session_manager.hpp"
 
 #include <iostream>
 #include <string>
@@ -21,9 +23,11 @@ static void handle_signal(int) {
 }
 
 static void print_usage(const char* prog) {
-    std::cout << "b1air-daemon — Native C++20 Desktop Suite & Background Services\n\n"
+    std::cout << "b1air-daemon — Native C++20 Desktop Suite & Session Manager\n\n"
               << "Usage: " << prog << " <command> [options...]\n\n"
-              << "Core Services & Analytics:\n"
+              << "Core Desktop & Session Management:\n"
+              << "  session                            Start full b1air desktop session (replaces all startup scripts)\n"
+              << "  settings [apply|watch]             Manage & live-apply desktop configuration from settings.json\n"
               << "  focus                              Run event-driven Sway window focus tracker daemon\n"
               << "  stats [YYYY-MM-DD]                 Get FocusTime statistics as formatted JSON\n"
               << "  user get                           Get user profile details as formatted JSON\n"
@@ -138,7 +142,17 @@ int main(int argc, char* argv[]) {
 
     std::string cmd = argv[1];
 
-    if (cmd == "focus" || cmd == "focus-tracker") {
+    if (cmd == "session" || cmd == "start-session") {
+        return SessionManager::run_session();
+    } else if (cmd == "settings") {
+        std::string sub = (argc >= 3) ? argv[2] : "apply";
+        if (sub == "watch") {
+            int running = 1;
+            return SettingsManager::watch_and_apply(&running);
+        } else {
+            return SettingsManager::apply_from_file() ? 0 : 1;
+        }
+    } else if (cmd == "focus" || cmd == "focus-tracker") {
         return run_focus_tracker();
     } else if (cmd == "gamepad-inhibit" || cmd == "joystick-inhibit") {
         return SystemControl::run_gamepad_inhibit();
@@ -359,7 +373,7 @@ int main(int argc, char* argv[]) {
     } else if (cmd == "lock") {
         return SystemControl::lock_session() ? 0 : 1;
     } else if (cmd == "version" || cmd == "-v" || cmd == "--version") {
-        std::cout << "b1air-daemon v2.4.0 (C++20, SQLite3, Sway-IPC, Tokyo Night)\n";
+        std::cout << "b1air-daemon v2.5.0 (C++20, Session Manager, Inotify, Sway-IPC, Tokyo Night)\n";
         return 0;
     } else if (cmd == "help" || cmd == "-h" || cmd == "--help") {
         print_usage(argv[0]);

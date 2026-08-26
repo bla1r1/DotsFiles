@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-QT_ENV="$SCRIPT_DIR/core/qt-env.sh"
 cleanup() {
     b1air-daemon ddc undim >/dev/null 2>&1 || true
 }
