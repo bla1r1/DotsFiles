@@ -106,8 +106,9 @@ if status is-interactive
     alias dots-diff 'bash ~/.config/sway/scripts/system/dotfiles-update.sh --status'
     alias sway-reload 'swaymsg reload'
     alias qs-reload 'pkill -9 quickshell; quickshell -p ~/.config/quickshell/Main.qml >/dev/null 2>&1 & disown'
-    alias qs-log 'cat /run/user/(id -u)/quickshell/by-id/*/log.qslog | tail -f'
-    alias game-mode 'bash ~/.config/sway/scripts/tools/game-mode.sh'
+    alias game-mode 'b1air-daemon game-mode'
+    alias b1air-lock 'b1air-daemon power lock'
+    alias b1air-stats 'b1air-daemon stats'
     alias fs-toggle 'bash ~/.config/sway/scripts/tools/fullscreen-toggle.sh'
 
     # ── Fastfetch on Startup ─────────────────────────────────────────────────

@@ -340,13 +340,26 @@ enable_services() {
     sudo systemctl enable sddm || warn "Failed to enable SDDM"
 }
 
+build_b1air_daemon() {
+    log "Building and installing b1air-daemon (C++20 Desktop Suite)..."
+    if [[ -d "$REPO_DIR/src" ]]; then
+        make -C "$REPO_DIR/src" clean >/dev/null 2>&1 || true
+        make -C "$REPO_DIR/src" PREFIX="${HOME}/.local/bin" install || warn "Failed to build b1air-daemon"
+        if sudo install -m 755 "$REPO_DIR/src/b1air-daemon" /usr/local/bin/b1air-daemon 2>/dev/null; then
+            ok "b1air-daemon installed to /usr/local/bin/b1air-daemon"
+        else
+            ok "b1air-daemon installed to ~/.local/bin/b1air-daemon"
+        fi
+    fi
+}
+
 post_install_checks() {
     log "Running environment verification..."
-    local commands=(sway swaylock quickshell kitty fish starship eza bat fzf sddm)
+    local commands=(sway swaylock quickshell kitty fish starship eza bat fzf sddm b1air-daemon)
     local missing=()
 
     for cmd in "${commands[@]}"; do
-        if ! command -v "$cmd" >/dev/null 2>&1; then
+        if ! command -v "$cmd" >/dev/null 2>&1 && ! [[ -x "$HOME/.local/bin/$cmd" ]]; then
             missing+=("$cmd")
         fi
     done
@@ -378,7 +391,12 @@ main() {
         warn "Skipping packages installation (--skip-packages)."
     fi
 
-    [[ "$SKIP_DOTFILES" -eq 0 ]] && deploy_dotfiles || warn "Skipping dotfiles deployment."
+    if [[ "$SKIP_DOTFILES" -eq 0 ]]; then
+        deploy_dotfiles
+        build_b1air_daemon
+    else
+        warn "Skipping dotfiles deployment."
+    fi
     [[ "$SKIP_SERVICES" -eq 0 ]] && enable_services || warn "Skipping services configuration."
 
     post_install_checks

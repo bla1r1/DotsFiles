@@ -308,7 +308,7 @@ PopupShell {
                 onToggled: {
                     const next = !(Settings.gameModeEnabled !== undefined ? Settings.gameModeEnabled : false);
                     Settings.set("gameModeEnabled", next);
-                    Quickshell.execDetached(["bash", Quickshell.env("HOME") + "/.config/sway/scripts/tools/game-mode.sh", next ? "on" : "off"]);
+                    Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/b1air-daemon", "game-mode", next ? "on" : "off"]);
                 }
                 onActivated: center.openFull("settings:gamemode")
             }
@@ -327,7 +327,7 @@ PopupShell {
                 trailingGlyph: ""
                 onActivated: {
                     center.close();
-                    Quickshell.execDetached(["bash", Quickshell.env("HOME") + "/.config/sway/scripts/tools/screenshot.sh", "area"]);
+                    Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/b1air-daemon", "screenshot", "area"]);
                 }
             }
         }

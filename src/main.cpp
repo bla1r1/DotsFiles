@@ -1,6 +1,7 @@
 #include "sway_ipc.hpp"
 #include "focustime_db.hpp"
 #include "user_manager.hpp"
+#include "system_control.hpp"
 
 #include <iostream>
 #include <string>
@@ -23,16 +24,20 @@ static void print_usage(const char* prog) {
     std::cout << "b1air-daemon — Native C++20 Desktop Suite & Background Services\n\n"
               << "Usage: " << prog << " <command> [options...]\n\n"
               << "Commands:\n"
-              << "  focus                      Run event-driven Sway window focus tracker daemon\n"
-              << "  stats [YYYY-MM-DD]         Get FocusTime statistics as formatted JSON\n"
-              << "  user get                   Get user profile details as formatted JSON\n"
-              << "  user set-avatar <path>     Update user profile avatar and sync with SDDM\n"
-              << "  user set-name <name>       Update user display / full name\n"
-              << "  user set-shell <path>      Update user login shell\n"
-              << "  user change-password       Launch secure interactive password prompt\n"
-              << "  lock                       Lock session with b1air theme\n"
-              << "  version                    Print version information\n"
-              << "  help                       Show this help message\n";
+              << "  focus                              Run event-driven Sway window focus tracker daemon\n"
+              << "  stats [YYYY-MM-DD]                 Get FocusTime statistics as formatted JSON\n"
+              << "  user get                           Get user profile details as formatted JSON\n"
+              << "  user set-avatar <path>             Update user profile avatar and sync with SDDM\n"
+              << "  user set-name <name>               Update user display / full name\n"
+              << "  user set-shell <path>              Update user login shell\n"
+              << "  user change-password               Launch secure interactive password prompt\n"
+              << "  game-mode {on|off|toggle|status}   Control zero-overhead gaming optimizations\n"
+              << "  power {lock|logout|suspend|reboot|shutdown}\n"
+              << "                                     Execute session power state transitions\n"
+              << "  screenshot [full|area|window]      Capture screen, copy to clipboard & save\n"
+              << "  lock                               Lock session with b1air theme\n"
+              << "  version                            Print version information\n"
+              << "  help                               Show this help message\n";
 }
 
 // ── Focus Tracker Daemon ─────────────────────────────────────────────────────
@@ -156,12 +161,41 @@ int main(int argc, char* argv[]) {
             std::cerr << "Unknown user command: " << sub << "\n";
             return 1;
         }
+    } else if (cmd == "game-mode" || cmd == "gamemode") {
+        std::string sub = (argc >= 3) ? argv[2] : "toggle";
+        if (sub == "on" || sub == "enable") {
+            return SystemControl::enable_game_mode() ? 0 : 1;
+        } else if (sub == "off" || sub == "disable") {
+            return SystemControl::disable_game_mode() ? 0 : 1;
+        } else if (sub == "toggle") {
+            return SystemControl::toggle_game_mode() ? 0 : 1;
+        } else if (sub == "status") {
+            std::cout << SystemControl::get_game_mode_status_json() << "\n";
+            return 0;
+        } else {
+            std::cerr << "Usage: " << argv[0] << " game-mode {on|off|toggle|status}\n";
+            return 1;
+        }
+    } else if (cmd == "power") {
+        if (argc < 3) {
+            std::cerr << "Usage: " << argv[0] << " power {lock|logout|suspend|reboot|shutdown}\n";
+            return 1;
+        }
+        std::string sub = argv[2];
+        if (sub == "lock") return SystemControl::lock_session() ? 0 : 1;
+        if (sub == "logout") return SystemControl::logout_session() ? 0 : 1;
+        if (sub == "suspend") return SystemControl::suspend_system() ? 0 : 1;
+        if (sub == "reboot") return SystemControl::reboot_system() ? 0 : 1;
+        if (sub == "shutdown" || sub == "poweroff") return SystemControl::shutdown_system() ? 0 : 1;
+        std::cerr << "Unknown power command: " << sub << "\n";
+        return 1;
+    } else if (cmd == "screenshot") {
+        std::string mode = (argc >= 3) ? argv[2] : "full";
+        return SystemControl::capture_screenshot(mode) ? 0 : 1;
     } else if (cmd == "lock") {
-        const char* home = std::getenv("HOME");
-        std::string lock_cmd = std::string(home ? home : "") + "/.config/sway/scripts/session/swaylock.sh";
-        return std::system(lock_cmd.c_str());
+        return SystemControl::lock_session() ? 0 : 1;
     } else if (cmd == "version" || cmd == "-v" || cmd == "--version") {
-        std::cout << "b1air-daemon v2.0.0 (C++20, SQLite3, Sway-IPC, Tokyo Night)\n";
+        std::cout << "b1air-daemon v2.1.0 (C++20, SQLite3, Sway-IPC, Tokyo Night)\n";
         return 0;
     } else if (cmd == "help" || cmd == "-h" || cmd == "--help") {
         print_usage(argv[0]);

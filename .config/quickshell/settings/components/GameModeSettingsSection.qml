@@ -5,7 +5,7 @@ import "../../Ui"
 import "../../Services"
 
 // =============================================================================
-// Game Mode Settings
+// Game Mode Settings (C++20 b1air-daemon backed)
 // =============================================================================
 
 ColumnLayout {
@@ -22,8 +22,8 @@ ColumnLayout {
     function toggleGameMode(val) {
         section.gameModeEnabled = val;
         Settings.set("gameModeEnabled", val);
-        const script = Quickshell.env("HOME") + "/.config/sway/scripts/tools/game-mode.sh";
-        Quickshell.execDetached(["bash", script, val ? "on" : "off"]);
+        const daemonCmd = Quickshell.env("HOME") + "/.local/bin/b1air-daemon";
+        Quickshell.execDetached([daemonCmd, "game-mode", val ? "on" : "off"]);
     }
 
     // ── 1. Master Switch ─────────────────────────────────────────────────────
@@ -31,7 +31,7 @@ ColumnLayout {
         title: "Game Mode Performance"
         subtitle: "Optimize system responsiveness, disable desktop overhead, and maximize FPS"
         icon: "\u{f11b}"
-        accentColor: Design.red
+        accentColor: Design.danger
 
         RowLayout {
             Layout.fillWidth: true
@@ -56,75 +56,72 @@ ColumnLayout {
         title: "Display & Desktop Overlays"
         subtitle: "Configurable behaviors applied when Game Mode is active"
         icon: "\u{f108}"
-        accentColor: Design.cyan
+        accentColor: Design.sapphire
 
-        RowLayout {
+        ColumnLayout {
             Layout.fillWidth: true
             spacing: Design.s(Design.space.md)
 
-            ColumnLayout {
+            RowLayout {
                 Layout.fillWidth: true
-                spacing: Design.s(2)
-                Label { text: "Hide Top Bar (Waybar)"; weight: Design.weight.semibold }
-                Label { text: "Temporarily hides the top bar during gaming to prevent overlay latency"; role: "caption"; dim: true }
-            }
-
-            Toggle {
-                checked: section.gameModeHideWaybar
-                onToggled: {
-                    const next = !section.gameModeHideWaybar;
-                    section.gameModeHideWaybar = next;
-                    Settings.set("gameModeHideWaybar", next);
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: Design.s(2)
+                    Label { text: "Adaptive Sync (VRR)"; weight: Design.weight.medium }
+                    Label { text: "Enable Variable Refresh Rate on supported gaming monitors"; role: "caption"; dim: true }
+                }
+                Toggle {
+                    checked: section.gameModeAdaptiveSync
+                    onToggled: {
+                        section.gameModeAdaptiveSync = !section.gameModeAdaptiveSync;
+                        Settings.set("gameModeAdaptiveSync", section.gameModeAdaptiveSync);
+                    }
                 }
             }
-        }
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: Design.s(Design.space.md)
-
-            ColumnLayout {
+            Rectangle {
                 Layout.fillWidth: true
-                spacing: Design.s(2)
-                Label { text: "Adaptive Sync / VRR (FreeSync & G-Sync)"; weight: Design.weight.semibold }
-                Label { text: "Enables variable refresh rate on supported monitors for tear-free gaming"; role: "caption"; dim: true }
+                Layout.preferredHeight: Design.s(1)
+                color: Design.border
             }
 
-            Toggle {
-                checked: section.gameModeAdaptiveSync
-                onToggled: {
-                    const next = !section.gameModeAdaptiveSync;
-                    section.gameModeAdaptiveSync = next;
-                    Settings.set("gameModeAdaptiveSync", next);
+            RowLayout {
+                Layout.fillWidth: true
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: Design.s(2)
+                    Label { text: "Hide Waybar"; weight: Design.weight.medium }
+                    Label { text: "Automatically hide top status bar during gaming sessions"; role: "caption"; dim: true }
+                }
+                Toggle {
+                    checked: section.gameModeHideWaybar
+                    onToggled: {
+                        section.gameModeHideWaybar = !section.gameModeHideWaybar;
+                        Settings.set("gameModeHideWaybar", section.gameModeHideWaybar);
+                    }
                 }
             }
-        }
-    }
 
-    // ── 3. Notifications & Focus ─────────────────────────────────────────────
-    Card {
-        title: "Focus & Notifications"
-        subtitle: "Manage alerts and popup banners while playing games"
-        icon: "\u{f0f3}"
-        accentColor: Design.peach
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: Design.s(Design.space.md)
-
-            ColumnLayout {
+            Rectangle {
                 Layout.fillWidth: true
-                spacing: Design.s(2)
-                Label { text: "Silence Notifications (Do Not Disturb)"; weight: Design.weight.semibold }
-                Label { text: "Mutes incoming toast notifications so they do not steal focus during games"; role: "caption"; dim: true }
+                Layout.preferredHeight: Design.s(1)
+                color: Design.border
             }
 
-            Toggle {
-                checked: section.gameModeDND
-                onToggled: {
-                    const next = !section.gameModeDND;
-                    section.gameModeDND = next;
-                    Settings.set("gameModeDND", next);
+            RowLayout {
+                Layout.fillWidth: true
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: Design.s(2)
+                    Label { text: "Do Not Disturb (DND)"; weight: Design.weight.medium }
+                    Label { text: "Mute all popups and toast notifications while in game"; role: "caption"; dim: true }
+                }
+                Toggle {
+                    checked: section.gameModeDND
+                    onToggled: {
+                        section.gameModeDND = !section.gameModeDND;
+                        Settings.set("gameModeDND", section.gameModeDND);
+                    }
                 }
             }
         }
