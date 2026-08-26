@@ -238,6 +238,25 @@ static bool parse_focused_node(const std::string& json, WindowInfo& out) {
         out.floating = true;
     }
 
+    // Rect dimensions for native autotiling
+    size_t rect_pos = chunk.find("\"rect\":");
+    if (rect_pos != std::string::npos) {
+        size_t w_pos = chunk.find("\"width\":", rect_pos);
+        if (w_pos != std::string::npos && w_pos < rect_pos + 120) {
+            size_t w_start = chunk.find_first_of("0123456789", w_pos + 8);
+            if (w_start != std::string::npos) {
+                out.width = std::atoi(&chunk[w_start]);
+            }
+        }
+        size_t h_pos = chunk.find("\"height\":", rect_pos);
+        if (h_pos != std::string::npos && h_pos < rect_pos + 120) {
+            size_t h_start = chunk.find_first_of("0123456789", h_pos + 9);
+            if (h_start != std::string::npos) {
+                out.height = std::atoi(&chunk[h_start]);
+            }
+        }
+    }
+
     if (!app_id.empty() || !name.empty()) {
         out.app_class = app_id.empty() ? name : app_id;
         out.title = name;

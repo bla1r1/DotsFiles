@@ -118,20 +118,20 @@ enable_multilib_repo() {
 arch_packages() {
     local pkgs=(
         # Core & Build
-        base-devel git rsync curl unzip jq inotify-tools socat cmake ccache
+        base-devel git rsync curl unzip jq inotify-tools cmake ccache
         # Wayland Compositor & Shell
         swaybg swayidle swaylock xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk
-        waybar layer-shell-qt xorg-xwayland autotiling
+        waybar layer-shell-qt xorg-xwayland
         # Modern CLI & Shell
         fish starship eza bat fzf zoxide fastfetch btop trash-cli
         # Terminal Emulators
-        kitty foot
+        kitty
         # GUI Applications
         firefox thunar
         # Clipboard & Screenshots
         wl-clipboard grim slurp swappy
         # Audio & Media
-        pipewire wireplumber pipewire-pulse pamixer playerctl libcanberra
+        pipewire wireplumber pipewire-pulse playerctl libcanberra
         # System & Hardware
         upower brightnessctl ddcutil pacman-contrib libnotify
         # Network & Bluetooth
@@ -139,9 +139,9 @@ arch_packages() {
         # Display Manager (SDDM) & Qt6 Components
         sddm qt6-5compat qt6-declarative qt6-wayland qt6-svg qt6-multimedia qt6-virtualkeyboard
         # Theming & Fonts
-        qt5ct qt6ct kvantum nwg-look
+        kvantum
         noto-fonts noto-fonts-emoji noto-fonts-cjk ttf-jetbrains-mono-nerd ttf-fira-sans
-        papirus-icon-theme adw-gtk-theme
+        papirus-icon-theme
         # Utilities & Tools
         imagemagick sqlite
     )
@@ -153,10 +153,6 @@ arch_packages() {
 aur_packages() {
     local pkgs=(
         swayfx
-        swaylock-effects
-        waypaper
-        catppuccin-cursors-mocha
-        catppuccin-gtk-theme-mocha
     )
     echo "${pkgs[@]}"
 }
@@ -368,6 +364,10 @@ enable_services() {
 build_b1air_suite() {
     log "Building and installing b1air-daemon & b1air-shell (Native C++20 Desktop Suite)..."
     if [[ -d "$REPO_DIR/src" ]]; then
+        if command -v ccache >/dev/null 2>&1; then
+            ccache -M 10G >/dev/null 2>&1 || true
+        fi
+
         # 1. Daemon
         make -C "$REPO_DIR/src" clean >/dev/null 2>&1 || true
         make -C "$REPO_DIR/src" PREFIX="${HOME}/.local/bin" install || warn "Failed to build b1air-daemon"
