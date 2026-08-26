@@ -31,20 +31,28 @@ static void print_usage(const char* prog) {
               << "  user set-name <name>               Update user display / full name\n"
               << "  user set-shell <path>              Update user login shell\n"
               << "  user change-password               Launch secure interactive password prompt\n\n"
-              << "Compositor & Waybar Helpers (Priority 1):\n"
+              << "Compositor & Waybar Helpers:\n"
               << "  layout                             Get active keyboard layout shorthand (US, UA, DE...)\n"
               << "  fullscreen-toggle                  Toggle fullscreen & auto-center floating window\n"
               << "  wifi-status                        Get Waybar-formatted Wi-Fi JSON\n"
-              << "  media-status                       Get Waybar-formatted Media Player JSON\n\n"
-              << "Controls & Hardware (Priority 2):\n"
+              << "  media-status                       Get Waybar-formatted Media Player JSON\n"
+              << "  updates [check|up]                 Get package updates JSON or launch system upgrade\n\n"
+              << "Controls & Hardware:\n"
               << "  volume {get|up [N]|down [N]|mute}  Control audio sink volume & mute\n"
               << "  mic {get|toggle|mute}              Control microphone mute status\n"
               << "  brightness {available|get|up [N]|down [N]|set <pct>}\n"
               << "                                     Control screen backlight brightness\n"
+              << "  kbd-backlight {available|get|up [N]|down [N]|set <pct>|off}\n"
+              << "                                     Control keyboard backlight\n"
+              << "  wallpaper {set <file>|random [dir]|restore}\n"
+              << "                                     Manage and apply desktop & SDDM wallpaper\n"
+              << "  night-light {on [temp]|off|toggle|auto}\n"
+              << "                                     Control color temperature & blue light filter\n"
               << "  game-mode {on|off|toggle|status}   Control zero-overhead gaming optimizations\n"
               << "  power {lock|logout|suspend|reboot|shutdown}\n"
               << "                                     Execute session power state transitions\n"
               << "  screenshot [full|area|window]      Capture screen, copy to clipboard & save\n"
+              << "  reload                             Reload compositor, Quickshell and Waybar\n"
               << "  lock                               Lock session with b1air theme\n"
               << "  version                            Print version information\n"
               << "  help                               Show this help message\n";
@@ -182,6 +190,14 @@ int main(int argc, char* argv[]) {
     } else if (cmd == "media-status" || cmd == "media") {
         std::cout << SystemControl::get_media_status_json() << "\n";
         return 0;
+    } else if (cmd == "updates") {
+        std::string sub = (argc >= 3) ? argv[2] : "check";
+        if (sub == "up" || sub == "upgrade") {
+            return SystemControl::launch_system_upgrade() ? 0 : 1;
+        } else {
+            std::cout << SystemControl::get_updates_json() << "\n";
+            return 0;
+        }
     } else if (cmd == "volume") {
         std::string sub = (argc >= 3) ? argv[2] : "get";
         int step = (argc >= 4) ? std::atoi(argv[3]) : 5;
@@ -228,6 +244,61 @@ int main(int argc, char* argv[]) {
             std::cerr << "Usage: " << argv[0] << " brightness {available|get|up [N]|down [N]|set <pct>}\n";
             return 1;
         }
+    } else if (cmd == "kbd-backlight" || cmd == "kbd") {
+        std::string sub = (argc >= 3) ? argv[2] : "get";
+        int step = (argc >= 4) ? std::atoi(argv[3]) : 10;
+        if (sub == "available" || sub == "--available") {
+            return SystemControl::kbd_backlight_available() ? 0 : 1;
+        } else if (sub == "get" || sub == "--get") {
+            std::cout << SystemControl::kbd_backlight_get() << "\n";
+            return 0;
+        } else if (sub == "up" || sub == "inc" || sub == "--inc") {
+            return SystemControl::kbd_backlight_inc(step) ? 0 : 1;
+        } else if (sub == "down" || sub == "dec" || sub == "--dec") {
+            return SystemControl::kbd_backlight_dec(step) ? 0 : 1;
+        } else if (sub == "set" || sub == "--set") {
+            int val = (argc >= 4) ? std::atoi(argv[3]) : 50;
+            return SystemControl::kbd_backlight_set(val) ? 0 : 1;
+        } else if (sub == "off" || sub == "--off") {
+            return SystemControl::kbd_backlight_off() ? 0 : 1;
+        } else {
+            std::cerr << "Usage: " << argv[0] << " kbd-backlight {available|get|up [N]|down [N]|set <val>|off}\n";
+            return 1;
+        }
+    } else if (cmd == "wallpaper") {
+        std::string sub = (argc >= 3) ? argv[2] : "restore";
+        if (sub == "set") {
+            if (argc < 4) {
+                std::cerr << "Usage: " << argv[0] << " wallpaper set <path>\n";
+                return 1;
+            }
+            return SystemControl::wallpaper_set(argv[3]) ? 0 : 1;
+        } else if (sub == "random") {
+            std::string dir = (argc >= 4) ? argv[3] : "";
+            return SystemControl::wallpaper_random(dir) ? 0 : 1;
+        } else if (sub == "restore") {
+            return SystemControl::wallpaper_restore() ? 0 : 1;
+        } else {
+            std::cerr << "Usage: " << argv[0] << " wallpaper {set <file>|random [dir]|restore}\n";
+            return 1;
+        }
+    } else if (cmd == "night-light" || cmd == "nightlight") {
+        std::string sub = (argc >= 3) ? argv[2] : "toggle";
+        if (sub == "on") {
+            int temp = (argc >= 4) ? std::atoi(argv[3]) : 4000;
+            return SystemControl::night_light_on(temp) ? 0 : 1;
+        } else if (sub == "off") {
+            return SystemControl::night_light_off() ? 0 : 1;
+        } else if (sub == "toggle") {
+            return SystemControl::night_light_toggle() ? 0 : 1;
+        } else if (sub == "auto") {
+            return SystemControl::night_light_auto() ? 0 : 1;
+        } else {
+            std::cerr << "Usage: " << argv[0] << " night-light {on [temp]|off|toggle|auto}\n";
+            return 1;
+        }
+    } else if (cmd == "reload") {
+        return SystemControl::reload_desktop() ? 0 : 1;
     } else if (cmd == "game-mode" || cmd == "gamemode") {
         std::string sub = (argc >= 3) ? argv[2] : "toggle";
         if (sub == "on" || sub == "enable") {
@@ -262,7 +333,7 @@ int main(int argc, char* argv[]) {
     } else if (cmd == "lock") {
         return SystemControl::lock_session() ? 0 : 1;
     } else if (cmd == "version" || cmd == "-v" || cmd == "--version") {
-        std::cout << "b1air-daemon v2.2.0 (C++20, SQLite3, Sway-IPC, Tokyo Night)\n";
+        std::cout << "b1air-daemon v2.3.0 (C++20, SQLite3, Sway-IPC, Tokyo Night)\n";
         return 0;
     } else if (cmd == "help" || cmd == "-h" || cmd == "--help") {
         print_usage(argv[0]);

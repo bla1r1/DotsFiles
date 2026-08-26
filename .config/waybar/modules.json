@@ -57,11 +57,11 @@
   },
   "custom/updates": {
     "format": "  {}",
-    "exec": "~/.config/sway/scripts/system/updates.sh",
-    "restart-interval": 60,
+    "exec": "b1air-daemon updates check",
+    "restart-interval": 300,
     "return-type": "json",
     "escape": true,
-    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main open settings maintenance",
+    "on-click": "b1air-daemon updates up",
     "tooltip-format": "{}",
     "tooltip": true
   },
@@ -189,14 +189,14 @@
     "tooltip": true
   },
   "custom/kbd-backlight": {
-    "exec-if": "bash ~/.config/sway/scripts/controls/kbd-backlight.sh --available",
-    "exec": "bash ~/.config/sway/scripts/controls/kbd-backlight.sh --get",
+    "exec-if": "b1air-daemon kbd-backlight available",
+    "exec": "b1air-daemon kbd-backlight get",
     "interval": "once",
     "signal": 2,
     "format": "󰌌  {}%",
-    "on-scroll-up": "bash ~/.config/sway/scripts/controls/kbd-backlight.sh --inc",
-    "on-scroll-down": "bash ~/.config/sway/scripts/controls/kbd-backlight.sh --dec",
-    "on-click": "bash ~/.config/sway/scripts/controls/kbd-backlight.sh --off",
+    "on-scroll-up": "b1air-daemon kbd-backlight up 10",
+    "on-scroll-down": "b1air-daemon kbd-backlight down 10",
+    "on-click": "b1air-daemon kbd-backlight off",
     "tooltip-format": "Scroll: adjust\nClick: turn off",
     "tooltip": true
   },

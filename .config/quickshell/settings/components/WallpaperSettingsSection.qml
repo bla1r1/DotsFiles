@@ -61,11 +61,11 @@ ColumnLayout {
 
     function applyWallpaper(path) {
         section.activeWallpaper = path;
-        Quickshell.execDetached(["bash", Quickshell.env("HOME") + "/.config/sway/scripts/core/wallpaper.sh", "set", path]);
+        Quickshell.execDetached(["b1air-daemon", "wallpaper", "set", path]);
     }
 
     function setRandom() {
-        Quickshell.execDetached(["bash", Quickshell.env("HOME") + "/.config/sway/scripts/core/wallpaper.sh", "random", section.wallpaperDir.replace(/^~/, Quickshell.env("HOME"))]);
+        Quickshell.execDetached(["b1air-daemon", "wallpaper", "random", section.wallpaperDir.replace(/^~/, Quickshell.env("HOME"))]);
     }
 
     // ── 1. Wallpaper Gallery Card ────────────────────────────────────────────

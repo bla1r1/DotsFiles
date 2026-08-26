@@ -12,6 +12,8 @@
 #include <algorithm>
 #include <array>
 #include <memory>
+#include <random>
+#include <vector>
 #include <dirent.h>
 
 namespace b1air {
@@ -26,11 +28,12 @@ static bool is_game_mode_active() {
 static std::string exec_cmd(const std::string& cmd) {
     std::array<char, 256> buffer;
     std::string result;
-    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
+    FILE* pipe = popen(cmd.c_str(), "r");
     if (!pipe) return "";
-    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
         result += buffer.data();
     }
+    pclose(pipe);
     // Trim trailing newline
     while (!result.empty() && (result.back() == '\n' || result.back() == '\r')) {
         result.pop_back();
@@ -157,7 +160,6 @@ std::string SystemControl::get_layout_shorthand() {
     std::string inputs = ipc.get_inputs();
     if (inputs.empty()) return "US";
 
-    // Find "xkb_active_layout_name": "..."
     size_t pos = inputs.find("\"xkb_active_layout_name\":");
     if (pos == std::string::npos) return "US";
 
@@ -239,7 +241,7 @@ std::string SystemControl::get_media_status_json() {
     std::string safe_label;
     for (char c : label) {
         if (c == '"' || c == '\\') safe_label += '\\';
-        safe_label += c;
+        else safe_label += c;
     }
 
     std::string cls = (status == "Playing") ? "playing" : "paused";
@@ -333,6 +335,197 @@ bool SystemControl::brightness_down(int step) {
 
 bool SystemControl::brightness_set(int pct) {
     std::system(("brightnessctl -c backlight -e4 -n2 set " + std::to_string(pct) + "% >/dev/null 2>&1 || true").c_str());
+    return true;
+}
+
+// ── Keyboard Backlight ───────────────────────────────────────────────────────
+static std::string detect_kbd_device() {
+    std::string dev = exec_cmd("brightnessctl -l 2>/dev/null | grep -o \"[^\']*kbd_backlight[^\']*\" | head -n1");
+    return dev;
+}
+
+bool SystemControl::kbd_backlight_available() {
+    std::string dev = detect_kbd_device();
+    return !dev.empty();
+}
+
+int SystemControl::kbd_backlight_get() {
+    std::string dev = detect_kbd_device();
+    if (dev.empty()) return 0;
+    std::string val = exec_cmd("brightnessctl -d '" + dev + "' -m 2>/dev/null | awk -F, 'NR == 1 { gsub(\"%\", \"\", $4); print $4 }'");
+    try { return std::stoi(val); } catch (...) { return 0; }
+}
+
+bool SystemControl::kbd_backlight_inc(int step) {
+    std::string dev = detect_kbd_device();
+    if (dev.empty()) return false;
+    std::system(("brightnessctl -d '" + dev + "' set " + std::to_string(step) + "%+ >/dev/null 2>&1 || true").c_str());
+    int val = kbd_backlight_get();
+    std::system(("notify-send -h string:x-canonical-private-synchronous:sys-notify-kbd -u low -i input-keyboard 'Keyboard Backlight: " + std::to_string(val) + "%' 2>/dev/null || true").c_str());
+    std::system("pkill -RTMIN+2 waybar 2>/dev/null || true");
+    return true;
+}
+
+bool SystemControl::kbd_backlight_dec(int step) {
+    std::string dev = detect_kbd_device();
+    if (dev.empty()) return false;
+    std::system(("brightnessctl -d '" + dev + "' set " + std::to_string(step) + "%- >/dev/null 2>&1 || true").c_str());
+    int val = kbd_backlight_get();
+    std::system(("notify-send -h string:x-canonical-private-synchronous:sys-notify-kbd -u low -i input-keyboard 'Keyboard Backlight: " + std::to_string(val) + "%' 2>/dev/null || true").c_str());
+    std::system("pkill -RTMIN+2 waybar 2>/dev/null || true");
+    return true;
+}
+
+bool SystemControl::kbd_backlight_set(int val) {
+    std::string dev = detect_kbd_device();
+    if (dev.empty()) return false;
+    std::system(("brightnessctl -d '" + dev + "' set " + std::to_string(val) + "% >/dev/null 2>&1 || true").c_str());
+    std::system("pkill -RTMIN+2 waybar 2>/dev/null || true");
+    return true;
+}
+
+bool SystemControl::kbd_backlight_off() {
+    std::string dev = detect_kbd_device();
+    if (dev.empty()) return false;
+    std::system(("brightnessctl -d '" + dev + "' set 0 >/dev/null 2>&1 || true").c_str());
+    std::system("notify-send -h string:x-canonical-private-synchronous:sys-notify-kbd -u low -i input-keyboard 'Keyboard Backlight: OFF' 2>/dev/null || true");
+    std::system("pkill -RTMIN+2 waybar 2>/dev/null || true");
+    return true;
+}
+
+// ── Wallpaper ────────────────────────────────────────────────────────────────
+bool SystemControl::wallpaper_set(const std::string& filepath, const std::string& /*mode*/) {
+    if (access(filepath.c_str(), R_OK) != 0) return false;
+
+    const char* home = std::getenv("HOME");
+    std::string cache_file = std::string(home ? home : "/tmp") + "/.cache/current_wallpaper.jpg";
+
+    // Copy to user cache
+    std::system(("cp -f '" + filepath + "' '" + cache_file + "' 2>/dev/null || true").c_str());
+    // Copy to SDDM cache if writable
+    std::system(("cp -f '" + filepath + "' /var/cache/wallpaper/current.jpg 2>/dev/null || true").c_str());
+
+    // Apply to Sway
+    SwayIPC ipc;
+    if (ipc.connect()) {
+        ipc.send_command(0, "output * bg '" + filepath + "' fill");
+    } else {
+        std::system("pkill -x swaybg 2>/dev/null || true");
+        std::system(("swaybg -m fill -i '" + filepath + "' >/dev/null 2>&1 &").c_str());
+    }
+
+    return true;
+}
+
+bool SystemControl::wallpaper_random(const std::string& dir_arg) {
+    const char* home = std::getenv("HOME");
+    std::string target_dir = dir_arg.empty() ? (std::string(home ? home : "") + "/.wallpapers") : dir_arg;
+
+    DIR* dir = opendir(target_dir.c_str());
+    if (!dir) return false;
+
+    std::vector<std::string> images;
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != nullptr) {
+        if (entry->d_name[0] == '.') continue;
+        std::string name = entry->d_name;
+        std::string lower = name;
+        std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+        if (lower.ends_with(".jpg") || lower.ends_with(".jpeg") || lower.ends_with(".png") || lower.ends_with(".webp")) {
+            images.push_back(target_dir + "/" + name);
+        }
+    }
+    closedir(dir);
+
+    if (images.empty()) return false;
+
+    std::random_device rd;
+    std::mt19937 g(rd());
+    std::uniform_int_distribution<size_t> dist(0, images.size() - 1);
+    return wallpaper_set(images[dist(g)]);
+}
+
+bool SystemControl::wallpaper_restore() {
+    const char* home = std::getenv("HOME");
+    std::string cache_file = std::string(home ? home : "/tmp") + "/.cache/current_wallpaper.jpg";
+    if (access(cache_file.c_str(), R_OK) == 0) {
+        return wallpaper_set(cache_file, "restore");
+    }
+    return wallpaper_random();
+}
+
+// ── Night Light ──────────────────────────────────────────────────────────────
+bool SystemControl::night_light_on(int temp) {
+    std::system("pkill wlsunset 2>/dev/null || true");
+    std::system(("wlsunset -t " + std::to_string(temp) + " >/dev/null 2>&1 &").c_str());
+    std::system("notify-send -a 'Night Light' -i 'weather-clear-night' 'Night Light Enabled' 'Warm color temperature active' 2>/dev/null || true");
+    return true;
+}
+
+bool SystemControl::night_light_off() {
+    std::system("pkill wlsunset 2>/dev/null || true");
+    std::system("notify-send -a 'Night Light' -i 'weather-clear' 'Night Light Disabled' 'Standard display colors restored' 2>/dev/null || true");
+    return true;
+}
+
+bool SystemControl::night_light_toggle() {
+    std::string check = exec_cmd("pgrep wlsunset");
+    if (!check.empty()) {
+        return night_light_off();
+    } else {
+        return night_light_on(4000);
+    }
+}
+
+bool SystemControl::night_light_auto() {
+    auto now = std::chrono::system_clock::now();
+    auto in_time_t = std::chrono::system_clock::to_time_t(now);
+    struct tm* tm = std::localtime(&in_time_t);
+    int hour = tm->tm_hour;
+
+    if (hour >= 20 || hour < 7) {
+        return night_light_on(4000);
+    } else {
+        return night_light_off();
+    }
+}
+
+// ── System Updates ───────────────────────────────────────────────────────────
+std::string SystemControl::get_updates_json(bool /*force*/) {
+    int arch_updates = 0;
+    int aur_updates = 0;
+
+    std::string arch_str = exec_cmd("checkupdates 2>/dev/null | wc -l");
+    try { arch_updates = std::stoi(arch_str); } catch (...) { arch_updates = 0; }
+
+    std::string aur_str = exec_cmd("yay -Qua 2>/dev/null | wc -l");
+    try { aur_updates = std::stoi(aur_str); } catch (...) { aur_updates = 0; }
+
+    int total = arch_updates + aur_updates;
+    if (total == 0) {
+        return "{\"text\":\"0\",\"alt\":\"0\",\"tooltip\":\"Packages are up to date\",\"class\":\"green\"}";
+    }
+
+    std::string cls = (total > 50) ? "red" : ((total > 0) ? "yellow" : "green");
+    std::string tooltip = std::to_string(arch_updates) + " System | " + std::to_string(aur_updates) + " AUR";
+    return "{\"text\":\"" + std::to_string(total) + "\",\"alt\":\"" + std::to_string(total) + "\",\"tooltip\":\"" + tooltip + "\",\"class\":\"" + cls + "\"}";
+}
+
+bool SystemControl::launch_system_upgrade() {
+    return (std::system("kitty --title systemupdate bash -c 'yay -Syu; echo \"\nPress Enter to close...\"; read -r _' &") == 0);
+}
+
+// ── Desktop Reload ───────────────────────────────────────────────────────────
+bool SystemControl::reload_desktop() {
+    SwayIPC ipc;
+    if (ipc.connect()) {
+        ipc.send_command(0, "reload");
+    } else {
+        std::system("swaymsg reload 2>/dev/null || true");
+    }
+
+    std::system("qs -p ~/.config/quickshell/Main.qml ipc call main forceReload 2>/dev/null || true");
+    std::system("killall -SIGUSR2 waybar 2>/dev/null || true");
     return true;
 }
 

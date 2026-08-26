@@ -41,6 +41,32 @@ public:
     static bool brightness_up(int step = 5);
     static bool brightness_down(int step = 5);
     static bool brightness_set(int pct);
+
+    // Keyboard Backlight controls
+    static bool kbd_backlight_available();
+    static int kbd_backlight_get();
+    static bool kbd_backlight_inc(int step = 10);
+    static bool kbd_backlight_dec(int step = 10);
+    static bool kbd_backlight_set(int val);
+    static bool kbd_backlight_off();
+
+    // Wallpaper management
+    static bool wallpaper_set(const std::string& filepath, const std::string& mode = "set");
+    static bool wallpaper_random(const std::string& dir = "");
+    static bool wallpaper_restore();
+
+    // Night Light & Day/Night Ambiance
+    static bool night_light_on(int temp = 4000);
+    static bool night_light_off();
+    static bool night_light_toggle();
+    static bool night_light_auto();
+
+    // System Updates & Waybar JSON
+    static std::string get_updates_json(bool force = false);
+    static bool launch_system_upgrade();
+
+    // Desktop Reload
+    static bool reload_desktop();
 };
 
 } // namespace b1air
