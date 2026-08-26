@@ -1,8 +1,8 @@
 {
     "clock": {
         "format": "{:%R}",
-        "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleCalendar",
-        "on-click-middle": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleFocusTime",
+        "on-click": "b1air-shell toggle calendar",
+        "on-click-middle": "b1air-shell toggle focustime",
 
         "tooltip-format": "<tt>{calendar}</tt>",
         "calendar": {

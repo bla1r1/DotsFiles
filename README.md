@@ -1,177 +1,182 @@
-# 🌌 b1air Desktop Environment
+# b1air Desktop Environment
 
 <div align="center">
 
 ![b1air Desktop Environment](https://raw.githubusercontent.com/bla1r1/DotsFiles/main/.wallpapers/tokyo-night.jpg)
 
-**Next-Generation Wayland Desktop Environment for Arch Linux**  
-*Powered by SwayFX, Quickshell (Qt6/QML), C++20 Core Daemon Suite, and Tokyo Night Aesthetics.*
+**A keyboard-driven Wayland desktop for Arch Linux.**  
+*Built with SwayFX, Qt6/QML, a native C++20 core daemon, and Tokyo Night styling.*
 
-[![Platform: Arch Linux](https://img.shields.io/badge/Distro-Arch_Linux-1793d1?style=for-the-badge&logo=archlinux&logoColor=white)](https://archlinux.org)
-[![Compositor: SwayFX](https://img.shields.io/badge/Compositor-SwayFX_0.6-005577?style=for-the-badge&logo=wayland&logoColor=white)](https://github.com/WillPower3309/swayfx)
-[![UI: Quickshell](https://img.shields.io/badge/UI-Quickshell_Qt6-41cd52?style=for-the-badge&logo=qt&logoColor=white)](https://quickshell.outfoxxed.me)
-[![Core: C++20](https://img.shields.io/badge/Core-C++20_Daemon-00599c?style=for-the-badge&logo=c%2B%2B&logoColor=white)](https://isocpp.org)
-[![Theme: Tokyo Night](https://img.shields.io/badge/Theme-Tokyo_Night-7aa2f7?style=for-the-badge)](https://github.com/folke/tokyonight.nvim)
+[![Platform: Arch Linux](https://img.shields.io/badge/Arch_Linux-Ready-1793d1?style=flat-square&logo=archlinux&logoColor=white)](https://archlinux.org)
+[![Compositor: SwayFX](https://img.shields.io/badge/SwayFX-0.6-005577?style=flat-square&logo=wayland&logoColor=white)](https://github.com/WillPower3309/swayfx)
+[![UI: Qt6 / QML](https://img.shields.io/badge/Shell-Qt6_QML-41cd52?style=flat-square&logo=qt&logoColor=white)](https://qt.io)
+[![Core: C++20](https://img.shields.io/badge/Daemon-C++20-00599c?style=flat-square&logo=c%2B%2B&logoColor=white)](https://isocpp.org)
+[![Theme: Tokyo Night](https://img.shields.io/badge/Palette-Tokyo_Night-7aa2f7?style=flat-square)](https://github.com/folke/tokyonight.nvim)
+[![License: GPL v2.0](https://img.shields.io/badge/License-GPL_v2.0-blue?style=flat-square)](LICENSE)
 
 </div>
 
 ---
 
-## ⚡ Highlights & Key Features
+## Overview
 
-### 💎 Aesthetics & Compositor Experience
-- **SwayFX Compositor**: Native GPU-accelerated rounded corners (`corner_radius 10`), backdrop blur, shadows, and smooth layer effects with zero rendering errors.
-- **Tokyo Night Palette**: Consistent `#1a1b26` background, `#7aa2f7` sapphire accents, `#bb9af7` lavender glyphs, `#7dcfff` cyan highlights, and `#f7768e` danger tones applied across windows, bars, menus, terminals, and display manager.
-- **SDDM `b1air` Greeter**: Modern Qt6 SDDM theme featuring smooth glassmorphism, user avatar synchronization, layout selector, and virtual keyboard.
+b1air is a unified desktop setup for Arch Linux designed around keyboard efficiency, low latency, and a consistent dark theme across all applications.
 
-### 🚀 C++20 `b1air-daemon` Desktop Suite
-Unlike traditional shell-heavy setups with fork overhead, **b1air** features a compiled **C++20 multi-call daemon binary** (`src/`) interacting directly with system APIs:
-- **Direct Sway IPC Client (`sway_ipc.cpp`)**: Subscribes directly to Wayland compositor event sockets via UNIX domain sockets for sub-millisecond window/workspace tracking.
-- **FocusTime SQLite Engine (`focustime_db.cpp`)**: High-performance time-tracking database with prepared SQLite statements and sub-millisecond JSON analytics output.
-- **POSIX & PAM User Manager (`user_manager.cpp`)**: Native avatar synchronizer (`~/.face.icon` and AccountsService), GECOS display name updates, shell switcher, and secure PAM password launcher.
-- **Zero-Overhead Game Mode (`system_control.cpp`)**: One-command compositor effect bypass, CPU governor switching, and low-latency PipeWire quantum adjustment.
-- **Session Controller**: Native D-Bus and logind integration for lock, logout, suspend, reboot, and poweroff.
-
-### 🎛️ Quickshell Qt6 Desktop Shell
-- **Spotlight Launcher (`Super+Space` / `Super+D`)**: Fast app search, clipboard history, quick actions, and instant inline math calculation.
-- **Control Center (`Super+C`)**: Quick toggles for WiFi, Bluetooth, Volume, Brightness, Game Mode, DND, and Screenshot tools.
-- **Settings App (`Super+I`)**: Full graphical control center for wallpapers, themes, monitors, sound, user profiles, focus time analytics, and desktop behaviors.
-- **Unified Lockscreen (`Lock.qml`)**: Matches the SDDM `b1air` login screen with instant unlock and battery/network indicators.
+Key components:
+* **Compositor**: SwayFX with hardware-accelerated rounded corners, soft shadows, and selective blur. The entire environment uses the Tokyo Night color palette (`#1a1b26`), from the login screen to the terminal and system popups.
+* **Core Daemon (`b1air-daemon`)**: A single compiled C++20 binary that manages window autotiling, focus tracking (SQLite3), audio and microphone controls (PipeWire via `wpctl`), PAM user profiles, and power management without shell script overhead.
+* **Desktop Shell**: Lightweight Qt6/QML overlays providing an application launcher, clipboard history, control center, emoji picker, and a visual Alt+Tab window switcher.
 
 ---
 
-## 🚀 Quick Start & Installation
+## Architecture
 
-### 1. Automated One-Liner (Recommended)
-Run the bootstrap script on a fresh or existing Arch Linux installation:
+### Spotlight Launcher (`Super + Space`)
+Fuzzy application search, clipboard history, and inline math calculations in a single centered overlay.
+
+### Settings & Control Center (`Super + I` / `Super + C`)
+Graphical desktop configuration:
+* Wallpaper selection with live color palette generation.
+* Audio sink selector and per-stream volume controls.
+* Focus time and screen usage analytics stored in SQLite.
+* Toggles for Night Light and Game Mode (disables blur and pins performance governor).
+
+### SDDM Greeter
+Matches the desktop Tokyo Night theme with digital clock, user avatar synchronization, session selection, and virtual keyboard support.
+
+---
+
+## Installation
+
+### Option 1: One-Line Installer
+
+Run the bootstrap script on an Arch Linux installation:
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/bla1r1/DotsFiles/main/bootstrap.sh)
 ```
 
-### 2. Manual Git Clone
+### Option 2: Manual Clone
 
 ```bash
 git clone https://github.com/bla1r1/DotsFiles.git ~/DotsFiles
 cd ~/DotsFiles
-bash install.sh
+./install.sh
 ```
 
-### 3. Interactive Graphical Installer
-For a step-by-step installation menu:
+For an interactive menu:
 
 ```bash
-git clone https://github.com/bla1r1/DotsFiles.git ~/DotsFiles
-cd ~/DotsFiles
-bash install-ui.sh
+./install-ui.sh
 ```
 
-### 4. Installation Flags
-You can customize the installation process with command-line options:
-
+#### Flags
 ```bash
-# Skip AUR packages and use standard packages
-bash install.sh --no-aur
+# Deploy dotfiles and compile C++ tools without reinstalling packages
+./install.sh --skip-packages
 
-# Skip package manager and only deploy dotfiles & compile daemon
-bash install.sh --skip-packages
-
-# Preview changes without modifying the system
-bash install.sh --dry-run
+# Preview actions without changing the system
+./install.sh --dry-run
 ```
 
 ---
 
-## ⌨️ Default Keybindings & Shortcuts
+## Keybindings
 
-| Shortcut | Action | Component |
+| Shortcut | Action | Target |
 | :--- | :--- | :--- |
-| `Super + Return` | Open Kitty Terminal | Kitty (Tokyo Night) |
-| `Super + Space` / `Super + D` | Open Spotlight Search & Launcher | Quickshell Spotlight |
-| `Super + I` | Open System Settings App | Quickshell Settings |
-| `Super + C` | Open Control Center | Quickshell Control |
-| `Super + V` | Open Clipboard Manager | Quickshell Clipboard |
-| `Super + N` | Open Network / WiFi Manager | Quickshell Network |
-| `Super + M` | Open Display & Monitor Manager | Quickshell Monitors |
-| `Super + Shift + T` | Open Focus & Screen Time Analytics | Quickshell FocusTime |
-| `Super + Shift + G` | Toggle Zero-Overhead Game Mode | `b1air-daemon` |
-| `Print` | Interactive Screenshot Area Selection | `grim` + `slurp` |
-| `Super + Print` | Full Screen Screenshot | `b1air-daemon` |
-| `Super + Shift + Print` | Active Window Screenshot | `b1air-daemon` |
-| `Ctrl + Alt + L` | Lock Screen | `b1air` Lockscreen |
-| `Super + Shift + E` | Open Power & Session Menu | Quickshell Session |
-| `Super + Shift + Q` | Close Focused Window | SwayFX |
-| `Super + Shift + Space` | Toggle Floating Window Mode | SwayFX |
+| `Super + Return` | Open Terminal | Kitty |
+| `Super + Space` | Application Launcher | Spotlight |
+| `Super + E` | File Manager | Thunar |
+| `Super + I` | Settings Hub | Settings App |
+| `Super + C` | Control Center | Quick Toggles |
+| `Super + V` | Clipboard History | Clipboard Manager |
+| `Super + .` | Emoji Picker | Emoji Popup |
+| `Alt + Tab` | Window Switcher | Visual Switcher |
+| `Super + Shift + C` | Color Picker | Screen Eyedropper |
+| `Super + Shift + T` | Screen Time Analytics | FocusTime |
+| `Super + Shift + G` | Toggle Game Mode | b1air-daemon |
+| `Super + Q` | Close Window | Sway |
+| `Super + Shift + Space` | Toggle Floating | Sway |
+| `Super + -` / `Super + Shift + -` | Minimize / Restore Window | b1air-daemon |
+| `Print` | Region Screenshot | grim + slurp |
+| `Super + Print` | Full Screen Screenshot | b1air-daemon |
+| `Super + Shift + Print` | Focused Window Screenshot | b1air-daemon |
+| `Ctrl + Alt + L` | Lock Screen | Lockscreen |
+| `Super + Shift + E` | Session Menu | Power Menu |
 
 ---
 
-## 🛠️ CLI Reference: `b1air-daemon`
+## CLI Reference: `b1air-daemon`
 
-`b1air-daemon` is available in `~/.local/bin/b1air-daemon` and provides fast system control:
+`b1air-daemon` provides direct command-line access to desktop subsystems:
 
 ```bash
-# Run the Sway focus tracking service in background
-b1air-daemon focus &
+# Screen time statistics
+b1air-daemon stats                 # Show today's app usage summary
+b1air-daemon stats 2026-08-26      # Query specific date
 
-# Get FocusTime screen analytics in JSON format
-b1air-daemon stats
-b1air-daemon stats 2026-08-26
+# Hardware controls
+b1air-daemon volume up 5           # Volume +5% (wpctl / PipeWire)
+b1air-daemon volume down 5         # Volume -5%
+b1air-daemon volume mute           # Toggle audio mute
+b1air-daemon mic toggle            # Toggle microphone mute
+b1air-daemon brightness up 5       # Screen brightness +5%
+b1air-daemon color-picker          # Eyedropper hex to clipboard
 
-# User profile management (instant QML integration)
-b1air-daemon user get
-b1air-daemon user set-name "Your Name"
-b1air-daemon user set-avatar ~/Pictures/avatar.png
-b1air-daemon user set-shell /usr/bin/fish
-b1air-daemon user change-password
-
-# Gaming mode performance optimization
-b1air-daemon game-mode on
-b1air-daemon game-mode off
-b1air-daemon game-mode toggle
-b1air-daemon game-mode status
-
-# Session and power control
-b1air-daemon power lock
-b1air-daemon power logout
-b1air-daemon power suspend
-b1air-daemon power reboot
-b1air-daemon power shutdown
-
-# Screenshots
-b1air-daemon screenshot full
-b1air-daemon screenshot area
-b1air-daemon screenshot window
+# Session Management
+b1air-daemon lock                  # Lock screen immediately
+b1air-daemon game-mode toggle      # Switch between power-save and low-latency mode
 ```
 
 ---
 
-## 📁 Repository Structure
+## Repository Structure
 
-```
+```text
 DotsFiles/
-├── .config/
-│   ├── fish/                  # Fish shell configs & Tokyo Night prompts
-│   ├── kitty/                 # Kitty terminal emulator config & font settings
-│   ├── quickshell/            # Quickshell Qt6 desktop suite (Settings, Spotlight, Bar, OSD)
-│   ├── sway/                  # SwayFX compositor configuration & keybindings
-│   └── waybar/                # Waybar status bar layouts & stylesheets
-├── src/                       # Native C++20 b1air-daemon desktop suite
-│   ├── main.cpp               # CLI dispatcher and daemon loop
-│   ├── sway_ipc.cpp           # Direct Sway IPC UNIX socket client
-│   ├── focustime_db.cpp       # SQLite3 FocusTime analytics engine
+├── .config/                   # User configurations (SwayFX, Waybar, Kitty, Fish, Kvantum)
+│   ├── fish/                  # Fish shell with Tokyo Night theme
+│   ├── kitty/                 # Kitty GPU terminal emulator
+│   ├── matugen/               # Dynamic Material You color palette generator
+│   ├── sway/                  # SwayFX compositor keybinds, rules, look & feel
+│   ├── systemd/               # Systemd user services for b1air session
+│   └── waybar/                # Top status bar modules and CSS styling
+├── src/                       # Compiled C++20 desktop suite & Qt6 shell
+│   ├── main.cpp               # b1air-daemon CLI dispatcher
+│   ├── session_manager.cpp    # Autotiling & desktop session supervisor
+│   ├── settings_manager.cpp   # Persistent JSON settings engine
+│   ├── system_control.cpp     # Hardware controls, GameMode, Polkit agent
 │   ├── user_manager.cpp       # POSIX user & SDDM avatar synchronizer
-│   ├── system_control.cpp     # GameMode, Power, and Screenshot controllers
-│   └── Makefile               # C++20 build pipeline
-├── usr/share/sddm/themes/     # SDDM b1air Qt6 greeter theme
-├── bootstrap.sh               # Remote one-liner curl installer
-├── install.sh                 # Main Arch Linux deployment script
-└── install-ui.sh              # Interactive Whiptail installer UI
+│   ├── focustime_db.cpp       # SQLite screen time analytics engine
+│   ├── sway_ipc.cpp           # Direct Sway UNIX domain socket client
+│   ├── Makefile               # Unified C++20 build pipeline
+│   └── shell/                 # Qt6/QML desktop shell (Settings, Launcher, Popups)
+├── usr/                       # System session files
+│   ├── bin/b1air-session      # Wayland session launch wrapper
+│   └── share/                 # SDDM greeter, wayland-sessions, and portal configs
+├── etc/                       # System-wide configurations
+│   ├── sddm.conf              # SDDM display manager config
+│   └── tiny-dfr/              # MacBook Touch Bar daemon config
+├── docs/                      # Technical documentation
+│   └── ROADMAP.md             # Milestone roadmap & feature specs (M0-M14)
+├── bootstrap.sh               # One-line remote installer
+├── install.sh                 # Arch Linux installation engine
+├── install-ui.sh              # Interactive Whiptail TUI installer
+├── update-dotfiles.sh         # Environment updater & config sync manager
+├── LICENSE                    # GNU General Public License v2.0
+└── README.md
 ```
 
 ---
 
-## 📄 License & Credits
+## Roadmap
 
-- Created with ❤️ by [bla1r1](https://github.com/bla1r1) & pair-programmed with Google DeepMind Antigravity.
-- Built for the Arch Linux and Wayland communities.
-- Distributed under the [MIT License](LICENSE).
+See [`docs/ROADMAP.md`](docs/ROADMAP.md) for milestone breakdowns (M0 through M14) and upcoming feature specifications.
+
+---
+
+## License
+
+This project is licensed under the **GNU General Public License v2.0 only** (`GPL-2.0-only`).  
+See [LICENSE](LICENSE) for the full text.

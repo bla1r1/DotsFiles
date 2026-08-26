@@ -145,11 +145,17 @@ int SessionManager::run_session() {
         spawn_detached("waybar");
     }
 
-    // 11. Launch Quickshell UI
+    // 11. Launch Native Desktop Shell
     const char* home = std::getenv("HOME");
-    std::string qs_main = std::string(home ? home : "") + "/.config/quickshell/Main.qml";
-    if (!is_process_running("quickshell.*Main.qml") && access(qs_main.c_str(), R_OK) == 0) {
-        spawn_detached("quickshell -p " + qs_main);
+    if (!is_process_running("b1air-shell") && !is_process_running("quickshell.*Main.qml")) {
+        if (access("/usr/local/bin/b1air-shell", X_OK) == 0 || (home && access((std::string(home) + "/.local/bin/b1air-shell").c_str(), X_OK) == 0)) {
+            spawn_detached("b1air-shell");
+        } else {
+            std::string qs_main = std::string(home ? home : "") + "/.config/quickshell/Main.qml";
+            if (access(qs_main.c_str(), R_OK) == 0) {
+                spawn_detached("quickshell -p " + qs_main);
+            }
+        }
     }
 
     // 12. Autostart Applications from settings.json
