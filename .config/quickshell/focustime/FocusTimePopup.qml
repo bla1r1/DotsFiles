@@ -253,7 +253,7 @@ PopupShell {
         if (window.selectedAppClass === "" && getIsoDate(window.activeDate) === getIsoDate(new Date())) {
             liveFileReader.running = true;
         } else {
-            let cmd = ["python3", window.scriptsDir + "/get_stats.py", getIsoDate(window.activeDate)];
+            let cmd = [window.scriptsDir + "/get_stats.sh", getIsoDate(window.activeDate)];
             if (window.selectedAppClass !== "") {
                 cmd.push("--app");
                 cmd.push(window.selectedAppClass);

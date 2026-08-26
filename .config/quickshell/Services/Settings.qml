@@ -88,8 +88,9 @@ Singleton {
 
     // Game Mode
     readonly property alias gameModeEnabled: data.gameModeEnabled
-    readonly property alias gameModeInhibitIdle: data.gameModeInhibitIdle
-    readonly property alias gameModeMuteNotifs: data.gameModeMuteNotifs
+    readonly property alias gameModeAdaptiveSync: data.gameModeAdaptiveSync
+    readonly property alias gameModeHideWaybar: data.gameModeHideWaybar
+    readonly property alias gameModeDND: data.gameModeDND
 
     // Top Bar (Waybar)
     readonly property alias barPosition: data.barPosition
@@ -99,9 +100,20 @@ Singleton {
     readonly property alias barShowTray: data.barShowTray
     readonly property alias barClock24h: data.barClock24h
 
-    // Night Light
-    readonly property alias nightLightEnabled: data.nightLightEnabled
-    readonly property alias nightLightTemp: data.nightLightTemp
+    // Sound Feedback
+    readonly property alias soundVolumeFeedback: data.soundVolumeFeedback
+    readonly property alias soundScreenshotFeedback: data.soundScreenshotFeedback
+    readonly property alias soundDeviceFeedback: data.soundDeviceFeedback
+
+    // Touchpad & Gestures
+    readonly property alias touchpadSwipeWorkspace: data.touchpadSwipeWorkspace
+    readonly property alias touchpadNaturalSwipe: data.touchpadNaturalSwipe
+    readonly property alias touchpadPinchZoom: data.touchpadPinchZoom
+
+    // Autostart & Notifications
+    readonly property alias autostartApps: data.autostartApps
+    readonly property alias autostartCustom: data.autostartCustom
+    readonly property alias notificationRules: data.notificationRules
 
     // Device management
     readonly property alias disabledAudioDevices: data.disabledAudioDevices
@@ -198,8 +210,9 @@ Singleton {
         defaultFileManager: "nautilus",
         defaultEditor: "code",
         gameModeEnabled: false,
-        gameModeInhibitIdle: true,
-        gameModeMuteNotifs: true,
+        gameModeAdaptiveSync: false,
+        gameModeHideWaybar: true,
+        gameModeDND: false,
         barPosition: "top",
         barShowCava: true,
         barShowWeather: true,
@@ -208,6 +221,21 @@ Singleton {
         barClock24h: true,
         nightLightEnabled: false,
         nightLightTemp: 4000,
+        soundVolumeFeedback: true,
+        soundScreenshotFeedback: true,
+        soundDeviceFeedback: true,
+        touchpadSwipeWorkspace: true,
+        touchpadNaturalSwipe: true,
+        touchpadPinchZoom: true,
+        autostartApps: ["waybar", "polkit", "quickshell", "mako"],
+        autostartCustom: [],
+        notificationRules: {
+            telegram: true,
+            discord: true,
+            browser: true,
+            media: true,
+            system: true
+        },
         workspaceAssignments: [],
         monitors: [],
         disabledAudioDevices: [],
@@ -279,8 +307,9 @@ Singleton {
             property string defaultEditor: "code"
 
             property bool gameModeEnabled: false
-            property bool gameModeInhibitIdle: true
-            property bool gameModeMuteNotifs: true
+            property bool gameModeAdaptiveSync: false
+            property bool gameModeHideWaybar: true
+            property bool gameModeDND: false
 
             property string barPosition: "top"
             property bool barShowCava: true
@@ -291,6 +320,18 @@ Singleton {
 
             property bool nightLightEnabled: false
             property int nightLightTemp: 4000
+
+            property bool soundVolumeFeedback: true
+            property bool soundScreenshotFeedback: true
+            property bool soundDeviceFeedback: true
+
+            property bool touchpadSwipeWorkspace: true
+            property bool touchpadNaturalSwipe: true
+            property bool touchpadPinchZoom: true
+
+            property var autostartApps: ["waybar", "polkit", "quickshell", "mako"]
+            property var autostartCustom: []
+            property var notificationRules: ({ "telegram": true, "discord": true, "browser": true, "media": true, "system": true })
         }
     }
 }

@@ -1,64 +1,235 @@
-if status is-interactive
-    set -g fish_greeting "Welcome back, $USER 🐟"
-    # Commands to run in interactive sessions can go here
+# =============================================================================
+# Fish Shell Configuration
+# =============================================================================
 
+if status is-interactive
+    # Greeting
+    set -g fish_greeting
+
+    # ── Tokyo Night Syntax Highlighting ──────────────────────────────────────
+    set -g fish_color_normal c0caf5
+    set -g fish_color_command 7aa2f7 --bold
+    set -g fish_color_keyword bb9af7
+    set -g fish_color_quote 9ece6a
+    set -g fish_color_redirection 7dcfff
+    set -g fish_color_end ff9e64
+    set -g fish_color_error f7768e
+    set -g fish_color_param 9d7cd8
+    set -g fish_color_comment 565f89
+    set -g fish_color_selection --background=283457
+    set -g fish_color_search_match --background=283457
+    set -g fish_color_operator 7dcfff
+    set -g fish_color_escape bb9af7
+    set -g fish_color_autosuggestion 565f89
+    set -g fish_color_cancel f7768e
+
+    # Pager colors
+    set -g fish_pager_color_progress 565f89
+    set -g fish_pager_color_prefix 7dcfff --bold
+    set -g fish_pager_color_completion c0caf5
+    set -g fish_pager_color_description 565f89
+    set -g fish_pager_color_selected_background --background=283457
+
+    # ── Environment & Exports ────────────────────────────────────────────────
+    set -gx EDITOR nvim
+    set -gx VISUAL code
+    set -gx BUN_INSTALL $HOME/.bun
+
+    # PATH setup
+    set -gx PATH $HOME/.local/bin $HOME/.cargo/bin $BUN_INSTALL/bin $HOME/.config/sway/scripts/tools $HOME/.config/sway/scripts/system $PATH
+
+    # ── Modern Tool Integrations ─────────────────────────────────────────────
+    # Starship Prompt
+    if type -q starship
+        starship init fish | source
+    end
+
+    # Zoxide (Smart directory jumping)
     if type -q zoxide
         zoxide init fish | source
     end
 
-    # --- Exports ---
-    set -x BUN_INSTALL $HOME/.bun
-    set -x EDITOR nvim
-
-# --- Aliases ---
-alias c 'clear'
-alias l 'eza -lh --icons=auto'
-alias ls 'eza -1 --icons=auto'
-alias ll 'eza -lha --icons=auto --sort=name --group-directories-first'
-alias ld 'eza -lhD --icons=auto'
-alias lt 'eza --icons=auto --tree'
-
-alias vc 'code'
-alias vim 'nvim'
-alias aa 'startx'
-# rm alias with safety check
-if command -v trash >/dev/null 2>&1
-    alias rm 'trash -v'
-else
-    echo "note: trash not installed, rm alias not created. Install trash-cli (or your distro's trash package) to enable safe deletion."
-end
-alias hx 'helix'
-alias ff 'fastfetch'
-
-alias .. 'cd ..'
-alias ... 'cd ../..'
-alias .3 'cd ../../..'
-alias .4 'cd ../../../..'
-alias .5 'cd ../../../../..'
-
-alias mkdir 'mkdir -p'
-
-# if you wanna add github token
-# set -x GITHUB_TOKEN 
-
-# --- Tide Prompt Elements ---
-# Left side:  OS icon | current directory | git branch & status | prompt character
-# Right side: command status | execution time | user@host | background jobs | python version | go version | current time
-
-# Cleanup stale Tide universal prompt variables if needed
-# Usage: tide_cleanup
-function tide_cleanup
-    for var in (set -U --names | string match '_tide_prompt_*')
-        set -eU $var
+    # ── Modern CLI Aliases ───────────────────────────────────────────────────
+    # File listing (eza)
+    if type -q eza
+        alias ls 'eza --icons=auto --group-directories-first'
+        alias l 'eza -lh --icons=auto --group-directories-first'
+        alias ll 'eza -lha --icons=auto --sort=name --group-directories-first --git --header'
+        alias ld 'eza -lhD --icons=auto'
+        alias lt 'eza --tree --level=2 --icons=auto'
+        alias tree 'eza --tree --icons=auto'
+    else
+        alias ls 'ls --color=auto'
+        alias l 'ls -lh --color=auto'
+        alias ll 'ls -lha --color=auto'
     end
-    echo "Removed stale Tide prompt universal variables."
+
+    # File reading (bat)
+    if type -q bat
+        alias cat 'bat --style=plain --paging=never'
+        alias preview 'bat --style=numbers --color=always'
+    end
+
+    # Safe deletion (trash-cli)
+    if type -q trash
+        alias rm 'trash -v'
+    end
+
+    # General navigation & shortcuts
+    alias c 'clear'
+    alias .. 'cd ..'
+    alias ... 'cd ../..'
+    alias .3 'cd ../../..'
+    alias .4 'cd ../../../..'
+    alias .5 'cd ../../../../..'
+    alias mkdir 'mkdir -p'
+    alias vim 'nvim'
+    alias vc 'code'
+    alias ff 'fastfetch'
+
+    # ── Git Shortcuts ────────────────────────────────────────────────────────
+    alias gs 'git status -sb'
+    alias ga 'git add'
+    alias gaa 'git add -A'
+    alias gc 'git commit -v'
+    alias gp 'git push'
+    alias gpl 'git pull --rebase'
+    alias gd 'git diff'
+    alias gds 'git diff --staged'
+    alias gb 'git branch'
+    alias gco 'git checkout'
+    alias glog "git log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit"
+
+    # ── Dotfiles & Desktop Environment Helpers ───────────────────────────────
+    alias dots 'cd ~/.config/sway/../.. 2>/dev/null; or cd ~/Documents/GitHub/DotsFiles'
+    alias dots-sync 'bash ~/.config/sway/scripts/system/dotfiles-update.sh --pull'
+    alias dots-diff 'bash ~/.config/sway/scripts/system/dotfiles-update.sh --status'
+    alias sway-reload 'swaymsg reload'
+    alias qs-reload 'pkill -9 quickshell; quickshell -p ~/.config/quickshell/Main.qml >/dev/null 2>&1 & disown'
+    alias qs-log 'cat /run/user/(id -u)/quickshell/by-id/*/log.qslog | tail -f'
+    alias game-mode 'bash ~/.config/sway/scripts/tools/game-mode.sh'
+    alias fs-toggle 'bash ~/.config/sway/scripts/tools/fullscreen-toggle.sh'
+
+    # ── Fastfetch on Startup ─────────────────────────────────────────────────
+    if test -z "$TMUX" && type -q fastfetch
+        fastfetch
+    end
 end
 
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+# Create directory and enter it
+function mkcd --description "Create a directory and enter it immediately"
+    if test (count $argv) -eq 0
+        echo "Usage: mkcd <directory_path>"
+        return 1
+    end
+    mkdir -p $argv[1]; and cd $argv[1]
+end
+
+# Safe universal archive extractor
+function ex --description "Extract any archive automatically"
+    if test (count $argv) -eq 0
+        echo "Usage: ex <archive_file>"
+        return 1
+    end
+    if test -f $argv[1]
+        switch $argv[1]
+            case '*.tar.bz2'
+                tar xjf $argv[1]
+            case '*.tar.gz'
+                tar xzf $argv[1]
+            case '*.bz2'
+                bunzip2 $argv[1]
+            case '*.rar'
+                unrar x $argv[1]
+            case '*.gz'
+                gunzip $argv[1]
+            case '*.tar'
+                tar xf $argv[1]
+            case '*.tbz2'
+                tar xjf $argv[1]
+            case '*.tgz'
+                tar xzf $argv[1]
+            case '*.zip'
+                unzip $argv[1]
+            case '*.Z'
+                uncompress $argv[1]
+            case '*.7z'
+                7z x $argv[1]
+            case '*.tar.xz'
+                tar xf $argv[1]
+            case '*.tar.zst'
+                tar --zstd -xf $argv[1]
+            case '*'
+                echo "'$argv[1]' cannot be extracted via ex"
+                return 1
+        end
+    else
+        echo "'$argv[1]' is not a valid file"
+        return 1
+    end
+end
+
+# Interactive process kill via fzf
+function fkill --description "Fuzzy-find and kill a process"
+    if not type -q fzf
+        echo "fzf is required for fkill"
+        return 1
+    end
+    set -l pid (ps -ef | sed 1d | fzf -m | awk '{print $2}')
+    if test -n "$pid"
+        echo $pid | xargs kill -9
+        echo "Terminated PID(s): $pid"
+    end
+end
+
+# Quick git add, commit with message, and push
+function git-sync --description "Git add, commit, and push in one command"
+    if test (count $argv) -eq 0
+        echo "Usage: git-sync <commit message>"
+        return 1
+    end
+    git add -A
+    git commit -m (string join ' ' -- $argv)
+    git push
+end
+
+# Undo last git commit safely preserving working files
+function gundo --description "Undo last commit keeping changes in workspace"
+    git reset --soft HEAD~1
+    echo "Undid last commit. Changes are staged."
+end
+
+# Interactive AUR / Pacman search with fzf preview
+function aur-search --description "Search Arch & AUR packages with interactive fzf preview"
+    if not type -q fzf
+        echo "fzf not found. Install fzf to use aur-search."
+        return 1
+    end
+
+    if type -q yay
+        set -l packages (yay -Slq | fzf --multi --preview 'yay -Sii {1}' --preview-window=down:75%)
+        test (count $packages) -gt 0; and yay -S $packages
+    else if type -q paru
+        set -l packages (paru -Slq | fzf --multi --preview 'paru -Si {1}' --preview-window=down:75%)
+        test (count $packages) -gt 0; and paru -S $packages
+    else
+        echo "AUR helper (yay/paru) not found."
+        return 1
+    end
+end
+
+# Package manager backend detector
 function __dotfiles_pkg_backend
     if type -q yay
         echo yay
     else if type -q paru
         echo paru
+    else if type -q pacman
+        echo pacman
     else if type -q apt-get
         echo apt-get
     else if type -q dnf
@@ -67,12 +238,11 @@ function __dotfiles_pkg_backend
         echo zypper
     else if type -q emerge
         echo emerge
-    else if type -q pacman
-        echo pacman
     end
 end
 
-function up
+# Universal System Upgrade
+function up --description "Universal system package upgrade"
     set -l backend (__dotfiles_pkg_backend)
     switch $backend
         case yay paru
@@ -93,7 +263,8 @@ function up
     end
 end
 
-function un
+# Universal Package Removal
+function un --description "Universal package remove with orphans clean"
     if test (count $argv) -eq 0
         echo "Usage: un <package> [package ...]"
         return 1
@@ -119,31 +290,8 @@ function un
     end
 end
 
-function pl
-    if test (count $argv) -eq 0
-        echo "Usage: pl <search-term> [search-term ...]"
-        return 1
-    end
-
-    set -l backend (__dotfiles_pkg_backend)
-    switch $backend
-        case yay paru pacman
-            command $backend -Qs $argv
-        case apt-get
-            dpkg -l | grep -i -- $argv
-        case dnf
-            dnf list installed | grep -i -- $argv
-        case zypper
-            zypper search --installed-only $argv
-        case emerge
-            emerge --search @installed $argv
-        case '*'
-            echo "No supported package manager found."
-            return 1
-    end
-end
-
-function pa
+# Universal Package Search
+function pa --description "Universal package search"
     if test (count $argv) -eq 0
         echo "Usage: pa <search-term> [search-term ...]"
         return 1
@@ -167,7 +315,8 @@ function pa
     end
 end
 
-function pc
+# Universal Package Cache Clean
+function pc --description "Clean package manager cache"
     set -l backend (__dotfiles_pkg_backend)
     switch $backend
         case yay paru pacman
@@ -186,7 +335,8 @@ function pc
     end
 end
 
-function po
+# Universal Remove Orphan Dependencies
+function po --description "Remove unneeded orphan packages"
     set -l backend (__dotfiles_pkg_backend)
     switch $backend
         case yay paru
@@ -207,45 +357,4 @@ function po
             echo "No supported package manager found."
             return 1
     end
-end
-
-function aur-search
-    # Search Arch AUR packages with fzf preview when an AUR helper is available
-    if not type -q fzf
-        echo "fzf not found. Install fzf to use aur-search."
-        return 1
-    end
-
-    if type -q yay
-        set -l packages (yay -Slq | fzf --multi --preview 'yay -Sii {1}' --preview-window=down:75%)
-        test (count $packages) -gt 0; and yay -S $packages
-    else if type -q paru
-        set -l packages (paru -Slq | fzf --multi --preview 'paru -Si {1}' --preview-window=down:75%)
-        test (count $packages) -gt 0; and paru -S $packages
-    else
-        echo "AUR helper not found. This command is only available on Arch-based systems."
-        return 1
-    end
-end
-
-function git-sync
-    # Quick: add all, commit with message, push
-    if test (count $argv) -eq 0
-        echo "Usage: git-sync <commit message>"
-        return 1
-    end
-
-    git add .
-    git commit -m (string join ' ' -- $argv)
-    git push
-end
-
-# --- PATH Configuration ---
-set -gx PATH $HOME/.local/bin $HOME/.cargo/bin $BUN_INSTALL/bin $PATH
-
-# --- Display fastfetch on interactive startup ---
-if test -z "$TMUX" && type -q fastfetch
-    fastfetch
-end
-
 end

@@ -156,7 +156,7 @@ ColumnLayout {
                 }
             }
 
-            Switch {
+            Toggle {
                 checked: !Audio.masterMute
                 onToggled: Audio.toggleMasterMute()
             }
@@ -214,6 +214,73 @@ ColumnLayout {
             icon: "\u{f036d}"
             title: "No inputs"
             hint: "No microphone or capture device is registered."
+        }
+    }
+
+    Card {
+        title: "Audio Feedback & Sound Effects"
+        subtitle: "Acoustic feedback for volume changes, screenshot capture, and peripheral plug events"
+        icon: "\u{f0028}"
+        accentColor: Design.cyan
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: Design.s(Design.space.md)
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Design.s(Design.space.md)
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+                    Label { text: "Volume Step Feedback Click"; weight: Design.weight.semibold }
+                    Label { text: "Play a subtle audio tick when adjusting volume level with keys"; role: "caption"; dim: true }
+                }
+
+                Toggle {
+                    checked: Settings.soundVolumeFeedback !== undefined ? Settings.soundVolumeFeedback : true
+                    onToggled: Settings.set("soundVolumeFeedback", !Settings.soundVolumeFeedback)
+                }
+            }
+
+            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Design.tint(Design.line, 0.4) }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Design.s(Design.space.md)
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+                    Label { text: "Screenshot Shutter Sound"; weight: Design.weight.semibold }
+                    Label { text: "Play a camera shutter sound when saving or copying a screenshot"; role: "caption"; dim: true }
+                }
+
+                Toggle {
+                    checked: Settings.soundScreenshotFeedback !== undefined ? Settings.soundScreenshotFeedback : true
+                    onToggled: Settings.set("soundScreenshotFeedback", !Settings.soundScreenshotFeedback)
+                }
+            }
+
+            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Design.tint(Design.line, 0.4) }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Design.s(Design.space.md)
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+                    Label { text: "Peripheral & Device Connect Chime"; weight: Design.weight.semibold }
+                    Label { text: "Play audio alert when headphones, USB, or bluetooth devices connect"; role: "caption"; dim: true }
+                }
+
+                Toggle {
+                    checked: Settings.soundDeviceFeedback !== undefined ? Settings.soundDeviceFeedback : true
+                    onToggled: Settings.set("soundDeviceFeedback", !Settings.soundDeviceFeedback)
+                }
+            }
         }
     }
 

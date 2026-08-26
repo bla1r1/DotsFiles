@@ -6,9 +6,6 @@ import "../../Services"
 
 // =============================================================================
 // Screen Time & Focus Settings Section
-//
-// Manages digital wellbeing, screen time tracking, pomodoro durations,
-// break reminders, and auto-DND during focus periods.
 // =============================================================================
 
 ColumnLayout {
@@ -22,6 +19,19 @@ ColumnLayout {
     property bool autoDnd: Settings.focusAutoDnd !== undefined ? Settings.focusAutoDnd : true
     property bool breakReminders: Settings.focusBreakReminders !== undefined ? Settings.focusBreakReminders : true
     property bool daemonAutoStart: Settings.focusDaemonAutoStart !== undefined ? Settings.focusDaemonAutoStart : true
+
+    property var notifRules: Settings.notificationRules || { "telegram": true, "discord": true, "browser": true, "media": true, "system": true }
+
+    function isRuleEnabled(app) {
+        return section.notifRules && section.notifRules[app] !== undefined ? section.notifRules[app] : true;
+    }
+
+    function toggleRule(app) {
+        var rules = Object.assign({}, section.notifRules || {});
+        rules[app] = !section.isRuleEnabled(app);
+        section.notifRules = rules;
+        Settings.set("notificationRules", rules);
+    }
 
     // ── 1. Header ────────────────────────────────────────────────────────────
     SectionLabel {
@@ -114,7 +124,90 @@ ColumnLayout {
         }
     }
 
-    // ── 3. Pomodoro & Interval Durations ─────────────────────────────────────
+    // ── 3. Application Notification Filters ──────────────────────────────────
+    Card {
+        title: "Application Notification Filters"
+        subtitle: "Control banner popups and sound alerts for individual apps"
+        icon: "\u{f0f3}"
+        accentColor: Design.mauve
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: Design.s(Design.space.md)
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Design.s(Design.space.md)
+                Icon { text: "󰭹"; role: "title"; color: Design.teal }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: Design.s(2)
+                    Label { text: "Telegram Desktop"; weight: Design.weight.semibold }
+                    Label { text: "Show notification banners for incoming direct messages"; role: "caption"; dim: true }
+                }
+                Toggle {
+                    checked: section.isRuleEnabled("telegram")
+                    onToggled: section.toggleRule("telegram")
+                }
+            }
+
+            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Design.tint(Design.line, 0.4) }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Design.s(Design.space.md)
+                Icon { text: "󰙯"; role: "title"; color: Design.lavender }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: Design.s(2)
+                    Label { text: "Discord & Matrix"; weight: Design.weight.semibold }
+                    Label { text: "Allow mentions and community channel pings"; role: "caption"; dim: true }
+                }
+                Toggle {
+                    checked: section.isRuleEnabled("discord")
+                    onToggled: section.toggleRule("discord")
+                }
+            }
+
+            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Design.tint(Design.line, 0.4) }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Design.s(Design.space.md)
+                Icon { text: "󰈹"; role: "title"; color: Design.sapphire }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: Design.s(2)
+                    Label { text: "Web Browsers"; weight: Design.weight.semibold }
+                    Label { text: "Website push notifications from Firefox, Brave, Chrome"; role: "caption"; dim: true }
+                }
+                Toggle {
+                    checked: section.isRuleEnabled("browser")
+                    onToggled: section.toggleRule("browser")
+                }
+            }
+
+            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Design.tint(Design.line, 0.4) }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Design.s(Design.space.md)
+                Icon { text: "󰓇"; role: "title"; color: Design.green }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: Design.s(2)
+                    Label { text: "Media Track Changes"; weight: Design.weight.semibold }
+                    Label { text: "Pop up banner on song change (Spotify, Cmus, MPD)"; role: "caption"; dim: true }
+                }
+                Toggle {
+                    checked: section.isRuleEnabled("media")
+                    onToggled: section.toggleRule("media")
+                }
+            }
+        }
+    }
+
+    // ── 4. Pomodoro & Interval Durations ─────────────────────────────────────
     Card {
         title: "Focus & Break Intervals"
         subtitle: "Customize work cycles and rest duration for FocusTime timer"
@@ -187,7 +280,7 @@ ColumnLayout {
         }
     }
 
-    // ── 4. Focus Automation & Distraction Control ────────────────────────────
+    // ── 5. Focus Automation & Distraction Control ────────────────────────────
     Card {
         title: "Focus Automation"
         subtitle: "Automatic notification suppression and health reminders"

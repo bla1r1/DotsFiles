@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# =============================================================================
+# DotsFiles Installation & Setup Script (Arch Linux / Sway)
+# =============================================================================
 set -euo pipefail
 
 REPO_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,21 +18,35 @@ SKIP_PACKAGES=0
 SKIP_DOTFILES=0
 SKIP_SERVICES=0
 NO_AUR=0
+DRY_RUN=0
 
-log()  { printf '\n[INFO] %s\n' "$*"; }
-warn() { printf '\n[WARN] %s\n' "$*" >&2; }
+# Colors
+RESET="\e[0m"
+BOLD="\e[1m"
+GREEN="\e[32m"
+YELLOW="\e[33m"
+CYAN="\e[36m"
+RED="\e[31m"
+MAGENTA="\e[35m"
+
+log()  { printf "\n${CYAN}[INFO]${RESET} %s\n" "$*"; }
+ok()   { printf "${GREEN}[OK]${RESET}   %s\n" "$*"; }
+warn() { printf "\n${YELLOW}[WARN]${RESET} %s\n" "$*" >&2; }
+err()  { printf "\n${RED}[ERR]${RESET}  %s\n" "$*" >&2; }
 
 usage() {
     cat <<EOF
-Usage: $0 [--distro arch] [options]
+${BOLD}DotsFiles Automated Installer${RESET}
+
+Usage: $0 [options]
 
 Options:
-  --distro arch     Target distro. Only Arch Linux is supported.
-  --skip-packages   Skip package installation
-  --skip-dotfiles   Skip deploying dotfiles, fonts, wallpapers, and SDDM config
-  --skip-services   Skip enabling system services
-  --no-aur          Skip AUR helper/packages
-  -h, --help        Show this help and exit
+  --skip-packages   Skip pacman package installation
+  --skip-dotfiles   Skip deploying ~/.config, wallpapers, and SDDM theme
+  --skip-services   Skip enabling system services (NetworkManager, bluetooth, SDDM)
+  --no-aur          Skip AUR packages (use standard sway/swaylock)
+  --dry-run         Simulate installation without making system changes
+  -h, --help        Show this help message and exit
 EOF
 }
 
@@ -42,96 +59,97 @@ parse_args() {
             --skip-dotfiles) SKIP_DOTFILES=1; shift ;;
             --skip-services) SKIP_SERVICES=1; shift ;;
             --no-aur)        NO_AUR=1; shift ;;
+            --dry-run)       DRY_RUN=1; shift ;;
             -h|--help)       usage; exit 0 ;;
-            *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
+            *) err "Unknown option: $1"; usage; exit 1 ;;
         esac
     done
 
-    if [[ -n "$DISTRO" ]] && declare -F dotfiles_normalize_distro >/dev/null 2>&1; then
-        DISTRO="$(dotfiles_normalize_distro "$DISTRO")"
-    fi
-
     if [[ -z "$DISTRO" ]]; then
-        if declare -F dotfiles_detect_distro >/dev/null 2>&1; then
-            DISTRO="$(dotfiles_detect_distro)"
-        elif [[ -f /etc/arch-release ]]; then
+        if [[ -f /etc/arch-release ]]; then
             DISTRO="arch"
         else
-            echo "Cannot detect distro. Only Arch Linux is supported." >&2
+            err "Unsupported system. DotsFiles is optimized for Arch Linux."
             exit 1
         fi
     fi
 }
 
-require_supported_distro() {
-    if [[ "$DISTRO" != "arch" ]]; then
-        echo "Unsupported distro: $DISTRO. Only Arch Linux is supported." >&2
-        exit 1
-    fi
-
-    echo "[INFO] Operating as distro: $DISTRO"
+ensure_sudo() {
+    if [[ "$DRY_RUN" -eq 1 ]]; then return 0; fi
+    sudo -v
 }
-
-ensure_sudo() { sudo -v; }
 
 pkg_install() {
+    local to_install=()
     for pkg in "$@"; do
-        pacman -Qi "$pkg" >/dev/null 2>&1 && continue
-        sudo pacman -S --needed --noconfirm "$pkg" || warn "Failed: $pkg"
+        if ! pacman -Qi "$pkg" >/dev/null 2>&1; then
+            to_install+=("$pkg")
+        fi
     done
-}
 
-sync_repos() {
-    log "Syncing package repositories..."
-    sudo pacman -Sy --noconfirm
+    if [[ ${#to_install[@]} -gt 0 ]]; then
+        log "Installing ${#to_install[@]} official package(s)..."
+        if [[ "$DRY_RUN" -eq 1 ]]; then
+            log "Would install: ${to_install[*]}"
+        else
+            sudo pacman -S --needed --noconfirm "${to_install[@]}" || warn "Some packages failed to install."
+        fi
+    fi
 }
 
 enable_multilib_repo() {
     local conf="/etc/pacman.conf"
-
-    [[ -f "$conf" ]] || {
-        warn "$conf not found; cannot enable multilib."
-        return 0
-    }
+    [[ -f "$conf" ]] || return 0
 
     if grep -Eq '^[[:space:]]*\[multilib\]' "$conf"; then
-        log "multilib repository already enabled."
         return 0
     fi
 
-    log "Enabling pacman multilib repository..."
-    sudo cp -n "$conf" "$conf.dotfiles-bak" 2>/dev/null || true
+    log "Enabling pacman [multilib] repository..."
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        log "Would enable [multilib] in $conf"
+        return 0
+    fi
 
+    sudo cp -n "$conf" "$conf.dotfiles-bak" 2>/dev/null || true
     if grep -Eq '^[[:space:]]*#[[:space:]]*\[multilib\]' "$conf"; then
         sudo sed -i '/^[[:space:]]*#[[:space:]]*\[multilib\]/,+1 s/^[[:space:]]*#[[:space:]]*//' "$conf"
     else
         printf '\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n' | sudo tee -a "$conf" >/dev/null
     fi
+    sudo pacman -Sy --noconfirm
 }
 
 arch_packages() {
     local pkgs=(
-        base-devel git rsync curl unzip
+        # Core & Build
+        base-devel git rsync curl unzip jq inotify-tools socat
+        # Wayland Compositor & Shell
         swaybg swayidle swaylock xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk
-        waybar rofi-wayland quickshell
-        kitty firefox thunar nautilus fish fastfetch btop telegram-desktop
+        waybar rofi-wayland quickshell xorg-xwayland autotiling
+        # Modern CLI & Shell
+        fish starship eza bat fzf zoxide fastfetch btop trash-cli
+        # Terminal Emulators
+        kitty foot
+        # GUI Applications
+        firefox thunar nautilus pavucontrol
+        # Clipboard & Screenshots
         wl-clipboard cliphist grim slurp swappy
-        xorg-xwayland autotiling
-        gnome-power-manager
-        starship eza bat ugrep zoxide find-the-command
-        pipewire wireplumber pipewire-pulse pavucontrol pamixer playerctl
-        upower
-        brightnessctl ddcutil jq inotify-tools socat
-        pacman-contrib flatpak libnotify trash-cli
+        # Audio & Media
+        pipewire wireplumber pipewire-pulse pamixer playerctl
+        # System & Hardware
+        upower brightnessctl ddcutil pacman-contrib libnotify polkit-gnome
+        # Network & Bluetooth
         networkmanager network-manager-applet blueman
-        polkit-gnome
-        qt5ct qt6ct kvantum qt6-svg qt6-virtualkeyboard
-        yad nwg-look nwg-displays
-        python python-gobject imagemagick
-        noto-fonts noto-fonts-emoji ttf-jetbrains-mono-nerd ttf-fira-sans
-        papirus-icon-theme sddm adw-gtk-theme
-        gnome-keyring libsecret
-        virt-manager steam discord
+        # Display Manager (SDDM) & Qt6 Components
+        sddm qt6-5compat qt6-declarative qt6-svg qt6-multimedia qt6-virtualkeyboard
+        # Theming & Fonts
+        qt5ct qt6ct kvantum nwg-look
+        noto-fonts noto-fonts-emoji noto-fonts-cjk ttf-jetbrains-mono-nerd ttf-fira-sans
+        papirus-icon-theme adw-gtk-theme
+        # Utilities & Tools
+        imagemagick sqlite
     )
 
     [[ "$NO_AUR" -eq 1 ]] && pkgs+=(sway)
@@ -140,50 +158,26 @@ arch_packages() {
 
 aur_packages() {
     local pkgs=(
-        swayfx swaylock-effects
+        swayfx
+        swaylock-effects
         waypaper
-        catppuccin-cursors-mocha catppuccin-gtk-theme-mocha
+        catppuccin-cursors-mocha
+        catppuccin-gtk-theme-mocha
     )
-
     echo "${pkgs[@]}"
-}
-
-install_aur_package_with_fallbacks() {
-    local aur_helper="$1"
-    shift
-
-    local pkg
-    for pkg in "$@"; do
-        pacman -Qi "$pkg" >/dev/null 2>&1 && return 0
-    done
-
-    for pkg in "$@"; do
-        if "$aur_helper" -S --needed --noconfirm "$pkg"; then
-            return 0
-        fi
-        warn "Failed AUR: $pkg"
-    done
-
-    return 1
-}
-
-install_packages() {
-    log "Installing packages (arch)..."
-    # shellcheck disable=SC2046
-    pkg_install $(arch_packages)
 }
 
 ensure_aur_helper() {
     command -v yay  >/dev/null 2>&1 && { echo "yay";  return; }
     command -v paru >/dev/null 2>&1 && { echo "paru"; return; }
 
-    log "Installing yay (AUR helper)..."
-    local build_user="${SUDO_USER:-$USER}"
-    if [[ "$EUID" -eq 0 && -z "$SUDO_USER" ]]; then
-        echo "ERROR: Run as a regular user (not root)." >&2
-        exit 1
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        echo "yay"
+        return
     fi
 
+    log "Installing yay (AUR helper)..."
+    local build_user="${SUDO_USER:-$USER}"
     local tmpdir
     tmpdir="$(mktemp -d)"
     chown "$build_user" "$tmpdir"
@@ -197,80 +191,85 @@ ensure_aur_helper() {
     fi
     rm -rf "$tmpdir"
 
-    command -v yay >/dev/null 2>&1 || { warn "yay not found after build."; exit 1; }
+    command -v yay >/dev/null 2>&1 || { warn "yay build failed."; exit 1; }
     echo "yay"
 }
 
 install_aur_packages() {
     local aur_helper="$1"
     local pkgs=()
-
     # shellcheck disable=SC2207
     pkgs=($(aur_packages))
 
     log "Installing AUR packages with ${aur_helper}..."
     for pkg in "${pkgs[@]}"; do
         pacman -Qi "$pkg" >/dev/null 2>&1 && continue
-        "$aur_helper" -S --needed --noconfirm "$pkg" || warn "Failed AUR: $pkg"
+        if [[ "$DRY_RUN" -eq 1 ]]; then
+            log "Would install AUR: $pkg"
+        else
+            "$aur_helper" -S --needed --noconfirm "$pkg" || warn "Failed AUR: $pkg"
+        fi
     done
-
-    install_aur_package_with_fallbacks "$aur_helper" github-desktop-bin github-desktop \
-        || warn "Failed to install GitHub Desktop from AUR fallbacks"
 }
 
 deploy_sddm_theme() {
-    if [[ -d "$REPO_DIR/usr/share/sddm/themes/blair" ]]; then
-        log "Installing SDDM theme..."
-        sudo install -d -m 755 "/usr/share/sddm/themes/blair"
-        sudo rsync -a --delete "$REPO_DIR/usr/share/sddm/themes/blair/" "/usr/share/sddm/themes/blair/"
-    else
-        warn "SDDM theme dir not found: $REPO_DIR/usr/share/sddm/themes/blair"
-    fi
-
-    if [[ -f "$REPO_DIR/etc/sddm.conf" ]]; then
-        log "Installing /etc/sddm.conf..."
-        sudo install -Dm644 "$REPO_DIR/etc/sddm.conf" "/etc/sddm.conf"
-    else
-        warn "SDDM config not found: $REPO_DIR/etc/sddm.conf"
-    fi
-}
-
-setup_sddm_wallpaper_permissions() {
+    local sddm_src="$REPO_DIR/usr/share/sddm/themes/b1air"
+    local sddm_dst="/usr/share/sddm/themes/b1air"
     local wallpaper_group="wallpaper"
     local installer_user="${SUDO_USER:-$USER}"
     local cache_dir="/var/cache/wallpaper"
     local cache_wall="$cache_dir/current.jpg"
-    local seed_wall=""
 
-    log "Setting up shared SDDM wallpaper cache in $cache_dir..."
-    sudo groupadd -f "$wallpaper_group"
-    sudo install -d -o root -g "$wallpaper_group" -m 2775 "$cache_dir"
-    id "$installer_user" >/dev/null 2>&1 \
-        && sudo usermod -aG "$wallpaper_group" "$installer_user" \
-        || warn "Failed to add $installer_user to $wallpaper_group"
-    id sddm >/dev/null 2>&1 \
-        && sudo usermod -aG "$wallpaper_group" sddm \
-        || warn "User 'sddm' not yet created — re-run after first SDDM start."
-
-    if [[ -f "$REPO_DIR/.wallpapers/fallback_bg.jpg" ]]; then
-        seed_wall="$REPO_DIR/.wallpapers/fallback_bg.jpg"
-    elif [[ -d "$REPO_DIR/.wallpapers" ]]; then
-        seed_wall="$(find "$REPO_DIR/.wallpapers" -maxdepth 1 -type f \
-            \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \) \
-            | head -n 1 || true)"
+    if [[ -d "$sddm_src" ]]; then
+        log "Deploying b1air SDDM theme to $sddm_dst..."
+        if [[ "$DRY_RUN" -eq 1 ]]; then
+            log "Would install $sddm_src -> $sddm_dst"
+        else
+            sudo install -d -m 755 "$sddm_dst"
+            sudo rsync -a --delete "$sddm_src/" "$sddm_dst/"
+        fi
     fi
 
-    if [[ -n "$seed_wall" && -f "$seed_wall" ]]; then
-        sudo install -o root -g "$wallpaper_group" -m 664 "$seed_wall" "$cache_wall"
+    if [[ -f "$REPO_DIR/etc/sddm.conf" ]]; then
+        log "Installing /etc/sddm.conf..."
+        if [[ "$DRY_RUN" -eq 1 ]]; then
+            log "Would install $REPO_DIR/etc/sddm.conf -> /etc/sddm.conf"
+        else
+            sudo install -Dm644 "$REPO_DIR/etc/sddm.conf" "/etc/sddm.conf"
+        fi
+    fi
+
+    # Shared wallpaper cache for SDDM background
+    log "Configuring shared SDDM wallpaper cache in $cache_dir..."
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        log "Would setup wallpaper group and permissions for $cache_dir"
     else
-        warn "No wallpaper found in $REPO_DIR/.wallpapers to seed $cache_wall"
+        sudo groupadd -f "$wallpaper_group"
+        sudo install -d -o root -g "$wallpaper_group" -m 2775 "$cache_dir"
+        id "$installer_user" >/dev/null 2>&1 && sudo usermod -aG "$wallpaper_group" "$installer_user" || true
+        id sddm >/dev/null 2>&1 && sudo usermod -aG "$wallpaper_group" sddm || true
+
+        local seed_wall=""
+        if [[ -d "$REPO_DIR/.wallpapers" ]]; then
+            seed_wall="$(find "$REPO_DIR/.wallpapers" -maxdepth 1 -type f \( -iname '*.jpg' -o -iname '*.png' \) | head -n 1 || true)"
+        fi
+        if [[ -n "$seed_wall" && -f "$seed_wall" ]]; then
+            sudo install -o root -g "$wallpaper_group" -m 664 "$seed_wall" "$cache_wall"
+        fi
     fi
 }
 
 deploy_dotfiles() {
-    log "Deploying dotfiles..."
+    log "Deploying user dotfiles..."
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        log "Would deploy .config and .wallpapers to $HOME"
+        deploy_sddm_theme
+        return 0
+    fi
+
     mkdir -p "$BACKUP_DIR" "$HOME/.config"
 
+    # Backup and sync .config
     if [[ -d "$REPO_DIR/.config" ]]; then
         for item in "$REPO_DIR"/.config/*; do
             [[ -e "$item" ]] || continue
@@ -283,182 +282,92 @@ deploy_dotfiles() {
         rsync -a --delete "$REPO_DIR/.config/" "$HOME/.config/"
     fi
 
+    # Sync wallpapers
     if [[ -d "$REPO_DIR/.wallpapers" ]]; then
         [[ -e "$HOME/.wallpapers" || -L "$HOME/.wallpapers" ]] \
             && mv "$HOME/.wallpapers" "$BACKUP_DIR/.wallpapers"
         rsync -a --delete "$REPO_DIR/.wallpapers/" "$HOME/.wallpapers/"
     fi
 
-    if [[ -d "$REPO_DIR/etc/fonts" ]]; then
-        log "Installing fontconfig snippets to /etc/fonts..."
-        sudo rsync -a "$REPO_DIR/etc/fonts/" "/etc/fonts/"
-    fi
-
-    if [[ -d "$REPO_DIR/usr/share/fontconfig" ]]; then
-        log "Installing fontconfig data to /usr/share/fontconfig..."
-        sudo rsync -a "$REPO_DIR/usr/share/fontconfig/" "/usr/share/fontconfig/"
-    fi
-
-    if [[ -d "$REPO_DIR/etc/fonts" || -d "$REPO_DIR/usr/share/fontconfig" ]]; then
-        log "Updating font cache..."
-        sudo fc-cache -f || warn "Failed to update font cache"
-    fi
-
-    log "Installing Nerd Fonts..."
-    if ! command -v git >/dev/null 2>&1; then
-        warn "Git not found, skipping Nerd Fonts installation"
-    else
-        local tmpdir
-        tmpdir="$(mktemp -d)"
-        git clone --depth 1 https://github.com/ryanoasis/nerd-fonts.git "$tmpdir/nerd-fonts" || warn "Failed to clone Nerd Fonts repo"
-        if [[ -f "$tmpdir/nerd-fonts/install.sh" ]]; then
-            chmod +x "$tmpdir/nerd-fonts/install.sh"
-            "$tmpdir/nerd-fonts/install.sh" || warn "Failed to install Nerd Fonts"
-        fi
-        rm -rf "$tmpdir"
-        log "Nerd Fonts installation completed. Updating font cache again..."
-        sudo fc-cache -f || warn "Failed to update font cache after Nerd Fonts"
-    fi
-
+    # Deploy SDDM Theme
     deploy_sddm_theme
-    setup_sddm_wallpaper_permissions
 
+    # Refresh user font cache
+    fc-cache -f >/dev/null 2>&1 || true
+
+    # Make all helper scripts executable
     if [[ -d "$HOME/.config/sway/scripts" ]]; then
         find "$HOME/.config/sway/scripts" -type f \( -name "*.sh" -o -name "*.py" \) -exec chmod +x {} +
     fi
 
-    log "Dotfiles installed. Backup saved to: $BACKUP_DIR"
+    ok "Dotfiles deployed. Previous configs backed up in: $BACKUP_DIR"
 }
 
 enable_services() {
-    log "Enabling system services..."
+    log "Enabling core system services..."
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        log "Would enable NetworkManager, bluetooth, and sddm"
+        return 0
+    fi
 
-    svc_enable() {
-        sudo systemctl enable --now "$1" || warn "Failed to enable: $1"
-    }
+    sudo systemctl enable --now NetworkManager || warn "Failed to enable NetworkManager"
+    sudo systemctl enable --now bluetooth || warn "Failed to enable bluetooth"
 
-    svc_enable NetworkManager
-    svc_enable bluetooth
-
-    log "Disabling conflicting display managers..."
-    for dm in lightdm gdm gdm3; do
+    # Disable conflicting display managers
+    for dm in lightdm gdm gdm3 lxdm xdm; do
         if systemctl is-enabled "$dm" 2>/dev/null; then
-            sudo systemctl disable "$dm" || warn "Failed to disable $dm"
+            sudo systemctl disable "$dm" || true
         fi
     done
 
-    svc_enable sddm
-}
-
-verify_packages() {
-    log "Verifying installed packages..."
-
-    local failed=()
-    local all_pkgs=()
-
-    # shellcheck disable=SC2207
-    all_pkgs=($(arch_packages))
-    if [[ "$NO_AUR" -eq 0 ]]; then
-        # shellcheck disable=SC2207
-        all_pkgs+=($(aur_packages))
-    fi
-
-    for pkg in "${all_pkgs[@]}"; do
-        if ! pacman -Qi "$pkg" >/dev/null 2>&1; then
-            failed+=("$pkg")
-        fi
-    done
-
-    if [[ "$NO_AUR" -eq 0 ]]; then
-        if ! pacman -Qi github-desktop-bin >/dev/null 2>&1 && ! pacman -Qi github-desktop >/dev/null 2>&1; then
-            failed+=("github-desktop-bin|github-desktop")
-        fi
-    fi
-
-    if [[ ${#failed[@]} -eq 0 ]]; then
-        log "All packages verified successfully."
-    else
-        warn "The following packages failed verification: ${failed[*]}"
-    fi
+    sudo systemctl enable sddm || warn "Failed to enable SDDM"
 }
 
 post_install_checks() {
-    log "Running post-install checks..."
+    log "Running environment verification..."
+    local commands=(sway swaylock quickshell kitty fish starship eza bat fzf sddm)
+    local missing=()
 
-    local issues=()
-
-    if [[ "$SKIP_SERVICES" -eq 0 ]]; then
-        for svc in NetworkManager bluetooth sddm; do
-            if ! systemctl is-active --quiet "$svc" 2>/dev/null; then
-                issues+=("Service $svc is not active")
-            fi
-        done
-    fi
-
-    if [[ "$SKIP_DOTFILES" -eq 0 ]]; then
-        [[ -d "$HOME/.config/sway" ]] || issues+=("Sway config not found")
-        [[ -d "$HOME/.config/quickshell" ]] || issues+=("Quickshell config not found")
-        [[ -d "$HOME/.wallpapers" ]] || issues+=("Wallpapers not found")
-        [[ -d "/usr/share/fontconfig/conf.avail" ]] || issues+=("fontconfig conf.avail not found")
-        [[ -d "/usr/share/sddm/themes/blair" ]] || issues+=("SDDM theme not installed")
-        [[ -f "/etc/sddm.conf" ]] || issues+=("SDDM config not found")
-        [[ -d "/var/cache/wallpaper" ]] || issues+=("Wallpaper cache dir not created")
-    fi
-
-    for cmd in sway swaylock quickshell kitty firefox; do
+    for cmd in "${commands[@]}"; do
         if ! command -v "$cmd" >/dev/null 2>&1; then
-            issues+=("Command $cmd not found")
+            missing+=("$cmd")
         fi
     done
 
-    if ! fc-list | grep -q "JetBrains"; then
-        issues+=("JetBrains fonts not loaded (run fc-cache -f)")
-    fi
-
-    if [[ ${#issues[@]} -eq 0 ]]; then
-        log "All post-install checks passed."
+    if [[ ${#missing[@]} -eq 0 ]]; then
+        ok "All essential commands verified."
     else
-        warn "Post-install issues found:"
-        for issue in "${issues[@]}"; do
-            warn "  - $issue"
-        done
+        warn "Missing commands: ${missing[*]}"
     fi
 }
 
 main() {
     parse_args "$@"
-    require_supported_distro
+    log "Operating as distro: ${DISTRO}"
     ensure_sudo
-    [[ "$SKIP_PACKAGES" -eq 0 ]] && enable_multilib_repo
-    sync_repos
 
     if [[ "$SKIP_PACKAGES" -eq 0 ]]; then
-        install_packages
+        enable_multilib_repo
+        pkg_install $(arch_packages)
 
         if [[ "$NO_AUR" -eq 0 ]]; then
             local aur_helper
             aur_helper="$(ensure_aur_helper)"
             install_aur_packages "$aur_helper"
         else
-            warn "Skipping AUR (--no-aur). Fallback: sway + swaylock installed via pacman."
+            warn "Skipping AUR packages (--no-aur)."
         fi
     else
-        warn "Skipping package install (--skip-packages)."
+        warn "Skipping packages installation (--skip-packages)."
     fi
 
-    [[ "$SKIP_DOTFILES" -eq 0 ]] && deploy_dotfiles \
-        || warn "Skipping dotfiles (--skip-dotfiles)."
-
-    [[ "$SKIP_SERVICES" -eq 0 ]] && enable_services \
-        || warn "Skipping services (--skip-services)."
-
-    [[ "$SKIP_PACKAGES" -eq 0 ]] && verify_packages
+    [[ "$SKIP_DOTFILES" -eq 0 ]] && deploy_dotfiles || warn "Skipping dotfiles deployment."
+    [[ "$SKIP_SERVICES" -eq 0 ]] && enable_services || warn "Skipping services configuration."
 
     post_install_checks
 
-    log "Done."
-    echo "Log out/in or reboot after installation."
-    echo "Note: group membership changes (wallpaper) require a new login session."
+    printf "\n${GREEN}${BOLD}✓ Installation finished successfully!${RESET}\n"
+    echo "Log in to Sway session to enjoy your environment."
 }
 
 main "$@"

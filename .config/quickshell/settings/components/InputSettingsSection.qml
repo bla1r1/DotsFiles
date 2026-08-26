@@ -6,10 +6,6 @@ import "../../Services"
 
 // =============================================================================
 // Mouse & Touchpad Settings
-//
-// Direct integration with Sway input subsystem:
-// - Touchpad: natural scrolling, tap-to-click, dwt, middle click emulation
-// - Mouse: pointer speed / acceleration, accel profile (flat/adaptive)
 // =============================================================================
 
 ColumnLayout {
@@ -24,6 +20,10 @@ ColumnLayout {
     property real pointerAccel: Settings.pointerAccel !== undefined ? Settings.pointerAccel : 0.0
     property string accelProfile: Settings.accelProfile || "flat"
     property bool leftHanded: Settings.leftHanded !== undefined ? Settings.leftHanded : false
+
+    property bool touchpadSwipeWorkspace: Settings.touchpadSwipeWorkspace !== undefined ? Settings.touchpadSwipeWorkspace : true
+    property bool touchpadNaturalSwipe: Settings.touchpadNaturalSwipe !== undefined ? Settings.touchpadNaturalSwipe : true
+    property bool touchpadPinchZoom: Settings.touchpadPinchZoom !== undefined ? Settings.touchpadPinchZoom : true
 
     function setNaturalScroll(on) {
         section.naturalScroll = on;
@@ -64,8 +64,8 @@ ColumnLayout {
 
     // ── 1. Touchpad Card ─────────────────────────────────────────────────────
     Card {
-        title: "Touchpad"
-        subtitle: "Gestures, scrolling, and tapping behavior"
+        title: "Touchpad Basics"
+        subtitle: "Scrolling direction and tapping behavior"
         icon: "\u{f0523}"
         accentColor: Design.peach
 
@@ -85,11 +85,13 @@ ColumnLayout {
                     Label { text: "Content moves in direction of fingers (macOS style)"; role: "caption"; dim: true }
                 }
 
-                Switch {
+                Toggle {
                     checked: section.naturalScroll
-                    onToggled: section.setNaturalScroll(checked)
+                    onToggled: section.setNaturalScroll(!section.naturalScroll)
                 }
             }
+
+            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Design.tint(Design.line, 0.4) }
 
             // Tap to click
             RowLayout {
@@ -103,11 +105,13 @@ ColumnLayout {
                     Label { text: "Tap touchpad with 1 finger for primary click, 2 for right click"; role: "caption"; dim: true }
                 }
 
-                Switch {
+                Toggle {
                     checked: section.tapToClick
-                    onToggled: section.setTapToClick(checked)
+                    onToggled: section.setTapToClick(!section.tapToClick)
                 }
             }
+
+            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Design.tint(Design.line, 0.4) }
 
             // Disable while typing
             RowLayout {
@@ -121,15 +125,95 @@ ColumnLayout {
                     Label { text: "Avoid accidental cursor moves while typing on keyboard"; role: "caption"; dim: true }
                 }
 
-                Switch {
+                Toggle {
                     checked: section.dwt
-                    onToggled: section.setDwt(checked)
+                    onToggled: section.setDwt(!section.dwt)
                 }
             }
         }
     }
 
-    // ── 2. Mouse & Pointer Card ──────────────────────────────────────────────
+    // ── 2. Multi-Touch Gestures ──────────────────────────────────────────────
+    Card {
+        title: "Multi-Touch Gestures"
+        subtitle: "3-finger and 4-finger swipes for smooth desktop navigation"
+        icon: "\u{f0048}"
+        accentColor: Design.teal
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: Design.s(Design.space.md)
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Design.s(Design.space.md)
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+                    Label { text: "3-Finger Workspace Swipe"; weight: Design.weight.semibold }
+                    Label { text: "Swipe 3 fingers horizontally to smoothly transition between workspaces"; role: "caption"; dim: true }
+                }
+
+                Toggle {
+                    checked: section.touchpadSwipeWorkspace
+                    onToggled: {
+                        const next = !section.touchpadSwipeWorkspace;
+                        section.touchpadSwipeWorkspace = next;
+                        Settings.set("touchpadSwipeWorkspace", next);
+                    }
+                }
+            }
+
+            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Design.tint(Design.line, 0.4) }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Design.s(Design.space.md)
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+                    Label { text: "Natural Gesture Direction"; weight: Design.weight.semibold }
+                    Label { text: "Invert swipe motion to match direct touch manipulation"; role: "caption"; dim: true }
+                }
+
+                Toggle {
+                    checked: section.touchpadNaturalSwipe
+                    onToggled: {
+                        const next = !section.touchpadNaturalSwipe;
+                        section.touchpadNaturalSwipe = next;
+                        Settings.set("touchpadNaturalSwipe", next);
+                    }
+                }
+            }
+
+            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Design.tint(Design.line, 0.4) }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Design.s(Design.space.md)
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+                    Label { text: "Pinch to Zoom"; weight: Design.weight.semibold }
+                    Label { text: "Allow 2-finger pinch gesture in browsers and document viewers"; role: "caption"; dim: true }
+                }
+
+                Toggle {
+                    checked: section.touchpadPinchZoom
+                    onToggled: {
+                        const next = !section.touchpadPinchZoom;
+                        section.touchpadPinchZoom = next;
+                        Settings.set("touchpadPinchZoom", next);
+                    }
+                }
+            }
+        }
+    }
+
+    // ── 3. Mouse & Pointer Card ──────────────────────────────────────────────
     Card {
         title: "Mouse & Pointer"
         subtitle: "Tracking speed, acceleration profiles, and primary button"
@@ -165,6 +249,8 @@ ColumnLayout {
                 }
             }
 
+            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Design.tint(Design.line, 0.4) }
+
             // Acceleration Profile
             RowLayout {
                 Layout.fillWidth: true
@@ -196,6 +282,8 @@ ColumnLayout {
                 }
             }
 
+            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Design.tint(Design.line, 0.4) }
+
             // Left-handed Mode
             RowLayout {
                 Layout.fillWidth: true
@@ -208,9 +296,9 @@ ColumnLayout {
                     Label { text: "Swap left and right mouse buttons"; role: "caption"; dim: true }
                 }
 
-                Switch {
+                Toggle {
                     checked: section.leftHanded
-                    onToggled: section.setLeftHanded(checked)
+                    onToggled: section.setLeftHanded(!section.leftHanded)
                 }
             }
         }

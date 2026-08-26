@@ -27,9 +27,10 @@ import "components" as Sections
 PopupShell {
     id: app
 
-    Component.onCompleted: if (!app.page) app.page = "interface"
+    Component.onCompleted: if (!app.page) app.page = "user"
 
     readonly property var pages: [
+        { id: "user",        icon: "\u{f007}",  label: "User Profile",     color: Design.mauve },
         { id: "interface",   icon: "\u{f0b60}", label: "Interface",        color: Design.blue },
         { id: "windows",     icon: "\u{f0379}", label: "Window & Gaps",    color: Design.sapphire },
         { id: "appearance",  icon: "\u{f0376}", label: "Appearance",       color: Design.mauve },
@@ -47,6 +48,7 @@ PopupShell {
         { id: "focus",       icon: "\u{f051e}", label: "Screen Time",      color: Design.teal },
         { id: "input",       icon: "\u{f0523}", label: "Mouse & Touchpad", color: Design.peach },
         { id: "keyboard",    icon: "\u{f030c}", label: "Keyboard",         color: Design.peach },
+        { id: "shortcuts",   icon: "\u{f11c}",  label: "Shortcuts",        color: Design.sapphire },
         { id: "wallpaper",   icon: "\u{f02ca}", label: "Wallpaper",        color: Design.pink },
         { id: "startup",     icon: "\u{f0459}", label: "Startup",          color: Design.yellow },
         { id: "weather",     icon: "\u{f0590}", label: "Weather",          color: Design.sapphire },
@@ -173,6 +175,11 @@ PopupShell {
                 width: pageScroll.width
                 spacing: Design.s(Design.space.lg)
 
+                Sections.UserSettingsSection {
+                    Layout.fillWidth: true
+                    visible: app.page === "user"
+                }
+
                 Sections.InterfaceSettingsSection {
                     visible: app.page === "interface"
                     uiScale: Settings.uiScale
@@ -273,6 +280,11 @@ PopupShell {
                     }
                 }
 
+                Sections.ShortcutsSettingsSection {
+                    Layout.fillWidth: true
+                    visible: app.page === "shortcuts"
+                }
+
                 Sections.WallpaperSettingsSection {
                     Layout.fillWidth: true
                     visible: app.page === "wallpaper"
@@ -283,10 +295,6 @@ PopupShell {
                 Sections.StartupSettingsSection {
                     Layout.fillWidth: true
                     visible: app.page === "startup"
-                    openGuideAtStartup: Settings.openGuideAtStartup
-                    guideShortcut: Settings.guideShortcut
-                    onOpenGuideAtStartupChangedByUser: v => Settings.set("openGuideAtStartup", v)
-                    onGuideShortcutChangedByUser: v => Settings.set("guideShortcut", v)
                 }
 
                 Sections.WeatherSettingsSection {

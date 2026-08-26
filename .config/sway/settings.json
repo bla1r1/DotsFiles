@@ -17,11 +17,28 @@
   "screenshotFormat": "png",
   "screenshotCopyToClipboard": true,
   "screenshotSaveToFile": true,
-  "screenshotDelay": 0,
   "gameModeEnabled": false,
+  "gameModeAdaptiveSync": false,
+  "gameModeHideWaybar": true,
+  "gameModeDND": false,
   "barPosition": "top",
   "barClock24h": true,
   "dimOnLock": true,
   "lockTimeout": 300,
-  "dpmsTimeout": 600
+  "dpmsTimeout": 600,
+  "soundVolumeFeedback": true,
+  "soundScreenshotFeedback": true,
+  "soundDeviceFeedback": true,
+  "touchpadSwipeWorkspace": true,
+  "touchpadNaturalSwipe": true,
+  "touchpadPinchZoom": true,
+  "autostartApps": ["waybar", "polkit", "quickshell", "mako"],
+  "autostartCustom": [],
+  "notificationRules": {
+    "telegram": true,
+    "discord": true,
+    "browser": true,
+    "media": true,
+    "system": true
+  }
 }
