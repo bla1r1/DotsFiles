@@ -233,45 +233,6 @@ bool SettingsManager::apply_from_file(const std::string& path) {
     return apply_to_sway(s);
 }
 
-std::string SettingsManager::get_json_string(const std::string& key) {
-    std::string path = get_settings_filepath();
-    std::string content = read_file_contents(path);
-    return find_json_string(content, key, "");
-}
-
-bool SettingsManager::set_json_value(const std::string& key, const std::string& val) {
-    std::string path = get_settings_filepath();
-    std::string content = read_file_contents(path);
-    if (content.empty()) content = "{}";
-
-    std::string needle = "\"" + key + "\"";
-    size_t pos = content.find(needle);
-    if (pos != std::string::npos) {
-        size_t colon = content.find(':', pos + needle.size());
-        if (colon != std::string::npos) {
-            size_t comma = content.find_first_of(",}", colon + 1);
-            if (comma != std::string::npos) {
-                std::string new_val = " \"" + val + "\"";
-                content.replace(colon + 1, comma - (colon + 1), new_val);
-            }
-        }
-    } else {
-        // Insert before last closing brace
-        size_t last_brace = content.rfind('}');
-        if (last_brace != std::string::npos) {
-            std::string entry = (last_brace > 1 && content[last_brace - 1] != '{' ? ",\n  \"" : "  \"") + key + "\": \"" + val + "\"\n";
-            content.insert(last_brace, entry);
-        }
-    }
-
-    std::ofstream ofs(path);
-    if (ofs) {
-        ofs << content;
-        return true;
-    }
-    return false;
-}
-
 // ── Native inotify watcher ───────────────────────────────────────────────────
 int SettingsManager::watch_and_apply(volatile int* running_flag) {
     std::string settings_file = get_settings_filepath();

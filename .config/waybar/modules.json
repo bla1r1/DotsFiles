@@ -44,14 +44,14 @@
   ],
   "custom/controlcenter": {
     "format": "󰂚",
-    "on-click": "b1air-shell toggle control",
-    "on-click-right": "b1air-shell toggle settings",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleControl",
+    "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleSettings",
     "tooltip-format": "Control Center & Notifications\nRight click: Settings",
     "tooltip": true
   },
   "custom/power": {
     "format": "⏻",
-    "on-click": "b1air-shell toggle session",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleSession",
     "tooltip-format": "Power & Session Menu ($mod+Shift+E)",
     "tooltip": true
   },
@@ -69,8 +69,8 @@
     "format": "󰂯",
     "format-disabled": "󰂲",
     "format-connected": " {num_connections}",
-    "on-click": "b1air-shell toggle network",
-    "on-click-right": "b1air-shell open settings bluetooth",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleNetworkBt",
+    "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main open settings bluetooth",
     "tooltip-format": " {device_alias}",
     "tooltip-format-connected": "{device_enumerate}",
     "tooltip-format-enumerate-connected": " {device_alias}"
@@ -92,9 +92,9 @@
   },
   "custom/appmenu": {
     "format": "APPS",
-    "on-click": "b1air-shell toggle launcher",
-    "on-click-right": "b1air-shell toggle launcher",
-    "tooltip-format": "Spotlight App Launcher & Calculator",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleLauncher",
+    "on-click-right": "rofi -show drun -theme ~/.config/rofi/launchpad.rasi",
+    "tooltip-format": "Left click: Spotlight Launcher & Calculator\nRight click: Launchpad Grid",
     "tooltip": true
   },
   "custom/wifi": {
@@ -102,17 +102,17 @@
     "return-type": "json",
     "format": "{}",
     "interval": 10,
-    "on-click": "b1air-shell toggle network",
-    "on-click-right": "b1air-shell toggle network",
-    "on-click-middle": "b1air-shell open settings network",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleNetworkWifi",
+    "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleNetworkBt",
+    "on-click-middle": "qs -p ~/.config/quickshell/Main.qml ipc call main open settings network",
     "tooltip": false
   },
   "pulseaudio": {
     "format": "{icon}    {volume}%",
     "format-muted": "",
-    "on-click": "b1air-shell toggle volume",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleVolume",
     "on-click-middle": "b1air-daemon volume mute",
-    "on-click-right": "b1air-shell open settings audio",
+    "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main open settings audio",
     "on-scroll-up": "b1air-daemon volume up 5",
     "on-scroll-down": "b1air-daemon volume down 5",
     "tooltip-format": "{icon} {desc}",
@@ -131,7 +131,7 @@
     "interval": 2,
     "format": "{}",
     "on-click": "b1air-daemon mic toggle",
-    "on-click-right": "b1air-shell toggle volume",
+    "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleVolume",
     "tooltip-format": "Left click: toggle mic\nRight click: volume panel",
     "tooltip": true
   },
@@ -146,8 +146,8 @@
     "format-plugged": "󰚥  {capacity}%",
     "format-full": "󰁹  Full",
     "format-icons": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
-    "on-click": "b1air-shell toggle battery",
-    "on-click-right": "b1air-shell open settings power",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleBattery",
+    "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main open settings power",
     "tooltip-format": "{timeTo} — {power}W  ({capacity}%)",
     "interval": 30
   },
@@ -158,7 +158,7 @@
     "max-length": 34,
     "format": "{}",
     "on-click": "playerctl play-pause",
-    "on-click-right": "b1air-shell toggle music",
+    "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleMusic",
     "on-click-middle": "playerctl next",
     "on-scroll-up": "playerctl next",
     "on-scroll-down": "playerctl previous",
@@ -168,8 +168,8 @@
     "exec-if": "b1air-daemon brightness available",
     "format": "{icon}  {percent}%",
     "format-icons": ["󰃞", "󰃟", "󰃠"],
-    "on-click": "b1air-shell toggle monitors",
-    "on-click-right": "b1air-shell open settings monitors",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleMonitors",
+    "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main open settings monitors",
     "on-scroll-up": "b1air-daemon brightness up 5",
     "on-scroll-down": "b1air-daemon brightness down 5",
     "tooltip-format": "Scroll: laptop brightness\nClick: monitor brightness panel",
@@ -182,8 +182,8 @@
     "signal": 3,
     "format": "{}",
     "hide-empty": true,
-    "on-click": "b1air-shell toggle monitors",
-    "on-click-right": "b1air-shell open settings monitors",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleMonitors",
+    "on-click-right": "qs -p ~/.config/quickshell/Main.qml ipc call main open settings monitors",
     "on-scroll-up": "b1air-daemon ddc up",
     "on-scroll-down": "b1air-daemon ddc down",
     "tooltip": true
@@ -242,7 +242,7 @@
     "exec": "b1air-daemon layout",
     "interval": 2,
     "format": "{}",
-    "on-click": "b1air-shell toggle keyboard",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleKeyboard",
     "on-click-right": "swaymsg input type:keyboard xkb_switch_layout next",
     "tooltip-format": "Input Sources\nLeft click: input menu\nRight click: switch layout",
     "tooltip": true
@@ -260,7 +260,7 @@
     "exec": "python3 -c 'import subprocess, json; out = subprocess.getoutput(\"b1air-daemon window list 2>/dev/null\"); data = json.loads(out) if out.startswith(\"[\") else []; print(f\"󰖰 {len(data)}\" if len(data) > 0 else \"\")'",
     "interval": 2,
     "format": "{}",
-    "on-click": "b1air-shell toggle switcher",
+    "on-click": "qs -p ~/.config/quickshell/Main.qml ipc call main toggleSwitcher",
     "tooltip-format": "Minimized Windows\nClick to open Window Switcher",
     "tooltip": true
   },

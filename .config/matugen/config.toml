@@ -9,6 +9,10 @@ output_path = "/tmp/qs_colors.json"
 input_path = "~/.config/matugen/templates/kitty-colors.conf"
 output_path = "~/.config/kitty/matugen-colors.conf"
 
+[templates.rofi]
+input_path = "~/.config/matugen/templates/rofi-colors.rasi"
+output_path = "~/.config/rofi/matugen-colors.rasi"
+
 [templates.cava]
 input_path = "~/.config/matugen/templates/cava-colors.ini"
 output_path = "~/.config/cava/colors"

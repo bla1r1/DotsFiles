@@ -13,8 +13,6 @@ struct WindowInfo {
     bool fullscreen = false;
     bool floating = false;
     int64_t id = 0;
-    int width = 0;
-    int height = 0;
 };
 
 class SwayIPC {

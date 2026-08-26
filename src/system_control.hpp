@@ -57,16 +57,6 @@ public:
     static std::string window_list_minimized_json();
     static std::string window_list_open_json();
 
-    // Remote Desktop & Screencast Management
-    static bool remote_desktop_start(int port = 5900, const std::string& password = "");
-    static bool remote_desktop_stop();
-    static bool remote_desktop_toggle();
-    static std::string remote_desktop_status_json();
-    static bool set_screencast_prompt_free(bool enable);
-    static bool is_screencast_prompt_free();
-    static bool sidecar_create_virtual_display(int width = 1920, int height = 1080);
-    static bool sidecar_remove_virtual_display();
-
     // Wi-Fi & Network interactive management
     static std::string wifi_list_json();
     static std::string wifi_connect(const std::string& ssid, const std::string& password = "");

@@ -1,35 +1,26 @@
-CXX ?= ccache g++
+CXX = g++
 CXXFLAGS = -std=c++20 -O3 -Wall -Wextra -pthread
 LDFLAGS = -lsqlite3
 
-TARGET_DAEMON = b1air-daemon
-TARGET_SHELL = shell/build/b1air-shell
+TARGET = b1air-daemon
 PREFIX ?= $(HOME)/.local/bin
 
 SRCS = main.cpp sway_ipc.cpp focustime_db.cpp user_manager.cpp system_control.cpp settings_manager.cpp session_manager.cpp
 OBJS = $(SRCS:.cpp=.o)
 
-all: $(TARGET_DAEMON) shell-target
+all: $(TARGET)
 
-$(TARGET_DAEMON): $(OBJS)
+$(TARGET): $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-shell-target:
-	cmake -B shell/build shell
-	cmake --build shell/build -j4
-
-install: $(TARGET_DAEMON) shell-target
+install: $(TARGET)
 	mkdir -p $(PREFIX)
-	install -m 755 $(TARGET_DAEMON) $(PREFIX)/$(TARGET_DAEMON)
-	install -m 755 $(TARGET_SHELL) $(PREFIX)/b1air-shell
-	mkdir -p $(HOME)/.config/b1air-shell
-	rsync -a shell/qml/ $(HOME)/.config/b1air-shell/
+	install -m 755 $(TARGET) $(PREFIX)/$(TARGET)
 
 clean:
-	rm -f $(OBJS) $(TARGET_DAEMON)
-	rm -rf shell/build
+	rm -f $(OBJS) $(TARGET)
 
-.PHONY: all shell-target install clean
+.PHONY: all install clean

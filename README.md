@@ -168,11 +168,6 @@ DotsFiles/
 └── install-ui.sh              # Interactive Whiptail installer UI
 ```
 
-## 🗺 Master Roadmap & Evolution
-
-Detailed architectural roadmap and planned feature epics (M1–M6) are documented in:
-- 📖 **[`docs/ROADMAP.md`](docs/ROADMAP.md)** — Productivity tools, window management, audio mixers, privacy controls, device sync, and smart desktop widgets.
-
 ---
 
 ## 📄 License & Credits

@@ -42,7 +42,6 @@ PopupShell {
         { id: "maintenance", icon: "\u{f0187}", label: "Maintenance",      color: Design.green },
         { id: "nightlight",  icon: "\u{f0599}", label: "Night Light",      color: Design.yellow },
         { id: "network",     icon: "\u{f0928}", label: "Network",          color: Design.lavender },
-        { id: "remote",      icon: "\u{f0379}", label: "Remote Desktop",   color: Design.blue },
         { id: "bluetooth",   icon: "\u{f00af}", label: "Bluetooth",        color: Design.mauve },
         { id: "audio",       icon: "\u{f057e}", label: "Sound",            color: Design.teal },
         { id: "power",       icon: "\u{f0084}", label: "Power & Sleep",    color: Design.green },
@@ -237,11 +236,6 @@ PopupShell {
                 Sections.NetworkSettingsSection {
                     Layout.preferredWidth: pageScroll.availableWidth
                     visible: app.page === "network"
-                }
-
-                Sections.RemoteSettingsSection {
-                    Layout.preferredWidth: pageScroll.availableWidth
-                    visible: app.page === "remote"
                 }
 
                 Sections.BluetoothSettingsSection {

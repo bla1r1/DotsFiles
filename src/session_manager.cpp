@@ -11,7 +11,6 @@
 #include <cstdlib>
 #include <unistd.h>
 #include <sys/stat.h>
-#include <cstring>
 
 namespace b1air {
 
@@ -67,18 +66,6 @@ static void focus_tracker_thread() {
         std::string new_app = is_locked ? "Screen Locked" : (win.app_class.empty() ? "Desktop" : win.app_class);
         std::string new_title = is_locked ? "Locked" : win.title;
 
-        // Native zero-overhead autotiling (replaces external autotiling python daemon)
-        if (!is_locked && !win.floating && !win.fullscreen && win.width > 0 && win.height > 0) {
-            SwayIPC split_ipc;
-            if (split_ipc.connect()) {
-                if (win.width > win.height) {
-                    split_ipc.send_command(0, "split h");
-                } else {
-                    split_ipc.send_command(0, "split v");
-                }
-            }
-        }
-
         if (new_app != current_app || is_locked != current_locked) {
             flush_interval(new_app, new_title, is_locked);
         }
@@ -92,21 +79,6 @@ int SessionManager::run_session() {
     std::signal(SIGTERM, session_sig_handler);
 
     std::cout << "[b1air-session] Initializing native b1air Desktop Session Manager...\n";
-
-    // 0. Auto-discover Wayland Display if unset
-    const char* wdisp = std::getenv("WAYLAND_DISPLAY");
-    if (!wdisp || strlen(wdisp) == 0) {
-        const char* rundir = std::getenv("XDG_RUNTIME_DIR");
-        if (rundir) {
-            for (int i = 0; i < 5; ++i) {
-                std::string sock = std::string(rundir) + "/wayland-" + std::to_string(i);
-                if (access(sock.c_str(), F_OK) == 0) {
-                    setenv("WAYLAND_DISPLAY", ("wayland-" + std::to_string(i)).c_str(), 1);
-                    break;
-                }
-            }
-        }
-    }
 
     // 1. Export Wayland & Qt Environment
     setenv("XDG_CURRENT_DESKTOP", "sway", 1);
@@ -173,17 +145,11 @@ int SessionManager::run_session() {
         spawn_detached("waybar");
     }
 
-    // 11. Launch Native Desktop Shell
+    // 11. Launch Quickshell UI
     const char* home = std::getenv("HOME");
-    if (!is_process_running("b1air-shell") && !is_process_running("quickshell.*Main.qml")) {
-        if (access("/usr/local/bin/b1air-shell", X_OK) == 0 || (home && access((std::string(home) + "/.local/bin/b1air-shell").c_str(), X_OK) == 0)) {
-            spawn_detached("b1air-shell");
-        } else {
-            std::string qs_main = std::string(home ? home : "") + "/.config/quickshell/Main.qml";
-            if (access(qs_main.c_str(), R_OK) == 0) {
-                spawn_detached("quickshell -p " + qs_main);
-            }
-        }
+    std::string qs_main = std::string(home ? home : "") + "/.config/quickshell/Main.qml";
+    if (!is_process_running("quickshell.*Main.qml") && access(qs_main.c_str(), R_OK) == 0) {
+        spawn_detached("quickshell -p " + qs_main);
     }
 
     // 12. Autostart Applications from settings.json

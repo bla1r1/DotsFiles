@@ -1,0 +1,10 @@
+* {
+    matugen-bg0: rgba(26, 27, 38, 0.88);
+    matugen-bg1: rgba(36, 40, 59, 0.85);
+    matugen-bg2: #7aa2f7;
+    matugen-bg3: rgba(122, 162, 247, 0.20);
+    matugen-fg0: #c0caf5;
+    matugen-fg1: #1a1b26;
+    matugen-fg2: #a9b1d6;
+    matugen-border: rgba(122, 162, 247, 0.35);
+}
