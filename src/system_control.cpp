@@ -2389,4 +2389,96 @@ int SystemControl::polkit_agent_run() {
     return 0;
 }
 
+// ── Remote Desktop (WayVNC) & Screencast Management ───────────────────────────
+bool SystemControl::remote_desktop_start(int port, const std::string& password) {
+    remote_desktop_stop();
+    std::string cmd = "setsid wayvnc --render-cursor 0.0.0.0 " + std::to_string(port);
+    if (!password.empty()) {
+        const char* home = std::getenv("HOME");
+        if (home) {
+            std::string pass_file = std::string(home) + "/.cache/wayvnc_pass";
+            std::ofstream out(pass_file);
+            if (out) out << password;
+        }
+    }
+    cmd += " >/tmp/wayvnc.log 2>&1 < /dev/null &";
+    std::system(cmd.c_str());
+    return true;
+}
+
+bool SystemControl::remote_desktop_stop() {
+    std::system("pkill -x wayvnc 2>/dev/null || true");
+    return true;
+}
+
+bool SystemControl::remote_desktop_toggle() {
+    if (std::system("pgrep -x wayvnc >/dev/null 2>&1") == 0) {
+        return remote_desktop_stop();
+    } else {
+        return remote_desktop_start();
+    }
+}
+
+std::string SystemControl::remote_desktop_status_json() {
+    bool running = (std::system("pgrep -x wayvnc >/dev/null 2>&1") == 0);
+    std::string ip = exec_cmd("ip route get 1.1.1.1 2>/dev/null | awk '{print $7; exit}'");
+    while (!ip.empty() && (ip.back() == '\n' || ip.back() == '\r' || ip.back() == ' ')) ip.pop_back();
+    if (ip.empty()) ip = "127.0.0.1";
+    
+    std::string json = "{";
+    json += "\"running\":" + std::string(running ? "true" : "false") + ",";
+    json += "\"port\":5900,";
+    json += "\"ip\":\"" + ip + "\",";
+    json += "\"promptFreeScreencast\":" + std::string(is_screencast_prompt_free() ? "true" : "false") + ",";
+    json += "\"uinputReady\":" + std::string(access("/dev/uinput", W_OK) == 0 ? "true" : "false");
+    json += "}";
+    return json;
+}
+
+bool SystemControl::set_screencast_prompt_free(bool enable) {
+    const char* home = std::getenv("HOME");
+    if (!home) return false;
+    std::string dir = std::string(home) + "/.config/xdg-desktop-portal-wlr";
+    std::system(("mkdir -p " + dir).c_str());
+    std::string cfg = dir + "/config";
+    std::string content = "[screencast]\nmax_fps=60\nchooser_type=" + std::string(enable ? "none" : "simple") + "\n";
+    std::ofstream out(cfg);
+    if (out) {
+        out << content;
+        return true;
+    }
+    return false;
+}
+
+bool SystemControl::is_screencast_prompt_free() {
+    const char* home = std::getenv("HOME");
+    if (!home) return true;
+    std::string cfg = std::string(home) + "/.config/xdg-desktop-portal-wlr/config";
+    std::ifstream in(cfg);
+    if (!in) return false;
+    std::string line;
+    while (std::getline(in, line)) {
+        if (line.find("chooser_type=none") != std::string::npos) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool SystemControl::sidecar_create_virtual_display(int width, int height) {
+    SwayIPC ipc;
+    if (!ipc.connect()) return false;
+    ipc.send_command(0, "create_output");
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    ipc.send_command(0, "output HEADLESS-1 mode " + std::to_string(width) + "x" + std::to_string(height));
+    return true;
+}
+
+bool SystemControl::sidecar_remove_virtual_display() {
+    SwayIPC ipc;
+    if (!ipc.connect()) return false;
+    ipc.send_command(0, "output HEADLESS-1 unplug");
+    return true;
+}
+
 } // namespace b1air

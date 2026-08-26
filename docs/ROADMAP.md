@@ -60,10 +60,16 @@ Status:
 - [ ] Add automatic Btrfs and Timeshift pre-update restore point snapshot integration.
 - [ ] Add Encrypted Vaults GUI manager for mounting password-protected folders.
 
-## M5: Device Ecosystem and Cross-Platform Synchronization
+## M5: Device Ecosystem, Cross-Platform Synchronization, and Remote Desktop
 
 - [ ] Add Phone Link integration (KDE Connect / b1Connect) for battery, SMS, clipboard, and ring-my-phone.
 - [ ] Add LocalSend / QuickDrop wireless peer-to-peer file transfer in local Wi-Fi networks.
+- [x] Add native WayVNC Remote Desktop control in `b1air-daemon` (`b1air-daemon remote {start|stop|status|toggle}`) with TLS and password auth.
+- [ ] Add Remote Desktop quick-toggle tile in Control Center (`Super+C`) with active client connection count badge.
+- [x] Add Remote Desktop & Screen Sharing section in Settings App (`Super+Shift+S`) with port configuration, password management, and prompt-free permissions.
+- [ ] Add Waybar active remote session indicator badge with instant 1-click disconnect for privacy protection.
+- [x] Add headless sidecar display generator (`b1air-daemon sidecar create`) for using iPad / Android tablets as low-latency wireless secondary monitors via WayVNC.
+- [x] Add direct compositor input injection via `wlr-virtual-pointer-v1`, `uinput`, and `virtual-keyboard-v1` to eliminate portal permission prompts.
 
 ## M6: Desktop Widgets, Personalization, and Smart UI
 

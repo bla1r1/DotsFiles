@@ -391,6 +391,14 @@ build_b1air_suite() {
     fi
 }
 
+configure_remote_desktop_permissions() {
+    log "Configuring uinput & screencast permissions for prompt-free remote desktop..."
+    echo 'KERNEL=="uinput", GROUP="input", MODE="0660", OPTIONS+="static_node=uinput"' | sudo tee /etc/udev/rules.d/99-uinput.rules >/dev/null 2>&1 || true
+    sudo udevadm control --reload-rules >/dev/null 2>&1 || true
+    sudo udevadm trigger --name-match=uinput >/dev/null 2>&1 || true
+    sudo usermod -aG input "$USER" >/dev/null 2>&1 || true
+}
+
 post_install_checks() {
     log "Running environment verification..."
     local commands=(sway swaylock kitty fish starship eza bat fzf sddm b1air-daemon b1air-shell)
@@ -433,7 +441,8 @@ main() {
 
     if [[ "$SKIP_DOTFILES" -eq 0 ]]; then
         deploy_dotfiles
-        build_b1air_daemon
+        build_b1air_suite
+        configure_remote_desktop_permissions
     else
         warn "Skipping dotfiles deployment."
     fi
