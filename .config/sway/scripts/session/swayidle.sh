@@ -7,7 +7,7 @@ pgrep -x swayidle > /dev/null && exit 0
 
 SCRIPTS="$HOME/.config/sway/scripts"
 LOCK="bash $SCRIPTS/session/lock.sh"
-DDCALL="bash $SCRIPTS/controls/ddcutil_all.sh"
+DDCALL="b1air-daemon ddc"
 
 exec swayidle -w \
     lock         "$LOCK"                              \

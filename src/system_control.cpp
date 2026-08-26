@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include <chrono>
 #include <iomanip>
 #include <sstream>
@@ -14,6 +15,8 @@
 #include <memory>
 #include <random>
 #include <vector>
+#include <thread>
+#include <cstring>
 #include <dirent.h>
 
 namespace b1air {
@@ -338,6 +341,31 @@ bool SystemControl::brightness_set(int pct) {
     return true;
 }
 
+// ── DDC/CI External Monitor Controls ─────────────────────────────────────────
+bool SystemControl::ddc_dim() {
+    std::string cur = std::to_string(brightness_get());
+    std::ofstream out("/tmp/b1air_brightness.saved");
+    out << cur << "\n";
+    out.close();
+
+    std::system("brightnessctl -c backlight set 10% >/dev/null 2>&1 || true");
+    std::system("ddcutil setvcp 10 10 --noverify >/dev/null 2>&1 || true");
+    return true;
+}
+
+bool SystemControl::ddc_undim() {
+    std::string saved = "100";
+    std::ifstream in("/tmp/b1air_brightness.saved");
+    if (in) {
+        in >> saved;
+        in.close();
+    }
+    std::system(("brightnessctl -c backlight set " + saved + "% >/dev/null 2>&1 || true").c_str());
+    std::system("ddcutil setvcp 10 100 --noverify >/dev/null 2>&1 || true");
+    unlink("/tmp/b1air_brightness.saved");
+    return true;
+}
+
 // ── Keyboard Backlight ───────────────────────────────────────────────────────
 static std::string detect_kbd_device() {
     std::string dev = exec_cmd("brightnessctl -l 2>/dev/null | grep -o \"[^\']*kbd_backlight[^\']*\" | head -n1");
@@ -513,6 +541,71 @@ std::string SystemControl::get_updates_json(bool /*force*/) {
 
 bool SystemControl::launch_system_upgrade() {
     return (std::system("kitty --title systemupdate bash -c 'yay -Syu; echo \"\nPress Enter to close...\"; read -r _' &") == 0);
+}
+
+// ── Terminal Themes ──────────────────────────────────────────────────────────
+std::vector<std::string> SystemControl::term_theme_list() {
+    std::vector<std::string> res;
+    const char* home = std::getenv("HOME");
+    std::string themes_dir = std::string(home ? home : "") + "/.config/kitty/themes";
+
+    DIR* dir = opendir(themes_dir.c_str());
+    if (!dir) return res;
+
+    struct dirent* entry;
+    while ((entry = readdir(dir)) != nullptr) {
+        std::string name = entry->d_name;
+        if (name.ends_with(".conf")) {
+            res.push_back(name.substr(0, name.size() - 5));
+        }
+    }
+    closedir(dir);
+    return res;
+}
+
+bool SystemControl::term_theme_set(const std::string& theme) {
+    const char* home = std::getenv("HOME");
+    std::string conf_file = std::string(home ? home : "") + "/.config/kitty/kitty.conf";
+    std::string theme_file = std::string(home ? home : "") + "/.config/kitty/themes/" + theme + ".conf";
+
+    if (access(theme_file.c_str(), R_OK) != 0) {
+        std::cerr << "Theme file not found: " << theme_file << "\n";
+        return false;
+    }
+
+    std::string cmd = "sed -i -E 's|^include themes/.*|include themes/" + theme + ".conf|' '" + conf_file + "'";
+    std::system(cmd.c_str());
+    std::system("killall -SIGUSR1 kitty 2>/dev/null || true");
+    std::cout << "✓ Kitty theme updated to '" << theme << "'\n";
+    return true;
+}
+
+// ── Gamepad Idle Inhibitor ───────────────────────────────────────────────────
+int SystemControl::run_gamepad_inhibit() {
+    std::cout << "[b1air-gamepad] Monitoring joystick activity (/dev/input/js*)...\n";
+    while (true) {
+        DIR* dir = opendir("/dev/input");
+        if (dir) {
+            struct dirent* entry;
+            while ((entry = readdir(dir)) != nullptr) {
+                if (std::strncmp(entry->d_name, "js", 2) == 0) {
+                    std::string js_path = std::string("/dev/input/") + entry->d_name;
+                    int fd = open(js_path.c_str(), O_RDONLY | O_NONBLOCK);
+                    if (fd >= 0) {
+                        char buf[64];
+                        ssize_t n = read(fd, buf, sizeof(buf));
+                        close(fd);
+                        if (n > 0) {
+                            std::system("systemd-inhibit --what=idle --who='b1air-gamepad' --why='Gamepad Active' sleep 120 >/dev/null 2>&1 &");
+                        }
+                    }
+                }
+            }
+            closedir(dir);
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+    }
+    return 0;
 }
 
 // ── Desktop Reload ───────────────────────────────────────────────────────────

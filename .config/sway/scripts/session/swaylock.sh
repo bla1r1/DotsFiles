@@ -7,8 +7,6 @@ set -euo pipefail
 # Avoid launching multiple lock instances
 pgrep -x swaylock >/dev/null 2>&1 && exit 0
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DDCALL="$SCRIPT_DIR/controls/ddcutil_all.sh"
 HELP_TEXT="$(swaylock --help 2>&1 || true)"
 
 supports() {
@@ -81,14 +79,10 @@ supports '--grace'   && args+=(--grace 1)
 supports '--fade-in' && args+=(--fade-in 0.2)
 
 cleanup() {
-    if [[ -x "$DDCALL" ]]; then
-        bash "$DDCALL" undim >/dev/null 2>&1 || true
-    fi
+    b1air-daemon ddc undim >/dev/null 2>&1 || true
 }
 
-if [[ -x "$DDCALL" ]]; then
-    bash "$DDCALL" dim >/dev/null 2>&1 || true
-fi
+b1air-daemon ddc dim >/dev/null 2>&1 || true
 trap cleanup EXIT INT TERM
 
 exec swaylock "${args[@]}"

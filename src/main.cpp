@@ -42,12 +42,15 @@ static void print_usage(const char* prog) {
               << "  mic {get|toggle|mute}              Control microphone mute status\n"
               << "  brightness {available|get|up [N]|down [N]|set <pct>}\n"
               << "                                     Control screen backlight brightness\n"
+              << "  ddc {dim|undim}                    Universal display dim/undim (backlight + DDC/CI)\n"
               << "  kbd-backlight {available|get|up [N]|down [N]|set <pct>|off}\n"
               << "                                     Control keyboard backlight\n"
               << "  wallpaper {set <file>|random [dir]|restore}\n"
               << "                                     Manage and apply desktop & SDDM wallpaper\n"
               << "  night-light {on [temp]|off|toggle|auto}\n"
               << "                                     Control color temperature & blue light filter\n"
+              << "  term-theme {list|set <theme>}      List or switch Kitty terminal color palettes\n"
+              << "  gamepad-inhibit                    Run daemon to inhibit idle when gamepads are active\n"
               << "  game-mode {on|off|toggle|status}   Control zero-overhead gaming optimizations\n"
               << "  power {lock|logout|suspend|reboot|shutdown}\n"
               << "                                     Execute session power state transitions\n"
@@ -137,6 +140,8 @@ int main(int argc, char* argv[]) {
 
     if (cmd == "focus" || cmd == "focus-tracker") {
         return run_focus_tracker();
+    } else if (cmd == "gamepad-inhibit" || cmd == "joystick-inhibit") {
+        return SystemControl::run_gamepad_inhibit();
     } else if (cmd == "stats") {
         std::string date_arg = (argc >= 3) ? argv[2] : "";
         FocusTimeDB db;
@@ -244,6 +249,12 @@ int main(int argc, char* argv[]) {
             std::cerr << "Usage: " << argv[0] << " brightness {available|get|up [N]|down [N]|set <pct>}\n";
             return 1;
         }
+    } else if (cmd == "ddc") {
+        std::string sub = (argc >= 3) ? argv[2] : "dim";
+        if (sub == "dim") return SystemControl::ddc_dim() ? 0 : 1;
+        if (sub == "undim") return SystemControl::ddc_undim() ? 0 : 1;
+        std::cerr << "Usage: " << argv[0] << " ddc {dim|undim}\n";
+        return 1;
     } else if (cmd == "kbd-backlight" || cmd == "kbd") {
         std::string sub = (argc >= 3) ? argv[2] : "get";
         int step = (argc >= 4) ? std::atoi(argv[3]) : 10;
@@ -297,6 +308,21 @@ int main(int argc, char* argv[]) {
             std::cerr << "Usage: " << argv[0] << " night-light {on [temp]|off|toggle|auto}\n";
             return 1;
         }
+    } else if (cmd == "term-theme") {
+        std::string sub = (argc >= 3) ? argv[2] : "list";
+        if (sub == "list") {
+            auto themes = SystemControl::term_theme_list();
+            for (const auto& t : themes) std::cout << t << "\n";
+            return 0;
+        } else if (sub == "set") {
+            if (argc < 4) {
+                std::cerr << "Usage: " << argv[0] << " term-theme set <theme-name>\n";
+                return 1;
+            }
+            return SystemControl::term_theme_set(argv[3]) ? 0 : 1;
+        } else {
+            return SystemControl::term_theme_set(sub) ? 0 : 1;
+        }
     } else if (cmd == "reload") {
         return SystemControl::reload_desktop() ? 0 : 1;
     } else if (cmd == "game-mode" || cmd == "gamemode") {
@@ -333,7 +359,7 @@ int main(int argc, char* argv[]) {
     } else if (cmd == "lock") {
         return SystemControl::lock_session() ? 0 : 1;
     } else if (cmd == "version" || cmd == "-v" || cmd == "--version") {
-        std::cout << "b1air-daemon v2.3.0 (C++20, SQLite3, Sway-IPC, Tokyo Night)\n";
+        std::cout << "b1air-daemon v2.4.0 (C++20, SQLite3, Sway-IPC, Tokyo Night)\n";
         return 0;
     } else if (cmd == "help" || cmd == "-h" || cmd == "--help") {
         print_usage(argv[0]);

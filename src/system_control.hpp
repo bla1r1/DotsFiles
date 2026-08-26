@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 
 namespace b1air {
 
@@ -42,6 +43,10 @@ public:
     static bool brightness_down(int step = 5);
     static bool brightness_set(int pct);
 
+    // DDC/CI External Monitor Controls
+    static bool ddc_dim();
+    static bool ddc_undim();
+
     // Keyboard Backlight controls
     static bool kbd_backlight_available();
     static int kbd_backlight_get();
@@ -64,6 +69,13 @@ public:
     // System Updates & Waybar JSON
     static std::string get_updates_json(bool force = false);
     static bool launch_system_upgrade();
+
+    // Terminal Themes
+    static std::vector<std::string> term_theme_list();
+    static bool term_theme_set(const std::string& theme);
+
+    // Gamepad Idle Inhibitor
+    static int run_gamepad_inhibit();
 
     // Desktop Reload
     static bool reload_desktop();
