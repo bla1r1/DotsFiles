@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <cstring>
 
 namespace b1air {
 
@@ -91,6 +92,21 @@ int SessionManager::run_session() {
     std::signal(SIGTERM, session_sig_handler);
 
     std::cout << "[b1air-session] Initializing native b1air Desktop Session Manager...\n";
+
+    // 0. Auto-discover Wayland Display if unset
+    const char* wdisp = std::getenv("WAYLAND_DISPLAY");
+    if (!wdisp || strlen(wdisp) == 0) {
+        const char* rundir = std::getenv("XDG_RUNTIME_DIR");
+        if (rundir) {
+            for (int i = 0; i < 5; ++i) {
+                std::string sock = std::string(rundir) + "/wayland-" + std::to_string(i);
+                if (access(sock.c_str(), F_OK) == 0) {
+                    setenv("WAYLAND_DISPLAY", ("wayland-" + std::to_string(i)).c_str(), 1);
+                    break;
+                }
+            }
+        }
+    }
 
     // 1. Export Wayland & Qt Environment
     setenv("XDG_CURRENT_DESKTOP", "sway", 1);

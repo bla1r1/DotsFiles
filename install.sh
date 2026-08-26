@@ -118,12 +118,12 @@ enable_multilib_repo() {
 arch_packages() {
     local pkgs=(
         # Core & Build
-        base-devel git rsync curl unzip jq inotify-tools cmake ccache
+        base-devel git rsync curl unzip jq cmake ccache
         # Wayland Compositor & Shell
-        swaybg swayidle swaylock xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk
-        waybar layer-shell-qt xorg-xwayland
+        swaybg swayidle swaylock xdg-desktop-portal xdg-desktop-portal-wlr xorg-xwayland
+        waybar layer-shell-qt
         # Modern CLI & Shell
-        fish starship eza bat fzf zoxide fastfetch btop trash-cli
+        fish starship eza bat fzf zoxide fastfetch btop
         # Terminal Emulators
         kitty
         # GUI Applications
