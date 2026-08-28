@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+ACTION="${1:-toggle}"
+TARGET="${2:-}"
+ARG="${3:-}"
+
+export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+if [ -z "${WAYLAND_DISPLAY:-}" ]; then
+    export WAYLAND_DISPLAY=$(ls -t "$XDG_RUNTIME_DIR"/wayland-[0-9]* 2>/dev/null | grep -v '\.lock$' | head -n 1 | xargs -n 1 basename 2>/dev/null || echo "wayland-1")
+fi
+export SWAYSOCK=$(ls -t "$XDG_RUNTIME_DIR"/sway-ipc.*.sock 2>/dev/null | head -n 1)
+
+if [ -z "$TARGET" ]; then
+    quickshell ipc call main "$ACTION"
+else
+    quickshell ipc call main "$ACTION" "$TARGET" "$ARG"
+fi

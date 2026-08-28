@@ -29,36 +29,36 @@ Status:
 
 ## M1: Productivity, Clipboard Intelligence, and Data Workflow
 
-- [ ] Add QuickLook instant file preview overlay for images, PDF, Markdown, code, and archives on `Space`.
-- [ ] Add Screen OCR text grabber (`Super+Shift+O`) via `slurp`, `grim`, and `tesseract`.
-- [ ] Add Drag & Drop shelf (floating file stash) for batch file staging and transfer.
-- [ ] Add QR code generator and screen scanner (`Super+Shift+Q`) via `qrencode` and `zbarimg`.
-- [ ] Add Smart Spotlight inline converters for currencies, units, and world timezones.
-- [ ] Add pinned snippets and permanent templates tab in Clipboard Manager (`Super+V`).
+- [x] Add QuickLook instant file preview overlay for images, PDF, Markdown, code, and archives on `Space`.
+- [x] Add Screen OCR text grabber (`Super+Shift+O`) via `slurp`, `grim`, and `tesseract`.
+- [x] Add Drag & Drop shelf (floating file stash) for batch file staging and transfer.
+- [x] Add QR code generator and screen scanner (`Super+Shift+Q`) via `qrencode` and `zbarimg`.
+- [x] Add Smart Spotlight inline converters for currencies, units, and world timezones.
+- [x] Add pinned snippets and permanent templates tab in Clipboard Manager (`Super+V`).
 
 ## M2: Advanced Window Management and Screen Assistants
 
-- [ ] Add FancyZones visual snapping grid assistant (`Super+Z`) for 1/3, 2/3, 2x2, and Ultrawide layouts.
-- [ ] Add universal Picture-in-Picture (PiP) pinned mini-view mode (`Super+P`).
-- [ ] Add cursor Shake-to-Find pulse locator for large 4K and multi-monitor setups.
-- [ ] Add Screen Ruler and Pixel Inspector (`Super+Shift+M`) for UI design measurements.
-- [ ] Add smooth hardware-accelerated Screen Magnifier (`Super+Alt++` / `Super+Alt+-`).
-- [ ] Add Force Quit target crosshair (`Super+Escape`) for terminating unresponsive processes.
+- [x] Add FancyZones visual snapping grid assistant (`Super+Z`) for 1/3, 2/3, 2x2, and Ultrawide layouts.
+- [x] Add universal Picture-in-Picture (PiP) pinned mini-view mode (`Super+P`).
+- [x] Add cursor Shake-to-Find pulse locator for large 4K and multi-monitor setups.
+- [x] Add Screen Ruler and Pixel Inspector (`Super+Shift+M`) for UI design measurements.
+- [x] Add smooth hardware-accelerated Screen Magnifier (`Super+Alt++` / `Super+Alt+-`).
+- [x] Add Force Quit target crosshair (`Super+Escape`) for terminating unresponsive processes.
 
 ## M3: Audio Subsystem, Recording, and Multimedia Ecosystem
 
-- [ ] Add per-application volume sliders and stream mixer in Control Center via PipeWire / WirePlumber.
-- [ ] Add AI microphone noise suppression toggle in Control Center via RNNoise / PipeWire filter-chain.
-- [ ] Add fast audio output switcher shortcut (`Super+Shift+A`) with graphical OSD confirmation.
-- [ ] Add Screen-to-GIF recording tool with automatic optimization and clipboard copy.
-- [ ] Add quick voice dictation and audio memo (`Super+Shift+V`) via local `whisper.cpp`.
+- [x] Add per-application volume sliders and stream mixer in Control Center via PipeWire / WirePlumber.
+- [x] Add AI microphone noise suppression toggle in Control Center via RNNoise / PipeWire filter-chain.
+- [x] Add fast audio output switcher shortcut (`Super+Shift+A`) with graphical OSD confirmation.
+- [x] Add Screen-to-GIF recording tool with automatic optimization and clipboard copy.
+- [x] Add quick voice dictation and audio memo (`Super+Shift+V`) via local `whisper.cpp`.
 
 ## M4: Privacy, Security, and System Health Maintenance
 
-- [ ] Add live Privacy Dots in Waybar for active microphone and camera access telemetry.
-- [ ] Add Disk Sweeper and cache cleaner module in Settings for pacman, orphan packages, and thumbnails.
-- [ ] Add automatic Btrfs and Timeshift pre-update restore point snapshot integration.
-- [ ] Add Encrypted Vaults GUI manager for mounting password-protected folders.
+- [x] Add live Privacy Dots in Waybar for active microphone and camera access telemetry.
+- [x] Add Disk Sweeper and cache cleaner module in Settings for pacman, orphan packages, and thumbnails.
+- [x] Add automatic Btrfs and Timeshift pre-update restore point snapshot integration.
+- [x] Add Encrypted Vaults GUI manager for mounting password-protected folders.
 
 ## M5: Device Ecosystem, Cross-Platform Synchronization, and Remote Desktop
 

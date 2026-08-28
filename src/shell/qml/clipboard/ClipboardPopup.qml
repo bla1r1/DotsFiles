@@ -17,7 +17,19 @@ PopupShell {
     property string searchFilter: ""
     property string activeTab: "All"
 
+    readonly property var permanentTemplates: [
+        { text: "Best regards,\nBlair\nSent from b1air desktop", title: "Email Signature", type: "text", pinned: true },
+        { text: "feat(scope): short summary\n\nDetailed context and implementation rationale.", title: "Git Commit Template", type: "code", pinned: true },
+        { text: "sudo pacman -Syu && yay -Sua", title: "Arch System Upgrade", type: "code", pinned: true },
+        { text: "- [ ] Task 1\n- [ ] Task 2\n- [ ] Task 3", title: "Markdown Checklist", type: "code", pinned: true },
+        { text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.", title: "Lorem Ipsum Text", type: "text", pinned: true },
+        { text: "#include <iostream>\n\nint main(int argc, char* argv[]) {\n    std::cout << \"Hello, b1air!\\n\";\n    return 0;\n}", title: "C++20 Boilerplate", type: "code", pinned: true }
+    ]
+
     readonly property var allItems: {
+        if (root.activeTab === "Templates") {
+            return root.permanentTemplates;
+        }
         const list = [];
         for (let i = 0; i < Clipboard.items.count; i++) {
             list.push(Clipboard.items.get(i));
@@ -28,6 +40,7 @@ PopupShell {
     readonly property var filteredItems: root.allItems.filter(it => {
         const matchTab = (root.activeTab === "All")
             || (root.activeTab === "Pinned" && it.pinned)
+            || (root.activeTab === "Templates")
             || (root.activeTab === "Code" && it.type === "code")
             || (root.activeTab === "Links" && it.type === "link");
         const matchSearch = (!root.searchFilter || it.text.toLowerCase().includes(root.searchFilter.toLowerCase()));
@@ -44,7 +57,7 @@ PopupShell {
             spacing: Design.s(Design.space.sm)
 
             Icon {
-                text: "\u{f004e}" // clipboard
+                text: "\u{f0ea}" // clipboard
                 role: "subhead"
                 color: Design.accent
             }
@@ -88,7 +101,7 @@ PopupShell {
                 spacing: Design.s(Design.space.xs)
 
                 Repeater {
-                    model: ["All", "Pinned", "Code", "Links"]
+                    model: ["All", "Pinned", "Templates", "Code", "Links"]
 
                     Pill {
                         id: tabPill
@@ -157,13 +170,13 @@ PopupShell {
                         RowLayout {
                             Layout.fillWidth: true
                             Label {
-                                text: clipCard.modelData.type.toUpperCase()
+                                text: clipCard.modelData.title ? clipCard.modelData.title : clipCard.modelData.type.toUpperCase()
                                 role: "caption"
                                 weight: Design.weight.bold
                                 color: Design.accent
                             }
                             Label {
-                                text: "• " + clipCard.modelData.time
+                                text: "• " + (clipCard.modelData.time || "Template")
                                 role: "caption"
                                 dim: true
                             }
@@ -175,7 +188,7 @@ PopupShell {
                         }
 
                         Label {
-                            text: clipCard.modelData.preview
+                            text: clipCard.modelData.preview || clipCard.modelData.text
                             isMono: clipCard.modelData.type === "code"
                             role: "body"
                             maximumLineCount: 3
@@ -219,12 +232,33 @@ PopupShell {
             }
 
             // Empty state
-            Label {
+            ColumnLayout {
                 anchors.centerIn: parent
                 visible: root.filteredItems.length === 0
-                text: root.searchFilter ? "No matching clips found" : "Clipboard history is empty"
-                role: "body"
-                dim: true
+                spacing: Design.s(8)
+
+                Icon {
+                    text: "\u{f0ea}"
+                    font.pixelSize: Design.s(36)
+                    color: Design.textDim
+                    Layout.alignment: Qt.AlignHCenter
+                }
+
+                Label {
+                    text: root.searchFilter ? "No matching clips found" : "Clipboard history is empty"
+                    role: "body"
+                    weight: Design.weight.medium
+                    color: Design.textDim
+                    Layout.alignment: Qt.AlignHCenter
+                }
+
+                Label {
+                    visible: !root.searchFilter
+                    text: "Copied text and snippets will appear here automatically"
+                    role: "caption"
+                    color: Design.textFaint
+                    Layout.alignment: Qt.AlignHCenter
+                }
             }
         }
     }

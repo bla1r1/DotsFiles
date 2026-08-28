@@ -230,11 +230,16 @@ int main(int argc, char* argv[]) {
         } else if (sub == "list" || sub == "minimized") {
             std::cout << SystemControl::window_list_minimized_json() << "\n";
             return 0;
+        } else if (sub == "count" || sub == "minimized-count") {
+            int cnt = SystemControl::window_count_minimized();
+            if (cnt > 0) std::cout << "󰖰 " << cnt << "\n";
+            else std::cout << "\n";
+            return 0;
         } else if (sub == "open" || sub == "all") {
             std::cout << SystemControl::window_list_open_json() << "\n";
             return 0;
         } else {
-            std::cerr << "Usage: " << argv[0] << " window {minimize|restore [id]|toggle|list|open}\n";
+            std::cerr << "Usage: " << argv[0] << " window {minimize|restore [id]|toggle|list|open|count}\n";
             return 1;
         }
     } else if (cmd == "color-picker" || cmd == "color" || cmd == "picker") {
@@ -669,6 +674,86 @@ int main(int argc, char* argv[]) {
     } else if (cmd == "scan-qr" || cmd == "qr-scan") {
         std::string geom = (argc >= 3) ? argv[2] : "";
         std::cout << SystemControl::scan_qr(geom) << "\n";
+        return 0;
+    } else if (cmd == "qr-gen" || cmd == "qr-generate") {
+        if (argc < 3) {
+            std::cerr << "Usage: " << argv[0] << " qr-gen <text> [out_path]\n";
+            return 1;
+        }
+        std::string text = argv[2];
+        std::string out = (argc >= 4) ? argv[3] : "";
+        return SystemControl::qr_generate(text, out) ? 0 : 1;
+    } else if (cmd == "ocr") {
+        std::string geom = (argc >= 3) ? argv[2] : "";
+        return SystemControl::ocr_screen(geom) ? 0 : 1;
+    } else if (cmd == "pip") {
+        std::string sub = (argc >= 3) ? argv[2] : "toggle";
+        if (sub == "status") {
+            std::cout << SystemControl::pip_status() << "\n";
+            return 0;
+        }
+        return SystemControl::pip_toggle() ? 0 : 1;
+    } else if (cmd == "force-quit" || cmd == "xkill") {
+        return SystemControl::force_quit() ? 0 : 1;
+    } else if (cmd == "cursor-locate" || cmd == "shake-find") {
+        return SystemControl::cursor_locate() ? 0 : 1;
+    } else if (cmd == "quicklook" || cmd == "preview") {
+        if (argc < 3) {
+            std::cerr << "Usage: " << argv[0] << " quicklook <file_path>\n";
+            return 1;
+        }
+        return SystemControl::quicklook_open(argv[2]) ? 0 : 1;
+    } else if (cmd == "zones") {
+        int id = (argc >= 3) ? std::atoi(argv[2]) : 1;
+        return SystemControl::zones_apply(id) ? 0 : 1;
+    } else if (cmd == "audio-switch") {
+        return SystemControl::audio_switch_output() ? 0 : 1;
+    } else if (cmd == "mic-rnnoise" || cmd == "rnnoise") {
+        std::string sub = (argc >= 3) ? argv[2] : "toggle";
+        if (sub == "status") {
+            std::cout << (SystemControl::mic_rnnoise_is_active() ? "active" : "inactive") << "\n";
+            return 0;
+        } else if (sub == "on" || sub == "enable") {
+            return SystemControl::mic_rnnoise_set(true) ? 0 : 1;
+        } else if (sub == "off" || sub == "disable") {
+            return SystemControl::mic_rnnoise_set(false) ? 0 : 1;
+        } else {
+            return SystemControl::mic_rnnoise_toggle() ? 0 : 1;
+        }
+    } else if (cmd == "record-gif") {
+        std::string geom = (argc >= 3) ? argv[2] : "";
+        return SystemControl::record_gif(geom) ? 0 : 1;
+    } else if (cmd == "voice-memo" || cmd == "dictation") {
+        return SystemControl::voice_memo() ? 0 : 1;
+    } else if (cmd == "sweeper" || cmd == "disk-sweeper") {
+        std::string sub = (argc >= 3) ? argv[2] : "scan";
+        if (sub == "clean") {
+            return SystemControl::disk_sweeper_clean() ? 0 : 1;
+        }
+        std::cout << SystemControl::disk_sweeper_scan() << "\n";
+        return 0;
+    } else if (cmd == "snapshot") {
+        std::string sub = (argc >= 3) ? argv[2] : "list";
+        if (sub == "create") {
+            std::string comment = (argc >= 4) ? argv[3] : "";
+            return SystemControl::snapshot_create(comment) ? 0 : 1;
+        }
+        std::cout << SystemControl::snapshot_list() << "\n";
+        return 0;
+    } else if (cmd == "vault") {
+        std::string sub = (argc >= 3) ? argv[2] : "status";
+        if (sub == "status") {
+            std::cout << SystemControl::vault_status() << "\n";
+            return 0;
+        } else if (sub == "unmount") {
+            std::string mp = (argc >= 4) ? argv[3] : "";
+            return SystemControl::vault_unmount(mp) ? 0 : 1;
+        } else if (sub == "mount") {
+            std::string vp = (argc >= 4) ? argv[3] : "";
+            std::string mp = (argc >= 5) ? argv[4] : "";
+            std::string pwd = (argc >= 6) ? argv[5] : "";
+            return SystemControl::vault_mount(vp, mp, pwd) ? 0 : 1;
+        }
         return 0;
     } else if (cmd == "lock") {
         std::string mode = (argc >= 3) ? argv[2] : "auto";

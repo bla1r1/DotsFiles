@@ -1,5 +1,7 @@
 #include "system_control.hpp"
 #include "sway_ipc.hpp"
+#include "settings_manager.hpp"
+#include "json.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -20,6 +22,8 @@
 #include <thread>
 #include <cstring>
 #include <dirent.h>
+#include <csignal>
+#include <climits>
 
 namespace b1air {
 
@@ -92,7 +96,7 @@ bool SystemControl::enable_game_mode() {
     std::system("powerprofilesctl set performance 2>/dev/null || true");
     std::system("pw-metadata -n settings 0 clock.force-quantum 256 2>/dev/null || true");
     std::system("killall -SIGUSR1 waybar 2>/dev/null || true");
-    std::system("makoctl mode -a dnd 2>/dev/null || true");
+    SettingsManager::set_json_value("notificationsDnd", "true");
 
     std::ofstream out(STATE_FILE);
     out << "1\n";
@@ -111,7 +115,7 @@ bool SystemControl::disable_game_mode() {
     std::system("powerprofilesctl set balanced 2>/dev/null || true");
     std::system("pw-metadata -n settings 0 clock.force-quantum 0 2>/dev/null || true");
     std::system("killall -SIGUSR1 waybar 2>/dev/null || true");
-    std::system("makoctl mode -r dnd 2>/dev/null || true");
+    SettingsManager::set_json_value("notificationsDnd", "false");
 
     unlink(STATE_FILE);
 
@@ -299,7 +303,17 @@ struct DesktopAppEntry {
     bool terminal = false;
 };
 
+static std::string s_apps_cache_category;
+static std::string s_apps_cache_json;
+static std::chrono::steady_clock::time_point s_apps_cache_time;
+
 std::string SystemControl::apps_list_json(const std::string& category) {
+    auto now = std::chrono::steady_clock::now();
+    if (!s_apps_cache_json.empty() && category == s_apps_cache_category &&
+        std::chrono::duration_cast<std::chrono::seconds>(now - s_apps_cache_time).count() < 30) {
+        return s_apps_cache_json;
+    }
+
     std::vector<std::string> search_dirs = {
         "/usr/share/applications",
         "/var/lib/flatpak/exports/share/applications"
@@ -442,6 +456,9 @@ std::string SystemControl::apps_list_json(const std::string& category) {
         if (i + 1 < matched.size()) res += ",";
     }
     res += "]";
+    s_apps_cache_category = category;
+    s_apps_cache_json = res;
+    s_apps_cache_time = now;
     return res;
 }
 
@@ -489,6 +506,19 @@ bool SystemControl::window_restore(int64_t con_id) {
 
 bool SystemControl::window_toggle_minimize() {
     return window_minimize();
+}
+
+int SystemControl::window_count_minimized() {
+    SwayIPC ipc;
+    if (!ipc.connect()) return 0;
+    std::string tree = ipc.send_command(4, "");
+    int count = 0;
+    size_t pos = 0;
+    while ((pos = tree.find("\"_b1air_minimized\"", pos)) != std::string::npos) {
+        count++;
+        pos += 18;
+    }
+    return count;
 }
 
 std::string SystemControl::window_list_minimized_json() {
@@ -1371,6 +1401,26 @@ static std::string get_dummy_weather_json() {
     return json;
 }
 
+static std::string weather_icon_from_desc(const std::string& d_in) {
+    std::string d = d_in;
+    std::transform(d.begin(), d.end(), d.begin(), ::tolower);
+    if (d.find("sun") != std::string::npos || d.find("clear") != std::string::npos) return "\uf185";
+    if (d.find("rain") != std::string::npos || d.find("drizzle") != std::string::npos || d.find("shower") != std::string::npos) return "\uf043";
+    if (d.find("snow") != std::string::npos || d.find("ice") != std::string::npos) return "\uf2dc";
+    if (d.find("thunder") != std::string::npos || d.find("storm") != std::string::npos) return "\uf0e7";
+    return "\uf0c2";
+}
+
+static std::string weather_hex_from_desc(const std::string& d_in) {
+    std::string d = d_in;
+    std::transform(d.begin(), d.end(), d.begin(), ::tolower);
+    if (d.find("sun") != std::string::npos || d.find("clear") != std::string::npos) return "#f9e2af";
+    if (d.find("rain") != std::string::npos || d.find("drizzle") != std::string::npos) return "#74c7ec";
+    if (d.find("snow") != std::string::npos || d.find("ice") != std::string::npos) return "#cdd6f4";
+    if (d.find("thunder") != std::string::npos || d.find("storm") != std::string::npos) return "#f9e2af";
+    return "#bac2de";
+}
+
 std::string SystemControl::weather_get_json(bool force) {
     const char* home = std::getenv("HOME");
     std::string home_str = home ? home : "/tmp";
@@ -1413,6 +1463,91 @@ std::string SystemControl::weather_get_json(bool force) {
     }
 
     if (api_key.empty() || api_key == "Skipped" || api_key == "OPENWEATHER_KEY" || city_id.empty()) {
+        std::string raw = exec_cmd_full("curl -fsS --max-time 5 'https://wttr.in/?format=j1' 2>/dev/null");
+        if (!raw.empty()) {
+            try {
+                auto data = nlohmann::json::parse(raw);
+                if (data.contains("weather") && data["weather"].is_array()) {
+                    nlohmann::json forecast_arr = nlohmann::json::array();
+                    auto curr = (data.contains("current_condition") && data["current_condition"].is_array() && !data["current_condition"].empty())
+                                ? data["current_condition"][0] : nlohmann::json::object();
+                    std::string feels = curr.value("FeelsLikeC", "20");
+
+                    int idx = 0;
+                    for (const auto& day : data["weather"]) {
+                        if (idx >= 5) break;
+                        std::string date_str = day.value("date", "");
+                        struct tm tm_date = {};
+                        strptime(date_str.c_str(), "%Y-%m-%d", &tm_date);
+                        char day_short[16], day_full[32], date_formatted[32];
+                        std::strftime(day_short, sizeof(day_short), "%a", &tm_date);
+                        std::strftime(day_full, sizeof(day_full), "%A", &tm_date);
+                        std::strftime(date_formatted, sizeof(date_formatted), "%d %b", &tm_date);
+
+                        nlohmann::json hourly_arr = nlohmann::json::array();
+                        std::string day_desc = "Clear";
+                        std::string wind = "0", humid = "0", pop = "0";
+
+                        if (day.contains("hourly") && day["hourly"].is_array()) {
+                            size_t mid_idx = day["hourly"].size() / 2;
+                            if (mid_idx < day["hourly"].size()) {
+                                const auto& mid = day["hourly"][mid_idx];
+                                if (mid.contains("weatherDesc") && mid["weatherDesc"].is_array() && !mid["weatherDesc"].empty()) {
+                                    day_desc = mid["weatherDesc"][0].value("value", "Clear");
+                                }
+                                wind = mid.value("windspeedKmph", "0");
+                                humid = mid.value("humidity", "0");
+                                pop = mid.value("chanceofrain", "0");
+                            }
+
+                            for (const auto& h : day["hourly"]) {
+                                std::string t_raw = h.value("time", "0");
+                                std::string t_str = "00:00";
+                                if (t_raw.length() == 3) t_str = "0" + t_raw.substr(0, 1) + ":00";
+                                else if (t_raw.length() == 4) t_str = t_raw.substr(0, 2) + ":00";
+
+                                std::string hdesc = "Clear";
+                                if (h.contains("weatherDesc") && h["weatherDesc"].is_array() && !h["weatherDesc"].empty()) {
+                                    hdesc = h["weatherDesc"][0].value("value", "Clear");
+                                }
+
+                                hourly_arr.push_back({
+                                    {"time", t_str},
+                                    {"temp", h.value("tempC", "0")},
+                                    {"icon", weather_icon_from_desc(hdesc)},
+                                    {"hex", weather_hex_from_desc(hdesc)}
+                                });
+                            }
+                        }
+
+                        forecast_arr.push_back({
+                            {"id", std::to_string(idx)},
+                            {"day", day_short},
+                            {"day_full", day_full},
+                            {"date", date_formatted},
+                            {"max", day.value("maxtempC", "0")},
+                            {"min", day.value("mintempC", "0")},
+                            {"feels_like", feels},
+                            {"wind", wind},
+                            {"humidity", humid},
+                            {"pop", pop},
+                            {"icon", weather_icon_from_desc(day_desc)},
+                            {"hex", weather_hex_from_desc(day_desc)},
+                            {"desc", day_desc},
+                            {"hourly", hourly_arr}
+                        });
+                        idx++;
+                    }
+
+                    nlohmann::json result = {{"forecast", forecast_arr}};
+                    std::string res_str = result.dump();
+                    std::ofstream out(json_file);
+                    out << res_str << "\n";
+                    out.close();
+                    return res_str;
+                }
+            } catch (...) {}
+        }
         std::string dummy = get_dummy_weather_json();
         std::ofstream out(json_file);
         out << dummy << "\n";
@@ -1634,12 +1769,12 @@ std::string SystemControl::get_updates_json(bool /*force*/) {
 
     int total = arch_updates + aur_updates;
     if (total == 0) {
-        return "{\"text\":\"0\",\"alt\":\"0\",\"tooltip\":\"Packages are up to date\",\"class\":\"green\"}";
+        return "{\"text\":\"\",\"alt\":\"0\",\"tooltip\":\"Packages are up to date\",\"class\":\"green\"}";
     }
 
     std::string cls = (total > 50) ? "red" : ((total > 0) ? "yellow" : "green");
     std::string tooltip = std::to_string(arch_updates) + " System | " + std::to_string(aur_updates) + " AUR";
-    return "{\"text\":\"" + std::to_string(total) + "\",\"alt\":\"" + std::to_string(total) + "\",\"tooltip\":\"" + tooltip + "\",\"class\":\"" + cls + "\"}";
+    return "{\"text\":\" " + std::to_string(total) + "\",\"alt\":\"" + std::to_string(total) + "\",\"tooltip\":\"" + tooltip + "\",\"class\":\"" + cls + "\"}";
 }
 
 bool SystemControl::launch_system_upgrade() {
@@ -2495,6 +2630,487 @@ bool SystemControl::sidecar_remove_virtual_display() {
     if (!ipc.connect()) return false;
     ipc.send_command(0, "output HEADLESS-1 unplug");
     return true;
+}
+
+// ── Milestone 1: OCR, QR Code Generator & QuickLook ──────────────────────────
+
+bool SystemControl::qr_generate(const std::string& text, const std::string& out_path) {
+    if (text.empty()) return false;
+    std::string path = out_path.empty() ? ("/tmp/b1air_qr_" + std::to_string(getpid()) + ".png") : out_path;
+    std::string cmd = "qrencode -s 8 -m 2 -o '" + path + "' '" + text + "' 2>/dev/null";
+    if (std::system(cmd.c_str()) != 0) return false;
+
+    std::system(("wl-copy -t image/png < '" + path + "' 2>/dev/null || true").c_str());
+    std::system(("notify-send -a 'QR Code Generator' -i '" + path + "' 'QR Code Generated' 'Image copied to clipboard' 2>/dev/null || true").c_str());
+    return true;
+}
+
+bool SystemControl::ocr_screen(const std::string& geom) {
+    std::string g = geom;
+    if (g.empty()) {
+        g = exec_cmd("slurp 2>/dev/null");
+        if (g.empty()) return false; // User canceled
+    }
+
+    std::string tmp_img = "/tmp/b1air_ocr_" + std::to_string(getpid()) + ".png";
+    std::string grim_cmd = "grim -g \"" + g + "\" '" + tmp_img + "' 2>/dev/null";
+    if (std::system(grim_cmd.c_str()) != 0) return false;
+
+    std::string text = exec_cmd_full("tesseract '" + tmp_img + "' stdout 2>/dev/null");
+    unlink(tmp_img.c_str());
+
+    // Trim whitespace
+    while (!text.empty() && (text.back() == '\n' || text.back() == '\r' || text.back() == ' ')) text.pop_back();
+    while (!text.empty() && (text.front() == '\n' || text.front() == '\r' || text.front() == ' ')) text.erase(0, 1);
+
+    if (text.empty()) {
+        std::system("notify-send -a 'Screen OCR' 'No text recognized' 'Selection did not contain readable text' 2>/dev/null || true");
+        return false;
+    }
+
+    // Pipe to wl-copy
+    FILE* pipe = popen("wl-copy 2>/dev/null", "w");
+    if (pipe) {
+        fwrite(text.data(), 1, text.size(), pipe);
+        pclose(pipe);
+    }
+
+    std::string preview = text.substr(0, 70);
+    for (char& c : preview) if (c == '\'' || c == '"') c = ' ';
+    std::system(("notify-send -a 'Screen OCR' 'Text Copied to Clipboard' '" + preview + "...' 2>/dev/null || true").c_str());
+    return true;
+}
+
+bool SystemControl::quicklook_open(const std::string& path) {
+    if (path.empty()) return false;
+    char resolved[PATH_MAX];
+    if (!realpath(path.c_str(), resolved)) return false;
+    std::string cmd = "b1air-shell open quicklook '" + std::string(resolved) + "'";
+    std::system(cmd.c_str());
+    return true;
+}
+
+// ── Milestone 2: Advanced Window Management & Screen Assistants ──────────────
+
+bool SystemControl::pip_toggle() {
+    SwayIPC ipc;
+    if (!ipc.connect()) return false;
+
+    std::string tree = ipc.get_tree();
+    if (tree.empty()) return false;
+
+    // Check if focused window is already marked "pip"
+    bool in_pip = false;
+    size_t focused_pos = tree.find("\"focused\":true");
+    if (focused_pos != std::string::npos) {
+        // Look backwards for marks or nearby container context
+        size_t con_start = tree.rfind('{', focused_pos);
+        size_t con_end = tree.find('}', focused_pos);
+        if (con_start != std::string::npos && con_end != std::string::npos) {
+            std::string sub = tree.substr(con_start, con_end - con_start);
+            if (sub.find("\"pip\"") != std::string::npos) in_pip = true;
+        }
+    }
+
+    if (in_pip) {
+        ipc.send_command(0, "unmark pip, sticky disable, floating disable");
+        std::system("notify-send -a 'Picture-in-Picture' 'PiP Disabled' 'Restored window to tiled layout' 2>/dev/null || true");
+        return true;
+    }
+
+    // PiP Geometry: 480x270 at bottom right (1920x1080 standard offset)
+    int sw = 1920, sh = 1080;
+    std::string outputs = ipc.get_outputs();
+    size_t rect_pos = outputs.find("\"rect\":");
+    if (rect_pos != std::string::npos) {
+        size_t w_pos = outputs.find("\"width\":", rect_pos);
+        size_t h_pos = outputs.find("\"height\":", rect_pos);
+        if (w_pos != std::string::npos && h_pos != std::string::npos) {
+            try {
+                sw = std::stoi(outputs.substr(w_pos + 8));
+                sh = std::stoi(outputs.substr(h_pos + 9));
+            } catch (...) {}
+        }
+    }
+
+    int pw = 480;
+    int ph = 270;
+    int px = sw - pw - 24;
+    int py = sh - ph - 48;
+
+    std::string sway_cmd = "floating enable, sticky enable, border pixel 2, resize set " + 
+                           std::to_string(pw) + " " + std::to_string(ph) + 
+                           ", move position " + std::to_string(px) + " " + std::to_string(py) + 
+                           ", mark pip";
+    ipc.send_command(0, sway_cmd);
+    std::system("notify-send -a 'Picture-in-Picture' 'PiP Enabled' 'Pinned window to bottom-right' 2>/dev/null || true");
+    return true;
+}
+
+std::string SystemControl::pip_status() {
+    SwayIPC ipc;
+    if (!ipc.connect()) return "{\"active\":false}";
+    std::string tree = ipc.get_tree();
+    bool active = (tree.find("\"pip\"") != std::string::npos);
+    return active ? "{\"active\":true}" : "{\"active\":false}";
+}
+
+bool SystemControl::force_quit() {
+    // slurp -p selects a single pixel/point
+    std::string point = exec_cmd("slurp -p -b '#f7768e66' -c '#f7768e' 2>/dev/null");
+    if (point.empty()) return false;
+
+    int click_x = 0, click_y = 0;
+    if (sscanf(point.c_str(), "%d,%d", &click_x, &click_y) != 2) return false;
+
+    SwayIPC ipc;
+    if (!ipc.connect()) return false;
+    std::string tree = ipc.get_tree();
+
+    // Traverse Sway tree JSON to find window container enclosing click_x, click_y
+    int target_pid = 0;
+    std::string target_name = "Application";
+
+    size_t search_pos = 0;
+    while ((search_pos = tree.find("\"pid\":", search_pos)) != std::string::npos) {
+        int pid = 0;
+        try { pid = std::stoi(tree.substr(search_pos + 6)); } catch (...) {}
+        if (pid > 0) {
+            // Check rect around this node
+            size_t rect_pos = tree.rfind("\"rect\":", search_pos);
+            if (rect_pos != std::string::npos && search_pos - rect_pos < 400) {
+                int x = 0, y = 0, w = 0, h = 0;
+                sscanf(tree.c_str() + rect_pos, "\"rect\":{\"x\":%d,\"y\":%d,\"width\":%d,\"height\":%d", &x, &y, &w, &h);
+                if (click_x >= x && click_x <= x + w && click_y >= y && click_y <= y + h) {
+                    target_pid = pid;
+                    size_t name_pos = tree.rfind("\"name\":\"", search_pos);
+                    if (name_pos != std::string::npos && search_pos - name_pos < 400) {
+                        size_t end_name = tree.find('"', name_pos + 8);
+                        if (end_name != std::string::npos) {
+                            target_name = tree.substr(name_pos + 8, end_name - (name_pos + 8));
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+        search_pos += 6;
+    }
+
+    if (target_pid > 0) {
+        kill(target_pid, SIGTERM);
+        std::this_thread::sleep_for(std::chrono::milliseconds(150));
+        kill(target_pid, SIGKILL);
+        ipc.send_command(0, "kill");
+        std::system(("notify-send -a 'Force Quit' -u critical 'Terminated Window' 'Closed " + target_name + " (PID " + std::to_string(target_pid) + ")' 2>/dev/null || true").c_str());
+        return true;
+    }
+
+    // Fallback: kill focused window
+    ipc.send_command(0, "kill");
+    std::system("notify-send -a 'Force Quit' 'Window Closed' 'Sent kill signal to window' 2>/dev/null || true");
+    return true;
+}
+
+bool SystemControl::cursor_locate() {
+    std::system("b1air-shell toggle ruler 2>/dev/null || notify-send -a 'b1air' -t 1500 'Cursor Located' 'Look here!' 2>/dev/null || true");
+    return true;
+}
+
+bool SystemControl::zones_apply(int zone_id) {
+    SwayIPC ipc;
+    if (!ipc.connect()) return false;
+
+    int sw = 1920, sh = 1080;
+    std::string outputs = ipc.get_outputs();
+    size_t rect_pos = outputs.find("\"rect\":");
+    if (rect_pos != std::string::npos) {
+        size_t w_pos = outputs.find("\"width\":", rect_pos);
+        size_t h_pos = outputs.find("\"height\":", rect_pos);
+        if (w_pos != std::string::npos && h_pos != std::string::npos) {
+            try {
+                sw = std::stoi(outputs.substr(w_pos + 8));
+                sh = std::stoi(outputs.substr(h_pos + 9));
+            } catch (...) {}
+        }
+    }
+
+    int bar_h = 48;
+    int gap = 12;
+    int avail_w = sw - (gap * 2);
+    int avail_h = sh - bar_h - (gap * 2);
+    int top_y = bar_h + gap;
+    int left_x = gap;
+
+    int x = left_x, y = top_y, w = avail_w, h = avail_h;
+
+    switch (zone_id) {
+        case 1: // Left 1/2
+            w = (avail_w - gap) / 2;
+            break;
+        case 2: // Right 1/2
+            w = (avail_w - gap) / 2;
+            x = left_x + w + gap;
+            break;
+        case 3: // Left 1/3
+            w = (avail_w - gap * 2) / 3;
+            break;
+        case 4: // Mid 1/3
+            w = (avail_w - gap * 2) / 3;
+            x = left_x + w + gap;
+            break;
+        case 5: // Right 1/3
+            w = (avail_w - gap * 2) / 3;
+            x = left_x + (w + gap) * 2;
+            break;
+        case 6: // Left 2/3
+            w = ((avail_w - gap * 2) / 3) * 2 + gap;
+            break;
+        case 7: // Right 2/3
+            w = ((avail_w - gap * 2) / 3) * 2 + gap;
+            x = left_x + (avail_w - w);
+            break;
+        case 8: // Top 1/2
+            h = (avail_h - gap) / 2;
+            break;
+        case 9: // Bottom 1/2
+            h = (avail_h - gap) / 2;
+            y = top_y + h + gap;
+            break;
+        default:
+            return false;
+    }
+
+    std::string sway_cmd = "floating enable, resize set " + std::to_string(w) + " " + std::to_string(h) + 
+                           ", move position " + std::to_string(x) + " " + std::to_string(y);
+    ipc.send_command(0, sway_cmd);
+    return true;
+}
+
+// ── Milestone 3: Audio Subsystem, Recording & Multimedia Ecosystem ───────────
+
+bool SystemControl::audio_switch_output() {
+    // 1. List short sinks from PulseAudio/PipeWire
+    std::string sinks_raw = exec_cmd_full("pactl list short sinks 2>/dev/null");
+    std::vector<std::string> sink_names;
+    std::vector<std::string> sink_descs;
+
+    if (!sinks_raw.empty()) {
+        std::istringstream stream(sinks_raw);
+        std::string line;
+        while (std::getline(stream, line)) {
+            if (line.empty()) continue;
+            std::istringstream lstream(line);
+            std::string id, name;
+            lstream >> id >> name;
+            if (!name.empty()) {
+                sink_names.push_back(name);
+                sink_descs.push_back(name);
+            }
+        }
+    }
+
+    if (sink_names.empty()) {
+        // Fallback: try wpctl status
+        std::system("notify-send -a 'Audio Switcher' 'No Output Devices' 'No secondary audio sinks found' 2>/dev/null || true");
+        return false;
+    }
+
+    std::string current_default = exec_cmd("pactl get-default-sink 2>/dev/null");
+    int current_idx = -1;
+    for (size_t i = 0; i < sink_names.size(); ++i) {
+        if (sink_names[i] == current_default) {
+            current_idx = static_cast<int>(i);
+            break;
+        }
+    }
+
+    int next_idx = (current_idx + 1) % sink_names.size();
+    std::string target_sink = sink_names[next_idx];
+
+    std::string set_cmd = "pactl set-default-sink '" + target_sink + "' 2>/dev/null || wpctl set-default '" + target_sink + "' 2>/dev/null";
+    std::system(set_cmd.c_str());
+
+    std::string friendly_name = target_sink;
+    if (friendly_name.find("analog") != std::string::npos || friendly_name.find("speaker") != std::string::npos) {
+        friendly_name = "Built-in Speakers";
+    } else if (friendly_name.find("headphone") != std::string::npos || friendly_name.find("headset") != std::string::npos) {
+        friendly_name = "Headphones / Headset";
+    } else if (friendly_name.find("hdmi") != std::string::npos) {
+        friendly_name = "HDMI / DisplayPort Audio";
+    }
+
+    std::system(("notify-send -a 'Audio Switcher' -i audio-speakers 'Audio Output Switched' '" + friendly_name + "' 2>/dev/null || true").c_str());
+    return true;
+}
+
+bool SystemControl::mic_rnnoise_is_active() {
+    return (access("/tmp/b1air_rnnoise.active", F_OK) == 0) || 
+           (!exec_cmd("pgrep -f 'source-rnnoise' 2>/dev/null").empty());
+}
+
+bool SystemControl::mic_rnnoise_set(bool enable) {
+    if (enable) {
+        std::ofstream flag("/tmp/b1air_rnnoise.active");
+        flag << "1\n";
+        flag.close();
+        // Launch PipeWire filter-chain RNNoise source if config exists
+        std::system("pipewire -c filter-chain/source-rnnoise.conf >/dev/null 2>&1 &");
+        std::system("notify-send -a 'Microphone' -i audio-input-microphone 'AI Noise Suppression: ON' 'Deep-learning background filter active' 2>/dev/null || true");
+    } else {
+        unlink("/tmp/b1air_rnnoise.active");
+        std::system("pkill -f 'source-rnnoise' 2>/dev/null || true");
+        std::system("notify-send -a 'Microphone' -i audio-input-microphone 'AI Noise Suppression: OFF' 'Standard microphone input restored' 2>/dev/null || true");
+    }
+    return true;
+}
+
+bool SystemControl::mic_rnnoise_toggle() {
+    return mic_rnnoise_set(!mic_rnnoise_is_active());
+}
+
+bool SystemControl::record_gif(const std::string& geom) {
+    std::string g = geom;
+    if (g.empty()) {
+        g = exec_cmd("slurp 2>/dev/null");
+        if (g.empty()) return false;
+    }
+
+    const char* home = std::getenv("HOME");
+    std::string out_dir = home ? (std::string(home) + "/Pictures/Screenshots") : "/tmp";
+    std::system(("mkdir -p '" + out_dir + "'").c_str());
+
+    auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    char ts[64];
+    std::strftime(ts, sizeof(ts), "%Y-%m-%d_%H-%M-%S", std::localtime(&now));
+    std::string gif_path = out_dir + "/recording_" + std::string(ts) + ".gif";
+    std::string tmp_mp4 = "/tmp/b1air_gif_temp_" + std::to_string(getpid()) + ".mp4";
+
+    std::system("notify-send -a 'Screen-to-GIF' '⏺ Recording GIF' 'Capturing 5-second region animation...' 2>/dev/null || true");
+
+    // Capture short region clip (5s)
+    std::string rec_cmd = "wf-recorder -g \"" + g + "\" -d 5 -f '" + tmp_mp4 + "' 2>/dev/null || " +
+                          "wl-screenrec -g \"" + g + "\" -f '" + tmp_mp4 + "' 2>/dev/null & sleep 5; pkill -INT -f '" + tmp_mp4 + "' 2>/dev/null || true";
+    std::system(rec_cmd.c_str());
+
+    // Two-pass optimal palette conversion to GIF
+    std::string conv_cmd = "ffmpeg -y -i '" + tmp_mp4 + "' -vf \"fps=15,scale=flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse\" '" + gif_path + "' 2>/dev/null";
+    std::system(conv_cmd.c_str());
+    unlink(tmp_mp4.c_str());
+
+    // Optional lossless optimization if gifsicle is installed
+    std::string opt_cmd = "gifsicle -O3 --lossy=30 -o '" + gif_path + "' '" + gif_path + "' 2>/dev/null || true";
+    std::system(opt_cmd.c_str());
+
+    // Copy to clipboard
+    std::system(("wl-copy -t image/gif < '" + gif_path + "' 2>/dev/null || true").c_str());
+    std::system(("notify-send -a 'Screen-to-GIF' -i '" + gif_path + "' 'GIF Saved & Copied' 'Copied animated GIF to clipboard' 2>/dev/null || true").c_str());
+    return true;
+}
+
+bool SystemControl::voice_memo() {
+    static const char* PID_FILE = "/tmp/b1air_voice_memo.pid";
+    if (access(PID_FILE, F_OK) == 0) {
+        // Stop recording
+        std::ifstream pf(PID_FILE);
+        int pid = 0;
+        if (pf >> pid && pid > 0) {
+            kill(pid, SIGINT);
+        }
+        pf.close();
+        unlink(PID_FILE);
+        std::system("notify-send -a 'Voice Memo' '⏹ Recording Stopped' 'Saved audio memo to recordings folder' 2>/dev/null || true");
+        return true;
+    }
+
+    const char* home = std::getenv("HOME");
+    std::string rec_dir = home ? (std::string(home) + "/Music/Recordings") : "/tmp";
+    std::system(("mkdir -p '" + rec_dir + "'").c_str());
+
+    auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    char ts[64];
+    std::strftime(ts, sizeof(ts), "%Y-%m-%d_%H-%M-%S", std::localtime(&now));
+    std::string wav_path = rec_dir + "/memo_" + std::string(ts) + ".wav";
+
+    std::string cmd = "pw-record '" + wav_path + "' >/dev/null 2>&1 & echo $! > " + std::string(PID_FILE);
+    std::system(cmd.c_str());
+
+    std::system(("wl-copy '" + wav_path + "' 2>/dev/null || true").c_str());
+    std::system("notify-send -a 'Voice Memo' '🎙️ Recording Started' 'Press Super+Shift+V again to stop' 2>/dev/null || true");
+    return true;
+}
+
+// ── Milestone 4: Privacy, Security & System Health Maintenance ────────────────
+
+std::string SystemControl::disk_sweeper_scan() {
+    std::string pacman_cache = exec_cmd("du -sh /var/cache/pacman/pkg 2>/dev/null | cut -f1");
+    if (pacman_cache.empty()) pacman_cache = "0 B";
+
+    const char* home = std::getenv("HOME");
+    std::string user_cache = "0 B";
+    std::string thumb_cache = "0 B";
+    if (home) {
+        user_cache = exec_cmd(("du -sh '" + std::string(home) + "/.cache' 2>/dev/null | cut -f1").c_str());
+        thumb_cache = exec_cmd(("du -sh '" + std::string(home) + "/.cache/thumbnails' 2>/dev/null | cut -f1").c_str());
+    }
+
+    std::string journal = exec_cmd("journalctl --disk-usage 2>/dev/null | grep -oE '[0-9\\.]+[M|G|K]B' | head -1");
+    if (journal.empty()) journal = "< 50 MB";
+
+    std::string orphans = exec_cmd("pacman -Qtdq 2>/dev/null | wc -l");
+    if (orphans.empty()) orphans = "0";
+
+    std::ostringstream json;
+    json << "{"
+         << "\"ok\":true,"
+         << "\"pacman_cache\":\"" << pacman_cache << "\","
+         << "\"user_cache\":\"" << user_cache << "\","
+         << "\"thumbnails\":\"" << thumb_cache << "\","
+         << "\"journal\":\"" << journal << "\","
+         << "\"orphans\":" << orphans
+         << "}";
+    return json.str();
+}
+
+bool SystemControl::disk_sweeper_clean() {
+    std::system("rm -rf ~/.cache/thumbnails/* 2>/dev/null || true");
+    std::system("journalctl --vacuum-time=7d >/dev/null 2>&1 || true");
+    std::system("sudo paccache -rk2 >/dev/null 2>&1 || sudo pacman -Sc --noconfirm >/dev/null 2>&1 || true");
+    std::system("notify-send -a 'Disk Sweeper' -i drive-harddisk 'Storage Cleaned' 'Reclaimed cache and thumbnail storage' 2>/dev/null || true");
+    return true;
+}
+
+bool SystemControl::snapshot_create(const std::string& comment) {
+    std::string c = comment.empty() ? "b1air pre-update snapshot" : comment;
+    std::string cmd = "timeshift --create --comments \"" + c + "\" --tags O 2>/dev/null || " +
+                      "snapper create -d \"" + c + "\" 2>/dev/null || true";
+    std::system(cmd.c_str());
+    std::system("notify-send -a 'System Restore' -i document-save 'Restore Point Created' 'System snapshot saved successfully' 2>/dev/null || true");
+    return true;
+}
+
+std::string SystemControl::snapshot_list() {
+    std::string out = exec_cmd_full("timeshift --list 2>/dev/null | grep -E '>|([0-9]{4}-[0-9]{2}-[0-9]{2})' | head -5 || snapper list 2>/dev/null | tail -5");
+    std::ostringstream json;
+    json << "{\"ok\":true,\"has_snapshots\":" << (!out.empty() ? "true" : "false") << "}";
+    return json.str();
+}
+
+bool SystemControl::vault_mount(const std::string& vault_path, const std::string& mount_point, const std::string& password) {
+    if (vault_path.empty() || mount_point.empty()) return false;
+    std::string cmd = "mkdir -p '" + mount_point + "'; printf '%s\\n' \"" + password + "\" | gocryptfs '" + vault_path + "' '" + mount_point + "' 2>/dev/null";
+    return (std::system(cmd.c_str()) == 0);
+}
+
+bool SystemControl::vault_unmount(const std::string& mount_point) {
+    if (mount_point.empty()) return false;
+    std::string cmd = "fusermount -u '" + mount_point + "' 2>/dev/null || umount '" + mount_point + "' 2>/dev/null";
+    return (std::system(cmd.c_str()) == 0);
+}
+
+std::string SystemControl::vault_status() {
+    std::string mounts = exec_cmd_full("mount | grep -E 'gocryptfs|cryfs|encfs' | awk '{print $3}'");
+    return mounts.empty() ? "{\"active\":false,\"mounts\":[]}" : "{\"active\":true}";
 }
 
 } // namespace b1air

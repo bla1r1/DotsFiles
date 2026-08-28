@@ -156,5 +156,76 @@ MiniView {
             onIconClicked: if (root.source) Audio.toggleMute("source", root.source.id)
             onMoved: pct => Audio.applyVolume("source", root.source, pct)
         }
+
+        // AI Noise Suppression (RNNoise)
+        RowLayout {
+            visible: root.source !== null
+            Layout.fillWidth: true
+            spacing: Design.s(Design.space.sm)
+
+            Icon {
+                text: "\u{f05a9}"
+                role: "caption"
+                color: Design.teal
+            }
+
+            Label {
+                text: "AI Noise Suppression (RNNoise)"
+                role: "caption"
+                weight: Design.weight.medium
+                Layout.fillWidth: true
+            }
+
+            ActionButton {
+                icon: "\u{f021}"
+                label: "Toggle Filter"
+                onActivated: Quickshell.execDetached(["b1air-daemon", "mic-rnnoise", "toggle"])
+            }
+        }
+
+        // ── Per-Application Stream Volume Mixer ───────────────────────────────
+        SectionLabel {
+            text: "Application Mixer"
+            visible: Audio.apps.count > 0
+        }
+
+        ListView {
+            id: appsList
+            visible: Audio.apps.count > 0
+            Layout.fillWidth: true
+            Layout.preferredHeight: Math.min(Design.s(120), Audio.apps.count * Design.s(36))
+            clip: true
+            spacing: Design.s(Design.space.xs)
+            model: Audio.apps
+
+            delegate: RowLayout {
+                id: appStreamRow
+                required property var model
+                width: appsList.width
+                spacing: Design.s(Design.space.xs)
+
+                Icon {
+                    text: "\u{f001}"
+                    role: "caption"
+                    color: Design.sapphire
+                }
+
+                Label {
+                    text: appStreamRow.model.description || appStreamRow.model.name || "App"
+                    role: "caption"
+                    elide: Text.ElideRight
+                    Layout.preferredWidth: Design.s(100)
+                }
+
+                Slider {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: Design.s(28)
+                    value: appStreamRow.model.volume
+                    muted: appStreamRow.model.mute
+                    tone: Design.sapphire
+                    onMoved: pct => Audio.applyVolume("sink-input", appStreamRow.model, pct)
+                }
+            }
+        }
     }
 }

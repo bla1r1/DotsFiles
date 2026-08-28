@@ -54,6 +54,7 @@ public:
     static bool window_minimize();
     static bool window_restore(int64_t con_id = -1);
     static bool window_toggle_minimize();
+    static int window_count_minimized();
     static std::string window_list_minimized_json();
     static std::string window_list_open_json();
 
@@ -126,11 +127,38 @@ public:
     static bool dotfiles_sync();
     static bool dotfiles_sys();
 
-    // Advanced Screen Capture, Recording & QR Scanner
+    // Advanced Screen Capture, Recording, OCR & QR Scanner
     static bool capture(const std::string& mode = "full", const std::string& geom = "", bool edit = false);
     static bool record_toggle(const std::string& geom = "", double desk_vol = 1.0, double mic_vol = 1.0, bool desk_mute = false, bool mic_mute = false, const std::string& mic_dev = "");
     static bool record_stop();
-    static std::string scan_qr(const std::string& geom);
+    static std::string scan_qr(const std::string& geom = "");
+    static bool qr_generate(const std::string& text, const std::string& out_path = "");
+    static bool ocr_screen(const std::string& geom = "");
+
+    // Advanced Window Management & Screen Assistants
+    static bool pip_toggle();
+    static std::string pip_status();
+    static bool force_quit();
+    static bool cursor_locate();
+    static bool quicklook_open(const std::string& path);
+    static bool zones_apply(int zone_id);
+
+    // Audio Output Switcher & RNNoise AI Noise Suppression (M3)
+    static bool audio_switch_output();
+    static bool mic_rnnoise_toggle();
+    static bool mic_rnnoise_set(bool enable);
+    static bool mic_rnnoise_is_active();
+    static bool record_gif(const std::string& geom = "");
+    static bool voice_memo();
+
+    // Privacy, Disk Maintenance & Snapshots (M4)
+    static std::string disk_sweeper_scan();
+    static bool disk_sweeper_clean();
+    static bool snapshot_create(const std::string& comment = "");
+    static std::string snapshot_list();
+    static bool vault_mount(const std::string& vault_path, const std::string& mount_point, const std::string& password);
+    static bool vault_unmount(const std::string& mount_point);
+    static std::string vault_status();
 
     // Keyboard Backlight controls
     static bool kbd_backlight_available();
