@@ -3,19 +3,17 @@ import QtQuick.Window
 import QtQuick.Layouts
 import QtQuick.Controls
 import Qt.labs.folderlistmodel
-import Ui
 
-Window {
+ApplicationWindow {
     id: window
     title: "Files — " + currentPathDisplay
-    width: Design.s(980)
-    height: Design.s(640)
-    minimumWidth: Design.s(760)
-    minimumHeight: Design.s(480)
+    width: 1060
+    height: 680
+    minimumWidth: 740
+    minimumHeight: 480
     visible: true
     color: "transparent"
-
-    onClosing: Qt.quit()
+    flags: Qt.Window
 
     readonly property bool isNative: typeof FilesBackend !== "undefined"
     readonly property string homeDir: isNative ? FilesBackend.homePath : "/home/dev"
@@ -33,6 +31,30 @@ Window {
     property int selectedIndex: -1
     property string selectedPath: ""
 
+    // User Bookmarks
+    property var customBookmarks: [
+        { name: "DotsFiles", path: homeDir + "/DotsFiles", icon: "󰊢" }
+    ]
+
+    // Premium Tokyo Night Palette & Design Tokens
+    readonly property color colBg: "#161722"
+    readonly property color colDark: "#13141e"
+    readonly property color colSidebar: "#101119"
+    readonly property color colSunken: "#0d0e14"
+    readonly property color colCard: "#1a1b2a"
+    readonly property color colCardHover: Qt.rgba(255/255, 255/255, 255/255, 0.05)
+    readonly property color colBorder: Qt.rgba(122/255, 162/255, 247/255, 0.16)
+    readonly property color colBorderSubtle: "#1b1c2b"
+    readonly property color colBlue: "#7aa2f7"
+    readonly property color colPurple: "#bb9af7"
+    readonly property color colCyan: "#7dcfff"
+    readonly property color colGreen: "#73daca"
+    readonly property color colOrange: "#ff9e64"
+    readonly property color colYellow: "#e0af68"
+    readonly property color colRed: "#f7768e"
+    readonly property color colFg: "#c0caf5"
+    readonly property color colDim: "#6b739b"
+
     function formatSize(bytes) {
         if (!bytes || bytes <= 0) return "0 B";
         if (bytes < 1024) return bytes + " B";
@@ -48,20 +70,28 @@ Window {
     }
 
     function getIconGlyph(name, isDir) {
-        if (isDir) return "\u{f07b}"; // folder
+        if (isDir) return "󰉋";
         let ext = (name || "").split('.').pop().toLowerCase();
-        if (["png","jpg","jpeg","webp","gif","svg","bmp"].indexOf(ext) >= 0) return "\u{f03e}";
-        return "\u{f0f6}";
+        if (["png","jpg","jpeg","webp","gif","svg","bmp"].indexOf(ext) >= 0) return "󰋩";
+        if (["mp4","mkv","avi","mov","webm"].indexOf(ext) >= 0) return "󰕼";
+        if (["mp3","flac","wav","ogg","m4a"].indexOf(ext) >= 0) return "󰎆";
+        if (["cpp","hpp","c","h","rs","py","js","ts","qml","sh"].indexOf(ext) >= 0) return "󰅩";
+        if (["zip","tar","gz","7z","bz2","xz"].indexOf(ext) >= 0) return "󰛫";
+        if (["txt","md","json","yaml","yml","conf"].indexOf(ext) >= 0) return "󰈙";
+        if (ext === "pdf") return "󰈦";
+        return "󰈔";
     }
 
     function getIconColor(name, isDir) {
-        if (isDir) return Design.sapphire;
+        if (isDir) return window.colBlue;
         let ext = (name || "").split('.').pop().toLowerCase();
-        if (["png","jpg","jpeg","webp","gif","svg"].indexOf(ext) >= 0) return Design.pink;
-        if (["cpp","hpp","qml","py","rs","sh","js","c","h"].indexOf(ext) >= 0) return Design.teal;
-        if (["txt","md","json","conf","ini","toml","yaml","yml"].indexOf(ext) >= 0) return Design.peach;
-        if (ext === "pdf") return Design.danger;
-        return Design.text;
+        if (["png","jpg","jpeg","webp","gif","svg"].indexOf(ext) >= 0) return window.colPurple;
+        if (["cpp","hpp","qml","py","rs","sh","js","c","h"].indexOf(ext) >= 0) return window.colCyan;
+        if (["txt","md","json","conf","ini","toml","yaml","yml"].indexOf(ext) >= 0) return window.colGreen;
+        if (["mp4","mkv","avi","mov","webm"].indexOf(ext) >= 0) return window.colOrange;
+        if (["zip","tar","gz","7z"].indexOf(ext) >= 0) return window.colYellow;
+        if (ext === "pdf") return window.colRed;
+        return window.colFg;
     }
 
     function isImageFile(name) {
@@ -128,29 +158,51 @@ Window {
     function goUp() {
         if (currentPath === "/" || currentPath === "") return;
         let parts = currentPath.split("/").filter(Boolean);
-        parts.pop();
-        let parent = "/" + parts.join("/");
-        if (parent === "") parent = "/";
-        navigateTo(parent);
+        if (parts.length <= 1) {
+            navigateTo("/");
+        } else {
+            parts.pop();
+            navigateTo("/" + parts.join("/"));
+        }
     }
 
     function openItem(path, isDir) {
         if (isDir) {
             navigateTo(path);
-        } else {
-            if (isNative) FilesBackend.openItem(path);
-            else Qt.openUrlExternally("file://" + path);
+        } else if (isNative) {
+            FilesBackend.openItem(path);
         }
     }
 
     function openTerminalHere() {
-        if (isNative) FilesBackend.openTerminal(currentPath);
+        if (isNative) {
+            FilesBackend.openTerminal(currentPath);
+        }
     }
 
     function triggerQuickLook() {
         if (selectedPath && isNative) {
             FilesBackend.triggerQuickLook(selectedPath);
         }
+    }
+
+    function addCurrentToBookmarks() {
+        let name = currentPath.split('/').pop() || "Folder";
+        if (currentPath === homeDir) name = "Home";
+        if (currentPath === "/") name = "Root";
+
+        for (let b of customBookmarks) {
+            if (b.path === currentPath) return;
+        }
+        let copy = Array.from(customBookmarks);
+        copy.push({ name: name, path: currentPath, icon: "󰉋" });
+        customBookmarks = copy;
+    }
+
+    function removeBookmark(index) {
+        let copy = Array.from(customBookmarks);
+        copy.splice(index, 1);
+        customBookmarks = copy;
     }
 
     // ── FolderListModel ──────────────────────────────────────────────────────
@@ -181,12 +233,15 @@ Window {
     Shortcut { sequence: "Ctrl+F"; onActivated: searchField.forceActiveFocus() }
     Shortcut { sequence: "Escape"; onActivated: { searchField.text = ""; window.filterQuery = ""; } }
 
+    // ═════════════════════════════════════════════════════════════════════════
+    // ROOT WINDOW FRAME (Rounded Corners + Antialiased Border)
+    // ═════════════════════════════════════════════════════════════════════════
     Rectangle {
         id: windowFrame
         anchors.fill: parent
-        radius: (window.visibility === Window.Maximized) ? 0 : Design.s(14)
-        color: Design.base
-        border.color: (window.visibility === Window.Maximized) ? "transparent" : Design.glassBorder
+        radius: 14
+        color: window.colBg
+        border.color: window.colBorder
         border.width: 1
         clip: true
 
@@ -194,796 +249,811 @@ Window {
             anchors.fill: parent
             spacing: 0
 
-        // ═════════════════════════════════════════════════════════════════════
-        // LEFT SIDEBAR: PLACES & VOLUMES
-        // ═════════════════════════════════════════════════════════════════════
-        Rectangle {
-            Layout.fillHeight: true
-            Layout.preferredWidth: Design.s(190)
-            color: Design.crust
+            // ═════════════════════════════════════════════════════════════════
+            // LEFT SIDEBAR (210px, Full-Height Sleek Obsidian)
+            // ═════════════════════════════════════════════════════════════════
+            Rectangle {
+                Layout.fillHeight: true
+                Layout.preferredWidth: 210
+                color: window.colSidebar
 
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: Design.s(Design.space.md)
-                spacing: Design.s(Design.space.sm)
+                // Subtle right divider line
+                Rectangle {
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    width: 1
+                    color: window.colBorderSubtle
+                    z: 5
+                }
 
-                // App Branding Header
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: Design.s(Design.space.sm)
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: 14
+                    spacing: 10
 
-                    Rectangle {
-                        width: Design.s(22)
-                        height: Design.s(22)
-                        radius: Design.s(Design.radius.sm)
-                        color: Design.tint(Design.accent, 0.18)
+                    // App Header Branding Card
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+                        Layout.bottomMargin: 2
+
+                        Rectangle {
+                            width: 28
+                            height: 28
+                            radius: 8
+                            color: Qt.rgba(122/255, 162/255, 247/255, 0.18)
+                            border.color: Qt.rgba(122/255, 162/255, 247/255, 0.35)
+                            border.width: 1
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: "󰉋"
+                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: 15
+                                color: window.colBlue
+                            }
+                        }
+
+                        Column {
+                            Layout.fillWidth: true
+                            Text {
+                                text: "Files"
+                                font.family: "Fira Sans SemiBold, sans-serif"
+                                font.pixelSize: 13
+                                font.bold: true
+                                color: "#ffffff"
+                            }
+                            Text {
+                                text: "Explorer & Gallery"
+                                font.family: "Fira Sans, sans-serif"
+                                font.pixelSize: 10
+                                color: window.colDim
+                            }
+                        }
+                    }
+
+                    // 1. QUICK JUMP (Root, Home, DotsFiles)
+                    Text {
+                        text: "QUICK JUMP"
+                        font.family: "JetBrainsMono Nerd Font, monospace"
+                        font.pixelSize: 9
+                        font.bold: true
+                        color: window.colDim
+                        Layout.topMargin: 4
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
+
+                        SidebarPill { label: "Root (/)"; path: "/"; icon: "󰋜"; iconCol: window.colRed }
+                        SidebarPill { label: "Home (~)"; path: window.homeDir; icon: "󰋜"; iconCol: window.colBlue }
+                        SidebarPill { label: "DotsFiles"; path: window.homeDir + "/DotsFiles"; icon: "󰊢"; iconCol: window.colCyan }
+                    }
+
+                    // 2. PLACES
+                    Text {
+                        text: "PLACES"
+                        font.family: "JetBrainsMono Nerd Font, monospace"
+                        font.pixelSize: 9
+                        font.bold: true
+                        color: window.colDim
+                        Layout.topMargin: 4
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 2
+
+                        SidebarPill { label: "Documents"; path: window.homeDir + "/Documents"; icon: "󰈙"; iconCol: window.colPurple }
+                        SidebarPill { label: "Downloads"; path: window.homeDir + "/Downloads"; icon: "󰁝"; iconCol: window.colGreen }
+                        SidebarPill { label: "Pictures"; path: window.homeDir + "/Pictures"; icon: "󰋩"; iconCol: window.colPurple }
+                        SidebarPill { label: "Music"; path: window.homeDir + "/Music"; icon: "󰎆"; iconCol: window.colOrange }
+                        SidebarPill { label: "Videos"; path: window.homeDir + "/Videos"; icon: "󰕼"; iconCol: window.colRed }
+                    }
+
+                    // 3. BOOKMARKS
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.topMargin: 4
 
                         Text {
-                            anchors.centerIn: parent
-                            text: "\u{f07b}" // folder
-                            color: Design.accent
-                            font.family: Design.font.icon
-                            font.pixelSize: Design.s(12)
+                            text: "BOOKMARKS"
+                            font.family: "JetBrainsMono Nerd Font, monospace"
+                            font.pixelSize: 9
+                            font.bold: true
+                            color: window.colDim
+                        }
+                        Item { Layout.fillWidth: true }
+                        Rectangle {
+                            width: 18; height: 18; radius: 4
+                            color: addBmArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : "transparent"
+                            Text {
+                                anchors.centerIn: parent
+                                text: "󰐕"
+                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: 11
+                                color: addBmArea.containsMouse ? window.colBlue : window.colDim
+                            }
+                            MouseArea {
+                                id: addBmArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: window.addCurrentToBookmarks()
+                            }
                         }
                     }
 
-                    Text {
-                        text: "Files"
-                        font.family: Design.font.sans
-                        font.weight: Design.weight.bold
-                        font.pixelSize: Design.s(13)
-                        color: Design.text
+                    ListView {
+                        id: bookmarksList
                         Layout.fillWidth: true
-                    }
-                }
+                        Layout.fillHeight: true
+                        clip: true
+                        spacing: 2
+                        model: window.customBookmarks
 
-                Item { Layout.preferredHeight: Design.s(6) }
+                        delegate: Rectangle {
+                            width: bookmarksList.width
+                            height: 28
+                            radius: 6
+                            color: window.currentPath === modelData.path ? Qt.rgba(122/255, 162/255, 247/255, 0.20) : (bmArea.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.05) : "transparent")
+                            border.color: window.currentPath === modelData.path ? Qt.rgba(122/255, 162/255, 247/255, 0.40) : "transparent"
+                            border.width: 1
 
-                Text {
-                    text: "FAVORITES"
-                    font.family: Design.font.mono
-                    font.weight: Design.weight.bold
-                    font.pixelSize: Design.s(10)
-                    color: Design.textDim
-                }
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 8
+                                anchors.rightMargin: 6
+                                spacing: 6
 
-                // Places List
-                ListView {
-                    id: placesList
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    clip: true
-                    spacing: Design.s(3)
-
-                    model: [
-                        { name: "Home",        path: window.homeDir,                     glyph: "\u{f015}", color: "#7aa2f7" },
-                        { name: "Desktop",     path: window.homeDir + "/Desktop",        glyph: "\u{f108}", color: "#7dcfff" },
-                        { name: "Documents",   path: window.homeDir + "/Documents",      glyph: "\u{f02d}", color: "#bb9af7" },
-                        { name: "Downloads",   path: window.homeDir + "/Downloads",      glyph: "\u{f019}", color: "#73daca" },
-                        { name: "Pictures",    path: window.homeDir + "/Pictures",       glyph: "\u{f03e}", color: "#f7768e" },
-                        { name: "Music",       path: window.homeDir + "/Music",          glyph: "\u{f001}", color: "#e0af68" },
-                        { name: "Videos",      path: window.homeDir + "/Videos",         glyph: "\u{f008}", color: "#ff9e64" },
-                        { name: "DotsFiles",   path: window.homeDir + "/DotsFiles",      glyph: "\u{f121}", color: "#73daca" },
-                        { name: "File System", path: "/",                                glyph: "\u{f0a0}", color: "#c0caf5" }
-                    ]
-
-                    delegate: Rectangle {
-                        id: placeItem
-                        width: placesList.width
-                        height: Design.s(34)
-                        radius: Design.s(Design.radius.ctl)
-
-                        readonly property bool isActive: window.currentPath === modelData.path
-
-                        color: isActive ? Design.tint(Design.accent, 0.22) :
-                               placeHover.containsMouse ? Design.tint(Design.text, 0.07) : "transparent"
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: Design.s(10)
-                            anchors.rightMargin: Design.s(10)
-                            spacing: Design.s(10)
-
-                            Text {
-                                text: modelData.glyph
-                                font.family: Design.font.icon
-                                color: placeItem.isActive ? Design.accent : modelData.color
-                                font.pixelSize: Design.s(14)
+                                Text { text: modelData.icon || "󰉋"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; color: window.colBlue }
+                                Text { text: modelData.name; font.family: "Fira Sans SemiBold, sans-serif"; font.pixelSize: 11; color: window.colFg; Layout.fillWidth: true; elide: Text.ElideRight }
+                                Text {
+                                    text: "×"
+                                    font.pixelSize: 13
+                                    color: delBmArea.containsMouse ? window.colRed : window.colDim
+                                    visible: bmArea.containsMouse
+                                    MouseArea {
+                                        id: delBmArea
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: window.removeBookmark(index)
+                                    }
+                                }
                             }
 
-                            Text {
-                                text: modelData.name
-                                font.family: Design.font.sans
-                                font.weight: placeItem.isActive ? Design.weight.bold : Design.weight.medium
-                                color: placeItem.isActive ? Design.accent : Design.text
-                                font.pixelSize: Design.s(12)
+                            MouseArea {
+                                id: bmArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: window.navigateTo(modelData.path)
+                            }
+                        }
+                    }
+
+                    // Storage Device Card with Progress Bar
+                    Rectangle {
+                        Layout.fillWidth: true
+                        height: 44
+                        radius: 8
+                        color: window.colSunken
+                        border.color: window.colBorderSubtle
+                        border.width: 1
+
+                        ColumnLayout {
+                            anchors.fill: parent
+                            anchors.margins: 8
+                            spacing: 4
+
+                            RowLayout {
                                 Layout.fillWidth: true
-                                elide: Text.ElideRight
+                                Text { text: "󰋊 System Drive"; font.family: "Fira Sans SemiBold, JetBrainsMono Nerd Font, sans-serif"; font.pixelSize: 10; font.bold: true; color: window.colFg }
+                                Item { Layout.fillWidth: true }
+                                Text { text: isNative ? FilesBackend.diskFreeSpace : "12.8 GB free"; font.family: "Fira Sans, sans-serif"; font.pixelSize: 9; color: window.colDim }
                             }
-                        }
 
-                        HoverHandler { id: placeHover }
+                            Rectangle {
+                                Layout.fillWidth: true
+                                height: 4
+                                radius: 2
+                                color: "#1f2335"
 
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: window.navigateTo(modelData.path)
+                                Rectangle {
+                                    width: parent.width * 0.42
+                                    height: parent.height
+                                    radius: 2
+                                    color: window.colBlue
+                                }
+                            }
                         }
                     }
                 }
 
-                // Storage Info Badge
-                Rectangle {
+                component SidebarPill: Rectangle {
+                    id: pill
+                    property string label: ""
+                    property string path: ""
+                    property string icon: "󰉋"
+                    property color iconCol: window.colBlue
+
+                    readonly property bool isActive: window.currentPath === pill.path
+
                     Layout.fillWidth: true
-                    implicitHeight: Design.s(44)
-                    radius: Design.s(Design.radius.ctl)
-                    color: Design.surface
-                    border.color: Design.glassBorder
+                    height: 28
+                    radius: 6
+                    color: isActive ? Qt.rgba(122/255, 162/255, 247/255, 0.20) : (pillArea.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.05) : "transparent")
+                    border.color: isActive ? Qt.rgba(122/255, 162/255, 247/255, 0.45) : "transparent"
                     border.width: 1
 
                     RowLayout {
                         anchors.fill: parent
-                        anchors.leftMargin: Design.s(10)
-                        anchors.rightMargin: Design.s(10)
-                        spacing: Design.s(8)
+                        anchors.leftMargin: 8
+                        anchors.rightMargin: 8
+                        spacing: 8
 
-                        Text {
-                            text: "\u{f0a0}" // hdd
-                            font.family: Design.font.icon
-                            color: Design.textDim
-                            font.pixelSize: Design.s(13)
-                        }
+                        Text { text: pill.icon; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; color: pill.isActive ? window.colBlue : pill.iconCol }
+                        Text { text: pill.label; font.family: "Fira Sans SemiBold, sans-serif"; font.pixelSize: 11; color: pill.isActive ? "#ffffff" : window.colFg; Layout.fillWidth: true; elide: Text.ElideRight }
+                    }
 
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 1
-
-                            Text {
-                                text: "Storage"
-                                font.family: Design.font.sans
-                                font.pixelSize: Design.s(10)
-                                color: Design.textDim
-                                font.weight: Design.weight.semibold
-                            }
-
-                            Text {
-                                text: "System Drive"
-                                font.family: Design.font.sans
-                                font.pixelSize: Design.s(11)
-                                color: Design.text
-                                font.weight: Design.weight.medium
-                            }
-                        }
+                    MouseArea {
+                        id: pillArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: window.navigateTo(pill.path)
                     }
                 }
             }
 
-            // Right divider
-            Rectangle {
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
-                width: 1
-                color: Design.glassBorder
-            }
-        }
-
-        // ═════════════════════════════════════════════════════════════════════
-        // MAIN FILE BROWSER AREA
-        // ═════════════════════════════════════════════════════════════════════
-        ColumnLayout {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            spacing: 0
-
-            // ── Top Navigation Bar ───────────────────────────────────────────
-            Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: Design.s(38)
-                color: Design.ground
-                border.color: Design.glassBorder
-                border.width: 1
-
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: Design.s(Design.space.sm)
-                    anchors.rightMargin: Design.s(Design.space.sm)
-                    spacing: Design.s(Design.space.xs)
-
-                    // History & Navigation Buttons
-                    RowLayout {
-                        spacing: Design.s(4)
-
-                        IconButton {
-                            icon: "\u{f053}" // chevron-left
-                            bordered: true
-                            enabled: window.historyIndex > 0
-                            opacity: enabled ? 1.0 : 0.4
-                            onClicked: window.historyBack()
-                        }
-
-                        IconButton {
-                            icon: "\u{f054}" // chevron-right
-                            bordered: true
-                            enabled: window.historyIndex < window.history.length - 1
-                            opacity: enabled ? 1.0 : 0.4
-                            onClicked: window.historyForward()
-                        }
-
-                        IconButton {
-                            icon: "\u{f062}" // arrow-up
-                            bordered: true
-                            onClicked: window.goUp()
-                        }
-                    }
-
-                    // Clickable Breadcrumbs Path Navigation Bar
-                    Rectangle {
-                        Layout.fillWidth: true
-                        implicitHeight: Design.s(32)
-                        radius: Design.s(Design.radius.ctl)
-                        color: Design.sunken
-                        border.color: Design.glassBorder
-                        border.width: 1
-                        clip: true
-
-                        ListView {
-                            id: breadcrumbsList
-                            anchors.fill: parent
-                            anchors.leftMargin: Design.s(8)
-                            anchors.rightMargin: Design.s(8)
-                            orientation: ListView.Horizontal
-                            spacing: Design.s(2)
-                            clip: true
-                            model: window.getBreadcrumbs()
-
-                            delegate: RowLayout {
-                                spacing: Design.s(2)
-
-                                Rectangle {
-                                    implicitWidth: crumbText.implicitWidth + Design.s(12)
-                                    implicitHeight: Design.s(22)
-                                    radius: Design.s(Design.radius.sm)
-                                    color: crumbHover.containsMouse ? Design.tint(Design.accent, 0.2) : "transparent"
-
-                                    Text {
-                                        id: crumbText
-                                        anchors.centerIn: parent
-                                        text: modelData.name
-                                        font.family: Design.font.sans
-                                        font.weight: Design.weight.semibold
-                                        font.pixelSize: Design.s(11)
-                                        color: crumbHover.containsMouse ? Design.accent : Design.text
-                                    }
-
-                                    HoverHandler { id: crumbHover }
-
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        onClicked: window.navigateTo(modelData.path)
-                                    }
-                                }
-
-                                Text {
-                                    text: "/"
-                                    color: Design.textDim
-                                    font.family: Design.font.sans
-                                    font.pixelSize: Design.s(10)
-                                    visible: index < (breadcrumbsList.count - 1)
-                                }
-                            }
-                        }
-                    }
-
-                    // Search / Filter Input
-                    Rectangle {
-                        Layout.preferredWidth: Design.s(170)
-                        implicitHeight: Design.s(32)
-                        radius: Design.s(Design.radius.ctl)
-                        color: Design.sunken
-                        border.color: searchField.activeFocus ? Design.accent : Design.glassBorder
-                        border.width: 1
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: Design.s(8)
-                            anchors.rightMargin: Design.s(8)
-                            spacing: Design.s(6)
-
-                            Text {
-                                text: "\u{f002}" // search
-                                font.family: Design.font.icon
-                                color: searchField.activeFocus ? Design.accent : Design.textDim
-                                font.pixelSize: Design.s(11)
-                            }
-
-                            TextInput {
-                                id: searchField
-                                Layout.fillWidth: true
-                                font.family: Design.font.sans
-                                font.pixelSize: Design.s(11)
-                                color: Design.text
-                                clip: true
-                                selectByMouse: true
-
-                                Text {
-                                    anchors.fill: parent
-                                    text: "Filter files..."
-                                    color: Design.textDim
-                                    font: parent.font
-                                    visible: !searchField.text && !searchField.activeFocus
-                                }
-
-                                onTextChanged: {
-                                    window.filterQuery = text.trim();
-                                }
-                            }
-
-                            IconButton {
-                                icon: "\u{f00d}" // times
-                                visible: searchField.text.length > 0
-                                onClicked: {
-                                    searchField.text = "";
-                                    window.filterQuery = "";
-                                }
-                            }
-                        }
-                    }
-
-                    // View Switcher (Grid / List / Gallery)
-                    RowLayout {
-                        spacing: Design.s(2)
-
-                        IconButton {
-                            icon: "\u{f009}" // grid
-                            bordered: true
-                            hoverTone: Design.accent
-                            fill: window.viewMode === "grid" ? Design.tint(Design.accent, 0.25) : Design.hover
-                            tone: window.viewMode === "grid" ? Design.accent : Design.textDim
-                            onClicked: window.viewMode = "grid"
-                        }
-
-                        IconButton {
-                            icon: "\u{f00b}" // list
-                            bordered: true
-                            hoverTone: Design.accent
-                            fill: window.viewMode === "list" ? Design.tint(Design.accent, 0.25) : Design.hover
-                            tone: window.viewMode === "list" ? Design.accent : Design.textDim
-                            onClicked: window.viewMode = "list"
-                        }
-
-                        IconButton {
-                            icon: "\u{f03e}" // gallery
-                            bordered: true
-                            hoverTone: Design.accent
-                            fill: window.viewMode === "gallery" ? Design.tint(Design.accent, 0.25) : Design.hover
-                            tone: window.viewMode === "gallery" ? Design.accent : Design.textDim
-                            onClicked: window.viewMode = "gallery"
-                        }
-                    }
-
-                    // Show hidden files. Ctrl+H already did this, but with no
-                    // control on screen dotfolders just looked missing.
-                    IconButton {
-                        icon: window.showHidden ? "\u{f06e}" : "\u{f070}" // eye / eye-slash
-                        bordered: true
-                        hoverTone: Design.yellow
-                        fill: window.showHidden ? Design.tint(Design.yellow, 0.25) : Design.hover
-                        tone: window.showHidden ? Design.yellow : Design.textDim
-                        onClicked: window.showHidden = !window.showHidden
-                    }
-
-                    // Set the selected image as the desktop wallpaper
-                    IconButton {
-                        icon: "\u{f03e}" // image
-                        bordered: true
-                        hoverTone: Design.mauve
-                        visible: window.selectedPath !== "" && window.isImageFile(window.selectedPath)
-                        onClicked: FilesBackend.setWallpaper(window.selectedPath)
-                    }
-
-                    // Open Terminal in Current Folder
-                    IconButton {
-                        icon: "\u{f120}" // terminal
-                        bordered: true
-                        hoverTone: Design.teal
-                        onClicked: window.openTerminalHere()
-                    }
-                }
-            }
-
-            // ── Main File View Content ───────────────────────────────────────
-            Item {
+            // ═════════════════════════════════════════════════════════════════
+            // RIGHT WORKSPACE: HEADER TOOLBAR, FILE BROWSER, FOOTER
+            // ═════════════════════════════════════════════════════════════════
+            ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                clip: true
+                spacing: 0
 
-                // ── 1. GRID VIEW MODE ─────────────────────────────────────────
-                GridView {
-                    id: gridView
-                    anchors.fill: parent
-                    anchors.margins: Design.s(Design.space.md)
-                    visible: window.viewMode === "grid"
-                    cellWidth: Design.s(120)
-                    cellHeight: Design.s(120)
-                    clip: true
-                    reuseItems: true
-                    // ponytail: an invisible view still builds and updates every
-                    // delegate, so all three modes were populating at once — the
-                    // gallery one decoding thumbnails nobody was looking at.
-                    model: window.viewMode === "grid" ? folderModel : null
+                // ── Top Navigation Bar (46px) ────────────────────────────────
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 46
+                    color: window.colDark
 
-                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                    // Subtle bottom divider
+                    Rectangle {
+                        anchors.bottom: parent.bottom
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        height: 1
+                        color: window.colBorderSubtle
+                    }
 
-                    delegate: Rectangle {
-                        id: gridCard
-                        width: gridView.cellWidth - Design.s(10)
-                        height: gridView.cellHeight - Design.s(10)
-                        radius: Design.s(Design.radius.card)
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 12
+                        anchors.rightMargin: 12
+                        spacing: 8
 
-                        readonly property bool isSelected: window.selectedIndex === index
-                        readonly property string itemFileName: model.fileName || ""
-                        readonly property bool isDirectory: folderModel.isFolder(index)
-                        readonly property bool isImg: itemFileName ? window.isImageFile(itemFileName) : false
+                        // History Navigation Cluster
+                        Rectangle {
+                            height: 30
+                            radius: 6
+                            color: window.colSunken
+                            border.color: window.colBorderSubtle
+                            border.width: 1
 
-                        color: isSelected ? Design.tint(Design.accent, 0.25) :
-                               cardHover.containsMouse ? Design.tint(Design.text, 0.06) : "transparent"
-                        border.color: isSelected ? Design.accent : "transparent"
-                        border.width: 1
+                            Row {
+                                anchors.centerIn: parent
+                                spacing: 2
 
-                        ColumnLayout {
-                            anchors.fill: parent
-                            anchors.margins: Design.s(8)
-                            spacing: Design.s(4)
+                                NavIconBtn { icon: "󰁍"; enabled: window.historyIndex > 0; onClicked: window.historyBack() }
+                                NavIconBtn { icon: "󰁔"; enabled: window.historyIndex < window.history.length - 1; onClicked: window.historyForward() }
+                                NavIconBtn { icon: "󰁝"; enabled: window.currentPath !== "/"; onClicked: window.goUp() }
+                                NavIconBtn { icon: "󰑐"; enabled: true; onClicked: isNative ? FilesBackend.refresh() : null }
+                            }
+                        }
 
-                            // Icon or Thumbnail
-                            Item {
-                                Layout.alignment: Qt.AlignHCenter
-                                implicitWidth: Design.s(54)
-                                implicitHeight: Design.s(54)
+                        // Breadcrumbs Path Bar (Capsule)
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 30
+                            radius: 6
+                            color: window.colSunken
+                            border.color: window.colBorderSubtle
+                            border.width: 1
+                            clip: true
 
-                                Rectangle {
-                                    anchors.fill: parent
-                                    radius: Design.s(12)
-                                    color: Design.sunken
-                                    border.color: Design.glassBorder
-                                    border.width: 1
-                                    visible: !gridCard.isImg
+                            ListView {
+                                id: breadcrumbsList
+                                anchors.fill: parent
+                                anchors.leftMargin: 8
+                                anchors.rightMargin: 8
+                                orientation: ListView.Horizontal
+                                spacing: 4
+                                clip: true
+                                model: window.getBreadcrumbs()
+
+                                delegate: RowLayout {
+                                    spacing: 4
+                                    anchors.verticalCenter: parent.verticalCenter
+
+                                    Rectangle {
+                                        implicitWidth: crumbText.implicitWidth + 12
+                                        height: 22
+                                        radius: 4
+                                        color: isLast ? Qt.rgba(122/255, 162/255, 247/255, 0.20) : (crumbHover.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.08) : "transparent")
+
+                                        readonly property bool isLast: index === (breadcrumbsList.count - 1)
+
+                                        Text {
+                                            id: crumbText
+                                            anchors.centerIn: parent
+                                            text: modelData.name
+                                            font.family: "Fira Sans SemiBold, JetBrainsMono Nerd Font, sans-serif"
+                                            font.pixelSize: 11
+                                            font.bold: isLast
+                                            color: isLast ? window.colBlue : (crumbHover.containsMouse ? "#ffffff" : window.colFg)
+                                        }
+
+                                        HoverHandler { id: crumbHover }
+                                        MouseArea {
+                                            anchors.fill: parent
+                                            cursorShape: Qt.PointingHandCursor
+                                            onClicked: window.navigateTo(modelData.path)
+                                        }
+                                    }
 
                                     Text {
+                                        text: "󰅂"
+                                        font.family: "JetBrainsMono Nerd Font"
+                                        color: window.colDim
+                                        font.pixelSize: 9
+                                        visible: index < (breadcrumbsList.count - 1)
+                                    }
+                                }
+                            }
+                        }
+
+                        // Search Filter Bar
+                        Rectangle {
+                            Layout.preferredWidth: Math.min(180, Math.max(120, window.width * 0.18))
+                            height: 30
+                            radius: 6
+                            color: window.colSunken
+                            border.color: searchField.activeFocus ? window.colBlue : window.colBorderSubtle
+                            border.width: 1
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 8
+                                anchors.rightMargin: 8
+                                spacing: 6
+
+                                Text { text: "󰍉"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: searchField.activeFocus ? window.colBlue : window.colDim }
+                                TextInput {
+                                    id: searchField
+                                    Layout.fillWidth: true
+                                    font.family: "Fira Sans, sans-serif"
+                                    font.pixelSize: 11
+                                    color: "#ffffff"
+                                    clip: true
+                                    selectByMouse: true
+                                    onTextChanged: window.filterQuery = text.trim()
+
+                                    Text {
+                                        text: "Search files..."
+                                        font.family: "Fira Sans, sans-serif"
+                                        font.pixelSize: 11
+                                        color: window.colDim
+                                        visible: !searchField.text && !searchField.activeFocus
+                                        anchors.verticalCenter: parent.verticalCenter
+                                    }
+                                }
+                                Text {
+                                    text: "󰅖"
+                                    font.family: "JetBrainsMono Nerd Font"
+                                    font.pixelSize: 10
+                                    color: window.colDim
+                                    visible: searchField.text.length > 0
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        onClicked: { searchField.text = ""; window.filterQuery = ""; }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Segmented View Mode Capsule [ Grid | List | Gallery ]
+                        Rectangle {
+                            height: 30
+                            width: 90
+                            radius: 6
+                            color: window.colSunken
+                            border.color: window.colBorderSubtle
+                            border.width: 1
+
+                            Row {
+                                anchors.centerIn: parent
+                                spacing: 2
+
+                                ViewSegmentBtn { icon: "󰕰"; active: window.viewMode === "grid"; onClicked: window.viewMode = "grid" }
+                                ViewSegmentBtn { icon: "󰕱"; active: window.viewMode === "list"; onClicked: window.viewMode = "list" }
+                                ViewSegmentBtn { icon: "󰋩"; active: window.viewMode === "gallery"; onClicked: window.viewMode = "gallery" }
+                            }
+                        }
+
+                        // Quick Action Buttons (Hidden Toggle & Terminal)
+                        Row {
+                            spacing: 4
+                            Layout.alignment: Qt.AlignVCenter
+
+                            Rectangle {
+                                width: 30; height: 30; radius: 6
+                                color: window.showHidden ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : (hidArea.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.08) : window.colSunken)
+                                border.color: window.showHidden ? window.colBlue : window.colBorderSubtle
+                                border.width: 1
+                                Text { anchors.centerIn: parent; text: "󰈉"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13; color: window.showHidden ? window.colBlue : window.colDim }
+                                MouseArea { id: hidArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: window.showHidden = !window.showHidden }
+                            }
+
+                            Rectangle {
+                                width: 30; height: 30; radius: 6
+                                color: termArea.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.08) : window.colSunken
+                                border.color: window.colBorderSubtle
+                                border.width: 1
+                                Text { anchors.centerIn: parent; text: "󰞷"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13; color: window.colFg }
+                                MouseArea { id: termArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: window.openTerminalHere() }
+                            }
+                        }
+                    }
+                }
+
+                // ── Main File Browser Canvas ─────────────────────────────────
+                Item {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+
+                    // 1. GRID VIEW (Default, Smooth Fast Scrolling)
+                    GridView {
+                        id: grid
+                        anchors.fill: parent
+                        anchors.margins: 14
+                        cellWidth: 114
+                        cellHeight: 114
+                        clip: true
+                        visible: window.viewMode === "grid"
+                        model: folderModel
+                        cacheBuffer: 300
+
+                        delegate: Rectangle {
+                            id: gridCard
+                            width: 104
+                            height: 104
+                            radius: 8
+                            color: isSelected ? Qt.rgba(122/255, 162/255, 247/255, 0.22) : (cardHover.containsMouse ? window.colCardHover : "transparent")
+                            border.color: isSelected ? window.colBlue : (cardHover.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.08) : "transparent")
+                            border.width: 1
+
+                            readonly property bool isSelected: window.selectedIndex === index
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 6
+                                spacing: 4
+
+                                // Low-res fast thumbnail or vector icon
+                                Item {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+
+                                    Image {
                                         anchors.centerIn: parent
-                                        text: gridCard.isDirectory ? "\u{f07b}" : window.getIconGlyph(gridCard.itemFileName, false)
-                                        color: gridCard.isDirectory ? Design.sapphire : window.getIconColor(gridCard.itemFileName, false)
-                                        font.family: Design.font.icon
-                                        font.pixelSize: Design.s(24)
+                                        width: 44; height: 44
+                                        source: window.isImageFile(model.fileName) ? model.filePath : ""
+                                        fillMode: Image.PreserveAspectFit
+                                        visible: window.isImageFile(model.fileName)
+                                        asynchronous: true
+                                        cache: true
+                                        // Low resolution decoding to eliminate scroll stutter!
+                                        sourceSize: Qt.size(48, 48)
                                     }
-                                }
-
-                                Image {
-                                    anchors.fill: parent
-                                    source: gridCard.isImg ? ("file://" + model.filePath) : ""
-                                    visible: gridCard.isImg
-                                    fillMode: Image.PreserveAspectCrop
-                                    asynchronous: true
-                                    cache: true
-                                    sourceSize.width: Design.s(80)
-                                    sourceSize.height: Design.s(80)
-
-                                    Rectangle {
-                                        anchors.fill: parent
-                                        color: "transparent"
-                                        border.color: Design.glassBorder
-                                        border.width: 1
-                                        radius: Design.s(8)
-                                    }
-                                }
-                            }
-
-                            // Filename
-                            Text {
-                                text: model.fileName || ""
-                                font.family: Design.font.sans
-                                font.pixelSize: Design.s(11)
-                                font.weight: gridCard.isSelected ? Design.weight.bold : Design.weight.medium
-                                color: gridCard.isSelected ? Design.accent : Design.text
-                                horizontalAlignment: Text.AlignHCenter
-                                Layout.fillWidth: true
-                                elide: Text.ElideMiddle
-                                maximumLineCount: 1
-                            }
-
-                            // Size / Folder
-                            Text {
-                                text: model.fileIsDir ? "Folder" : window.formatSize(model.fileSize)
-                                font.family: Design.font.sans
-                                font.pixelSize: Design.s(9)
-                                color: Design.textDim
-                                horizontalAlignment: Text.AlignHCenter
-                                Layout.fillWidth: true
-                            }
-                        }
-
-                        HoverHandler { id: cardHover }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: {
-                                window.selectedIndex = index;
-                                window.selectedPath = model.filePath;
-                            }
-                            onDoubleClicked: {
-                                window.openItem(model.filePath, model.fileIsDir);
-                            }
-                        }
-                    }
-                }
-
-                // ── 2. LIST VIEW MODE ─────────────────────────────────────────
-                ListView {
-                    id: listView
-                    anchors.fill: parent
-                    anchors.margins: Design.s(Design.space.sm)
-                    visible: window.viewMode === "list"
-                    clip: true
-                    reuseItems: true
-                    spacing: 2
-                    // ponytail: an invisible view still builds and updates every
-                    // delegate, so all three modes were populating at once — the
-                    // gallery one decoding thumbnails nobody was looking at.
-                    model: window.viewMode === "list" ? folderModel : null
-
-                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
-
-                    delegate: Rectangle {
-                        id: listRow
-                        width: listView.width
-                        height: Design.s(36)
-                        radius: Design.s(Design.radius.ctl)
-
-                        readonly property bool isSelected: window.selectedIndex === index
-
-                        color: isSelected ? Design.tint(Design.accent, 0.22) :
-                               rowHover.containsMouse ? Design.tint(Design.text, 0.05) : "transparent"
-                        border.color: isSelected ? Design.accent : "transparent"
-                        border.width: 1
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: Design.s(12)
-                            anchors.rightMargin: Design.s(12)
-                            spacing: Design.s(12)
-
-                            Text {
-                                text: window.getIconGlyph(model.fileName, folderModel.isFolder(index))
-                                color: window.getIconColor(model.fileName, folderModel.isFolder(index))
-                                font.family: Design.font.icon
-                                font.pixelSize: Design.s(15)
-                            }
-
-                            Text {
-                                text: model.fileName || ""
-                                font.family: Design.font.sans
-                                font.pixelSize: Design.s(12)
-                                font.weight: listRow.isSelected ? Design.weight.bold : Design.weight.medium
-                                color: listRow.isSelected ? Design.accent : Design.text
-                                Layout.fillWidth: true
-                                elide: Text.ElideMiddle
-                            }
-
-                            Text {
-                                text: model.fileIsDir ? "Folder" : window.formatSize(model.fileSize)
-                                font.family: Design.font.sans
-                                font.pixelSize: Design.s(11)
-                                color: Design.textDim
-                                Layout.preferredWidth: Design.s(80)
-                                horizontalAlignment: Text.AlignRight
-                            }
-
-                            Text {
-                                text: window.formatDate(model.fileModified)
-                                font.family: Design.font.sans
-                                font.pixelSize: Design.s(11)
-                                color: Design.textDim
-                                Layout.preferredWidth: Design.s(140)
-                                horizontalAlignment: Text.AlignRight
-                            }
-                        }
-
-                        HoverHandler { id: rowHover }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: {
-                                window.selectedIndex = index;
-                                window.selectedPath = model.filePath;
-                            }
-                            onDoubleClicked: {
-                                window.openItem(model.filePath, model.fileIsDir);
-                            }
-                        }
-                    }
-                }
-
-                // ── 3. GALLERY VIEW MODE (Large Photo Cards) ──────────────────
-                GridView {
-                    id: galleryView
-                    anchors.fill: parent
-                    anchors.margins: Design.s(Design.space.md)
-                    visible: window.viewMode === "gallery"
-                    cellWidth: Design.s(210)
-                    cellHeight: Design.s(210)
-                    clip: true
-                    reuseItems: true
-                    // ponytail: an invisible view still builds and updates every
-                    // delegate, so all three modes were populating at once — the
-                    // gallery one decoding thumbnails nobody was looking at.
-                    model: window.viewMode === "gallery" ? folderModel : null
-
-                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
-
-                    delegate: Rectangle {
-                        id: galleryCard
-                        width: galleryView.cellWidth - Design.s(12)
-                        height: galleryView.cellHeight - Design.s(12)
-                        radius: Design.s(Design.radius.card)
-
-                        readonly property bool isSelected: window.selectedIndex === index
-                        readonly property bool isImg: model.fileName ? window.isImageFile(model.fileName) : false
-
-                        color: isSelected ? Design.tint(Design.accent, 0.25) : Design.sunken
-                        border.color: isSelected ? Design.accent : Design.glassBorder
-                        border.width: 1
-
-                        ColumnLayout {
-                            anchors.fill: parent
-                            anchors.margins: Design.s(6)
-                            spacing: Design.s(6)
-
-                            // Media Frame
-                            Item {
-                                Layout.fillWidth: true
-                                Layout.fillHeight: true
-
-                                Image {
-                                    anchors.fill: parent
-                                    source: galleryCard.isImg ? ("file://" + model.filePath) : ""
-                                    visible: galleryCard.isImg
-                                    fillMode: Image.PreserveAspectCrop
-                                    asynchronous: true
-                                    cache: true
-                                    sourceSize.width: Design.s(180)
-                                    sourceSize.height: Design.s(180)
-
-                                    Rectangle {
-                                        anchors.fill: parent
-                                        color: "transparent"
-                                        border.color: Design.glassBorder
-                                        border.width: 1
-                                        radius: Design.s(8)
-                                    }
-                                }
-
-                                // Non-image fallback
-                                Rectangle {
-                                    anchors.fill: parent
-                                    visible: !galleryCard.isImg
-                                    color: Design.tint(window.getIconColor(model.fileName, model.fileIsDir), 0.1)
-                                    radius: Design.s(8)
 
                                     Text {
                                         anchors.centerIn: parent
                                         text: window.getIconGlyph(model.fileName, model.fileIsDir)
+                                        font.family: "JetBrainsMono Nerd Font"
+                                        font.pixelSize: 34
                                         color: window.getIconColor(model.fileName, model.fileIsDir)
-                                        font.family: Design.font.icon
-                                        font.pixelSize: Design.s(48)
+                                        visible: !window.isImageFile(model.fileName)
                                     }
                                 }
-
-                                // QuickLook Indicator on Hover
-                                Rectangle {
-                                    anchors.right: parent.right
-                                    anchors.bottom: parent.bottom
-                                    anchors.margins: Design.s(6)
-                                    width: Design.s(26)
-                                    height: Design.s(26)
-                                    radius: Design.s(13)
-                                    color: Design.tint(Design.ground, 0.85)
-                                    visible: galHover.containsMouse
-
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: "\u{f06e}" // eye
-                                        font.family: Design.font.icon
-                                        color: Design.accent
-                                        font.pixelSize: Design.s(12)
-                                    }
-                                }
-                            }
-
-                            // Caption & Details
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: Design.s(4)
 
                                 Text {
-                                    text: model.fileName || ""
-                                    font.family: Design.font.sans
-                                    font.pixelSize: Design.s(11)
-                                    font.weight: galleryCard.isSelected ? Design.weight.bold : Design.weight.medium
-                                    color: galleryCard.isSelected ? Design.accent : Design.text
                                     Layout.fillWidth: true
+                                    text: model.fileName || ""
+                                    font.family: "Fira Sans SemiBold, sans-serif"
+                                    font.pixelSize: 11
+                                    font.bold: gridCard.isSelected
+                                    color: gridCard.isSelected ? "#ffffff" : window.colFg
+                                    horizontalAlignment: Text.AlignHCenter
                                     elide: Text.ElideMiddle
                                 }
 
-                                Rectangle {
-                                    implicitWidth: badgeText.implicitWidth + Design.s(10)
-                                    implicitHeight: Design.s(18)
-                                    radius: Design.s(9)
-                                    color: galleryCard.isSelected ? Design.accent : Design.surface
-                                    border.color: Design.glassBorder
-                                    border.width: 1
-
-                                    Text {
-                                        id: badgeText
-                                        anchors.centerIn: parent
-                                        text: model.fileIsDir ? "DIR" : window.formatSize(model.fileSize)
-                                        font.family: Design.font.sans
-                                        font.pixelSize: Design.s(9)
-                                        font.weight: Design.weight.bold
-                                        color: galleryCard.isSelected ? Design.crust : Design.textDim
-                                    }
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: model.fileIsDir ? "Folder" : window.formatSize(model.fileSize)
+                                    font.family: "Fira Sans, sans-serif"
+                                    font.pixelSize: 9
+                                    color: window.colDim
+                                    horizontalAlignment: Text.AlignHCenter
                                 }
                             }
-                        }
 
-                        HoverHandler { id: galHover }
-
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: {
-                                window.selectedIndex = index;
-                                window.selectedPath = model.filePath;
+                            HoverHandler { id: cardHover }
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: {
+                                    window.selectedIndex = index;
+                                    window.selectedPath = model.filePath;
+                                }
+                                onDoubleClicked: window.openItem(model.filePath, model.fileIsDir)
                             }
-                            onDoubleClicked: {
-                                window.openItem(model.filePath, model.fileIsDir);
+                        }
+                    }
+
+                    // 2. LIST VIEW
+                    ListView {
+                        id: listView
+                        anchors.fill: parent
+                        anchors.margins: 10
+                        clip: true
+                        visible: window.viewMode === "list"
+                        model: folderModel
+                        spacing: 2
+
+                        delegate: Rectangle {
+                            id: listCard
+                            width: listView.width
+                            height: 32
+                            radius: 6
+                            color: isSelected ? Qt.rgba(122/255, 162/255, 247/255, 0.22) : (lHover.containsMouse ? window.colCardHover : "transparent")
+                            border.color: isSelected ? window.colBlue : "transparent"
+                            border.width: 1
+
+                            readonly property bool isSelected: window.selectedIndex === index
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: 10
+                                anchors.rightMargin: 10
+                                spacing: 8
+
+                                Text {
+                                    text: window.getIconGlyph(model.fileName, model.fileIsDir)
+                                    font.family: "JetBrainsMono Nerd Font"
+                                    font.pixelSize: 15
+                                    color: window.getIconColor(model.fileName, model.fileIsDir)
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: model.fileName || ""
+                                    font.family: "Fira Sans SemiBold, sans-serif"
+                                    font.pixelSize: 11
+                                    color: listCard.isSelected ? "#ffffff" : window.colFg
+                                    elide: Text.ElideMiddle
+                                }
+
+                                Text {
+                                    width: 80
+                                    text: model.fileIsDir ? "Folder" : window.formatSize(model.fileSize)
+                                    font.family: "JetBrainsMono Nerd Font, monospace"
+                                    font.pixelSize: 10
+                                    color: window.colDim
+                                    horizontalAlignment: Text.AlignRight
+                                }
+
+                                Text {
+                                    width: 140
+                                    text: window.formatDate(model.fileModified)
+                                    font.family: "Fira Sans, sans-serif"
+                                    font.pixelSize: 10
+                                    color: window.colDim
+                                    horizontalAlignment: Text.AlignRight
+                                }
+                            }
+
+                            HoverHandler { id: lHover }
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: {
+                                    window.selectedIndex = index;
+                                    window.selectedPath = model.filePath;
+                                }
+                                onDoubleClicked: window.openItem(model.filePath, model.fileIsDir)
+                            }
+                        }
+                    }
+
+                    // 3. GALLERY VIEW
+                    GridView {
+                        id: galView
+                        anchors.fill: parent
+                        anchors.margins: 14
+                        cellWidth: 180
+                        cellHeight: 160
+                        clip: true
+                        visible: window.viewMode === "gallery"
+                        model: folderModel
+                        cacheBuffer: 200
+
+                        delegate: Rectangle {
+                            id: galCard
+                            width: 170
+                            height: 150
+                            radius: 8
+                            color: isSelected ? Qt.rgba(122/255, 162/255, 247/255, 0.22) : (gHover.containsMouse ? window.colCardHover : window.colSunken)
+                            border.color: isSelected ? window.colBlue : window.colBorderSubtle
+                            border.width: 1
+
+                            readonly property bool isSelected: window.selectedIndex === index
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                spacing: 6
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    Layout.fillHeight: true
+                                    radius: 6
+                                    color: "#0a0b10"
+                                    clip: true
+
+                                    Image {
+                                        anchors.fill: parent
+                                        source: window.isImageFile(model.fileName) ? model.filePath : ""
+                                        fillMode: Image.PreserveAspectCrop
+                                        visible: window.isImageFile(model.fileName)
+                                        asynchronous: true
+                                        cache: true
+                                        // Low resolution for gallery view
+                                        sourceSize: Qt.size(120, 90)
+                                    }
+
+                                    Text {
+                                        anchors.centerIn: parent
+                                        text: window.getIconGlyph(model.fileName, model.fileIsDir)
+                                        font.family: "JetBrainsMono Nerd Font"
+                                        font.pixelSize: 38
+                                        color: window.getIconColor(model.fileName, model.fileIsDir)
+                                        visible: !window.isImageFile(model.fileName)
+                                    }
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: model.fileName || ""
+                                    font.family: "Fira Sans SemiBold, sans-serif"
+                                    font.pixelSize: 11
+                                    font.bold: galCard.isSelected
+                                    color: galCard.isSelected ? "#ffffff" : window.colFg
+                                    horizontalAlignment: Text.AlignHCenter
+                                    elide: Text.ElideMiddle
+                                }
+                            }
+
+                            HoverHandler { id: gHover }
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: {
+                                    window.selectedIndex = index;
+                                    window.selectedPath = model.filePath;
+                                }
+                                onDoubleClicked: window.openItem(model.filePath, model.fileIsDir)
                             }
                         }
                     }
                 }
-            }
 
-            // ── Bottom Status Bar ────────────────────────────────────────────
-            Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: Design.s(28)
-                color: Design.crust
-                border.color: Design.glassBorder
-                border.width: 1
+                // ── Bottom Status Bar (30px) ─────────────────────────────────
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 30
+                    color: window.colDark
 
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: Design.s(Design.space.md)
-                    anchors.rightMargin: Design.s(Design.space.md)
-
-                    Text {
-                        text: folderModel.count + " items" + 
-                              (window.selectedPath ? ("  |  Selected: " + window.selectedPath.split('/').pop()) : "")
-                        font.family: Design.font.sans
-                        font.pixelSize: Design.s(10)
-                        color: Design.textDim
-                        font.weight: Design.weight.medium
-                        Layout.fillWidth: true
+                    // Subtle top divider
+                    Rectangle {
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        height: 1
+                        color: window.colBorderSubtle
                     }
 
-                    Text {
-                        text: "Space: QuickLook  |  Ctrl+T: Terminal  |  Ctrl+H: Dotfiles"
-                        font.family: Design.font.sans
-                        font.pixelSize: Design.s(10)
-                        color: Design.textDim
-                        font.weight: Design.weight.medium
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 12
+                        anchors.rightMargin: 12
+
+                        Text {
+                            text: folderModel.count + " items" + (window.selectedPath ? ("  •  Selected: " + window.selectedPath.split('/').pop()) : "")
+                            font.family: "Fira Sans SemiBold, sans-serif"
+                            font.pixelSize: 10
+                            color: window.colDim
+                            Layout.fillWidth: true
+                        }
+
+                        Row {
+                            spacing: 8
+                            Text { text: "Space QuickLook"; font.family: "JetBrainsMono Nerd Font, monospace"; font.pixelSize: 9; color: window.colDim }
+                            Text { text: "•"; font.pixelSize: 8; color: window.colBorderSubtle }
+                            Text { text: "Ctrl+T Terminal"; font.family: "JetBrainsMono Nerd Font, monospace"; font.pixelSize: 9; color: window.colDim }
+                            Text { text: "•"; font.pixelSize: 8; color: window.colBorderSubtle }
+                            Text { text: "Ctrl+H Hidden"; font.family: "JetBrainsMono Nerd Font, monospace"; font.pixelSize: 9; color: window.colDim }
+                        }
                     }
                 }
             }
         }
     }
-}
+
+    component NavIconBtn: Rectangle {
+        id: nb
+        property string icon: ""
+        property bool enabled: true
+        signal clicked()
+
+        width: 24; height: 24; radius: 4
+        color: nbArea.containsMouse && nb.enabled ? Qt.rgba(255/255, 255/255, 255/255, 0.10) : "transparent"
+        opacity: nb.enabled ? 1.0 : 0.35
+
+        Text {
+            anchors.centerIn: parent
+            text: nb.icon
+            font.family: "JetBrainsMono Nerd Font"
+            font.pixelSize: 11
+            color: window.colFg
+        }
+
+        MouseArea {
+            id: nbArea
+            anchors.fill: parent
+            enabled: nb.enabled
+            hoverEnabled: true
+            cursorShape: nb.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+            onClicked: nb.clicked()
+        }
+    }
+
+    component ViewSegmentBtn: Rectangle {
+        id: vsb
+        property string icon: ""
+        property bool active: false
+        signal clicked()
+
+        width: 26; height: 24; radius: 4
+        color: vsb.active ? window.colBlue : (vsbArea.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.08) : "transparent")
+
+        Text {
+            anchors.centerIn: parent
+            text: vsb.icon
+            font.family: "JetBrainsMono Nerd Font"
+            font.pixelSize: 11
+            color: vsb.active ? "#101119" : (vsbArea.containsMouse ? "#ffffff" : window.colDim)
+        }
+
+        MouseArea {
+            id: vsbArea
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: vsb.clicked()
+        }
+    }
 }

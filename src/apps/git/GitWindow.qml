@@ -10,13 +10,16 @@ ApplicationWindow {
     minimumWidth: 700
     minimumHeight: 450
     visible: true
-    color: "#16161e"
+    color: "transparent"
+    flags: Qt.Window
 
     // Design Tokens
-    readonly property color colBg: "#1a1b26"
-    readonly property color colDark: "#16161e"
-    readonly property color colHeader: "#13141c"
+    readonly property color colBg: "#161722"
+    readonly property color colDark: "#13141e"
+    readonly property color colHeader: "#101119"
+    readonly property color colSunken: "#0d0e14"
     readonly property color colBorder: Qt.rgba(122/255, 162/255, 247/255, 0.16)
+    readonly property color colBorderSubtle: "#1b1c2b"
     readonly property color colBlue: "#7aa2f7"
     readonly property color colPurple: "#bb9af7"
     readonly property color colCyan: "#7dcfff"
@@ -24,7 +27,7 @@ ApplicationWindow {
     readonly property color colOrange: "#ff9e64"
     readonly property color colRed: "#f7768e"
     readonly property color colFg: "#c0caf5"
-    readonly property color colDim: "#565f89"
+    readonly property color colDim: "#6b739b"
 
     property int currentTab: 0 // 0: Changes, 1: History
     property bool repoDropdownOpen: false
@@ -33,7 +36,10 @@ ApplicationWindow {
     Rectangle {
         id: windowFrame
         anchors.fill: parent
+        radius: 14
         color: window.colBg
+        border.color: window.colBorder
+        border.width: 1
         clip: true
 
         ColumnLayout {

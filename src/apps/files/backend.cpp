@@ -151,36 +151,40 @@ int FileManagerBackend::itemCount() const {
 
 QVariantList FileManagerBackend::breadcrumbs() const {
     QVariantList crumbs;
-    if (m_currentPath == "/") {
-        QVariantMap root;
-        root["name"] = "File System";
-        root["path"] = "/";
-        crumbs.append(root);
-        return crumbs;
-    }
-
-    QStringList parts = m_currentPath.split('/', Qt::SkipEmptyParts);
-    QString acc = "";
-
-    QVariantMap root;
-    root["name"] = "root";
-    root["path"] = "/";
-    crumbs.append(root);
-
     QString home = QDir::homePath();
 
-    for (int i = 0; i < parts.size(); ++i) {
-        acc += "/" + parts[i];
-        QVariantMap crumb;
-        if (acc == home) {
-            crumb["name"] = "~";
-        } else {
-            crumb["name"] = parts[i];
-        }
-        crumb["path"] = acc;
-        crumbs.append(crumb);
-    }
+    if (m_currentPath.startsWith(home)) {
+        QVariantMap homeCrumb;
+        homeCrumb["name"] = "~";
+        homeCrumb["path"] = home;
+        crumbs.append(homeCrumb);
 
+        QString rel = m_currentPath.mid(home.length());
+        QStringList parts = rel.split('/', Qt::SkipEmptyParts);
+        QString acc = home;
+        for (const auto& part : parts) {
+            acc += "/" + part;
+            QVariantMap crumb;
+            crumb["name"] = part;
+            crumb["path"] = acc;
+            crumbs.append(crumb);
+        }
+    } else {
+        QVariantMap root;
+        root["name"] = "/";
+        root["path"] = "/";
+        crumbs.append(root);
+
+        QStringList parts = m_currentPath.split('/', Qt::SkipEmptyParts);
+        QString acc = "";
+        for (const auto& part : parts) {
+            acc += "/" + part;
+            QVariantMap crumb;
+            crumb["name"] = part;
+            crumb["path"] = acc;
+            crumbs.append(crumb);
+        }
+    }
     return crumbs;
 }
 

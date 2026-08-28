@@ -5,386 +5,275 @@ import QtQuick.Layouts
 ApplicationWindow {
     id: window
     title: ViewBackend.fileName ? ("b1air-view — " + ViewBackend.fileName) : "b1air-view"
-    width: 900
-    height: 620
+    width: 960
+    height: 640
     minimumWidth: 500
     minimumHeight: 400
     visible: true
-    color: "#101014"
+    color: "transparent"
+    flags: Qt.Window
 
     // Design Tokens
-    readonly property color colBg: "#1a1b26"
-    readonly property color colDark: "#16161e"
-    readonly property color colBorder: Qt.rgba(122/255, 162/255, 247/255, 0.18)
+    readonly property color colBg: "#161722"
+    readonly property color colDark: "#13141e"
+    readonly property color colSidebar: "#101119"
+    readonly property color colSunken: "#0d0e14"
+    readonly property color colBorder: Qt.rgba(122/255, 162/255, 247/255, 0.16)
+    readonly property color colBorderSubtle: "#1b1c2b"
     readonly property color colBlue: "#7aa2f7"
     readonly property color colPurple: "#bb9af7"
     readonly property color colCyan: "#7dcfff"
     readonly property color colGreen: "#73daca"
     readonly property color colOrange: "#ff9e64"
     readonly property color colFg: "#c0caf5"
-    readonly property color colDim: "#565f89"
+    readonly property color colDim: "#6b739b"
 
     property real zoomFactor: 1.0
     property int rotationAngle: 0
     property bool showFilmstrip: true
-    property bool showInfoPopup: false
 
-    // Keyboard Shortcuts
-    Item {
-        focus: true
-        Keys.onLeftPressed: ViewBackend.previous()
-        Keys.onRightPressed: ViewBackend.next()
-        Keys.onEscapePressed: {
-            if (window.showInfoPopup) window.showInfoPopup = false;
-            else window.close();
-        }
-        Keys.onSpacePressed: ViewBackend.next()
-    }
-
-    // ── Headerbar (36px, zero window buttons) ───────────────────────────────
     Rectangle {
-        id: headerBar
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.right: parent.right
-        height: 36
-        color: window.colDark
+        id: windowFrame
+        anchors.fill: parent
+        radius: 14
+        color: "#101014"
         border.color: window.colBorder
         border.width: 1
-        z: 10
-
-        RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: 12
-            anchors.rightMargin: 12
-            spacing: 8
-
-            // App Icon & File Name
-            Row {
-                spacing: 8
-                Layout.alignment: Qt.AlignVCenter
-                Text {
-                    text: "󰋩"
-                    font.family: "JetBrainsMono Nerd Font"
-                    font.pixelSize: 15
-                    color: window.colBlue
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-                Text {
-                    text: ViewBackend.fileName || "No Image Open"
-                    font.family: "Fira Sans SemiBold, JetBrainsMono Nerd Font, sans-serif"
-                    font.pixelSize: 12
-                    font.bold: true
-                    color: window.colFg
-                    anchors.verticalCenter: parent.verticalCenter
-                }
-            }
-
-            Item { Layout.fillWidth: true }
-
-            // Metadata Chips (Resolution, Size, Index)
-            Row {
-                spacing: 8
-                Layout.alignment: Qt.AlignVCenter
-
-                Rectangle {
-                    width: resText.implicitWidth + 12
-                    height: 20
-                    radius: 5
-                    color: Qt.rgba(36/255, 40/255, 59/255, 0.60)
-                    Text {
-                        id: resText
-                        anchors.centerIn: parent
-                        text: ViewBackend.imageResolution
-                        font.family: "JetBrainsMono Nerd Font, monospace"
-                        font.pixelSize: 10
-                        font.bold: true
-                        color: window.colCyan
-                    }
-                }
-
-                Rectangle {
-                    width: sizeText.implicitWidth + 12
-                    height: 20
-                    radius: 5
-                    color: Qt.rgba(36/255, 40/255, 59/255, 0.60)
-                    Text {
-                        id: sizeText
-                        anchors.centerIn: parent
-                        text: ViewBackend.fileSize
-                        font.family: "JetBrainsMono Nerd Font, monospace"
-                        font.pixelSize: 10
-                        font.bold: true
-                        color: window.colPurple
-                    }
-                }
-
-                Rectangle {
-                    width: idxText.implicitWidth + 12
-                    height: 20
-                    radius: 5
-                    color: Qt.rgba(36/255, 40/255, 59/255, 0.60)
-                    Text {
-                        id: idxText
-                        anchors.centerIn: parent
-                        text: (ViewBackend.fileIndex + 1) + " / " + ViewBackend.totalFiles
-                        font.family: "JetBrainsMono Nerd Font, monospace"
-                        font.pixelSize: 10
-                        font.bold: true
-                        color: window.colFg
-                    }
-                }
-            }
-        }
-    }
-
-    // ── Main Image Canvas & Viewer ──────────────────────────────────────────
-    Item {
-        id: canvasArea
-        anchors.top: headerBar.bottom
-        anchors.bottom: window.showFilmstrip ? filmstripBar.top : parent.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
         clip: true
 
-        Flickable {
-            id: flickable
-            anchors.fill: parent
-            contentWidth: Math.max(canvasArea.width, canvasArea.width * window.zoomFactor)
-            contentHeight: Math.max(canvasArea.height, canvasArea.height * window.zoomFactor)
-            boundsBehavior: Flickable.StopAtBounds
-
-            Item {
-                id: imgContainer
-                width: flickable.contentWidth
-                height: flickable.contentHeight
-
-                Image {
-                    id: mainImage
-                    anchors.centerIn: parent
-                    width: canvasArea.width
-                    height: canvasArea.height
-                    sourceSize: Qt.size(3840, 2160)
-                    source: ViewBackend.currentPath ? ("file://" + ViewBackend.currentPath) : ""
-                    fillMode: Image.PreserveAspectFit
-                    asynchronous: true
-                    smooth: true
-                    mipmap: true
-                    scale: window.zoomFactor
-                    rotation: window.rotationAngle
-
-                    Behavior on scale { NumberAnimation { duration: 120 } }
-                    Behavior on rotation { NumberAnimation { duration: 150 } }
-                }
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                drag.target: imgContainer
-                drag.axis: Drag.XAndYAxis
-                hoverEnabled: true
-
-                onWheel: (wheel) => {
-                    if (wheel.angleDelta.y > 0) {
-                        window.zoomFactor = Math.min(window.zoomFactor * 1.15, 8.0);
-                    } else if (wheel.angleDelta.y < 0) {
-                        window.zoomFactor = Math.max(window.zoomFactor / 1.15, 0.15);
-                    }
-                }
-
-                onDoubleClicked: {
-                    window.zoomFactor = 1.0;
-                    window.rotationAngle = 0;
-                }
-            }
+        // Keyboard Shortcuts
+        Item {
+            focus: true
+            Keys.onLeftPressed: ViewBackend.previous()
+            Keys.onRightPressed: ViewBackend.next()
+            Keys.onEscapePressed: window.close()
+            Keys.onSpacePressed: ViewBackend.next()
         }
 
-        // ── Floating Bottom Control Island (Floating Pill) ──────────────────
-        Rectangle {
-            id: floatingControls
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: 16
-            height: 38
-            width: ctrlRow.implicitWidth + 24
-            radius: 12
-            color: Qt.rgba(26/255, 27/255, 38/255, 0.88)
-            border.color: window.colBorder
-            border.width: 1
-            z: 20
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 0
 
-            Row {
-                id: ctrlRow
-                anchors.centerIn: parent
-                spacing: 6
+            // ── Top Header Toolbar (40px) ────────────────────────────────────
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 40
+                color: window.colSidebar
+                border.color: window.colBorder
+                border.width: 1
+                z: 10
 
-                // Previous Image
-                Rectangle {
-                    width: 28; height: 28; radius: 6
-                    color: prevArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : "transparent"
-                    Text {
-                        anchors.centerIn: parent
-                        text: "󰅖"
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 13
-                        color: ViewBackend.hasPrevious ? window.colFg : window.colDim
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: 12
+                    anchors.rightMargin: 12
+                    spacing: 8
+
+                    // App Icon & File Name
+                    Row {
+                        spacing: 8
+                        Layout.alignment: Qt.AlignVCenter
+                        Text {
+                            text: "󰋩"
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 15
+                            color: window.colBlue
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                        Text {
+                            text: ViewBackend.fileName || "No Image Open"
+                            font.family: "Fira Sans SemiBold, JetBrainsMono Nerd Font, sans-serif"
+                            font.pixelSize: 12
+                            font.bold: true
+                            color: window.colFg
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
                     }
+
+                    // Image Dimensions Badge
+                    Rectangle {
+                        width: dimText.implicitWidth + 12
+                        height: 20
+                        radius: 4
+                        color: Qt.rgba(255/255, 255/255, 255/255, 0.08)
+                        visible: ViewBackend.imageWidth > 0
+
+                        Text {
+                            id: dimText
+                            anchors.centerIn: parent
+                            text: ViewBackend.imageWidth + " × " + ViewBackend.imageHeight + "  •  " + ViewBackend.fileSize
+                            font.family: "JetBrainsMono Nerd Font, monospace"
+                            font.pixelSize: 10
+                            color: window.colDim
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    // Viewer Controls: Zoom In, Zoom Out, Reset, Rotate, Filmstrip Toggle, Wallpaper
+                    Row {
+                        spacing: 4
+                        Layout.alignment: Qt.AlignVCenter
+
+                        CtrlBtn { icon: "󰅖"; tip: "Zoom Out"; onClicked: window.zoomFactor = Math.max(0.2, window.zoomFactor - 0.25) }
+                        Rectangle {
+                            width: zoomText.implicitWidth + 10; height: 26; radius: 4
+                            color: "transparent"
+                            Text { id: zoomText; anchors.centerIn: parent; text: Math.round(window.zoomFactor * 100) + "%"; font.family: "JetBrainsMono Nerd Font, monospace"; font.pixelSize: 10; color: window.colDim }
+                        }
+                        CtrlBtn { icon: "󰐕"; tip: "Zoom In"; onClicked: window.zoomFactor = Math.min(5.0, window.zoomFactor + 0.25) }
+                        CtrlBtn { icon: "󰑐"; tip: "Reset View"; onClicked: { window.zoomFactor = 1.0; window.rotationAngle = 0; } }
+                        CtrlBtn { icon: "󰑓"; tip: "Rotate 90°"; onClicked: window.rotationAngle = (window.rotationAngle + 90) % 360 }
+                        CtrlBtn { icon: "󰎆"; tip: "Set Wallpaper"; onClicked: ViewBackend.setWallpaper() }
+                        CtrlBtn { icon: "󰋩"; tip: "Toggle Filmstrip"; active: window.showFilmstrip; onClicked: window.showFilmstrip = !window.showFilmstrip }
+                    }
+                }
+            }
+
+            // ── Main Image Canvas ────────────────────────────────────────────
+            Item {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                clip: true
+
+                Flickable {
+                    id: imageFlick
+                    anchors.fill: parent
+                    contentWidth: Math.max(width, mainImage.width * window.zoomFactor)
+                    contentHeight: Math.max(height, mainImage.height * window.zoomFactor)
+                    boundsBehavior: Flickable.StopAtBounds
+
+                    Item {
+                        width: imageFlick.contentWidth
+                        height: imageFlick.contentHeight
+
+                        Image {
+                            id: mainImage
+                            anchors.centerIn: parent
+                            source: ViewBackend.filePath ? ("file://" + ViewBackend.filePath) : ""
+                            fillMode: Image.PreserveAspectFit
+                            asynchronous: true
+                            cache: true
+                            rotation: window.rotationAngle
+                            scale: window.zoomFactor
+
+                            Behavior on scale { NumberAnimation { duration: 120 } }
+                            Behavior on rotation { NumberAnimation { duration: 150 } }
+                        }
+                    }
+
+                    // Mouse Wheel Zoom
                     MouseArea {
-                        id: prevArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                        enabled: ViewBackend.hasPrevious
-                        onClicked: ViewBackend.previous()
+                        anchors.fill: parent
+                        acceptedButtons: Qt.NoButton
+                        onWheel: (wheel) => {
+                            if (wheel.angleDelta.y > 0) window.zoomFactor = Math.min(5.0, window.zoomFactor + 0.15);
+                            else window.zoomFactor = Math.max(0.2, window.zoomFactor - 0.15);
+                        }
                     }
                 }
 
-                // Next Image
+                // Left Arrow Overlay (Prev)
                 Rectangle {
-                    width: 28; height: 28; radius: 6
-                    color: nextArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : "transparent"
-                    Text {
-                        anchors.centerIn: parent
-                        text: "󰅗"
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 13
-                        color: ViewBackend.hasNext ? window.colFg : window.colDim
-                    }
-                    MouseArea {
-                        id: nextArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                        enabled: ViewBackend.hasNext
-                        onClicked: ViewBackend.next()
-                    }
-                }
-
-                Rectangle { width: 1; height: 18; color: window.colBorder; anchors.verticalCenter: parent.verticalCenter }
-
-                // Zoom Out
-                Rectangle {
-                    width: 28; height: 28; radius: 6
-                    color: zmOutArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : "transparent"
-                    Text { anchors.centerIn: parent; text: "󰐴"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13; color: window.colFg }
-                    MouseArea {
-                        id: zmOutArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                        onClicked: window.zoomFactor = Math.max(window.zoomFactor / 1.25, 0.15)
-                    }
-                }
-
-                // Zoom Level Pill
-                Text {
+                    anchors.left: parent.left
+                    anchors.leftMargin: 16
                     anchors.verticalCenter: parent.verticalCenter
-                    text: Math.round(window.zoomFactor * 100) + "%"
-                    font.family: "JetBrainsMono Nerd Font, monospace"
-                    font.pixelSize: 11
-                    font.bold: true
-                    color: window.colBlue
+                    width: 36; height: 36; radius: 18
+                    color: prevArrArea.containsMouse ? Qt.rgba(26/255, 27/255, 38/255, 0.85) : Qt.rgba(26/255, 27/255, 38/255, 0.45)
+                    border.color: window.colBorder
+                    border.width: 1
+                    Text { anchors.centerIn: parent; text: "󰁍"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 14; color: window.colFg }
+                    MouseArea { id: prevArrArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: ViewBackend.previous() }
                 }
 
-                // Zoom In
+                // Right Arrow Overlay (Next)
                 Rectangle {
-                    width: 28; height: 28; radius: 6
-                    color: zmInArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : "transparent"
-                    Text { anchors.centerIn: parent; text: "󰐕"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13; color: window.colFg }
-                    MouseArea {
-                        id: zmInArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                        onClicked: window.zoomFactor = Math.min(window.zoomFactor * 1.25, 8.0)
-                    }
+                    anchors.right: parent.right
+                    anchors.rightMargin: 16
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 36; height: 36; radius: 18
+                    color: nextArrArea.containsMouse ? Qt.rgba(26/255, 27/255, 38/255, 0.85) : Qt.rgba(26/255, 27/255, 38/255, 0.45)
+                    border.color: window.colBorder
+                    border.width: 1
+                    Text { anchors.centerIn: parent; text: "󰁔"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 14; color: window.colFg }
+                    MouseArea { id: nextArrArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: ViewBackend.next() }
                 }
+            }
 
-                // 1:1 Reset
-                Rectangle {
-                    width: 28; height: 28; radius: 6
-                    color: resetArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : "transparent"
-                    Text { anchors.centerIn: parent; text: "󰑐"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13; color: window.colFg }
-                    MouseArea {
-                        id: resetArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                        onClicked: { window.zoomFactor = 1.0; window.rotationAngle = 0; }
-                    }
-                }
+            // ── Bottom Filmstrip Thumbnail Strip (Optional, 70px) ─────────────
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 70
+                color: window.colSidebar
+                border.color: window.colBorder
+                border.width: 1
+                visible: window.showFilmstrip
 
-                Rectangle { width: 1; height: 18; color: window.colBorder; anchors.verticalCenter: parent.verticalCenter }
+                ListView {
+                    id: filmstripList
+                    anchors.fill: parent
+                    anchors.margins: 6
+                    orientation: ListView.Horizontal
+                    spacing: 6
+                    clip: true
+                    model: ViewBackend.galleryFiles
 
-                // Rotate Right
-                Rectangle {
-                    width: 28; height: 28; radius: 6
-                    color: rotArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : "transparent"
-                    Text { anchors.centerIn: parent; text: "󰑓"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 14; font.bold: true; color: window.colFg }
-                    MouseArea {
-                        id: rotArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                        onClicked: window.rotationAngle = (window.rotationAngle + 90) % 360
-                    }
-                }
+                    delegate: Rectangle {
+                        width: 58; height: 58; radius: 6
+                        color: isCur ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : (thumbArea.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.08) : "transparent")
+                        border.color: isCur ? window.colBlue : "transparent"
+                        border.width: 1
 
-                // Set Wallpaper
-                Rectangle {
-                    width: 28; height: 28; radius: 6
-                    color: wallArea.containsMouse ? Qt.rgba(115/255, 218/255, 202/255, 0.25) : "transparent"
-                    Text { anchors.centerIn: parent; text: "󰋩"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13; color: window.colGreen }
-                    MouseArea {
-                        id: wallArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                        onClicked: ViewBackend.setWallpaper()
-                    }
-                }
+                        readonly property bool isCur: modelData.path === ViewBackend.filePath
 
-                // Toggle Filmstrip
-                Rectangle {
-                    width: 28; height: 28; radius: 6
-                    color: filmArea.containsMouse ? Qt.rgba(187/255, 154/255, 247/255, 0.25) : "transparent"
-                    Text { anchors.centerIn: parent; text: "󰎆"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13; color: window.colPurple }
-                    MouseArea {
-                        id: filmArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                        onClicked: window.showFilmstrip = !window.showFilmstrip
+                        Image {
+                            anchors.fill: parent
+                            anchors.margins: 3
+                            source: "file://" + modelData.path
+                            fillMode: Image.PreserveAspectCrop
+                            asynchronous: true
+                            sourceSize: Qt.size(60, 60)
+                        }
+
+                        MouseArea {
+                            id: thumbArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: ViewBackend.openFile(modelData.path)
+                        }
                     }
                 }
             }
         }
     }
 
-    // ── Collapsible Filmstrip Carousel ──────────────────────────────────────
-    Rectangle {
-        id: filmstripBar
-        anchors.bottom: parent.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
-        height: window.showFilmstrip ? 70 : 0
-        visible: height > 0
-        color: window.colDark
-        border.color: window.colBorder
+    component CtrlBtn: Rectangle {
+        id: cb
+        property string icon: ""
+        property string tip: ""
+        property bool active: false
+        signal clicked()
+
+        width: 26; height: 26; radius: 5
+        color: cb.active ? window.colBlue : (cbArea.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.12) : "transparent")
+        border.color: cb.active ? "transparent" : window.colBorder
         border.width: 1
-        z: 15
 
-        Behavior on height { NumberAnimation { duration: 150 } }
+        Text {
+            anchors.centerIn: parent
+            text: cb.icon
+            font.family: "JetBrainsMono Nerd Font"
+            font.pixelSize: 12
+            color: cb.active ? "#101014" : (cbArea.containsMouse ? "#ffffff" : window.colFg)
+        }
 
-        ListView {
-            id: filmstripView
+        MouseArea {
+            id: cbArea
             anchors.fill: parent
-            anchors.margins: 6
-            orientation: ListView.Horizontal
-            spacing: 8
-            model: ViewBackend.filesInDir
-            clip: true
-
-            delegate: Rectangle {
-                width: 76
-                height: 56
-                radius: 6
-                color: modelData.path === ViewBackend.currentPath ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : (thumbArea.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.08) : "#13131a")
-                border.color: modelData.path === ViewBackend.currentPath ? window.colBlue : window.colBorder
-                border.width: modelData.path === ViewBackend.currentPath ? 2 : 1
-
-                Image {
-                    anchors.fill: parent
-                    anchors.margins: 3
-                    source: "file://" + modelData.path
-                    fillMode: Image.PreserveAspectCrop
-                    asynchronous: true
-                }
-
-                MouseArea {
-                    id: thumbArea
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: ViewBackend.openFile(modelData.path)
-                }
-            }
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: cb.clicked()
         }
     }
 }
