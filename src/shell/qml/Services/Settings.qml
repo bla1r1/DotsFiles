@@ -114,6 +114,7 @@ Singleton {
     readonly property alias autostartApps: data.autostartApps
     readonly property alias autostartCustom: data.autostartCustom
     readonly property alias notificationRules: data.notificationRules
+    readonly property alias notificationsDnd: data.notificationsDnd
 
     // Device management
     readonly property alias disabledAudioDevices: data.disabledAudioDevices
@@ -227,15 +228,10 @@ Singleton {
         touchpadSwipeWorkspace: true,
         touchpadNaturalSwipe: true,
         touchpadPinchZoom: true,
-        autostartApps: ["waybar", "polkit", "quickshell", "mako"],
+        autostartApps: ["waybar", "polkit", "quickshell"],
         autostartCustom: [],
-        notificationRules: {
-            telegram: true,
-            discord: true,
-            browser: true,
-            media: true,
-            system: true
-        },
+        notificationRules: {},
+        notificationsDnd: false,
         workspaceAssignments: [],
         monitors: [],
         disabledAudioDevices: [],
@@ -329,9 +325,10 @@ Singleton {
             property bool touchpadNaturalSwipe: true
             property bool touchpadPinchZoom: true
 
-            property var autostartApps: ["waybar", "polkit", "quickshell", "mako"]
+            property var autostartApps: ["waybar", "polkit", "quickshell"]
             property var autostartCustom: []
-            property var notificationRules: ({ "telegram": true, "discord": true, "browser": true, "media": true, "system": true })
+            property var notificationRules: ({})
+            property bool notificationsDnd: false
         }
     }
 }

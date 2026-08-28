@@ -20,17 +20,54 @@ ColumnLayout {
     property bool breakReminders: Settings.focusBreakReminders !== undefined ? Settings.focusBreakReminders : true
     property bool daemonAutoStart: Settings.focusDaemonAutoStart !== undefined ? Settings.focusDaemonAutoStart : true
 
-    property var notifRules: Settings.notificationRules || { "telegram": true, "discord": true, "browser": true, "media": true, "system": true }
+    property var notifRules: Settings.notificationRules || {}
 
     function isRuleEnabled(app) {
-        return section.notifRules && section.notifRules[app] !== undefined ? section.notifRules[app] : true;
+        if (!app) return true;
+        let key = app.toLowerCase().trim();
+        return section.notifRules && section.notifRules[key] !== undefined ? section.notifRules[key] : true;
     }
 
     function toggleRule(app) {
+        if (!app) return;
+        let key = app.toLowerCase().trim();
         var rules = Object.assign({}, section.notifRules || {});
-        rules[app] = !section.isRuleEnabled(app);
+        rules[key] = !section.isRuleEnabled(key);
         section.notifRules = rules;
         Settings.set("notificationRules", rules);
+    }
+
+    // Dynamically detected notification sources
+    readonly property var activeApps: {
+        let _t = Notifications.trackedApps;
+        let _h = Notifications.history.count;
+        let list = [];
+        let seen = {};
+
+        if (Notifications.trackedApps && Notifications.trackedApps.length > 0) {
+            for (let app of Notifications.trackedApps) {
+                let key = (app.name || "").toLowerCase().trim();
+                if (key && !seen[key]) {
+                    seen[key] = true;
+                    list.push({ name: app.name, icon: app.icon || "", subtitle: "Active notification source" });
+                }
+            }
+        }
+
+        for (let i = 0; i < Notifications.history.count; i++) {
+            let item = Notifications.history.get(i);
+            let key = (item.appName || "").toLowerCase().trim();
+            if (key && !seen[key]) {
+                seen[key] = true;
+                list.push({ name: item.appName, icon: item.icon || "", subtitle: "Recent notification in history" });
+            }
+        }
+
+        if (list.length === 0) {
+            list.push({ name: "System", icon: "", subtitle: "System and hardware alerts" });
+        }
+
+        return list;
     }
 
     // ── 1. Header ────────────────────────────────────────────────────────────
@@ -135,73 +172,58 @@ ColumnLayout {
             Layout.fillWidth: true
             spacing: Design.s(Design.space.md)
 
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Design.s(Design.space.md)
-                Icon { text: "󰭹"; role: "title"; color: Design.teal }
+            Repeater {
+                model: section.activeApps
+
                 ColumnLayout {
                     Layout.fillWidth: true
-                    spacing: Design.s(2)
-                    Label { text: "Telegram Desktop"; weight: Design.weight.semibold }
-                    Label { text: "Show notification banners for incoming direct messages"; role: "caption"; dim: true }
-                }
-                Toggle {
-                    checked: section.isRuleEnabled("telegram")
-                    onToggled: section.toggleRule("telegram")
-                }
-            }
+                    spacing: Design.s(Design.space.xs)
 
-            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Design.tint(Design.line, 0.4) }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Design.s(Design.space.md)
 
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Design.s(Design.space.md)
-                Icon { text: "󰙯"; role: "title"; color: Design.lavender }
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: Design.s(2)
-                    Label { text: "Discord & Matrix"; weight: Design.weight.semibold }
-                    Label { text: "Allow mentions and community channel pings"; role: "caption"; dim: true }
-                }
-                Toggle {
-                    checked: section.isRuleEnabled("discord")
-                    onToggled: section.toggleRule("discord")
-                }
-            }
+                        Rectangle {
+                            width: Design.s(32); height: Design.s(32)
+                            radius: Design.s(Design.radius.ctl)
+                            color: Design.sunken
 
-            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Design.tint(Design.line, 0.4) }
+                            Icon {
+                                anchors.centerIn: parent
+                                text: "\u{f0f3}"
+                                role: "caption"
+                                color: section.isRuleEnabled(modelData.name) ? Design.accent : Design.textDim
+                            }
+                        }
 
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Design.s(Design.space.md)
-                Icon { text: "󰈹"; role: "title"; color: Design.sapphire }
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: Design.s(2)
-                    Label { text: "Web Browsers"; weight: Design.weight.semibold }
-                    Label { text: "Website push notifications from Firefox, Brave, Chrome"; role: "caption"; dim: true }
-                }
-                Toggle {
-                    checked: section.isRuleEnabled("browser")
-                    onToggled: section.toggleRule("browser")
-                }
-            }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: Design.s(2)
 
-            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Design.tint(Design.line, 0.4) }
+                            Label {
+                                text: modelData.name
+                                weight: Design.weight.semibold
+                            }
 
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Design.s(Design.space.md)
-                Icon { text: "󰓇"; role: "title"; color: Design.green }
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: Design.s(2)
-                    Label { text: "Media Track Changes"; weight: Design.weight.semibold }
-                    Label { text: "Pop up banner on song change (Spotify, Cmus, MPD)"; role: "caption"; dim: true }
-                }
-                Toggle {
-                    checked: section.isRuleEnabled("media")
-                    onToggled: section.toggleRule("media")
+                            Label {
+                                text: modelData.subtitle
+                                role: "caption"
+                                dim: true
+                            }
+                        }
+
+                        Toggle {
+                            checked: section.isRuleEnabled(modelData.name)
+                            onToggled: section.toggleRule(modelData.name)
+                        }
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: 1
+                        color: Design.tint(Design.line, 0.4)
+                        visible: index < section.activeApps.length - 1
+                    }
                 }
             }
         }

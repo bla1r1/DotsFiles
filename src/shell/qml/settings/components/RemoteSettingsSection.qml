@@ -100,15 +100,16 @@ ColumnLayout {
             visible: section.vncRunning
 
             Pill {
-                text: "vnc://" + section.localIp + ":" + section.vncPort
-                color: Design.surface1
-                textColor: Design.sapphire
+                label: "vnc://" + section.localIp + ":" + section.vncPort
+                active: true
+                activeColor: Design.surface1
+                activeTextColor: Design.sapphire
             }
 
             ActionButton {
-                text: "Copy Address"
+                label: "Copy Address"
                 icon: "\u{f00c5}"
-                onClicked: {
+                onActivated: {
                     Quickshell.execDetached(["bash", "-c", "printf '%s' 'vnc://" + section.localIp + ":" + section.vncPort + "' | wl-copy"]);
                     SoundEffects.play(SoundEffects.action);
                 }
@@ -193,9 +194,9 @@ ColumnLayout {
             }
 
             ActionButton {
-                text: "Start Service"
+                label: "Start Service"
                 icon: "\u{f04b}"
-                onClicked: {
+                onActivated: {
                     Quickshell.execDetached(["bash", "-c", "sudo systemctl enable --now rustdesk 2>/dev/null || systemctl --user restart rustdesk 2>/dev/null || true"]);
                     SoundEffects.play(SoundEffects.action);
                 }
@@ -229,18 +230,18 @@ ColumnLayout {
                 spacing: Design.s(Design.space.sm)
 
                 ActionButton {
-                    text: "Create Display"
+                    label: "Create Display"
                     icon: "\u{f0079}"
-                    onClicked: {
+                    onActivated: {
                         Quickshell.execDetached(["b1air-daemon", "sidecar", "create", "1920", "1080"]);
                         SoundEffects.play(SoundEffects.action);
                     }
                 }
 
                 ActionButton {
-                    text: "Remove"
+                    label: "Remove"
                     icon: "\u{f00d}"
-                    onClicked: {
+                    onActivated: {
                         Quickshell.execDetached(["b1air-daemon", "sidecar", "remove"]);
                         SoundEffects.play(SoundEffects.action);
                     }

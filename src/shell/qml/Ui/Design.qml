@@ -138,6 +138,7 @@ Singleton {
     readonly property color yellow: _p.yellow
     readonly property color green: _p.green
     readonly property color teal: _p.teal
+    readonly property color cyan: _p.teal
     readonly property color red: _p.red
     readonly property color maroon: _p.maroon
     readonly property color lavender: _p.lavender

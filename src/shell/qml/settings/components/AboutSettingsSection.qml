@@ -191,7 +191,7 @@ ColumnLayout {
             ActionButton {
                 icon: "\u{f0446}"
                 label: "Reload Sway & Quickshell"
-                onActivated: Quickshell.execDetached(["bash", "-c", "swaymsg reload; qs -p ~/.config/quickshell/Main.qml ipc call main forceReload"])
+                onActivated: Quickshell.execDetached(["bash", "-c", "swaymsg reload; b1air-shell forceReload"])
             }
 
             ActionButton {

@@ -7,19 +7,22 @@ import "../Ui"
 import "../Services"
 
 // =============================================================================
-// Native Quickshell Spotlight Launcher & Command Palette (Dynamic Apps Scanner)
+// macOS-style Expanding Spotlight Search (Dynamic Apps, Math, System Actions)
 // =============================================================================
 
 PopupShell {
     id: window
-
-    padding: Design.space.md
+    framed: false
 
     property string query: ""
     property int selectedIndex: 0
     property string calcResult: ""
     property var systemApps: []
+    property string smartType: "calc"
 
+    readonly property bool hasResults: window.query.trim().length > 0 || window.calcResult !== ""
+
+    // ── Dynamic Apps Scanner ─────────────────────────────────────────────────
     Process {
         id: appLoader
         running: true
@@ -45,23 +48,20 @@ PopupShell {
         }
     }
 
-    // ── Quick Commands & Core Actions ────────────────────────────────────────
+    // ── Core System Actions ──────────────────────────────────────────────────
     readonly property var baseApps: [
-        { name: "Terminal", desc: "Launch Kitty Terminal emulator", icon: "\u{f120}", cmd: "kitty", cat: "System" },
-        { name: "Web Browser", desc: "Browse the web (Firefox)", icon: "\u{f269}", cmd: "firefox", cat: "Internet" },
-        { name: "File Manager", desc: "Browse files and folders", icon: "\u{f07b}", cmd: "thunar", cat: "System" },
-        { name: "Settings", desc: "Open System & Desktop Settings", icon: "\u{f013}", cmd: "qs -p " + Quickshell.env("HOME") + "/.config/quickshell/Main.qml ipc call main toggleSettings", cat: "System" },
-        { name: "Control Center", desc: "Quick toggles & notifications", icon: "\u{f0f3}", cmd: "qs -p " + Quickshell.env("HOME") + "/.config/quickshell/Main.qml ipc call main toggleControl", cat: "System" },
-        { name: "Clipboard Manager", desc: "Search clipboard history & snippets", icon: "\u{f0ea}", cmd: "qs -p " + Quickshell.env("HOME") + "/.config/quickshell/Main.qml ipc call main toggleClipboard", cat: "Utilities" },
-        { name: "Color Dropper", desc: "Pick any color on screen to clipboard", icon: "\u{f1fb}", cmd: Quickshell.env("HOME") + "/.local/bin/b1air-daemon color-picker", cat: "Utilities" },
-        { name: "Window Switcher", desc: "Visual Alt+Tab task manager", icon: "\u{f009}", cmd: "qs -p " + Quickshell.env("HOME") + "/.config/quickshell/Main.qml ipc call main toggleSwitcher", cat: "System" },
-        { name: "Wallpaper Gallery", desc: "Browse and set desktop wallpapers", icon: "\u{f03e}", cmd: "qs -p " + Quickshell.env("HOME") + "/.config/quickshell/Main.qml ipc call main open settings wallpaper", cat: "Appearance" },
-        { name: "Focus & Screen Time", desc: "Pomodoro timer & usage breakdown", icon: "\u{f017}", cmd: "qs -p " + Quickshell.env("HOME") + "/.config/quickshell/Main.qml ipc call main toggleFocusTime", cat: "Utilities" },
-        { name: "Lock Screen", desc: "Lock current user session", icon: "\u{f023}", cmd: Quickshell.env("HOME") + "/.local/bin/b1air-daemon power lock", cat: "Session" },
-        { name: "Power & Session", desc: "Shutdown, reboot, sleep options", icon: "\u{f011}", cmd: "qs -p " + Quickshell.env("HOME") + "/.config/quickshell/Main.qml ipc call main open session", cat: "Session" },
-        { name: "Screenshot (Area)", desc: "Capture selected region", icon: "\u{f030}", cmd: Quickshell.env("HOME") + "/.local/bin/b1air-daemon screenshot area", cat: "Utilities" },
-        { name: "Screenshot (Full)", desc: "Capture entire screen", icon: "\u{f108}", cmd: Quickshell.env("HOME") + "/.local/bin/b1air-daemon screenshot full", cat: "Utilities" },
-        { name: "Btop System Monitor", desc: "Terminal task manager", icon: "\u{f080}", cmd: "kitty btop", cat: "System" }
+        { name: "Terminal", desc: "Kitty Terminal emulator", icon: "\u{f120}", cmd: "kitty", cat: "System" },
+        { name: "Launchpad", desc: "Full application launcher", icon: "\u{f009}", cmd: "b1air-shell toggle launchpad", cat: "System" },
+        { name: "File Manager", desc: "Browse files and folders (Thunar)", icon: "\u{f07b}", cmd: "thunar", cat: "System" },
+        { name: "Settings", desc: "System & Desktop Settings", icon: "\u{f013}", cmd: "b1air-shell toggle settings", cat: "System" },
+        { name: "Control Center", desc: "Quick toggles & notifications", icon: "\u{f0f3}", cmd: "b1air-shell toggle control", cat: "System" },
+        { name: "Clipboard History", desc: "Search clipboard history & snippets", icon: "\u{f0ea}", cmd: "b1air-shell toggle clipboard", cat: "Utilities" },
+        { name: "Calendar & Weather", desc: "View date, calendar and forecasts", icon: "\u{f073}", cmd: "b1air-shell toggle calendar", cat: "Utilities" },
+        { name: "Color Dropper", desc: "Pick screen color to clipboard", icon: "\u{f1fb}", cmd: "b1air-daemon color-picker", cat: "Utilities" },
+        { name: "Lock Screen", desc: "Lock current user session", icon: "\u{f023}", cmd: "b1air-daemon power lock", cat: "Session" },
+        { name: "Power Menu", desc: "Shutdown, reboot, sleep options", icon: "\u{f011}", cmd: "b1air-shell toggle session", cat: "Session" },
+        { name: "Screenshot", desc: "Capture selected region", icon: "\u{f030}", cmd: "b1air-daemon screenshot area", cat: "Utilities" },
+        { name: "Task Manager", desc: "Btop system monitor", icon: "\u{f080}", cmd: "kitty btop", cat: "System" }
     ]
 
     function evaluateMath(expr) {
@@ -75,19 +75,29 @@ PopupShell {
                                  .replace(/tan\(([^)]+)\)/gi, "Math.tan($1)")
                                  .replace(/\^/g, "**")
                                  .replace(/\bPI\b/gi, "Math.PI")
-                                 .replace(/\bE\b/g, "Math.E");
+                                 .replace(/\bE\b/gi, "Math.E");
             const res = Function('"use strict"; return (' + sanitized + ')')();
             if (typeof res === "number" && !isNaN(res) && isFinite(res)) {
                 return (Math.round(res * 100000) / 100000).toString();
             }
-        } catch (e) {
-            return "";
-        }
+        } catch (e) {}
         return "";
     }
 
+    function evaluateSmart(expr) {
+        const clean = expr.trim();
+        if (!clean) return { result: "", type: "" };
+        const mathRes = evaluateMath(clean);
+        if (mathRes) {
+            return { result: mathRes, type: "calc" };
+        }
+        return { result: "", type: "" };
+    }
+
     onQueryChanged: {
-        window.calcResult = evaluateMath(window.query);
+        const smart = evaluateSmart(window.query);
+        window.calcResult = smart.result;
+        window.smartType = smart.type;
         window.selectedIndex = 0;
     }
 
@@ -95,7 +105,7 @@ PopupShell {
 
     readonly property var filteredApps: {
         const q = window.query.trim().toLowerCase();
-        if (!q) return window.baseApps;
+        if (!q) return [];
         return window.allApps.filter(a => {
             return a.name.toLowerCase().includes(q) ||
                    a.desc.toLowerCase().includes(q) ||
@@ -104,13 +114,61 @@ PopupShell {
         });
     }
 
+    function cleanExec(cmd) {
+        return cmd.replace(/%[a-zA-Z]/g, "").trim();
+    }
+
     function execute(item) {
         window.close();
+        let cmd = "";
         if (typeof item === "string") {
-            Quickshell.execDetached(["bash", "-c", item]);
+            cmd = item.trim();
         } else if (item && item.cmd) {
-            Quickshell.execDetached(["bash", "-c", item.cmd]);
+            cmd = item.cmd.trim();
         }
+        if (!cmd) return;
+
+        if (cmd.startsWith("b1air-shell") || cmd.startsWith("b1air-daemon")) {
+            Quickshell.execDetached(["bash", "-c", cmd]);
+            return;
+        }
+
+        cmd = cleanExec(cmd);
+        Quickshell.execDetached(["swaymsg", "exec", cmd]);
+    }
+
+    function getAppGlyph(name) {
+        const n = (name || "").toLowerCase();
+        if (n.includes("term") || n.includes("kitty") || n.includes("foot") || n.includes("bash") || n.includes("sh")) return "\u{f120}";
+        if (n.includes("file") || n.includes("thunar") || n.includes("nemo") || n.includes("bulk")) return "\u{f07b}";
+        if (n.includes("setting") || n.includes("pref") || n.includes("control")) return "\u{f013}";
+        if (n.includes("cal") || n.includes("time") || n.includes("clock")) return "\u{f073}";
+        if (n.includes("music") || n.includes("audio") || n.includes("sound") || n.includes("play")) return "\u{f001}";
+        if (n.includes("browser") || n.includes("web") || n.includes("firefox") || n.includes("chrom")) return "\u{f269}";
+        if (n.includes("code") || n.includes("edit") || n.includes("vim") || n.includes("text")) return "\u{f121}";
+        if (n.includes("spotlight") || n.includes("search") || n.includes("find")) return "\u{f002}";
+        if (n.includes("drop") || n.includes("color") || n.includes("picker")) return "\u{f1fb}";
+        if (n.includes("task") || n.includes("monitor") || n.includes("btop") || n.includes("top")) return "\u{f080}";
+        if (n.includes("lock")) return "\u{f023}";
+        if (n.includes("power") || n.includes("shut") || n.includes("exit")) return "\u{f011}";
+        if (n.includes("clip") || n.includes("copy")) return "\u{f0ea}";
+        if (n.includes("cmake") || n.includes("build") || n.includes("dev")) return "\u{f085}";
+        if (n.includes("avahi") || n.includes("vnc") || n.includes("ssh") || n.includes("net")) return "\u{f6ff}";
+        return "\u{f108}";
+    }
+
+    function getAppColor(name) {
+        const n = (name || "").toLowerCase();
+        if (n.includes("term") || n.includes("kitty") || n.includes("foot")) return Design.green;
+        if (n.includes("file") || n.includes("thunar") || n.includes("bulk")) return Design.peach;
+        if (n.includes("setting") || n.includes("pref") || n.includes("control")) return Design.blue;
+        if (n.includes("cal") || n.includes("time") || n.includes("clock")) return Design.red;
+        if (n.includes("music") || n.includes("audio")) return Design.mauve;
+        if (n.includes("browser") || n.includes("web") || n.includes("firefox")) return Design.peach;
+        if (n.includes("code") || n.includes("vim")) return Design.teal;
+        if (n.includes("spotlight") || n.includes("search")) return Design.sapphire;
+        if (n.includes("cmake")) return Design.yellow;
+        return Design.accent;
     }
 
     function copyResult() {
@@ -120,218 +178,294 @@ PopupShell {
         }
     }
 
-    // Auto-focus on open
     Component.onCompleted: {
-        searchInput.forceActiveFocus();
+        Qt.callLater(() => searchInput.forceActiveFocus());
+    }
+    onActiveFocusChanged: {
+        if (activeFocus) Qt.callLater(() => searchInput.forceActiveFocus());
+    }
+    onVisibleChanged: {
+        if (visible) Qt.callLater(() => searchInput.forceActiveFocus());
     }
 
-    ColumnLayout {
-        anchors.fill: parent
-        spacing: Design.s(Design.space.sm)
+    // ── Floating Spotlight Card (Expands smoothly when results appear) ──────
+    Rectangle {
+        id: spotlightCard
+        anchors.centerIn: parent
+        width: parent.width
+        height: window.hasResults ? Design.s(450) : Design.s(58)
+        radius: Design.s(16)
+        color: Design.tint(Design.ground, 0.94)
+        border.color: searchInput.activeFocus ? Design.tint(Design.accent, 0.5) : Design.glassBorder
+        border.width: 1
+        clip: true
 
-        // ── Search Bar ───────────────────────────────────────────────────────
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: Design.s(48)
-            radius: Design.s(Design.radius.ctl)
-            color: Design.sunken
-            border.color: searchInput.activeFocus ? Design.accent : Design.veilStrong
-            border.width: 1
+        Behavior on height {
+            NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+        }
 
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: Design.s(Design.space.md)
-                anchors.rightMargin: Design.s(Design.space.md)
-                spacing: Design.s(Design.space.sm)
+        ColumnLayout {
+            anchors.fill: parent
+            spacing: 0
 
-                Icon {
-                    text: "\u{f002}" // search icon
-                    role: "body"
-                    color: searchInput.activeFocus ? Design.accent : Design.textDim
+            // ── 1. Top Search Bar (macOS Pill style) ───────────────────────────
+            Item {
+                Layout.fillWidth: true
+                Layout.preferredHeight: Design.s(58)
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: Design.s(18)
+                    anchors.rightMargin: Design.s(18)
+                    spacing: Design.s(12)
+
+                    Icon {
+                        text: "\u{f002}" // Search magnifying glass
+                        role: "body"
+                        color: searchInput.activeFocus ? Design.accent : Design.textDim
+                    }
+
+                    TextInput {
+                        id: searchInput
+                        Layout.fillWidth: true
+                        verticalAlignment: TextInput.AlignVCenter
+                        font.family: Design.font.sans
+                        font.weight: Design.weight.medium
+                        font.pixelSize: Design.s(17)
+                        color: Design.text
+                        selectByMouse: true
+                        clip: true
+
+                        text: window.query
+                        onTextChanged: window.query = text
+
+                        Keys.onEscapePressed: window.close()
+                        Keys.onDownPressed: {
+                            const total = window.calcResult ? window.filteredApps.length + 1 : window.filteredApps.length;
+                            if (total > 0) window.selectedIndex = (window.selectedIndex + 1) % total;
+                        }
+                        Keys.onUpPressed: {
+                            const total = window.calcResult ? window.filteredApps.length + 1 : window.filteredApps.length;
+                            if (total > 0) window.selectedIndex = (window.selectedIndex - 1 + total) % total;
+                        }
+                        Keys.onReturnPressed: {
+                            if (window.calcResult && window.selectedIndex === 0) {
+                                window.copyResult();
+                            } else {
+                                const adjIdx = window.calcResult ? window.selectedIndex - 1 : window.selectedIndex;
+                                if (adjIdx >= 0 && adjIdx < window.filteredApps.length) {
+                                    window.execute(window.filteredApps[adjIdx]);
+                                } else if (window.query.trim()) {
+                                    window.execute(window.query.trim());
+                                }
+                            }
+                        }
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Search apps, commands, or calculate (e.g. 24 * 7)..."
+                            color: Design.textDim
+                            font: parent.font
+                            visible: !searchInput.text
+                        }
+                    }
+
+                    // Clear button
+                    IconButton {
+                        visible: searchInput.text.length > 0
+                        icon: "\u{f00d}"
+                        role: "caption"
+                        onClicked: {
+                            searchInput.text = "";
+                            searchInput.forceActiveFocus();
+                        }
+                    }
+
+                    // ESC shortcut badge
+                    Badge {
+                        text: "ESC"
+                        tone: Design.textDim
+                    }
                 }
+            }
 
-                TextInput {
-                    id: searchInput
-                    Layout.fillWidth: true
-                    verticalAlignment: TextInput.AlignVCenter
-                    font.family: Design.font.sans
-                    font.weight: Design.weight.medium
-                    font.pixelSize: Design.s(15)
-                    color: Design.text
-                    selectByMouse: true
-                    clip: true
+            // ── Separator Line ─────────────────────────────────────────────────
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 1
+                color: Design.tint(Design.line, 0.4)
+                visible: window.hasResults
+            }
 
-                    text: window.query
-                    onTextChanged: window.query = text
+            // ── 2. Results Container ───────────────────────────────────────────
+            Item {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                visible: window.hasResults
 
-                    Keys.onEscapePressed: window.close()
-                    Keys.onDownPressed: {
-                        const total = window.calcResult ? window.filteredApps.length + 1 : window.filteredApps.length;
-                        if (total > 0) window.selectedIndex = (window.selectedIndex + 1) % total;
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: Design.s(12)
+                    spacing: Design.s(8)
+
+                    // ── Math & Calculator Result Card ──────────────────────────
+                    Rectangle {
+                        visible: window.calcResult !== ""
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: Design.s(48)
+                        radius: Design.s(Design.radius.ctl)
+                        color: window.selectedIndex === 0 ? Design.tint(Design.accent, 0.16) : Design.sunken
+                        border.color: window.selectedIndex === 0 ? Design.accent : Design.glassBorder
+                        border.width: 1
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: Design.s(14)
+                            anchors.rightMargin: Design.s(14)
+                            spacing: Design.s(12)
+
+                            Icon {
+                                text: "\u{f1ec}" // Calculator
+                                color: Design.accent
+                            }
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 0
+                                Label {
+                                    text: window.calcResult
+                                    weight: Design.weight.bold
+                                    color: Design.accent
+                                    role: "subhead"
+                                }
+                                Label {
+                                    text: "Calculation • Press Enter to copy"
+                                    role: "caption"
+                                    dim: true
+                                }
+                            }
+
+                            Badge {
+                                text: "↵ Copy"
+                                tone: Design.accent
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: window.copyResult()
+                        }
                     }
-                    Keys.onUpPressed: {
-                        const total = window.calcResult ? window.filteredApps.length + 1 : window.filteredApps.length;
-                        if (total > 0) window.selectedIndex = (window.selectedIndex - 1 + total) % total;
-                    }
-                    Keys.onReturnPressed: {
-                        if (window.calcResult && window.selectedIndex === 0) {
-                            window.copyResult();
-                        } else {
-                            const adjIdx = window.calcResult ? window.selectedIndex - 1 : window.selectedIndex;
-                            if (adjIdx >= 0 && adjIdx < window.filteredApps.length) {
-                                window.execute(window.filteredApps[adjIdx]);
-                            } else if (window.query.trim()) {
-                                window.execute(window.query.trim());
+
+                    // ── Applications & Commands List ───────────────────────────
+                    ListView {
+                        id: resultsView
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        clip: true
+                        reuseItems: true
+                        model: window.filteredApps
+
+                        delegate: Rectangle {
+                            id: resultRow
+                            required property var modelData
+                            required property int index
+
+                            readonly property bool isSelected: {
+                                const targetIdx = window.calcResult ? window.selectedIndex - 1 : window.selectedIndex;
+                                return targetIdx === index;
+                            }
+
+                            width: resultsView.width
+                            height: Design.s(48)
+                            radius: Design.s(Design.radius.ctl)
+                            color: isSelected ? Design.tint(Design.accent, 0.16) : (rowHover.containsMouse ? Design.tint(Design.line, 0.2) : "transparent")
+                            border.color: isSelected ? Design.tint(Design.accent, 0.4) : "transparent"
+                            border.width: 1
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: Design.s(12)
+                                anchors.rightMargin: Design.s(12)
+                                spacing: Design.s(12)
+
+                                // App Icon
+                                Rectangle {
+                                    width: Design.s(32)
+                                    height: Design.s(32)
+                                    radius: Design.s(8)
+                                    color: Design.tint(window.getAppColor(modelData.name), isSelected ? 0.25 : 0.14)
+                                    border.color: isSelected ? window.getAppColor(modelData.name) : Design.tint(window.getAppColor(modelData.name), 0.3)
+                                    border.width: 1
+
+                                    Icon {
+                                        anchors.centerIn: parent
+                                        text: window.getAppGlyph(modelData.name)
+                                        role: "caption"
+                                        color: window.getAppColor(modelData.name)
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 0
+                                    Label {
+                                        text: modelData.name
+                                        weight: isSelected ? Design.weight.bold : Design.weight.medium
+                                        color: isSelected ? Design.accent : Design.text
+                                    }
+                                    Label {
+                                        text: modelData.desc
+                                        role: "caption"
+                                        dim: true
+                                        elide: Text.ElideRight
+                                        Layout.fillWidth: true
+                                    }
+                                }
+
+                                Badge {
+                                    text: modelData.cat || "App"
+                                    tone: isSelected ? Design.accent : Design.textDim
+                                }
+                            }
+
+                            MouseArea {
+                                id: rowHover
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                onClicked: window.execute(modelData)
                             }
                         }
                     }
 
-                    Label {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "Search all apps, calculate (e.g. 45 * 12), or run command..."
-                        color: Design.textDim
-                        role: "body"
-                        visible: !searchInput.text && !searchInput.activeFocus
-                    }
-                }
-
-                IconButton {
-                    visible: searchInput.text.length > 0
-                    icon: "\u{f00d}" // cross
-                    role: "caption"
-                    onClicked: {
-                        searchInput.text = "";
-                        searchInput.forceActiveFocus();
-                    }
-                }
-            }
-        }
-
-        // ── Calculator Result Card ───────────────────────────────────────────
-        Rectangle {
-            visible: window.calcResult !== ""
-            Layout.fillWidth: true
-            Layout.preferredHeight: Design.s(44)
-            radius: Design.s(Design.radius.ctl)
-            color: window.selectedIndex === 0 ? Design.tint(Design.accent, 0.15) : Design.sunken
-            border.color: window.selectedIndex === 0 ? Design.accent : Design.veilStrong
-            border.width: 1
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.leftMargin: Design.s(Design.space.md)
-                anchors.rightMargin: Design.s(Design.space.md)
-                spacing: Design.s(Design.space.md)
-
-                Icon {
-                    text: "\u{f1ec}" // calculator
-                    color: Design.accent
-                    role: "body"
-                }
-
-                Label {
-                    text: "= " + window.calcResult
-                    role: "body"
-                    weight: Design.weight.bold
-                    isMono: true
-                    color: Design.accent
-                    Layout.fillWidth: true
-                }
-
-                Badge {
-                    text: "Click or Enter to copy"
-                    tone: Design.accent
-                }
-            }
-
-            Clickable {
-                hoverEnabled: true
-                onClicked: window.copyResult()
-            }
-        }
-
-        // ── Results List ─────────────────────────────────────────────────────
-        ListView {
-            id: resultsList
-            Layout.fillWidth: true
-            Layout.preferredHeight: Math.min(Design.s(360), window.filteredApps.length * Design.s(48))
-            clip: true
-            model: window.filteredApps
-            currentIndex: window.calcResult ? window.selectedIndex - 1 : window.selectedIndex
-            boundsBehavior: Flickable.StopAtBounds
-            spacing: Design.s(2)
-
-            ScrollBar.vertical: ScrollBar { active: true; policy: ScrollBar.AsNeeded }
-
-            delegate: Rectangle {
-                id: rowRect
-                required property var modelData
-                required property int index
-
-                readonly property int realIdx: window.calcResult ? rowRect.index + 1 : rowRect.index
-                readonly property bool isSelected: window.selectedIndex === realIdx
-
-                width: resultsList.width - (resultsList.ScrollBar.vertical.visible ? Design.s(12) : 0)
-                height: Design.s(44)
-                radius: Design.s(Design.radius.ctl)
-                color: isSelected ? Design.tint(Design.accent, 0.15) : (rowHover.containsMouse ? Design.raised : Design.surface)
-                border.color: isSelected ? Design.accent : "transparent"
-                border.width: 1
-
-                Behavior on color { ColorAnimation { duration: Design.duration.fast } }
-
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: Design.s(Design.space.md)
-                    anchors.rightMargin: Design.s(Design.space.md)
-                    spacing: Design.s(Design.space.md)
-
-                    Image {
-                        Layout.preferredWidth: Design.s(22)
-                        Layout.preferredHeight: Design.s(22)
-                        source: rowRect.modelData.app_id ? (rowRect.modelData.app_id.startsWith("/") ? "file://" + rowRect.modelData.app_id : "image://icon/" + rowRect.modelData.app_id) : ""
-                        visible: source.toString() !== ""
-                        fillMode: Image.PreserveAspectFit
-                    }
-
-                    Icon {
-                        visible: !parent.children[0].visible
-                        text: rowRect.modelData.icon || "\u{f108}"
-                        color: rowRect.isSelected ? Design.accent : Design.text
-                        role: "body"
-                    }
-
-                    ColumnLayout {
+                    // ── Zero Search Results State ──────────────────────────────
+                    Item {
+                        visible: window.filteredApps.length === 0 && window.calcResult === ""
                         Layout.fillWidth: true
-                        spacing: 0
+                        Layout.fillHeight: true
 
-                        Label {
-                            text: rowRect.modelData.name
-                            weight: Design.weight.semibold
-                            color: rowRect.isSelected ? Design.text : Design.text
-                            elide: Text.ElideRight
-                            Layout.fillWidth: true
-                        }
-
-                        Label {
-                            text: rowRect.modelData.desc
-                            role: "caption"
-                            color: Design.textDim
-                            elide: Text.ElideRight
-                            Layout.fillWidth: true
+                        ColumnLayout {
+                            anchors.centerIn: parent
+                            spacing: Design.s(Design.space.xs)
+                            Icon {
+                                Layout.alignment: Qt.AlignHCenter
+                                text: "\u{f002}"
+                                role: "title"
+                                color: Design.textDim
+                            }
+                            Label {
+                                Layout.alignment: Qt.AlignHCenter
+                                text: "No matching apps or commands"
+                                weight: Design.weight.semibold
+                            }
+                            Label {
+                                Layout.alignment: Qt.AlignHCenter
+                                text: "Press Enter to run \"" + window.query + "\" as a terminal command"
+                                role: "caption"
+                                dim: true
+                            }
                         }
                     }
-
-                    Badge {
-                        text: rowRect.modelData.cat
-                        tone: rowRect.isSelected ? Design.accent : Design.textDim
-                    }
-                }
-
-                Clickable {
-                    id: rowHover
-                    hoverEnabled: true
-                    onClicked: window.execute(rowRect.modelData)
                 }
             }
         }

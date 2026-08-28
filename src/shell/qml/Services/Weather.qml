@@ -20,7 +20,7 @@ Singleton {
     Process {
         id: fetcher
         running: true
-        command: ["bash", "-c", "curl -s --max-time 4 'https://wttr.in/?format=%t|%C|%l' 2>/dev/null || echo '+21°C|Clear|Local'"]
+        command: ["curl", "-s", "--max-time", "4", "https://wttr.in/?format=%t|%C|%l"]
         stdout: StdioCollector {
             onStreamFinished: {
                 try {

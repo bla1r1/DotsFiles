@@ -90,7 +90,7 @@ PopupShell {
         if (typeof masterWindow !== "undefined") {
             masterWindow.handleIpcCommand("open:settings:keyboard", true);
         } else {
-            Quickshell.execDetached(["qs", "-p", Quickshell.env("HOME") + "/.config/quickshell/Main.qml", "ipc", "call", "main", "open", "settings", "keyboard"]);
+            Quickshell.execDetached(["b1air-shell", "open", "settings", "keyboard"]);
         }
     }
 

@@ -38,6 +38,33 @@ Singleton {
     property int toastTimeoutMs: 5000
     readonly property int unreadCount: history.count
 
+    // Dynamically tracked applications that have sent notifications
+    property var trackedApps: []
+
+    function _recordApp(name, icon) {
+        if (!name) return;
+        let found = false;
+        let list = (root.trackedApps || []).slice();
+        for (let app of list) {
+            if (app.name.toLowerCase() === name.toLowerCase()) {
+                found = true;
+                if (!app.icon && icon) app.icon = icon;
+                break;
+            }
+        }
+        if (!found) {
+            list.push({ name: name, icon: icon || "dialog-information" });
+            root.trackedApps = list;
+        }
+    }
+
+    function isAppMuted(appName) {
+        if (!appName) return false;
+        let rules = Settings.notificationRules || {};
+        let key = appName.toLowerCase().trim();
+        return rules[key] === false;
+    }
+
     function _handleIncoming(notif) {
         const item = {
             id: notif.id,
@@ -50,12 +77,15 @@ Singleton {
             obj: notif
         };
 
+        // Record app to trackedApps list
+        root._recordApp(item.appName, item.icon);
+
         // Add to history
         root.history.insert(0, item);
         if (root.history.count > 50) root.history.remove(50);
 
-        // Show toast popup only if DND is off
-        if (!root.dnd) {
+        // Show toast popup only if DND is off and app is not muted
+        if (!root.dnd && !root.isAppMuted(item.appName)) {
             root.activeToasts.append(item);
         }
     }

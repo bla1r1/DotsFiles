@@ -16,7 +16,7 @@ ColumnLayout {
     Layout.fillWidth: true
     spacing: Design.s(Design.space.lg)
 
-    property var autostartApps: Settings.autostartApps || ["waybar", "polkit", "quickshell", "mako"]
+    property var autostartApps: Settings.autostartApps || ["waybar", "polkit", "quickshell"]
     property var autostartCustom: Settings.autostartCustom || []
     property bool openGuideAtStartup: Settings.openGuideAtStartup || false
     property bool showAppPicker: false

@@ -29,6 +29,35 @@ ColumnLayout {
     readonly property ListModel playerList: ListModel {}
 
     Process {
+        id: defaultDetector
+        running: true
+        command: ["bash", "-c", "echo BROWSER=$(xdg-settings get default-web-browser 2>/dev/null || xdg-mime query default x-scheme-handler/http 2>/dev/null); echo TERM=$(xdg-mime query default x-scheme-handler/terminal 2>/dev/null); echo FM=$(xdg-mime query default inode/directory 2>/dev/null); echo EDIT=$(xdg-mime query default text/plain 2>/dev/null); echo PLAY=$(xdg-mime query default video/mp4 2>/dev/null)"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let lines = this.text.split("\n");
+                for (let line of lines) {
+                    if (line.startsWith("BROWSER=")) {
+                        let v = line.slice(8).trim();
+                        if (v) section.defaultBrowser = v;
+                    } else if (line.startsWith("TERM=")) {
+                        let v = line.slice(5).trim();
+                        if (v) section.defaultTerminal = v;
+                    } else if (line.startsWith("FM=")) {
+                        let v = line.slice(3).trim();
+                        if (v) section.defaultFileManager = v;
+                    } else if (line.startsWith("EDIT=")) {
+                        let v = line.slice(5).trim();
+                        if (v) section.defaultEditor = v;
+                    } else if (line.startsWith("PLAY=")) {
+                        let v = line.slice(5).trim();
+                        if (v) section.defaultPlayer = v;
+                    }
+                }
+            }
+        }
+    }
+
+    Process {
         id: appScanner
         running: true
         command: ["b1air-daemon", "apps", "all"]
@@ -42,9 +71,6 @@ ColumnLayout {
                     section.editorList.clear();
                     section.playerList.clear();
 
-                    // Standard fallbacks if system scan is empty
-                    let bFound = false, tFound = false, fFound = false, eFound = false, pFound = false;
-
                     for (let app of items) {
                         let e = (app.exec || "").toLowerCase();
                         let n = (app.name || "").toLowerCase();
@@ -52,45 +78,19 @@ ColumnLayout {
 
                         if (e.includes("firefox") || e.includes("chrome") || e.includes("chromium") || e.includes("brave") || e.includes("zen") || e.includes("vivaldi") || e.includes("librewolf") || e.includes("floorp") || e.includes("qutebrowser")) {
                             section.browserList.append({ name: app.name, exec: app.exec, desktopFile: app.desktopFile, icon: app.icon });
-                            bFound = true;
                         }
                         if (e.includes("kitty") || e.includes("foot") || e.includes("alacritty") || e.includes("ghostty") || e.includes("wezterm") || e.includes("konsole") || e.includes("xterm")) {
                             section.terminalList.append({ name: app.name, exec: app.exec, desktopFile: app.desktopFile, icon: app.icon });
-                            tFound = true;
                         }
                         if (e.includes("thunar") || e.includes("nautilus") || e.includes("dolphin") || e.includes("nemo") || e.includes("pcmanfm") || e.includes("yazi") || e.includes("ranger")) {
                             section.fileManagerList.append({ name: app.name, exec: app.exec, desktopFile: app.desktopFile, icon: app.icon });
-                            fFound = true;
                         }
-                        if (e.includes("code") || e.includes("cursor") || e.includes("nvim") || e.includes("zed") || e.includes("kate") || e.includes("gedit") || e.includes("micro") || e.includes("sublime")) {
+                        if (e.includes("code") || e.includes("cursor") || e.includes("nvim") || e.includes("vim") || e.includes("zed") || e.includes("kate") || e.includes("gedit") || e.includes("micro") || e.includes("sublime")) {
                             section.editorList.append({ name: app.name, exec: app.exec, desktopFile: app.desktopFile, icon: app.icon });
-                            eFound = true;
                         }
                         if (e.includes("mpv") || e.includes("vlc") || e.includes("spotify") || e.includes("celluloid") || e.includes("audacious")) {
                             section.playerList.append({ name: app.name, exec: app.exec, desktopFile: app.desktopFile, icon: app.icon });
-                            pFound = true;
                         }
-                    }
-
-                    // Pre-populate if empty
-                    if (!bFound) {
-                        section.browserList.append({ name: "Firefox", exec: "firefox", desktopFile: "firefox.desktop", icon: "firefox" });
-                        section.browserList.append({ name: "Chromium", exec: "chromium", desktopFile: "chromium.desktop", icon: "chromium" });
-                    }
-                    if (!tFound) {
-                        section.terminalList.append({ name: "Kitty", exec: "kitty", desktopFile: "kitty.desktop", icon: "kitty" });
-                        section.terminalList.append({ name: "Foot", exec: "foot", desktopFile: "foot.desktop", icon: "foot" });
-                    }
-                    if (!fFound) {
-                        section.fileManagerList.append({ name: "Thunar", exec: "thunar", desktopFile: "thunar.desktop", icon: "thunar" });
-                        section.fileManagerList.append({ name: "Nautilus", exec: "nautilus", desktopFile: "org.gnome.Nautilus.desktop", icon: "org.gnome.Nautilus" });
-                    }
-                    if (!eFound) {
-                        section.editorList.append({ name: "VS Code", exec: "code", desktopFile: "code.desktop", icon: "code" });
-                        section.editorList.append({ name: "Neovim", exec: "nvim", desktopFile: "nvim.desktop", icon: "nvim" });
-                    }
-                    if (!pFound) {
-                        section.playerList.append({ name: "MPV", exec: "mpv", desktopFile: "mpv.desktop", icon: "mpv" });
                     }
                 } catch (err) {}
             }
@@ -150,6 +150,15 @@ ColumnLayout {
         accentColor: Design.sapphire
 
         RowLayout {
+            visible: section.browserList.count === 0
+            Layout.fillWidth: true
+            spacing: Design.s(Design.space.xs)
+            Icon { text: "\u{f071}"; role: "caption"; color: Design.yellow }
+            Label { text: "No web browser installed on system. Install with: sudo pacman -S firefox"; role: "caption"; dim: true }
+        }
+
+        RowLayout {
+            visible: section.browserList.count > 0
             Layout.fillWidth: true
             spacing: Design.s(Design.space.xs)
 
@@ -222,6 +231,15 @@ ColumnLayout {
         accentColor: Design.green
 
         RowLayout {
+            visible: section.terminalList.count === 0
+            Layout.fillWidth: true
+            spacing: Design.s(Design.space.xs)
+            Icon { text: "\u{f071}"; role: "caption"; color: Design.yellow }
+            Label { text: "No terminal emulator installed on system. Install with: sudo pacman -S kitty"; role: "caption"; dim: true }
+        }
+
+        RowLayout {
+            visible: section.terminalList.count > 0
             Layout.fillWidth: true
             spacing: Design.s(Design.space.xs)
 
@@ -294,6 +312,15 @@ ColumnLayout {
         accentColor: Design.peach
 
         RowLayout {
+            visible: section.fileManagerList.count === 0
+            Layout.fillWidth: true
+            spacing: Design.s(Design.space.xs)
+            Icon { text: "\u{f071}"; role: "caption"; color: Design.yellow }
+            Label { text: "No file manager installed on system. Install with: sudo pacman -S thunar"; role: "caption"; dim: true }
+        }
+
+        RowLayout {
+            visible: section.fileManagerList.count > 0
             Layout.fillWidth: true
             spacing: Design.s(Design.space.xs)
 
@@ -366,6 +393,15 @@ ColumnLayout {
         accentColor: Design.mauve
 
         RowLayout {
+            visible: section.editorList.count === 0
+            Layout.fillWidth: true
+            spacing: Design.s(Design.space.xs)
+            Icon { text: "\u{f071}"; role: "caption"; color: Design.yellow }
+            Label { text: "No GUI text editor installed on system. Install with: sudo pacman -S code (or vim)"; role: "caption"; dim: true }
+        }
+
+        RowLayout {
+            visible: section.editorList.count > 0
             Layout.fillWidth: true
             spacing: Design.s(Design.space.xs)
 
@@ -438,6 +474,15 @@ ColumnLayout {
         accentColor: Design.teal
 
         RowLayout {
+            visible: section.playerList.count === 0
+            Layout.fillWidth: true
+            spacing: Design.s(Design.space.xs)
+            Icon { text: "\u{f071}"; role: "caption"; color: Design.yellow }
+            Label { text: "No media player installed on system. Install with: sudo pacman -S mpv"; role: "caption"; dim: true }
+        }
+
+        RowLayout {
+            visible: section.playerList.count > 0
             Layout.fillWidth: true
             spacing: Design.s(Design.space.xs)
 

@@ -27,9 +27,39 @@ ColumnLayout {
     })
 
     property string daemonCmd: Quickshell.env("HOME") + "/.local/bin/b1air-daemon"
+    property var availableShells: []
 
     function loadUserInfo() {
         userInfoProcess.running = true;
+    }
+
+    Process {
+        id: shellsScanner
+        command: ["cat", "/etc/shells"]
+        running: true
+        stdout: StdioCollector {
+            onStreamFinished: {
+                let lines = this.text.split("\n");
+                let list = [];
+                let seenNames = {};
+                for (let line of lines) {
+                    line = line.trim();
+                    if (!line || line.startsWith("#")) continue;
+                    if (line.includes("git-shell") || line.includes("nologin") || line.includes("false") || line.includes("rbash") || line.includes("systemd-home"))
+                        continue;
+                    let parts = line.split("/");
+                    let baseName = parts[parts.length - 1];
+                    if (!seenNames[baseName]) {
+                        seenNames[baseName] = true;
+                        list.push({ label: baseName, path: line });
+                    }
+                }
+                if (list.length === 0) {
+                    list = [{ label: "bash", path: "/bin/bash" }];
+                }
+                section.availableShells = list;
+            }
+        }
     }
 
     Process {
@@ -47,7 +77,9 @@ ColumnLayout {
         }
     }
 
-    Component.onCompleted: loadUserInfo()
+    Component.onCompleted: {
+        loadUserInfo();
+    }
 
     // ── 1. Header ────────────────────────────────────────────────────────────
     SectionLabel {
@@ -159,37 +191,15 @@ ColumnLayout {
                     }
                 }
 
-                Rectangle {
+                Field {
+                    id: nameField
                     Layout.preferredWidth: Design.s(220)
-                    Layout.preferredHeight: Design.s(Design.size.action)
-                    radius: Design.s(Design.radius.ctl)
-                    color: Design.surface
-                    border.color: nameInput.activeFocus ? Design.accent : Design.border
-                    border.width: 1
-
-                    TextInput {
-                        id: nameInput
-                        anchors.fill: parent
-                        anchors.margins: Design.s(8)
-                        color: Design.text
-                        text: section.userInfo.name || ""
-                        verticalAlignment: TextInput.AlignVCenter
-                        selectByMouse: true
-                        font.pixelSize: Design.s(Design.font.body)
-
-                        Text {
-                            text: "Enter full name..."
-                            color: Design.textDim
-                            visible: !nameInput.text && !nameInput.activeFocus
-                            anchors.fill: parent
-                            font: nameInput.font
-                        }
-
-                        onAccepted: {
-                            if (text.trim().length > 0) {
-                                Quickshell.execDetached([section.daemonCmd, "user", "set-name", text.trim()]);
-                                section.loadUserInfo();
-                            }
+                    text: section.userInfo.name || ""
+                    placeholder: "Enter full name..."
+                    onCommitted: v => {
+                        if (v.trim().length > 0) {
+                            Quickshell.execDetached([section.daemonCmd, "user", "set-name", v.trim()]);
+                            section.loadUserInfo();
                         }
                     }
                 }
@@ -199,8 +209,8 @@ ColumnLayout {
                     label: "Save"
                     tone: Design.sapphire
                     onActivated: {
-                        if (nameInput.text.trim().length > 0) {
-                            Quickshell.execDetached([section.daemonCmd, "user", "set-name", nameInput.text.trim()]);
+                        if (nameField.text.trim().length > 0) {
+                            Quickshell.execDetached([section.daemonCmd, "user", "set-name", nameField.text.trim()]);
                             section.loadUserInfo();
                         }
                     }
@@ -232,18 +242,20 @@ ColumnLayout {
                     }
                 }
 
-                ComboBox {
-                    id: shellCombo
-                    Layout.preferredWidth: Design.s(180)
-                    model: ["/usr/bin/fish", "/bin/bash", "/bin/zsh"]
-                    currentIndex: {
-                        let idx = model.indexOf(section.userInfo.shell);
-                        return idx >= 0 ? idx : 0;
-                    }
-                    onActivated: {
-                        let chosen = model[currentIndex];
-                        Quickshell.execDetached([section.daemonCmd, "user", "set-shell", chosen]);
-                        section.loadUserInfo();
+                RowLayout {
+                    spacing: Design.s(Design.space.xs)
+
+                    Repeater {
+                        model: section.availableShells
+
+                        Pill {
+                            label: modelData.label
+                            active: section.userInfo.shell && (section.userInfo.shell === modelData.path || section.userInfo.shell.endsWith("/" + modelData.label))
+                            onClicked: {
+                                Quickshell.execDetached([section.daemonCmd, "user", "set-shell", modelData.path]);
+                                section.loadUserInfo();
+                            }
+                        }
                     }
                 }
             }

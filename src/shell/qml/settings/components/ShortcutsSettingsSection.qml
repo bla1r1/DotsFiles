@@ -126,14 +126,16 @@ ColumnLayout {
     Repeater {
         model: section.categories
         delegate: ColumnLayout {
+            id: catCol
+            required property var modelData
             Layout.fillWidth: true
             spacing: Design.s(Design.space.sm)
             visible: categoryItems.count > 0
 
             Card {
-                title: modelData.title
-                icon: modelData.icon
-                accentColor: modelData.color
+                title: catCol.modelData.title
+                icon: catCol.modelData.icon
+                accentColor: catCol.modelData.color
 
                 ColumnLayout {
                     Layout.fillWidth: true
@@ -142,7 +144,7 @@ ColumnLayout {
                     Repeater {
                         id: categoryItems
                         model: {
-                            var items = modelData.items;
+                            var items = catCol.modelData.items;
                             if (!section.query) return items;
                             return items.filter(function(item) {
                                 return item.key.toLowerCase().indexOf(section.query) !== -1 ||
@@ -160,7 +162,7 @@ ColumnLayout {
                                 Layout.preferredHeight: Design.s(28)
                                 radius: Design.s(Design.radius.pill)
                                 color: Design.raised
-                                border.color: Design.tint(modelData.color, 0.4)
+                                border.color: Design.tint(catCol.modelData.color || Design.accent, 0.4)
                                 border.width: 1
 
                                 Label {
@@ -168,7 +170,7 @@ ColumnLayout {
                                     text: modelData.key
                                     role: "caption"
                                     weight: Design.weight.semibold
-                                    color: modelData.color
+                                    color: catCol.modelData.color || Design.accent
                                 }
                             }
 

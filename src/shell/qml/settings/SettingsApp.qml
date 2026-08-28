@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls
 import Quickshell
 import "../Ui"
 import "../Services"
@@ -27,37 +28,71 @@ import "components" as Sections
 PopupShell {
     id: app
 
-    Component.onCompleted: if (!app.page) app.page = "user"
+    property string searchQuery: ""
+
+    Component.onCompleted: if (!app.page) app.page = "monitors"
 
     readonly property var pages: [
-        { id: "user",        icon: "\u{f007}",  label: "User Profile",     color: Design.mauve },
-        { id: "interface",   icon: "\u{f0b60}", label: "Interface",        color: Design.blue },
-        { id: "windows",     icon: "\u{f0379}", label: "Window & Gaps",    color: Design.sapphire },
-        { id: "appearance",  icon: "\u{f0376}", label: "Appearance",       color: Design.mauve },
-        { id: "monitors",    icon: "\u{f0379}", label: "Displays",         color: Design.sapphire },
-        { id: "bar",         icon: "\u{f07e}",  label: "Top Bar (Waybar)", color: Design.blue },
-        { id: "capture",     icon: "\u{f016d}", label: "Screenshots",      color: Design.pink },
-        { id: "defaultapps", icon: "\u{f0ac}",  label: "Default Apps",     color: Design.teal },
-        { id: "gamemode",    icon: "\u{f11b}",  label: "Game Mode",        color: Design.red },
-        { id: "maintenance", icon: "\u{f0187}", label: "Maintenance",      color: Design.green },
-        { id: "nightlight",  icon: "\u{f0599}", label: "Night Light",      color: Design.yellow },
-        { id: "network",     icon: "\u{f0928}", label: "Network",          color: Design.lavender },
-        { id: "remote",      icon: "\u{f0379}", label: "Remote Desktop",   color: Design.blue },
-        { id: "bluetooth",   icon: "\u{f00af}", label: "Bluetooth",        color: Design.mauve },
-        { id: "audio",       icon: "\u{f057e}", label: "Sound",            color: Design.teal },
-        { id: "power",       icon: "\u{f0084}", label: "Power & Sleep",    color: Design.green },
-        { id: "focus",       icon: "\u{f051e}", label: "Screen Time",      color: Design.teal },
-        { id: "input",       icon: "\u{f0523}", label: "Mouse & Touchpad", color: Design.peach },
-        { id: "keyboard",    icon: "\u{f030c}", label: "Keyboard",         color: Design.peach },
-        { id: "shortcuts",   icon: "\u{f11c}",  label: "Shortcuts",        color: Design.sapphire },
-        { id: "wallpaper",   icon: "\u{f02ca}", label: "Wallpaper",        color: Design.pink },
-        { id: "startup",     icon: "\u{f0459}", label: "Startup",          color: Design.yellow },
-        { id: "weather",     icon: "\u{f0590}", label: "Weather",          color: Design.sapphire },
-        { id: "about",       icon: "\u{f035b}", label: "About & Health",   color: Design.mauve }
+        // ── Hardware & Connectivity ───────────────────────────────────────────
+        { isHeader: true, label: "HARDWARE & NETWORK" },
+        { id: "monitors",    icon: "\u{f0379}", label: "Displays",         color: Design.sapphire, tags: "display resolution refresh rate scaling monitor screen mirror hdr" },
+        { id: "audio",       icon: "\u{f057e}", label: "Sound & Volume",   color: Design.teal,     tags: "sound volume sink source mic microphone devices wireplumber equalizer audio output input" },
+        { id: "network",     icon: "\u{f0928}", label: "Network & Wi-Fi",  color: Design.lavender, tags: "wifi internet connection ethernet ssid ip address vpn network" },
+        { id: "bluetooth",   icon: "\u{f00af}", label: "Bluetooth",        color: Design.mauve,    tags: "bluetooth bt pair devices headset connect mouse keyboard controller" },
+        { id: "power",       icon: "\u{f0084}", label: "Power & Battery",  color: Design.green,    tags: "battery sleep suspend hibernate timeout brightness charge energy power" },
+
+        // ── Personalization & Workspace ───────────────────────────────────────
+        { isHeader: true, label: "PERSONALIZATION" },
+        { id: "appearance",  icon: "\u{f0376}", label: "Appearance",       color: Design.mauve,    tags: "theme dark light catppuccin colors font gtk icons cursor style" },
+        { id: "wallpaper",   icon: "\u{f02ca}", label: "Wallpaper",        color: Design.pink,     tags: "background wallpaper pictures desktop image slideshow photos" },
+        { id: "bar",         icon: "\u{f07e}",  label: "Top Bar (Waybar)", color: Design.blue,     tags: "waybar top bar panel position modules icons style" },
+        { id: "interface",   icon: "\u{f0b60}", label: "Interface Scale",  color: Design.blue,     tags: "scale ui dpi zoom layout font size text" },
+        { id: "windows",     icon: "\u{f0379}", label: "Window & Gaps",    color: Design.sapphire, tags: "gaps border padding tiling sway layout corners blur opacity" },
+        { id: "nightlight",  icon: "\u{f0599}", label: "Night Light",      color: Design.yellow,   tags: "night light wlsunset blue light temperature schedule eye protect" },
+
+        // ── Input & Navigation ────────────────────────────────────────────────
+        { isHeader: true, label: "INPUT & SHORTCUTS" },
+        { id: "keyboard",    icon: "\u{f030c}", label: "Keyboard",         color: Design.peach,    tags: "keyboard layout switch xkb remap shortcuts language input sources alt shift" },
+        { id: "input",       icon: "\u{f0523}", label: "Mouse & Touchpad", color: Design.peach,    tags: "mouse touchpad sensitivity scroll tap acceleration natural pointer click" },
+        { id: "shortcuts",   icon: "\u{f11c}",  label: "Shortcuts",        color: Design.sapphire, tags: "shortcuts keybinds keys hotkeys sway bindings commands" },
+
+        // ── Applications & Focus ──────────────────────────────────────────────
+        { isHeader: true, label: "APPS & FOCUS" },
+        { id: "defaultapps", icon: "\u{f0ac}",  label: "Default Apps",     color: Design.teal,     tags: "default applications browser terminal file manager editor mime types" },
+        { id: "focus",       icon: "\u{f051e}", label: "Screen Time & DND",color: Design.teal,     tags: "screen time dnd do not disturb timer notifications focus pomodoro analytics" },
+        { id: "startup",     icon: "\u{f0459}", label: "Startup Apps",     color: Design.yellow,   tags: "startup autostart boot launch apps systemd login" },
+        { id: "capture",     icon: "\u{f016d}", label: "Screenshots",      color: Design.pink,     tags: "screenshot capture grim slurp record screen area video gif" },
+        { id: "weather",     icon: "\u{f0590}", label: "Weather",          color: Design.sapphire, tags: "weather temperature forecast location open-meteo city climate" },
+        { id: "gamemode",    icon: "\u{f11b}",  label: "Game Mode",        color: Design.red,      tags: "game mode performance vr fstrim process priority latency boost" },
+
+        // ── System & Administration ───────────────────────────────────────────
+        { isHeader: true, label: "SYSTEM" },
+        { id: "user",        icon: "\u{f007}",  label: "User Profile",     color: Design.mauve,    tags: "user profile avatar name username password account hostname" },
+        { id: "remote",      icon: "\u{f0379}", label: "Remote Desktop",   color: Design.blue,     tags: "remote desktop vnc rdp ssh anydesk screen sharing wayvnc" },
+        { id: "maintenance", icon: "\u{f0187}", label: "Maintenance",      color: Design.green,    tags: "maintenance clean disk cache logs cleanup packages pacman trim system" },
+        { id: "about",       icon: "\u{f035b}", label: "About System",     color: Design.mauve,    tags: "about system version kernel arch sway quickshell specs hardware cpu ram" }
     ]
 
+    readonly property var filteredPages: {
+        const q = app.searchQuery.trim().toLowerCase();
+        if (!q) return app.pages;
+        return app.pages.filter(p => {
+            if (p.isHeader) return false;
+            return (p.label && p.label.toLowerCase().includes(q)) ||
+                   (p.id && p.id.toLowerCase().includes(q)) ||
+                   (p.tags && p.tags.toLowerCase().includes(q));
+        });
+    }
+
+    onSearchQueryChanged: {
+        const list = app.filteredPages;
+        if (list.length > 0 && !list.some(p => p.id === app.page)) {
+            app.page = list[0].id;
+        }
+    }
+
     function open(id) {
-        if (app.pages.some(p => p.id === id))
+        if (app.pages.some(p => !p.isHeader && p.id === id))
             app.page = id;
     }
 
@@ -68,8 +103,8 @@ PopupShell {
         // ── Rail ─────────────────────────────────────────────────────────────
         ColumnLayout {
             Layout.fillHeight: true
-            Layout.preferredWidth: Design.s(180)
-            Layout.maximumWidth: Design.s(180)
+            Layout.preferredWidth: Design.s(210)
+            Layout.maximumWidth: Design.s(210)
             spacing: Design.s(Design.space.xs)
 
             // Brand Header
@@ -91,55 +126,150 @@ PopupShell {
                 }
             }
 
+            // Search Capsule
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: Design.s(32)
+                radius: Design.s(Design.radius.ctl)
+                color: Design.sunken
+                border.color: searchBox.activeFocus ? Design.accent : Design.glassBorder
+                border.width: 1
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.leftMargin: Design.s(8)
+                    anchors.rightMargin: Design.s(8)
+                    spacing: Design.s(6)
+
+                    Icon {
+                        text: "\u{f002}"
+                        role: "caption"
+                        color: searchBox.activeFocus ? Design.accent : Design.textDim
+                    }
+
+                    TextInput {
+                        id: searchBox
+                        Layout.fillWidth: true
+                        text: app.searchQuery
+                        color: Design.text
+                        font.pixelSize: Design.s(12)
+                        selectByMouse: true
+                        onTextChanged: {
+                            if (app.searchQuery !== text)
+                                app.searchQuery = text;
+                        }
+                        Binding {
+                            target: searchBox
+                            property: "text"
+                            value: app.searchQuery
+                        }
+                        Keys.onEscapePressed: {
+                            app.searchQuery = "";
+                            text = "";
+                        }
+
+                        Text {
+                            anchors.fill: parent
+                            text: "Search settings..."
+                            color: Design.textDim
+                            font: parent.font
+                            visible: !parent.text && !parent.activeFocus
+                        }
+                    }
+
+                    Icon {
+                        text: "\u{f00d}"
+                        role: "caption"
+                        color: Design.textDim
+                        visible: app.searchQuery.length > 0
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                app.searchQuery = "";
+                                searchBox.text = "";
+                            }
+                        }
+                    }
+                }
+            }
+
             // Category Items List
             ListView {
                 id: railList
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                model: app.pages
+                model: app.filteredPages
                 clip: true
                 spacing: Design.s(2)
+                ScrollBar.vertical: ScrollBar {
+                    policy: railList.contentHeight > railList.height ? ScrollBar.AlwaysOn : ScrollBar.AsNeeded
+                }
 
-                delegate: Rectangle {
-                    id: railItem
+                delegate: Item {
+                    id: railDelegate
                     required property var modelData
                     required property int index
 
                     width: railList.width
-                    height: Design.s(34)
-                    radius: Design.s(Design.radius.ctl)
+                    height: modelData.isHeader ? Design.s(24) : Design.s(32)
 
-                    readonly property bool isActive: app.page === railItem.modelData.id
-                    color: railItem.isActive
-                        ? Design.raised
-                        : (itemMa.containsMouse ? Design.sunken : "transparent")
-
-                    Behavior on color { ColorAnimation { duration: Design.duration.fast } }
-
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: Design.s(Design.space.sm)
-                        anchors.rightMargin: Design.s(Design.space.sm)
-                        spacing: Design.s(Design.space.sm)
-
-                        Icon {
-                            text: railItem.modelData.icon
-                            role: "body"
-                            color: railItem.isActive ? railItem.modelData.color : Design.textDim
-                        }
-
-                        Label {
-                            text: railItem.modelData.label
-                            weight: railItem.isActive ? Design.weight.semibold : Design.weight.regular
-                            color: railItem.isActive ? Design.text : Design.textDim
-                            Layout.fillWidth: true
-                            elide: Text.ElideRight
-                        }
+                    // Section Category Header
+                    Label {
+                        visible: railDelegate.modelData.isHeader === true
+                        anchors.left: parent.left
+                        anchors.leftMargin: Design.s(Design.space.xs)
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: Design.s(2)
+                        text: railDelegate.modelData.label || ""
+                        role: "caption"
+                        font.pixelSize: Design.s(10)
+                        weight: Design.weight.bold
+                        color: Design.textFaint
                     }
 
-                    Clickable {
-                        id: itemMa
-                        onClicked: app.open(railItem.modelData.id)
+                    // Interactive Nav Button
+                    Rectangle {
+                        visible: !railDelegate.modelData.isHeader
+                        anchors.fill: parent
+                        radius: Design.s(Design.radius.ctl)
+
+                        readonly property bool isActive: app.page === railDelegate.modelData.id
+                        color: isActive
+                            ? Design.tint(railDelegate.modelData.color || Design.accent, 0.16)
+                            : (itemMa.containsMouse ? Design.glassHover : "transparent")
+                        border.color: isActive
+                            ? Design.tint(railDelegate.modelData.color || Design.accent, 0.35)
+                            : "transparent"
+                        border.width: 1
+
+                        Behavior on color { ColorAnimation { duration: Design.duration.fast } }
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: Design.s(Design.space.sm)
+                            anchors.rightMargin: Design.s(Design.space.sm)
+                            spacing: Design.s(Design.space.sm)
+
+                            Icon {
+                                text: railDelegate.modelData.icon || ""
+                                role: "body"
+                                color: parent.parent.isActive ? (railDelegate.modelData.color || Design.accent) : Design.textDim
+                            }
+
+                            Label {
+                                text: railDelegate.modelData.label || ""
+                                weight: parent.parent.isActive ? Design.weight.bold : Design.weight.regular
+                                color: parent.parent.isActive ? Design.text : Design.textDim
+                                Layout.fillWidth: true
+                                elide: Text.ElideRight
+                            }
+                        }
+
+                        Clickable {
+                            id: itemMa
+                            onClicked: app.open(railDelegate.modelData.id)
+                        }
                     }
                 }
             }
@@ -163,17 +293,18 @@ PopupShell {
         }
 
         // ── Page Scroll Container ────────────────────────────────────────────
-        Flickable {
+        // ── Page Scroll Container ────────────────────────────────────────────
+        ScrollView {
             id: pageScroll
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
-            contentWidth: pageCol.implicitWidth
-            contentHeight: pageCol.implicitHeight
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
             ColumnLayout {
                 id: pageCol
-                width: pageScroll.width
+                width: pageScroll.availableWidth
                 spacing: Design.s(Design.space.lg)
 
                 Sections.UserSettingsSection {
@@ -182,6 +313,7 @@ PopupShell {
                 }
 
                 Sections.InterfaceSettingsSection {
+                    Layout.fillWidth: true
                     visible: app.page === "interface"
                     uiScale: Settings.uiScale
                     workspaceCount: Settings.workspaceCount
@@ -195,12 +327,12 @@ PopupShell {
                 }
 
                 Sections.AppearanceSettingsSection {
-                    Layout.preferredWidth: pageScroll.availableWidth
+                    Layout.fillWidth: true
                     visible: app.page === "appearance"
                 }
 
                 Sections.MonitorSettingsSection {
-                    Layout.preferredWidth: pageScroll.availableWidth
+                    Layout.fillWidth: true
                     visible: app.page === "monitors"
                 }
 
@@ -230,27 +362,27 @@ PopupShell {
                 }
 
                 Sections.NightLightSettingsSection {
-                    Layout.preferredWidth: pageScroll.availableWidth
+                    Layout.fillWidth: true
                     visible: app.page === "nightlight"
                 }
 
                 Sections.NetworkSettingsSection {
-                    Layout.preferredWidth: pageScroll.availableWidth
+                    Layout.fillWidth: true
                     visible: app.page === "network"
                 }
 
                 Sections.RemoteSettingsSection {
-                    Layout.preferredWidth: pageScroll.availableWidth
+                    Layout.fillWidth: true
                     visible: app.page === "remote"
                 }
 
                 Sections.BluetoothSettingsSection {
-                    Layout.preferredWidth: pageScroll.availableWidth
+                    Layout.fillWidth: true
                     visible: app.page === "bluetooth"
                 }
 
                 Sections.AudioSettingsSection {
-                    Layout.preferredWidth: pageScroll.availableWidth
+                    Layout.fillWidth: true
                     visible: app.page === "audio"
                 }
 

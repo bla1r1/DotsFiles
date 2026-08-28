@@ -65,17 +65,44 @@ Singleton {
     readonly property var streamNodes: Pipewire.nodes.values.filter(n => n.isStream)
 
     PwObjectTracker {
-        objects: root._tracking
-            ? root.sinkNodes.concat(root.sourceNodes, root.streamNodes,
-                                    [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource])
-            : []
+        objects: [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource].filter(Boolean).concat(
+            root._tracking ? root.sinkNodes.concat(root.sourceNodes, root.streamNodes) : []
+        )
     }
+
+    readonly property var rawSink: Pipewire.defaultAudioSink
+    readonly property var rawSource: Pipewire.defaultAudioSource
+
+    readonly property real volume: (rawSink && rawSink.audio) ? rawSink.audio.volume : 0.0
+    readonly property int volumePercent: Math.round(root.volume * 100)
+    readonly property bool muted: (rawSink && rawSink.audio) ? rawSink.audio.muted : false
+
+    onVolumeChanged: root._rebuild()
+    onMutedChanged: root._rebuild()
 
     // ── Writes ───────────────────────────────────────────────────────────────
     // `type` is still "sink" | "source" | "sink-input" so callers do not change.
 
     function _node(id) {
         return Pipewire.nodes.values.find(n => String(n.id) === String(id)) || null;
+    }
+
+    function setMasterVolume(pct) {
+        if (root.rawSink && root.rawSink.audio) {
+            if (pct > 0 && root.rawSink.audio.muted)
+                root.rawSink.audio.muted = false;
+            root.rawSink.audio.volume = Math.max(0, Math.min(150, pct)) / 100;
+        } else {
+            Quickshell.execDetached(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", (pct / 100).toFixed(2)]);
+        }
+    }
+
+    function toggleMasterMute() {
+        if (root.rawSink && root.rawSink.audio) {
+            root.rawSink.audio.muted = !root.rawSink.audio.muted;
+        } else {
+            Quickshell.execDetached(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"]);
+        }
     }
 
     function setVolume(type, id, pct) {
@@ -90,14 +117,7 @@ Singleton {
             n.audio.muted = !n.audio.muted;
     }
 
-    readonly property bool masterMute: root.defaultSink ? root.defaultSink.mute : false
-    function toggleMasterMute() {
-        if (root.defaultSink) {
-            root.toggleMute("sink", root.defaultSink.id);
-        } else {
-            Quickshell.execDetached(["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"]);
-        }
-    }
+    readonly property bool masterMute: root.muted
 
     function setDefault(type, name) {
         // Choosing a default is wirePlumber policy, not a node property, and
@@ -165,8 +185,8 @@ Singleton {
             id: String(n.id),
             name: n.name || "",
             description: n.nickname || n.description || n.name || "",
-            volume: n.audio ? Math.round(n.audio.volume * 100) : 0,
-            mute: n.audio ? n.audio.muted : false,
+            volume: isDefault ? root.volumePercent : (n.audio ? Math.round(n.audio.volume * 100) : 0),
+            mute: isDefault ? root.muted : (n.audio ? n.audio.muted : false),
             is_default: !!isDefault,
             disabled: root.isDeviceDisabled(n.name || ""),
             icon: n.isSink ? "\u{f057e}" : "\u{f036c}"

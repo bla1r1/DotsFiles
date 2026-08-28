@@ -29,34 +29,8 @@ PopupShell {
         return true;
     }
 
-    function openFull(name) {
-        Quickshell.execDetached(["qs", "-p", center.configDir + "/Main.qml",
-                                 "ipc", "call", "main", "open", name, ""]);
-    }
-
-    // ── Do Not Disturb ───────────────────────────────────────────────────────
-    // The flag lives in ~/.cache/qs_dnd, which NotificationPopups reads. It was
-    // written but never read back, so the tile showed "Off" every time the panel
-    // opened, whatever notifications were actually doing.
-    property bool dnd: false
-    property bool _dndLoaded: false
-
-    Process {
-        running: true
-        command: ["sh", "-c", "cat ~/.cache/qs_dnd 2>/dev/null"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                center.dnd = this.text.trim() === "1";
-                center._dndLoaded = true;
-            }
-        }
-    }
-
-    onDndChanged: {
-        if (!center._dndLoaded)
-            return;
-        Quickshell.execDetached(["sh", "-c",
-            "mkdir -p ~/.cache && echo '" + (dnd ? "1" : "0") + "' > ~/.cache/qs_dnd"]);
+    function openFull(name, section) {
+        Quickshell.execDetached(["b1air-shell", "open", name, section || ""]);
     }
 
     // ── Tile geometry ────────────────────────────────────────────────────────
@@ -338,7 +312,7 @@ PopupShell {
             QuickTile {
                 id: screenTile
                 Layout.fillWidth: true
-                Layout.columnSpan: center.spanOf(screenTile)
+                Layout.columnSpan: 1
                 glyph: "\u{f016d}"
                 title: "Screenshot"
                 on: false
@@ -350,6 +324,24 @@ PopupShell {
                 onActivated: {
                     center.close();
                     Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/b1air-daemon", "screenshot", "area"]);
+                }
+            }
+
+            QuickTile {
+                id: pickerTile
+                Layout.fillWidth: true
+                Layout.columnSpan: 1
+                glyph: "\u{f0592}"
+                title: "Color Dropper"
+                on: false
+                circleToggles: false
+                activeColor: Design.sapphire
+                glyphTone: Design.sapphire
+                detail: "Pick from screen"
+                trailingGlyph: ""
+                onActivated: {
+                    center.close();
+                    Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/b1air-daemon", "color-picker"]);
                 }
             }
         }
@@ -373,24 +365,21 @@ PopupShell {
             // No sink, no slider. A volume control with nothing behind it is a
             // dead control, not information.
             RowLayout {
-                visible: Audio.defaultSink !== null
+                visible: Audio.rawSink !== null || Audio.hasAudio
                 Layout.fillWidth: true
                 spacing: Design.s(Design.space.xs)
 
                 Slider {
                     Layout.fillWidth: true
                     Layout.preferredHeight: Design.s(Design.size.ctl)
-                    value: Audio.defaultSink ? Audio.defaultSink.volume : 0
-                    muted: Audio.defaultSink ? Audio.defaultSink.mute : false
+                    value: Audio.volumePercent
+                    muted: Audio.muted
                     tone: Design.sapphire
-                    icon: (Audio.defaultSink && Audio.defaultSink.mute) ? "\u{f075f}" : "\u{f057f}"
+                    icon: Audio.muted ? "\u{f075f}" : "\u{f057f}"
                     label: "Volume"
                     iconClickable: true
-                    // Audio.toggleMute / setVolume take (type, id, …). Called
-                    // with the device object they resolved no node at all, so
-                    // this slider moved and nothing happened.
-                    onIconClicked: if (Audio.defaultSink) Audio.toggleMute("sink", Audio.defaultSink.id)
-                    onMoved: pct => Audio.applyVolume("sink", Audio.defaultSink, pct)
+                    onIconClicked: Audio.toggleMasterMute()
+                    onMoved: pct => Audio.setMasterVolume(pct)
                 }
 
                 Rectangle {
@@ -631,28 +620,28 @@ PopupShell {
         anchors.fill: parent
         visible: center.currentView === "wifi"
         onBackClicked: center.currentView = "main"
-        onOpenFullSettings: center.openFull("settings")
+        onOpenFullSettings: center.openFull("settings", "network")
     }
 
     BluetoothMiniView {
         anchors.fill: parent
         visible: center.currentView === "bluetooth"
         onBackClicked: center.currentView = "main"
-        onOpenFullSettings: center.openFull("settings")
+        onOpenFullSettings: center.openFull("settings", "bluetooth")
     }
 
     SoundMiniView {
         anchors.fill: parent
         visible: center.currentView === "sound"
         onBackClicked: center.currentView = "main"
-        onOpenFullSettings: center.openFull("settings")
+        onOpenFullSettings: center.openFull("settings", "audio")
     }
 
     PowerMiniView {
         anchors.fill: parent
         visible: center.currentView === "power"
         onBackClicked: center.currentView = "main"
-        onOpenFullSettings: center.openFull("settings")
+        onOpenFullSettings: center.openFull("settings", "power")
     }
 
     NotificationsMiniView {

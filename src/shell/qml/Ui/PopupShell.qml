@@ -51,7 +51,11 @@ Item {
 
     // Every popup rebuilt this call with its own path juggling.
     function close() {
-        Quickshell.execDetached(["qs", "-p", root.configDir + "/Main.qml", "ipc", "call", "main", "close"]);
+        if (typeof masterWindow !== "undefined" && masterWindow.handleIpcCommand) {
+            masterWindow.handleIpcCommand("close", true);
+        } else {
+            Quickshell.execDetached(["b1air-shell", "close"]);
+        }
     }
 
     // A shell with pages needs Escape to mean "back" before it means "close".

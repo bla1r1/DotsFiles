@@ -9,26 +9,34 @@ import QtQuick
 //   Badge { text: "NEW UPDATE AVAILABLE"; tone: Design.ok }
 // =============================================================================
 
-Rectangle {
+Item {
     id: root
 
     property alias text: label.text
     property color tone: Design.accent
+    property alias color: root.tone
 
-    implicitWidth: label.implicitWidth + Design.s(Design.space.xl)
-    implicitHeight: label.implicitHeight + Design.s(Design.space.md)
+    implicitWidth: bg.implicitWidth
+    implicitHeight: bg.implicitHeight
 
-    radius: height / 2
-    color: Design.tint(root.tone, 0.15)
-    border.color: Design.tint(root.tone, 0.35)
-    border.width: 1
+    Rectangle {
+        id: bg
+        anchors.fill: parent
+        implicitWidth: label.implicitWidth + Design.s(Design.space.xl)
+        implicitHeight: label.implicitHeight + Design.s(Design.space.md)
 
-    Text {
-        id: label
-        anchors.centerIn: parent
-        font.family: Design.font.mono
-        font.weight: Design.weight.bold
-        font.pixelSize: Design.s(Design.font.caption)
-        color: root.tone
+        radius: height / 2
+        color: Design.tint(root.tone, 0.18)
+        border.color: Design.tint(root.tone, 0.40)
+        border.width: 1
+
+        Text {
+            id: label
+            anchors.centerIn: parent
+            font.family: Design.font.mono
+            font.weight: Design.weight.bold
+            font.pixelSize: Design.s(Design.font.caption)
+            color: root.tone
+        }
     }
 }

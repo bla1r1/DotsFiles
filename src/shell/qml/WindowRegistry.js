@@ -36,7 +36,7 @@ function getLayout(name, mx, my, mw, mh, userScale) {
         "battery":   { w: s(390, scale), h: s(580, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
         "volume":    { w: s(390, scale), h: s(580, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
         "network":   { w: s(390, scale), h: s(580, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "calendar":  { w: s(1450, scale), h: s(750, scale), rx: Math.floor((mw/2)-(s(1450, scale)/2)), ry: s(70, scale), comp: "calendar/CalendarPopup.qml" },
+        "calendar":  { w: s(860, scale), h: s(480, scale), rx: Math.floor((mw/2)-(s(860, scale)/2)), ry: s(75, scale), comp: "calendar/CalendarPopup.qml" },
         "music":     { w: s(700, scale), h: s(620, scale), rx: s(12, scale), ry: s(58, scale), comp: "music/MusicPopup.qml" },
         "audioFull":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
         "powerFull":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
@@ -54,10 +54,16 @@ function getLayout(name, mx, my, mw, mh, userScale) {
         "updater":   { w: s(520, scale), h: s(400, scale), rx: Math.floor((mw/2)-(s(520, scale)/2)), ry: Math.floor((mh/2)-(s(400, scale)/2)), comp: "updater/UpdaterPopup.qml" },
         "session":   { w: s(680, scale), h: s(280, scale), rx: Math.floor((mw/2)-(s(680, scale)/2)), ry: Math.floor((mh/2)-(s(280, scale)/2)), comp: "session/SessionMenu.qml" },
         "keyboard":  { w: s(250, scale), h: s(170, scale), rx: mw - s(330, scale), ry: s(58, scale), comp: "keyboard/KeyboardPopup.qml" },
-        "launcher":  { w: s(640, scale), h: s(440, scale), rx: Math.floor((mw/2)-(s(640, scale)/2)), ry: s(120, scale), comp: "launcher/SpotlightLauncher.qml" },
-        "switcher":  { w: s(760, scale), h: s(240, scale), rx: Math.floor((mw/2)-(s(760, scale)/2)), ry: Math.floor((mh/2)-(s(240, scale)/2)), comp: "switcher/WindowSwitcher.qml" },
+        "spotlight": { w: s(660, scale), h: s(460, scale), rx: Math.floor((mw/2)-(s(660, scale)/2)), ry: Math.floor((mh/2)-(s(460, scale)/2)), comp: "launcher/SpotlightLauncher.qml" },
+        "launchpad": { w: s(820, scale), h: s(540, scale), rx: Math.floor((mw/2)-(s(820, scale)/2)), ry: Math.floor((mh/2)-(s(540, scale)/2)), comp: "launcher/Launchpad.qml" },
+        "launcher":  { w: s(820, scale), h: s(540, scale), rx: Math.floor((mw/2)-(s(820, scale)/2)), ry: Math.floor((mh/2)-(s(540, scale)/2)), comp: "launcher/Launchpad.qml" },
+        "menu":      { w: s(820, scale), h: s(540, scale), rx: Math.floor((mw/2)-(s(820, scale)/2)), ry: Math.floor((mh/2)-(s(540, scale)/2)), comp: "launcher/Launchpad.qml" },
         "emoji":     { w: s(480, scale), h: s(440, scale), rx: Math.floor((mw/2)-(s(480, scale)/2)), ry: Math.floor((mh/2)-(s(440, scale)/2)), comp: "emoji/EmojiPickerPopup.qml" },
         "settings":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
+        "zones":     { w: s(760, scale), h: s(520, scale), rx: Math.floor((mw/2)-(s(760, scale)/2)), ry: Math.floor((mh/2)-(s(520, scale)/2)), comp: "zones/FancyZonesOverlay.qml" },
+        "ruler":     { w: s(820, scale), h: s(580, scale), rx: Math.floor((mw/2)-(s(820, scale)/2)), ry: Math.floor((mh/2)-(s(580, scale)/2)), comp: "ruler/ScreenRulerOverlay.qml" },
+        "shelf":     { w: s(640, scale), h: s(480, scale), rx: mw - s(660, scale), ry: mh - s(510, scale), comp: "shelf/DropShelf.qml" },
+        "quicklook": { w: s(780, scale), h: s(560, scale), rx: Math.floor((mw/2)-(s(780, scale)/2)), ry: Math.floor((mh/2)-(s(560, scale)/2)), comp: "quicklook/QuickLookPopup.qml" },
         "hidden":    { w: 1, h: 1, rx: -5000 - mx, ry: -5000 - my, comp: "" } 
     };
 

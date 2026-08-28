@@ -165,10 +165,10 @@ ColumnLayout {
         }
     }
 
-    // ── 3. Storage & Cache Maintenance ───────────────────────────────────────
+    // ── 3. Disk Sweeper & Cache Maintenance (M4) ─────────────────────────────
     Card {
-        title: "Disk & Package Cleanup"
-        subtitle: "Free up storage by clearing old package cache versions and unused dependencies"
+        title: "Disk Sweeper & Storage Maintenance"
+        subtitle: "Free up storage by clearing pacman cache, systemd journals, and thumbnail cache"
         icon: "\u{f014}"
         accentColor: Design.mauve
 
@@ -178,9 +178,9 @@ ColumnLayout {
 
             ActionButton {
                 icon: "\u{f014}"
-                label: "Clean Package Cache"
+                label: "Clean All Caches & Logs"
                 tone: Design.sapphire
-                onActivated: section.cleanPackageCache()
+                onActivated: Quickshell.execDetached(["b1air-daemon", "sweeper", "clean"])
             }
 
             ActionButton {
@@ -188,6 +188,46 @@ ColumnLayout {
                 label: "Remove Orphan Packages"
                 tone: Design.mauve
                 onActivated: section.cleanOrphanPackages()
+            }
+        }
+    }
+
+    // ── 4. System Restore Points & Snapshots (M4) ─────────────────────────────
+    Card {
+        title: "Btrfs & Timeshift Restore Points"
+        subtitle: "Create automatic system snapshots prior to major updates and package changes"
+        icon: "\u{f0c7}"
+        accentColor: Design.teal
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: Design.s(Design.space.sm)
+
+            ActionButton {
+                icon: "\u{f0c7}"
+                label: "Create Pre-Update Restore Point"
+                tone: Design.teal
+                onActivated: Quickshell.execDetached(["b1air-daemon", "snapshot", "create", "Manual user snapshot"])
+            }
+        }
+    }
+
+    // ── 5. Encrypted Vaults Manager (M4) ──────────────────────────────────────
+    Card {
+        title: "Encrypted Security Vaults"
+        subtitle: "Mount and secure confidential directories using client-side encryption"
+        icon: "\u{f023}"
+        accentColor: Design.peach
+
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: Design.s(Design.space.sm)
+
+            ActionButton {
+                icon: "\u{f07c}"
+                label: "Open Secure Vaults Location"
+                tone: Design.peach
+                onActivated: Quickshell.execDetached(["bash", "-c", "mkdir -p ~/.vaults && xdg-open ~/.vaults"])
             }
         }
     }
