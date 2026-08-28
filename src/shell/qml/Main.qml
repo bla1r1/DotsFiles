@@ -54,10 +54,24 @@ PanelWindow {
         function toggleKeyboard() { masterWindow.handleIpcCommand("toggle:keyboard:", true) }
         function openLauncher() { masterWindow.handleIpcCommand("open:launcher:", true) }
         function toggleLauncher() { masterWindow.handleIpcCommand("toggle:launcher:", true) }
+        function openSpotlight() { masterWindow.handleIpcCommand("open:spotlight:", true) }
+        function toggleSpotlight() { masterWindow.handleIpcCommand("toggle:spotlight:", true) }
+        function openLaunchpad() { masterWindow.handleIpcCommand("open:launchpad:", true) }
+        function toggleLaunchpad() { masterWindow.handleIpcCommand("toggle:launchpad:", true) }
+        function openMenu() { masterWindow.handleIpcCommand("open:menu:", true) }
+        function toggleMenu() { masterWindow.handleIpcCommand("toggle:menu:", true) }
         function openSwitcher() { masterWindow.handleIpcCommand("open:switcher:", true) }
         function toggleSwitcher() { masterWindow.handleIpcCommand("toggle:switcher:", true) }
         function openEmoji() { masterWindow.handleIpcCommand("open:emoji:", true) }
         function toggleEmoji() { masterWindow.handleIpcCommand("toggle:emoji:", true) }
+        function openZones() { masterWindow.handleIpcCommand("open:zones:", true) }
+        function toggleZones() { masterWindow.handleIpcCommand("toggle:zones:", true) }
+        function openRuler() { masterWindow.handleIpcCommand("open:ruler:", true) }
+        function toggleRuler() { masterWindow.handleIpcCommand("toggle:ruler:", true) }
+        function openShelf() { masterWindow.handleIpcCommand("open:shelf:", true) }
+        function toggleShelf() { masterWindow.handleIpcCommand("toggle:shelf:", true) }
+        function openQuickLook(file: string) { masterWindow.handleIpcCommand("open:quicklook:" + (file || ""), true) }
+        function toggleQuickLook(file: string) { masterWindow.handleIpcCommand("toggle:quicklook:" + (file || ""), true) }
     }
 
     WlrLayershell.namespace: "qs-master"
@@ -237,23 +251,20 @@ PanelWindow {
                 masterWindow.firstOpen = true;
                 
                 let t = getLayout(newWidget);
+                if (!t) return;
                 masterWindow.animX = t.rx;
                 masterWindow.animY = t.ry;
                 masterWindow.animW = t.w;
                 masterWindow.animH = t.h;
                 masterWindow.targetW = t.w;
                 masterWindow.targetH = t.h;
-                masterWindow.isVisible = true;
 
-                prepTimer.newWidget = newWidget;
-                prepTimer.newArg = arg;
-                prepTimer.start();
-                
+                executeSwitch(newWidget, arg, true);
+                masterWindow.isVisible = true;
             } else {
                 // Morphing directly between widgets
                 masterWindow.morphDuration = 120;
                 masterWindow.disableMorph = false;
-                
                 masterWindow.exitDuration = 90;
                 
                 executeSwitch(newWidget, arg, false);
@@ -281,9 +292,12 @@ PanelWindow {
         if (w === "notifications") return "notifications";
         if (w === "guide") return "about";
         if (w === "focus") return "focus";
-        // Lets a bar button or a keybinding land on a specific settings page:
-        // `ipc call main open settings audio`.
-        if (w === "settings") return a || "";
+        if (w === "settings") {
+            if (a === "wifi") return "network";
+            if (a === "sound" || a === "volume") return "audio";
+            if (a === "battery") return "power";
+            return a || "";
+        }
         return "";
     }
 
@@ -310,6 +324,10 @@ PanelWindow {
             const target = pageFor(newWidget, arg);
             if (target && widgetStack.currentItem.page !== undefined)
                 widgetStack.currentItem.page = target;
+            if (newWidget === "quicklook" && widgetStack.currentItem.filePath !== undefined)
+                widgetStack.currentItem.filePath = arg;
+            if (newWidget === "settings" && arg && !target && widgetStack.currentItem.searchQuery !== undefined)
+                widgetStack.currentItem.searchQuery = arg;
             masterWindow.isVisible = true;
             masterWindow.firstOpen = false;
             masterWindow.disableMorph = false;
@@ -317,10 +335,18 @@ PanelWindow {
             return;
         }
         
-        let props = { "notifModel": masterWindow.notifModel };
+        let props = {};
+        if (newWidget === "control")
+            props["notifModel"] = masterWindow.notifModel;
         const page = pageFor(newWidget, arg);
         if (page)
             props["page"] = page;
+        if (newWidget === "quicklook" && arg)
+            props["filePath"] = arg;
+        if ((newWidget === "spotlight" || newWidget === "launchpad") && arg)
+            props["query"] = arg;
+        if (newWidget === "settings" && arg && !page)
+            props["searchQuery"] = arg;
 
         if (immediate || masterWindow.firstOpen) {
             widgetStack.replace(t.comp, props, StackView.Immediate);
@@ -404,16 +430,18 @@ PanelWindow {
         onTriggered: {
             masterWindow.currentActive = "hidden";
             masterWindow.disableMorph = false;
-            cacheExpireTimer.start();
+            // Retain cached widget in widgetStack for zero-latency, zero-CPU reopening
         }
     }
 
+    // Free widget tree if idle for 5 minutes
     Timer {
-        id: cacheExpireTimer
-        interval: 60000
+        id: idleMemoryCleanup
+        interval: 300000 // 5 minutes
+        running: !masterWindow.isVisible && widgetStack.depth > 0
         repeat: false
         onTriggered: {
-            if (masterWindow.currentActive === "hidden") {
+            if (!masterWindow.isVisible) {
                 widgetStack.clear();
                 masterWindow.loadedWidget = "";
             }

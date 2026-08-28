@@ -145,7 +145,6 @@ DotsFiles/
 ├── .config/                   # User configurations (SwayFX, Waybar, Kitty, Fish, Kvantum)
 │   ├── fish/                  # Fish shell with Tokyo Night theme
 │   ├── kitty/                 # Kitty GPU terminal emulator
-│   ├── matugen/               # Dynamic Material You color palette generator
 │   ├── sway/                  # SwayFX compositor keybinds, rules, look & feel
 │   ├── systemd/               # Systemd user services for b1air session
 │   ├── waybar/                # Top status bar modules and CSS styling

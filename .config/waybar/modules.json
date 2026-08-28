@@ -10,6 +10,7 @@
   "group/devices": {
     "orientation": "horizontal",
     "modules": [
+      "privacy",
       "pulseaudio",
       "custom/mic",
       "custom/monitor-brightness",
@@ -46,17 +47,17 @@
     "format": "󰂚",
     "on-click": "b1air-shell toggle control",
     "on-click-right": "b1air-shell toggle settings",
-    "tooltip-format": "Control Center & Notifications\nRight click: Settings",
+    "tooltip-format": "Control Center and Notifications\nRight click: Settings",
     "tooltip": true
   },
   "custom/power": {
     "format": "⏻",
     "on-click": "b1air-shell toggle session",
-    "tooltip-format": "Power & Session Menu ($mod+Shift+E)",
+    "tooltip-format": "Power and Session Menu ($mod+Shift+E)",
     "tooltip": true
   },
   "custom/updates": {
-    "format": "  {}",
+    "format": "{}",
     "exec": "b1air-daemon updates check",
     "restart-interval": 300,
     "return-type": "json",
@@ -92,9 +93,9 @@
   },
   "custom/appmenu": {
     "format": "APPS",
-    "on-click": "b1air-shell toggle launcher",
-    "on-click-right": "b1air-shell toggle launcher",
-    "tooltip-format": "Spotlight App Launcher & Calculator",
+    "on-click": "b1air-shell toggle launchpad",
+    "on-click-right": "b1air-shell toggle spotlight",
+    "tooltip-format": "Launchpad (Left Click) • Spotlight (Right Click)",
     "tooltip": true
   },
   "custom/wifi": {
@@ -108,7 +109,7 @@
     "tooltip": false
   },
   "pulseaudio": {
-    "format": "{icon}    {volume}%",
+    "format": "{icon} {volume}%",
     "format-muted": "",
     "on-click": "b1air-shell toggle volume",
     "on-click-middle": "b1air-daemon volume mute",
@@ -136,19 +137,20 @@
     "tooltip": true
   },
   "battery": {
+    "bat": "BAT0",
     "states": {
       "good": 80,
       "warning": 30,
       "critical": 15
     },
-    "format": "{icon}  {capacity}%",
-    "format-charging": "󰂄  {capacity}%  ⬆",
-    "format-plugged": "󰚥  {capacity}%",
-    "format-full": "󰁹  Full",
+    "format": "{icon} {capacity}%",
+    "format-charging": "󰂄 {capacity}% ⬆",
+    "format-plugged": "󰚥 {capacity}%",
+    "format-full": "󰁹 Full",
     "format-icons": ["󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹"],
     "on-click": "b1air-shell toggle battery",
     "on-click-right": "b1air-shell open settings power",
-    "tooltip-format": "{timeTo} — {power}W  ({capacity}%)",
+    "tooltip-format": "{timeTo} — {power}W ({capacity}%)",
     "interval": 30
   },
   "custom/player": {
@@ -166,7 +168,7 @@
   },
   "backlight": {
     "exec-if": "b1air-daemon brightness available",
-    "format": "{icon}  {percent}%",
+    "format": "{icon} {percent}%",
     "format-icons": ["󰃞", "󰃟", "󰃠"],
     "on-click": "b1air-shell toggle monitors",
     "on-click-right": "b1air-shell open settings monitors",
@@ -201,20 +203,20 @@
     "tooltip": true
   },
   "cpu": {
-    "format": "    {usage}%",
+    "format": " {usage}%",
     "interval": 2,
     "on-click": "kitty --title btop -e btop",
     "tooltip": false
   },
   "memory": {
-    "format": "󰍛    {used:0.1f}G",
+    "format": "󰍛 {used:0.1f}G",
     "interval": 5,
     "on-click": "kitty --title btop -e btop",
     "tooltip-format": "{used:0.1f}G / {total:0.1f}G used\n{avail:0.1f}G available"
   },
   "temperature": {
     "critical-threshold": 80,
-    "format": "{icon}  {temperatureC}°C",
+    "format": "{icon} {temperatureC}°C",
     "format-icons": ["", "", "", "", ""],
     "interval": 5,
     "tooltip": false
@@ -257,7 +259,7 @@
     }
   },
   "custom/minimized": {
-    "exec": "python3 -c 'import subprocess, json; out = subprocess.getoutput(\"b1air-daemon window list 2>/dev/null\"); data = json.loads(out) if out.startswith(\"[\") else []; print(f\"󰖰 {len(data)}\" if len(data) > 0 else \"\")'",
+    "exec": "b1air-daemon window count",
     "interval": 2,
     "format": "{}",
     "on-click": "b1air-shell toggle switcher",
@@ -271,5 +273,22 @@
     "on-click": "b1air-daemon caffeine toggle",
     "tooltip-format": "Caffeine Mode (Stay Awake)\nClick to toggle",
     "tooltip": true
+  },
+  "privacy": {
+    "icon-spacing": 4,
+    "icon-size": 14,
+    "transition-duration": 250,
+    "modules": [
+      {
+        "type": "screenshare",
+        "tooltip": true,
+        "tooltip-icon-size": 24
+      },
+      {
+        "type": "audio-in",
+        "tooltip": true,
+        "tooltip-icon-size": 24
+      }
+    ]
   }
 }

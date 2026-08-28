@@ -25,14 +25,19 @@ PanelWindow {
     anchors.top: true
     anchors.right: true
 
-    width: Design.s(380)
-    height: toastColumn.implicitHeight + Design.s(32)
+    readonly property int topOffset: (Settings.barPosition === "bottom") ? Design.s(16) : Design.s(56)
+
+    implicitWidth: Design.s(390)
+    implicitHeight: toastColumn.implicitHeight + topOffset + Design.s(20)
 
     visible: Notifications.activeToasts.count > 0 && !Notifications.dnd
 
     Item {
         anchors.fill: parent
-        anchors.margins: Design.s(16)
+        anchors.topMargin: toastWindow.topOffset
+        anchors.rightMargin: Design.s(16)
+        anchors.bottomMargin: Design.s(16)
+        anchors.leftMargin: Design.s(16)
 
         ColumnLayout {
             id: toastColumn

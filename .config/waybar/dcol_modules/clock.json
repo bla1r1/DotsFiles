@@ -3,25 +3,6 @@
         "format": "{:%R}",
         "on-click": "b1air-shell toggle calendar",
         "on-click-middle": "b1air-shell toggle focustime",
-
-        "tooltip-format": "<tt>{calendar}</tt>",
-        "calendar": {
-            "mode": "year",
-            "mode-mon-col": 3,
-            "on-scroll": 1,
-            "on-click-right": "mode",
-            "format": {
-                "months":   "<span color='#7aa2f7'><b>{}</b></span>",
-                "weekdays": "<span color='#bb9af7'><b>{}</b></span>",
-                "today":    "<span color='#7dcfff'><b><u>{}</u></b></span>"
-            }
-        },
-        "actions": {
-            "on-click-right": "mode",
-            "on-click-forward": "tz_up",
-            "on-click-backward": "tz_down",
-            "on-scroll-up": "shift_up",
-            "on-scroll-down": "shift_down"
-        }
+        "tooltip-format": "{:%A, %d %B %Y}"
     }
 }

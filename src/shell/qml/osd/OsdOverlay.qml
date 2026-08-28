@@ -29,8 +29,8 @@ PanelWindow {
     anchors.bottom: true
     anchors.left: false
 
-    width: osdCard.implicitWidth + Design.s(32)
-    height: osdCard.implicitHeight + Design.s(90)
+    implicitWidth: osdCard.implicitWidth + Design.s(32)
+    implicitHeight: osdCard.implicitHeight + Design.s(90)
 
     visible: osdOpacity > 0.0
 

@@ -120,30 +120,30 @@ arch_packages() {
         # Core & Build
         base-devel git rsync curl unzip jq cmake ccache
         # Wayland Compositor & Shell
-        swaybg swayidle swaylock xdg-desktop-portal xdg-desktop-portal-wlr xorg-xwayland
+        swaybg swayidle swaylock xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk xorg-xwayland
         waybar layer-shell-qt wayvnc
         # Modern CLI & Shell
         fish starship eza bat fzf zoxide fastfetch btop
         # Terminal Emulators
         kitty
         # GUI Applications
-        firefox thunar
+        firefox thunar imv
         # Clipboard & Screenshots
-        wl-clipboard grim slurp swappy
+        wl-clipboard grim slurp satty
         # Audio & Media
-        pipewire wireplumber pipewire-pulse playerctl libcanberra cava
+        pipewire wireplumber pipewire-pulse playerctl libcanberra sound-theme-freedesktop ffmpeg gifsicle noise-suppression-for-voice
         # System & Hardware
         upower brightnessctl ddcutil pacman-contrib libnotify
         # Network & Bluetooth
-        networkmanager
+        networkmanager bluez bluez-utils
         # Display Manager (SDDM) & Qt6 Components
-        sddm qt6-5compat qt6-declarative qt6-wayland qt6-svg qt6-multimedia qt6-virtualkeyboard
+        sddm qt6-declarative qt6-wayland qt6-svg qt6-virtualkeyboard
         # Theming & Fonts
         kvantum
-        noto-fonts noto-fonts-emoji noto-fonts-cjk ttf-jetbrains-mono-nerd ttf-fira-sans
+        noto-fonts-emoji noto-fonts-cjk ttf-jetbrains-mono-nerd ttf-fira-sans
         papirus-icon-theme
         # Utilities & Tools
-        imagemagick sqlite
+        imagemagick sqlite tesseract tesseract-data-eng zbar qrencode
     )
 
     [[ "$NO_AUR" -eq 1 ]] && pkgs+=(sway)

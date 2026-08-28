@@ -28,13 +28,43 @@ int main(int argc, char* argv[]) {
 
         QLocalSocket socket;
         socket.connectToServer(SOCKET_PATH);
-        if (socket.waitForConnected(300)) {
+        if (socket.waitForConnected(150)) {
             socket.write(fullCmd.toUtf8());
             socket.flush();
-            socket.waitForBytesWritten(300);
+            socket.waitForBytesWritten(150);
             return 0; // Successfully dispatched to running daemon in <1ms!
         }
-        // If not connected and first arg is a command (not daemon mode), report error or continue
+
+        // Quickshell IPC Fallback:
+        // Ensure WAYLAND_DISPLAY is discovered if unset
+        if (qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY")) {
+            QString rundir = qEnvironmentVariable("XDG_RUNTIME_DIR");
+            if (!rundir.isEmpty()) {
+                for (int i = 0; i < 5; ++i) {
+                    QString sock = QString("%1/wayland-%2").arg(rundir).arg(i);
+                    if (QFile::exists(sock)) {
+                        qputenv("WAYLAND_DISPLAY", QString("wayland-%1").arg(i).toUtf8());
+                        break;
+                    }
+                }
+            }
+        }
+
+        QString action = argv[1];
+        QString target = (argc >= 3) ? argv[2] : "";
+        QString arg = (argc >= 4) ? argv[3] : "";
+
+        QString qsCmd;
+        if (action == "close") {
+            qsCmd = "qs -p ~/.config/quickshell/Main.qml ipc call main close >/dev/null 2>&1";
+        } else if (!target.isEmpty()) {
+            qsCmd = QString("qs -p ~/.config/quickshell/Main.qml ipc call main %1 %2 '%3' >/dev/null 2>&1")
+                        .arg(action, target, arg);
+        } else {
+            qsCmd = QString("qs -p ~/.config/quickshell/Main.qml ipc call main %1 '' '' >/dev/null 2>&1")
+                        .arg(action);
+        }
+        return (std::system(qsCmd.toUtf8().constData()) == 0) ? 0 : 1;
     }
 
     // ── Setup Environment & Performance Flags ────────────────────────────────

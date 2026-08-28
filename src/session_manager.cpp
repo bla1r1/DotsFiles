@@ -113,7 +113,7 @@ int SessionManager::run_session() {
     setenv("XDG_SESSION_TYPE", "wayland", 1);
     setenv("QT_QPA_PLATFORM", "wayland;xcb", 1);
     setenv("QSG_RHI_BACKEND", "opengl", 1);
-    setenv("QSG_RENDER_LOOP", "threaded", 1);
+    setenv("QSG_RENDER_LOOP", "basic", 1);
     setenv("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1", 1);
     setenv("QT_AUTO_SCREEN_SCALE_FACTOR", "0", 1);
     setenv("MOZ_ENABLE_WAYLAND", "1", 1);
