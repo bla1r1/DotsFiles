@@ -156,27 +156,6 @@ target_link_libraries(b1air-term PRIVATE
     util
 )
 
-# ── b1air-calc (Native Smart Scratchpad & Programmer Calculator) ──────────────
-add_executable(b1air-calc
-    ../apps/calc/main.cpp
-    ../apps/calc/calc_engine.cpp
-)
-
-target_include_directories(b1air-calc PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../apps/calc
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/..
-)
-
-target_link_libraries(b1air-calc PRIVATE
-    Qt6::Core
-    Qt6::Gui
-    Qt6::Qml
-    Qt6::Quick
-    Qt6::WaylandClient
-    Threads::Threads
-)
-
 # ── b1air-view (Native Lightweight Image & Media Viewer) ──────────────────────
 add_executable(b1air-view
     ../apps/view/main.cpp
@@ -241,4 +220,4 @@ target_link_libraries(b1air-git PRIVATE
     Threads::Threads
 )
 
-install(TARGETS b1air-shell b1air-files b1air-monitor b1air-text b1air-settings b1air-term b1air-calc b1air-view b1air-notes b1air-git DESTINATION /usr/local/bin)
+install(TARGETS b1air-shell b1air-files b1air-monitor b1air-text b1air-settings b1air-term b1air-view b1air-notes b1air-git DESTINATION /usr/local/bin)

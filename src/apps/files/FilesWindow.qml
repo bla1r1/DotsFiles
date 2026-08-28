@@ -71,15 +71,25 @@ Window {
     }
 
     function getBreadcrumbs() {
-        let crumbs = [{ name: "root", path: "/" }];
-        if (currentPath === "/") return crumbs;
-        let parts = currentPath.split("/").filter(Boolean);
-        let acc = "";
-        for (let i = 0; i < parts.length; ++i) {
-            acc += "/" + parts[i];
-            let name = parts[i];
-            if (acc === homeDir) name = "~";
-            crumbs.push({ name: name, path: acc });
+        let p = currentPath;
+        let crumbs = [];
+        if (p.startsWith(homeDir)) {
+            crumbs.push({ name: "~", path: homeDir });
+            let rel = p.substring(homeDir.length);
+            let parts = rel.split("/").filter(Boolean);
+            let acc = homeDir;
+            for (let i = 0; i < parts.length; ++i) {
+                acc += "/" + parts[i];
+                crumbs.push({ name: parts[i], path: acc });
+            }
+        } else {
+            crumbs.push({ name: "/", path: "/" });
+            let parts = p.split("/").filter(Boolean);
+            let acc = "";
+            for (let i = 0; i < parts.length; ++i) {
+                acc += "/" + parts[i];
+                crumbs.push({ name: parts[i], path: acc });
+            }
         }
         return crumbs;
     }

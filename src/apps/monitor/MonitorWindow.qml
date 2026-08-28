@@ -129,7 +129,7 @@ Window {
                         Rectangle {
                             implicitWidth: Design.s(76)
                             implicitHeight: Design.s(22)
-                            radius: Design.s(Design.radius.sm)
+                            radius: Design.s(8)
                             color: window.currentTab === "overview" ? Design.tint(Design.accent, 0.28) : "transparent"
 
                             Text {
@@ -150,7 +150,7 @@ Window {
                         Rectangle {
                             implicitWidth: Design.s(76)
                             implicitHeight: Design.s(22)
-                            radius: Design.s(Design.radius.sm)
+                            radius: Design.s(8)
                             color: window.currentTab === "processes" ? Design.tint(Design.accent, 0.28) : "transparent"
 
                             Text {
@@ -184,7 +184,6 @@ Window {
         // TAB 1: OVERVIEW (METRICS, DIALS & LIVE HISTORY GRAPH)
         // ═════════════════════════════════════════════════════════════════════
         ScrollView {
-            id: overviewScroll
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: window.currentTab === "overview"
@@ -194,24 +193,22 @@ Window {
                 id: overviewCol
                 x: Design.s(Design.space.md)
                 width: window.width - Design.s(Design.space.md * 2)
-                // A ScrollView sizes its content to the implicit height, which left
-                // Layout.fillHeight below with nothing to claim and stranded the
-                // bottom half of the tab. Grow to the viewport, scroll past it.
-                height: Math.max(implicitHeight, overviewScroll.availableHeight)
                 spacing: Design.s(Design.space.md)
 
                 Item { Layout.preferredHeight: Design.s(4) }
 
                 // ── 1. Top 4 Metric Cards ────────────────────────────────────
-                RowLayout {
+                GridLayout {
                     Layout.fillWidth: true
-                    spacing: Design.s(10)
+                    columns: window.width > 700 ? 4 : 2
+                    rowSpacing: Design.s(10)
+                    columnSpacing: Design.s(10)
 
                     // 1. CPU CARD
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredWidth: 1
-                        implicitHeight: Design.s(100)
+                        Layout.preferredWidth: window.width > 700 ? 1 : 200
+                        implicitHeight: Design.s(90)
                         radius: Design.s(Design.radius.card)
                         color: Design.ground
                         border.color: Design.glassBorder
@@ -275,8 +272,8 @@ Window {
                     // 2. RAM CARD
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredWidth: 1
-                        implicitHeight: Design.s(100)
+                        Layout.preferredWidth: window.width > 700 ? 1 : 200
+                        implicitHeight: Design.s(90)
                         radius: Design.s(Design.radius.card)
                         color: Design.ground
                         border.color: Design.glassBorder
@@ -338,8 +335,8 @@ Window {
                     // 3. DISK CARD
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredWidth: 1
-                        implicitHeight: Design.s(100)
+                        Layout.preferredWidth: window.width > 700 ? 1 : 200
+                        implicitHeight: Design.s(90)
                         radius: Design.s(Design.radius.card)
                         color: Design.ground
                         border.color: Design.glassBorder
@@ -401,8 +398,8 @@ Window {
                     // 4. SYSTEM UPTIME CARD
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredWidth: 1
-                        implicitHeight: Design.s(100)
+                        Layout.preferredWidth: window.width > 700 ? 1 : 200
+                        implicitHeight: Design.s(90)
                         radius: Design.s(Design.radius.card)
                         color: Design.ground
                         border.color: Design.glassBorder
@@ -464,11 +461,7 @@ Window {
                 // ── 2. Live Performance History Graph ────────────────────────
                 Rectangle {
                     Layout.fillWidth: true
-                    // Nothing claimed the leftover vertical space, so the whole
-                    // Overview tab stopped halfway down and left the bottom of the
-                    // window empty.
-                    Layout.fillHeight: true
-                    Layout.minimumHeight: Design.s(220)
+                    implicitHeight: Design.s(220)
                     radius: Design.s(Design.radius.card)
                     color: Design.ground
                     border.color: Design.glassBorder
@@ -531,13 +524,8 @@ Window {
 
                                 function drawSeries(data, color, fillGrad) {
                                     if (!data || data.length < 2) return;
-                                    // Inset by half the stroke width: the last sample
-                                    // landed exactly on x = width, so the 2px line was
-                                    // drawn half outside the canvas and looked clipped.
-                                    let inset = 1;
-                                    let plotW = width - inset * 2;
-                                    let step = plotW / (40 - 1);
-                                    let offset = inset + (40 - data.length) * step;
+                                    let step = width / (40 - 1);
+                                    let offset = (40 - data.length) * step;
 
                                     ctx.beginPath();
                                     for (let i = 0; i < data.length; ++i) {
@@ -656,7 +644,7 @@ Window {
                         Rectangle {
                             implicitWidth: Design.s(54)
                             implicitHeight: Design.s(26)
-                            radius: Design.s(Design.radius.sm)
+                            radius: Design.s(8)
                             color: window.procSortBy === "cpu" ? Design.tint(Design.accent, 0.25) : Design.surface
 
                             Text {
@@ -680,7 +668,7 @@ Window {
                         Rectangle {
                             implicitWidth: Design.s(54)
                             implicitHeight: Design.s(26)
-                            radius: Design.s(Design.radius.sm)
+                            radius: Design.s(8)
                             color: window.procSortBy === "mem" ? Design.tint(Design.accent, 0.25) : Design.surface
 
                             Text {

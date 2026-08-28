@@ -10,8 +10,10 @@
 class GitBackend : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString repoPath READ repoPath NOTIFY repoChanged)
+    Q_PROPERTY(QString repoName READ repoName NOTIFY repoChanged)
     Q_PROPERTY(bool isRepo READ isRepo NOTIFY repoChanged)
     Q_PROPERTY(QString branchName READ branchName NOTIFY branchChanged)
+    Q_PROPERTY(QVariantList branches READ branches NOTIFY branchChanged)
     Q_PROPERTY(QString statusSummary READ statusSummary NOTIFY statusChanged)
     Q_PROPERTY(QString selectedFile READ selectedFile NOTIFY selectedFileChanged)
     Q_PROPERTY(QVariantList changedFiles READ changedFiles NOTIFY statusChanged)
@@ -22,8 +24,10 @@ public:
     explicit GitBackend(QObject* parent = nullptr);
 
     QString repoPath() const { return m_repoPath; }
+    QString repoName() const;
     bool isRepo() const { return m_isRepo; }
     QString branchName() const { return m_branchName; }
+    QVariantList branches() const { return m_branches; }
     QString statusSummary() const { return m_statusSummary; }
     QString selectedFile() const { return m_selectedFile; }
     QVariantList changedFiles() const { return m_changedFiles; }
@@ -36,9 +40,15 @@ public:
     Q_INVOKABLE void stageFile(const QString& filePath);
     Q_INVOKABLE void unstageFile(const QString& filePath);
     Q_INVOKABLE void stageAll();
+    Q_INVOKABLE void unstageAll();
     Q_INVOKABLE void commit(const QString& message);
     Q_INVOKABLE void push();
     Q_INVOKABLE void pull();
+    Q_INVOKABLE void fetch();
+    Q_INVOKABLE void switchBranch(const QString& branch);
+    Q_INVOKABLE void openTerminal();
+    Q_INVOKABLE void openFileManager();
+    Q_INVOKABLE QVariantList discoverRepos();
 
 signals:
     void repoChanged();
@@ -47,8 +57,6 @@ signals:
     void selectedFileChanged();
     void historyChanged();
     void diffChanged();
-    // git failures used to be swallowed whole: runGit() read stdout only
-    // and ignored the exit code, so a rejected push looked like a no-op.
     void commandFailed(const QString& message);
 
 private:
@@ -65,6 +73,7 @@ private:
 
     QString m_repoPath;
     QString m_branchName = "main";
+    QVariantList m_branches;
     QString m_statusSummary = "Clean";
     QString m_selectedFile;
     QVariantList m_changedFiles;

@@ -50,17 +50,21 @@ PopupShell {
 
     // ── System Core Essentials ───────────────────────────────────────────────
     readonly property var baseApps: [
-        { name: "Terminal", desc: "Kitty Terminal emulator", icon: "\u{f120}", app_id: "kitty", cmd: "kitty", cat: "System" },
-        { name: "File Manager", desc: "Browse files and folders", icon: "\u{f07b}", app_id: "thunar", cmd: "thunar", cat: "System" },
-        { name: "Settings", desc: "System & Desktop Preferences", icon: "\u{f013}", app_id: "preferences-system", cmd: "b1air-shell toggle settings", cat: "System" },
-        { name: "Control Center", desc: "Quick toggles & notifications", icon: "\u{f0f3}", app_id: "preferences-desktop", cmd: "b1air-shell toggle control", cat: "System" },
-        { name: "Clipboard", desc: "Search clipboard history", icon: "\u{f0ea}", app_id: "klipper", cmd: "b1air-shell toggle clipboard", cat: "Utilities" },
-        { name: "Calendar & Weather", desc: "Calendar, time, forecasts", icon: "\u{f073}", app_id: "calendar", cmd: "b1air-shell toggle calendar", cat: "Utilities" },
-        { name: "Spotlight", desc: "Quick search & calculations", icon: "\u{f002}", app_id: "system-search", cmd: "b1air-shell toggle spotlight", cat: "Utilities" },
-        { name: "Color Dropper", desc: "Pick screen color", icon: "\u{f1fb}", app_id: "color-picker", cmd: "b1air-daemon color-picker", cat: "Utilities" },
-        { name: "Task Manager", desc: "Btop system monitor", icon: "\u{f080}", app_id: "utilities-system-monitor", cmd: "kitty btop", cat: "System" },
-        { name: "Lock Screen", desc: "Lock session", icon: "\u{f023}", app_id: "system-lock-screen", cmd: "b1air-daemon power lock", cat: "Session" },
-        { name: "Power Menu", desc: "Power options", icon: "\u{f011}", app_id: "system-shutdown", cmd: "b1air-shell toggle session", cat: "Session" }
+        { name: "Files", desc: "Native File Manager & Gallery", icon: "󰉋", app_id: "b1air-files", cmd: "b1air-files", cat: "Utilities" },
+        { name: "Terminal", desc: "Multi-tab Native Terminal", icon: "󰞷", app_id: "b1air-term", cmd: "b1air-term", cat: "System" },
+        { name: "Notes", desc: "Markdown Notes with Obsidian & Notion Sync", icon: "󰈙", app_id: "b1air-notes", cmd: "b1air-notes", cat: "Utilities" },
+        { name: "Git", desc: "GitHub Desktop Style Git Client", icon: "󰊢", app_id: "b1air-git", cmd: "b1air-git", cat: "Development" },
+        { name: "System Monitor", desc: "Process & Hardware Monitor", icon: "", app_id: "b1air-monitor", cmd: "b1air-monitor", cat: "System" },
+        { name: "Media Viewer", desc: "Lightweight Image & Media Viewer", icon: "󰋩", app_id: "b1air-view", cmd: "b1air-view", cat: "Utilities" },
+        { name: "Text Editor", desc: "Minimal Text & Config Editor", icon: "󰈙", app_id: "b1air-text", cmd: "b1air-text", cat: "Utilities" },
+        { name: "Settings", desc: "Desktop Preferences & Appearance", icon: "󰒓", app_id: "b1air-settings", cmd: "b1air-settings", cat: "System" },
+        { name: "Control Center", desc: "Quick toggles, volume & brightness", icon: "󱥂", app_id: "b1air-control", cmd: "toggle:control:", cat: "System" },
+        { name: "Clipboard", desc: "Search clipboard history", icon: "󰅍", app_id: "b1air-clipboard", cmd: "toggle:clipboard:", cat: "Utilities" },
+        { name: "Calendar & Weather", desc: "Calendar, time, forecasts", icon: "󰃭", app_id: "b1air-calendar", cmd: "toggle:calendar:", cat: "Utilities" },
+        { name: "Spotlight", desc: "Quick search & app launcher", icon: "󰍉", app_id: "b1air-spotlight", cmd: "toggle:spotlight:", cat: "Utilities" },
+        { name: "Color Dropper", desc: "Pick screen color hex", icon: "󰈊", app_id: "color-picker", cmd: "b1air-daemon color-picker", cat: "Utilities" },
+        { name: "Lock Screen", desc: "Lock desktop session", icon: "󰌾", app_id: "system-lock-screen", cmd: "b1air-daemon power lock", cat: "Session" },
+        { name: "Power Menu", desc: "Shutdown, reboot, logout", icon: "⏻", app_id: "system-shutdown", cmd: "toggle:session:", cat: "Session" }
     ]
 
     readonly property var allApps: {
@@ -334,12 +338,58 @@ PopupShell {
                             }
                         }
 
+                        // Pin Indicator / Toggle Button
+                        Rectangle {
+                            anchors.top: parent.top
+                            anchors.right: parent.right
+                            anchors.margins: Design.s(4)
+                            width: Design.s(18)
+                            height: Design.s(18)
+                            radius: Design.s(4)
+                            visible: itemHover.containsMouse || PinnedApps.isPinned(modelData.name)
+                            color: pinArea.containsMouse ? Design.tint(Design.accent, 0.3) : (PinnedApps.isPinned(modelData.name) ? Design.tint(Design.sapphire, 0.25) : "transparent")
+                            z: 10
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: PinnedApps.isPinned(modelData.name) ? "󰤲" : "󰤱"
+                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: Design.s(11)
+                                color: PinnedApps.isPinned(modelData.name) ? Design.sapphire : Design.subtext0
+                            }
+
+                            MouseArea {
+                                id: pinArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    PinnedApps.togglePin({
+                                        name: modelData.name,
+                                        icon: window.getAppGlyph(modelData.name),
+                                        cmd: modelData.cmd
+                                    });
+                                }
+                            }
+                        }
+
                         MouseArea {
                             id: itemHover
                             anchors.fill: parent
                             hoverEnabled: true
+                            acceptedButtons: Qt.LeftButton | Qt.RightButton
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: window.launchApp(modelData)
+                            onClicked: (mouse) => {
+                                if (mouse.button === Qt.RightButton) {
+                                    PinnedApps.togglePin({
+                                        name: modelData.name,
+                                        icon: window.getAppGlyph(modelData.name),
+                                        cmd: modelData.cmd
+                                    });
+                                } else {
+                                    window.launchApp(modelData);
+                                }
+                            }
                         }
                     }
                 }

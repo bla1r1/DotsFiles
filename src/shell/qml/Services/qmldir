@@ -10,3 +10,4 @@ singleton Notifications 1.0 Notifications.qml
 singleton Clipboard     1.0 Clipboard.qml
 singleton Weather       1.0 Weather.qml
 singleton SoundEffects  1.0 SoundEffects.qml
+singleton PinnedApps    1.0 PinnedApps.qml

@@ -18,13 +18,13 @@ Window {
     onClosing: Qt.quit()
 
     readonly property bool isNative: typeof FilesBackend !== "undefined"
-    readonly property string homeDir: isNative ? FilesBackend.currentPath : "/home/dev"
-    property string currentPath: homeDir
+    readonly property string homeDir: isNative ? FilesBackend.homePath : "/home/dev"
+    property string currentPath: isNative ? FilesBackend.currentPath : homeDir
     property string currentPathDisplay: currentPath.startsWith(homeDir) 
         ? ("~" + currentPath.substring(homeDir.length)) 
         : currentPath
 
-    property var history: [homeDir]
+    property var history: [currentPath]
     property int historyIndex: 0
 
     property bool showHidden: false
@@ -71,15 +71,25 @@ Window {
     }
 
     function getBreadcrumbs() {
-        let crumbs = [{ name: "root", path: "/" }];
-        if (currentPath === "/") return crumbs;
-        let parts = currentPath.split("/").filter(Boolean);
-        let acc = "";
-        for (let i = 0; i < parts.length; ++i) {
-            acc += "/" + parts[i];
-            let name = parts[i];
-            if (acc === homeDir) name = "~";
-            crumbs.push({ name: name, path: acc });
+        let p = currentPath;
+        let crumbs = [];
+        if (p.startsWith(homeDir)) {
+            crumbs.push({ name: "~", path: homeDir });
+            let rel = p.substring(homeDir.length);
+            let parts = rel.split("/").filter(Boolean);
+            let acc = homeDir;
+            for (let i = 0; i < parts.length; ++i) {
+                acc += "/" + parts[i];
+                crumbs.push({ name: parts[i], path: acc });
+            }
+        } else {
+            crumbs.push({ name: "/", path: "/" });
+            let parts = p.split("/").filter(Boolean);
+            let acc = "";
+            for (let i = 0; i < parts.length; ++i) {
+                acc += "/" + parts[i];
+                crumbs.push({ name: parts[i], path: acc });
+            }
         }
         return crumbs;
     }
@@ -551,6 +561,26 @@ Window {
                         }
                     }
 
+                    // Show hidden files. Ctrl+H already did this, but with no
+                    // control on screen dotfolders just looked missing.
+                    IconButton {
+                        icon: window.showHidden ? "\u{f06e}" : "\u{f070}" // eye / eye-slash
+                        bordered: true
+                        hoverTone: Design.yellow
+                        fill: window.showHidden ? Design.tint(Design.yellow, 0.25) : Design.hover
+                        tone: window.showHidden ? Design.yellow : Design.textDim
+                        onClicked: window.showHidden = !window.showHidden
+                    }
+
+                    // Set the selected image as the desktop wallpaper
+                    IconButton {
+                        icon: "\u{f03e}" // image
+                        bordered: true
+                        hoverTone: Design.mauve
+                        visible: window.selectedPath !== "" && window.isImageFile(window.selectedPath)
+                        onClicked: FilesBackend.setWallpaper(window.selectedPath)
+                    }
+
                     // Open Terminal in Current Folder
                     IconButton {
                         icon: "\u{f120}" // terminal
@@ -577,7 +607,10 @@ Window {
                     cellHeight: Design.s(120)
                     clip: true
                     reuseItems: true
-                    model: folderModel
+                    // ponytail: an invisible view still builds and updates every
+                    // delegate, so all three modes were populating at once — the
+                    // gallery one decoding thumbnails nobody was looking at.
+                    model: window.viewMode === "grid" ? folderModel : null
 
                     ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
@@ -693,7 +726,10 @@ Window {
                     clip: true
                     reuseItems: true
                     spacing: 2
-                    model: folderModel
+                    // ponytail: an invisible view still builds and updates every
+                    // delegate, so all three modes were populating at once — the
+                    // gallery one decoding thumbnails nobody was looking at.
+                    model: window.viewMode === "list" ? folderModel : null
 
                     ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 
@@ -777,7 +813,10 @@ Window {
                     cellHeight: Design.s(210)
                     clip: true
                     reuseItems: true
-                    model: folderModel
+                    // ponytail: an invisible view still builds and updates every
+                    // delegate, so all three modes were populating at once — the
+                    // gallery one decoding thumbnails nobody was looking at.
+                    model: window.viewMode === "gallery" ? folderModel : null
 
                     ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
 

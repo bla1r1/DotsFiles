@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Window
 import QtQuick.Controls
 import QtQuick.Layouts
 
@@ -62,15 +61,21 @@ ApplicationWindow {
 
             // App Icon & File Name
             Row {
-                spacing: 6
+                spacing: 8
                 Layout.alignment: Qt.AlignVCenter
-                Text { text: "🖼️"; font.pixelSize: 14; anchors.verticalCenter: parent.verticalCenter }
+                Text {
+                    text: "󰋩"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 15
+                    color: window.colBlue
+                    anchors.verticalCenter: parent.verticalCenter
+                }
                 Text {
                     text: ViewBackend.fileName || "No Image Open"
                     font.family: "Fira Sans SemiBold, JetBrainsMono Nerd Font, sans-serif"
                     font.pixelSize: 12
                     font.bold: true
-                    color: window.colBlue
+                    color: window.colFg
                     anchors.verticalCenter: parent.verticalCenter
                 }
             }
@@ -159,16 +164,12 @@ ApplicationWindow {
                     anchors.centerIn: parent
                     width: canvasArea.width
                     height: canvasArea.height
-                    // Decoding every photo at 4K cost ~33 MB and, with no GPU to
-                    // filter it, a full CPU rescale down to the canvas on each
-                    // repaint. Two screens' worth is more than the 2x zoom ceiling
-                    // can show. Bound to Screen, not the canvas, so resizing the
-                    // window does not force a re-decode.
-                    sourceSize: Qt.size(Screen.width * 2, Screen.height * 2)
+                    sourceSize: Qt.size(3840, 2160)
                     source: ViewBackend.currentPath ? ("file://" + ViewBackend.currentPath) : ""
                     fillMode: Image.PreserveAspectFit
                     asynchronous: true
                     smooth: true
+                    mipmap: true
                     scale: window.zoomFactor
                     rotation: window.rotationAngle
 
@@ -221,7 +222,13 @@ ApplicationWindow {
                 Rectangle {
                     width: 28; height: 28; radius: 6
                     color: prevArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : "transparent"
-                    Text { anchors.centerIn: parent; text: "◀"; font.pixelSize: 12; color: ViewBackend.hasPrevious ? window.colFg : window.colDim }
+                    Text {
+                        anchors.centerIn: parent
+                        text: "󰅖"
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 13
+                        color: ViewBackend.hasPrevious ? window.colFg : window.colDim
+                    }
                     MouseArea {
                         id: prevArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                         enabled: ViewBackend.hasPrevious
@@ -233,7 +240,13 @@ ApplicationWindow {
                 Rectangle {
                     width: 28; height: 28; radius: 6
                     color: nextArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : "transparent"
-                    Text { anchors.centerIn: parent; text: "▶"; font.pixelSize: 12; color: ViewBackend.hasNext ? window.colFg : window.colDim }
+                    Text {
+                        anchors.centerIn: parent
+                        text: "󰅗"
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 13
+                        color: ViewBackend.hasNext ? window.colFg : window.colDim
+                    }
                     MouseArea {
                         id: nextArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                         enabled: ViewBackend.hasNext
@@ -247,7 +260,7 @@ ApplicationWindow {
                 Rectangle {
                     width: 28; height: 28; radius: 6
                     color: zmOutArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : "transparent"
-                    Text { anchors.centerIn: parent; text: "➖"; font.pixelSize: 12 }
+                    Text { anchors.centerIn: parent; text: "󰐴"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13; color: window.colFg }
                     MouseArea {
                         id: zmOutArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                         onClicked: window.zoomFactor = Math.max(window.zoomFactor / 1.25, 0.15)
@@ -268,7 +281,7 @@ ApplicationWindow {
                 Rectangle {
                     width: 28; height: 28; radius: 6
                     color: zmInArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : "transparent"
-                    Text { anchors.centerIn: parent; text: "➕"; font.pixelSize: 12 }
+                    Text { anchors.centerIn: parent; text: "󰐕"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13; color: window.colFg }
                     MouseArea {
                         id: zmInArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                         onClicked: window.zoomFactor = Math.min(window.zoomFactor * 1.25, 8.0)
@@ -279,7 +292,7 @@ ApplicationWindow {
                 Rectangle {
                     width: 28; height: 28; radius: 6
                     color: resetArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : "transparent"
-                    Text { anchors.centerIn: parent; text: "⛶"; font.pixelSize: 13; color: window.colFg }
+                    Text { anchors.centerIn: parent; text: "󰑐"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13; color: window.colFg }
                     MouseArea {
                         id: resetArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                         onClicked: { window.zoomFactor = 1.0; window.rotationAngle = 0; }
@@ -292,7 +305,7 @@ ApplicationWindow {
                 Rectangle {
                     width: 28; height: 28; radius: 6
                     color: rotArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : "transparent"
-                    Text { anchors.centerIn: parent; text: "↻"; font.pixelSize: 14; font.bold: true; color: window.colFg }
+                    Text { anchors.centerIn: parent; text: "󰑓"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 14; font.bold: true; color: window.colFg }
                     MouseArea {
                         id: rotArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                         onClicked: window.rotationAngle = (window.rotationAngle + 90) % 360
@@ -303,7 +316,7 @@ ApplicationWindow {
                 Rectangle {
                     width: 28; height: 28; radius: 6
                     color: wallArea.containsMouse ? Qt.rgba(115/255, 218/255, 202/255, 0.25) : "transparent"
-                    Text { anchors.centerIn: parent; text: "🖼️"; font.pixelSize: 13 }
+                    Text { anchors.centerIn: parent; text: "󰋩"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13; color: window.colGreen }
                     MouseArea {
                         id: wallArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                         onClicked: ViewBackend.setWallpaper()
@@ -314,7 +327,7 @@ ApplicationWindow {
                 Rectangle {
                     width: 28; height: 28; radius: 6
                     color: filmArea.containsMouse ? Qt.rgba(187/255, 154/255, 247/255, 0.25) : "transparent"
-                    Text { anchors.centerIn: parent; text: "🎞️"; font.pixelSize: 13 }
+                    Text { anchors.centerIn: parent; text: "󰎆"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13; color: window.colPurple }
                     MouseArea {
                         id: filmArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                         onClicked: window.showFilmstrip = !window.showFilmstrip
@@ -360,9 +373,6 @@ ApplicationWindow {
                     anchors.fill: parent
                     anchors.margins: 3
                     source: "file://" + modelData.path
-                    // Without this each 76x56 thumbnail decoded the photo at full
-                    // resolution and threw ~99% of it away.
-                    sourceSize: Qt.size(152, 112)
                     fillMode: Image.PreserveAspectCrop
                     asynchronous: true
                 }

@@ -57,9 +57,26 @@ void GitBackend::refresh() {
     updateDiff();
 }
 
+QString GitBackend::repoName() const {
+    if (m_repoPath.isEmpty()) return "No Repository";
+    return QFileInfo(m_repoPath).fileName();
+}
+
 void GitBackend::updateBranch() {
     QString out = runGit(QStringList() << "branch" << "--show-current");
     m_branchName = out.isEmpty() ? "detached" : out;
+
+    QString allBranches = runGit(QStringList() << "branch" << "--no-color");
+    m_branches.clear();
+    QStringList lines = allBranches.split("\n", Qt::SkipEmptyParts);
+    for (const auto& l : lines) {
+        QString b = l.trimmed();
+        if (b.startsWith("* ")) b = b.mid(2).trimmed();
+        if (!b.isEmpty() && !m_branches.contains(b)) {
+            m_branches.append(b);
+        }
+    }
+
     emit branchChanged();
 }
 
@@ -222,6 +239,11 @@ void GitBackend::stageAll() {
     refresh();
 }
 
+void GitBackend::unstageAll() {
+    runGit(QStringList() << "restore" << "--staged" << ".");
+    refresh();
+}
+
 void GitBackend::commit(const QString& message) {
     if (message.trimmed().isEmpty()) return;
     runGit(QStringList() << "commit" << "-m" << message);
@@ -236,4 +258,69 @@ void GitBackend::push() {
 void GitBackend::pull() {
     runGit(QStringList() << "pull");
     refresh();
+}
+
+void GitBackend::fetch() {
+    runGit(QStringList() << "fetch");
+    refresh();
+}
+
+void GitBackend::switchBranch(const QString& branch) {
+    if (branch.isEmpty()) return;
+    runGit(QStringList() << "checkout" << branch);
+    refresh();
+}
+
+void GitBackend::openTerminal() {
+    if (m_repoPath.isEmpty()) return;
+    QProcess::startDetached("b1air-term", QStringList(), m_repoPath);
+}
+
+void GitBackend::openFileManager() {
+    if (m_repoPath.isEmpty()) return;
+    QProcess::startDetached("b1air-files", QStringList() << m_repoPath);
+}
+
+QVariantList GitBackend::discoverRepos() {
+    QVariantList repos;
+    QStringList searchRoots = {
+        QDir::homePath() + "/DotsFiles",
+        QDir::homePath() + "/Projects",
+        QDir::homePath() + "/Documents",
+        QDir::homePath() + "/Desktop",
+        QDir::homePath() + "/Work",
+        QDir::homePath()
+    };
+
+    QStringList seenPaths;
+    for (const auto& root : searchRoots) {
+        QDir dir(root);
+        if (!dir.exists()) continue;
+        if (dir.exists(".git")) {
+            QString abs = dir.absolutePath();
+            if (!seenPaths.contains(abs)) {
+                seenPaths.append(abs);
+                QVariantMap item;
+                item["name"] = dir.dirName();
+                item["path"] = abs;
+                repos.append(item);
+            }
+        }
+        // Check 1 level subdirectories
+        auto subdirs = dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+        for (const auto& s : subdirs) {
+            QDir sub(dir.absoluteFilePath(s));
+            if (sub.exists(".git")) {
+                QString abs = sub.absolutePath();
+                if (!seenPaths.contains(abs)) {
+                    seenPaths.append(abs);
+                    QVariantMap item;
+                    item["name"] = sub.dirName();
+                    item["path"] = abs;
+                    repos.append(item);
+                }
+            }
+        }
+    }
+    return repos;
 }

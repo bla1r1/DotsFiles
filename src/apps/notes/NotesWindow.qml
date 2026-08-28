@@ -58,36 +58,40 @@ ApplicationWindow {
 
             // App Icon & Title
             Row {
-                spacing: 6
+                spacing: 8
                 Layout.alignment: Qt.AlignVCenter
-                Text { text: "📝"; font.pixelSize: 14; anchors.verticalCenter: parent.verticalCenter }
+                Text {
+                    text: "󰈙"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 15
+                    color: window.colBlue
+                    anchors.verticalCenter: parent.verticalCenter
+                }
                 Text {
                     text: "b1air-notes"
                     font.family: "Fira Sans SemiBold, JetBrainsMono Nerd Font, sans-serif"
                     font.pixelSize: 12
                     font.bold: true
-                    color: window.colBlue
+                    color: window.colFg
                     anchors.verticalCenter: parent.verticalCenter
                 }
             }
 
             // New Note Button
             Rectangle {
-                width: newText.implicitWidth + 14
+                width: newRow.implicitWidth + 14
                 height: 24
                 radius: 6
                 color: newArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : Qt.rgba(36/255, 40/255, 59/255, 0.60)
                 border.color: window.colBorder
                 border.width: 1
 
-                Text {
-                    id: newText
+                Row {
+                    id: newRow
                     anchors.centerIn: parent
-                    text: "➕ New"
-                    font.family: "Fira Sans SemiBold, sans-serif"
-                    font.pixelSize: 11
-                    font.bold: true
-                    color: window.colFg
+                    spacing: 4
+                    Text { text: "󰐕"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; color: window.colBlue }
+                    Text { text: "New"; font.family: "Fira Sans SemiBold, sans-serif"; font.pixelSize: 11; font.bold: true; color: window.colFg }
                 }
 
                 MouseArea {
@@ -101,21 +105,19 @@ ApplicationWindow {
 
             // Obsidian Sync Pill
             Rectangle {
-                width: obsText.implicitWidth + 14
+                width: obsRow.implicitWidth + 14
                 height: 24
                 radius: 6
                 color: obsArea.containsMouse ? Qt.rgba(187/255, 154/255, 247/255, 0.25) : Qt.rgba(36/255, 40/255, 59/255, 0.40)
                 border.color: window.colBorder
                 border.width: 1
 
-                Text {
-                    id: obsText
+                Row {
+                    id: obsRow
                     anchors.centerIn: parent
-                    text: "🔮 Obsidian"
-                    font.family: "Fira Sans SemiBold, sans-serif"
-                    font.pixelSize: 11
-                    font.bold: true
-                    color: window.colPurple
+                    spacing: 4
+                    Text { text: "󰈚"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; color: window.colPurple }
+                    Text { text: "Obsidian"; font.family: "Fira Sans SemiBold, sans-serif"; font.pixelSize: 11; font.bold: true; color: window.colPurple }
                 }
 
                 MouseArea {
@@ -129,21 +131,19 @@ ApplicationWindow {
 
             // Notion Sync Pill
             Rectangle {
-                width: notionText.implicitWidth + 14
+                width: notionRow.implicitWidth + 14
                 height: 24
                 radius: 6
                 color: notionArea.containsMouse ? Qt.rgba(115/255, 218/255, 202/255, 0.25) : Qt.rgba(36/255, 40/255, 59/255, 0.40)
                 border.color: window.colBorder
                 border.width: 1
 
-                Text {
-                    id: notionText
+                Row {
+                    id: notionRow
                     anchors.centerIn: parent
-                    text: "🌐 Notion"
-                    font.family: "Fira Sans SemiBold, sans-serif"
-                    font.pixelSize: 11
-                    font.bold: true
-                    color: window.colGreen
+                    spacing: 4
+                    Text { text: "󰍉"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; color: window.colGreen }
+                    Text { text: "Notion"; font.family: "Fira Sans SemiBold, sans-serif"; font.pixelSize: 11; font.bold: true; color: window.colGreen }
                 }
 
                 MouseArea {
@@ -169,8 +169,9 @@ ApplicationWindow {
                 RowLayout {
                     anchors.fill: parent
                     anchors.margins: 4
+                    spacing: 4
 
-                    Text { text: "🔍"; font.pixelSize: 10 }
+                    Text { text: "󰍉"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: window.colDim }
 
                     TextInput {
                         id: searchInput
@@ -188,7 +189,13 @@ ApplicationWindow {
             Rectangle {
                 width: 24; height: 24; radius: 5
                 color: prevArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : "transparent"
-                Text { anchors.centerIn: parent; text: window.showPreview ? "📖" : "📝"; font.pixelSize: 12 }
+                Text {
+                    anchors.centerIn: parent
+                    text: window.showPreview ? "󰈙" : "󱡁"
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 13
+                    color: window.colFg
+                }
                 MouseArea {
                     id: prevArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                     onClicked: window.showPreview = !window.showPreview
@@ -328,7 +335,13 @@ ApplicationWindow {
                     Rectangle {
                         width: 22; height: 22; radius: 5
                         color: delArea.containsMouse ? Qt.rgba(247/255, 118/255, 142/255, 0.25) : "transparent"
-                        Text { anchors.centerIn: parent; text: "🗑️"; font.pixelSize: 11 }
+                        Text {
+                            anchors.centerIn: parent
+                            text: "󰆴"
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 13
+                            color: window.colRed
+                        }
                         MouseArea {
                             id: delArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                             onClicked: NotesBackend.deleteNote(NotesBackend.currentNoteId)
@@ -341,7 +354,12 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     spacing: 6
 
-                    Text { text: "🏷️"; font.pixelSize: 11 }
+                    Text {
+                        text: "󰓹"
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 12
+                        color: window.colDim
+                    }
                     TextInput {
                         id: tagInput
                         Layout.fillWidth: true

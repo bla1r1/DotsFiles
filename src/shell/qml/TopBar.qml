@@ -84,7 +84,7 @@ PanelWindow {
             "  SWAYSOCK=$(ls -t /run/user/1000/sway-ipc.*.sock 2>/dev/null | head -n1); " +
             "  WS=$(swaymsg -t get_workspaces 2>/dev/null || echo '[]'); " +
             "  echo \"WS|${WS}\"; " +
-            "  sleep 1; " +
+            "  sleep 2; " +
             "done"
         ]
         stdout: SplitParser {
@@ -119,7 +119,7 @@ PanelWindow {
         anchors.bottomMargin: 4
 
         // ══════════════════════════════════════════════════════════════════════
-        // LEFT ISLANDS: APPS, Quicklinks, Workspaces
+        // LEFT ISLANDS: APPS, Dynamic Pinned Apps, Workspaces
         // ══════════════════════════════════════════════════════════════════════
         Row {
             anchors.left: parent.left
@@ -129,7 +129,7 @@ PanelWindow {
             // 1. APPS Island (Launchpad on Left Click, Spotlight on Right Click)
             Rectangle {
                 id: appMenuBtn
-                width: appMenuText.implicitWidth + 28
+                width: appRow.implicitWidth + 20
                 height: 30
                 radius: 10
                 color: appMenuArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : topBar.colBg
@@ -139,14 +139,25 @@ PanelWindow {
                 Behavior on color { ColorAnimation { duration: 150 } }
                 Behavior on border.color { ColorAnimation { duration: 150 } }
 
-                Text {
-                    id: appMenuText
+                Row {
+                    id: appRow
                     anchors.centerIn: parent
-                    text: "APPS"
-                    font.family: topBar.fontMain
-                    font.pixelSize: 12
-                    font.bold: true
-                    color: appMenuArea.containsMouse ? "#ffffff" : topBar.colBlue
+                    spacing: 6
+                    Text {
+                        text: "󰍜"
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 13
+                        color: topBar.colBlue
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                    Text {
+                        text: "APPS"
+                        font.family: topBar.fontMain
+                        font.pixelSize: 12
+                        font.bold: true
+                        color: appMenuArea.containsMouse ? "#ffffff" : topBar.colBlue
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
                 }
 
                 MouseArea {
@@ -165,83 +176,85 @@ PanelWindow {
                 }
             }
 
-            // 2. Quicklinks Island (Files, Night Light, Term, Calc, Control Center)
+            // 2. User-Configured Pinned Apps Island
             Rectangle {
                 height: 30
-                width: quicklinksRow.implicitWidth + 16
+                width: pinnedRow.implicitWidth + 14
                 radius: 10
                 color: topBar.colBg
                 border.color: topBar.colBorder
                 border.width: 1
+                visible: PinnedApps.pinnedList.length > 0
 
                 Row {
-                    id: quicklinksRow
+                    id: pinnedRow
                     anchors.centerIn: parent
-                    spacing: 6
+                    spacing: 4
 
-                    // File Manager
-                    Rectangle {
-                        width: 24; height: 24; radius: 6
-                        color: qlFilesArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.20) : "transparent"
-                        Text { anchors.centerIn: parent; text: "📁"; font.pixelSize: 13 }
-                        MouseArea {
-                            id: qlFilesArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: Quickshell.execDetached(["b1air-files"])
+                    Repeater {
+                        model: PinnedApps.pinnedList
+                        delegate: Rectangle {
+                            id: pinPill
+                            width: 24
+                            height: 24
+                            radius: 6
+                            color: pinArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.22) : "transparent"
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: modelData.icon || "󰀻"
+                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: 13
+                                color: pinArea.containsMouse ? topBar.colBlue : topBar.colFg
+                            }
+
+                            MouseArea {
+                                id: pinArea
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: (mouse) => {
+                                    if (mouse.button === Qt.RightButton) {
+                                        // Unpin immediately on right click!
+                                        PinnedApps.togglePin(modelData);
+                                    } else {
+                                        let cmd = modelData.cmd || "";
+                                        if (cmd.startsWith("toggle:")) {
+                                            topBar.requestCommand(cmd, true);
+                                        } else if (cmd.startsWith("open:")) {
+                                            topBar.requestCommand(cmd, true);
+                                        } else {
+                                            Quickshell.execDetached(["bash", "-c", cmd]);
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
 
-                    // Night Light / Mode
+                    // Add Pinned App '+' Button
                     Rectangle {
-                        width: 24; height: 24; radius: 6
-                        color: qlNightArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.20) : "transparent"
-                        Text { anchors.centerIn: parent; text: "🌘"; font.pixelSize: 13 }
-                        MouseArea {
-                            id: qlNightArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: Quickshell.execDetached(["b1air-daemon", "night-light", "toggle"])
-                        }
-                    }
+                        width: 20
+                        height: 20
+                        radius: 5
+                        color: addPinArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : "transparent"
+                        anchors.verticalCenter: parent.verticalCenter
 
-                    // Terminal
-                    Rectangle {
-                        width: 24; height: 24; radius: 6
-                        color: qlTermArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.20) : "transparent"
-                        Text { anchors.centerIn: parent; text: "💻"; font.pixelSize: 13 }
-                        MouseArea {
-                            id: qlTermArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: Quickshell.execDetached(["b1air-term"])
+                        Text {
+                            anchors.centerIn: parent
+                            text: "󰐕"
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 11
+                            color: addPinArea.containsMouse ? topBar.colBlue : topBar.colDim
                         }
-                    }
 
-                    // Calculator
-                    Rectangle {
-                        width: 24; height: 24; radius: 6
-                        color: qlCalcArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.20) : "transparent"
-                        Text { anchors.centerIn: parent; text: "🔢"; font.pixelSize: 13 }
                         MouseArea {
-                            id: qlCalcArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: Quickshell.execDetached(["b1air-calc"])
-                        }
-                    }
-
-                    // Notes
-                    Rectangle {
-                        width: 24; height: 24; radius: 6
-                        color: qlNotesArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.20) : "transparent"
-                        Text { anchors.centerIn: parent; text: "📝"; font.pixelSize: 13 }
-                        MouseArea {
-                            id: qlNotesArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: Quickshell.execDetached(["b1air-notes"])
-                        }
-                    }
-
-                    // Settings / Control Center
-                    Rectangle {
-                        width: 24; height: 24; radius: 6
-                        color: qlSettingsArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.20) : "transparent"
-                        Text { anchors.centerIn: parent; text: "🛠️"; font.pixelSize: 13 }
-                        MouseArea {
-                            id: qlSettingsArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: topBar.requestCommand("toggle:control:", true)
+                            id: addPinArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: topBar.requestCommand("toggle:launchpad:", true)
                         }
                     }
                 }
