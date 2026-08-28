@@ -16,15 +16,28 @@ export CLUTTER_BACKEND="wayland"
 export SDL_VIDEODRIVER="wayland"
 export _JAVA_AWT_WM_NONREPARENTING=1
 
-# Import environment to systemd user instance & D-Bus
-if command -v dbus-update-activation-environment >/dev/null 2>&1; then
-    dbus-update-activation-environment --systemd --all
-fi
-
 # Fallback software rendering if in VM
 if [ -n "$WLR_RENDERER_ALLOW_SOFTWARE" ] || lspci 2>/dev/null | grep -iE 'qemu|virtualbox|vmware' >/dev/null 2>&1; then
     export WLR_NO_HARDWARE_CURSORS=1
     export WLR_RENDERER_ALLOW_SOFTWARE=1
+    # ponytail: no GPU means Qt Quick's GL path runs through llvmpipe, which
+    # repaints the whole window every frame. The QPainter backend does dirty-rect
+    # updates instead: measured 28% -> 10% CPU on an animating window, 5% -> 0%
+    # idle. Set B1AIR_FORCE_GL=1 if the VM actually has working virgl.
+    if [ -z "${B1AIR_FORCE_GL:-}" ]; then
+        export QT_QUICK_BACKEND=software
+        unset QSG_RHI_BACKEND
+        # ponytail: same story one layer down — wlroots' gles2 path composites the
+        # whole screen through llvmpipe. pixman rasterises directly and measured
+        # 22-25% -> 2-3% CPU on this VM. Costs GL/dmabuf clients their fast path,
+        # which is moot when there is no GPU to accelerate them anyway.
+        export WLR_RENDERER=pixman
+    fi
+fi
+
+# Import environment to systemd user instance & D-Bus
+if command -v dbus-update-activation-environment >/dev/null 2>&1; then
+    dbus-update-activation-environment --systemd --all
 fi
 
 # Launch SwayFX with b1air config

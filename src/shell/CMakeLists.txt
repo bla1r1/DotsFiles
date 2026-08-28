@@ -12,7 +12,7 @@ if(CCACHE_PROGRAM)
     set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_PROGRAM}")
 endif()
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml QmlModels Quick WaylandClient DBus)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml QmlModels Quick WaylandClient DBus Network)
 find_package(LayerShellQt REQUIRED)
 find_package(Threads REQUIRED)
 
@@ -156,4 +156,89 @@ target_link_libraries(b1air-term PRIVATE
     util
 )
 
-install(TARGETS b1air-shell b1air-files b1air-monitor b1air-text b1air-settings b1air-term DESTINATION /usr/local/bin)
+# ── b1air-calc (Native Smart Scratchpad & Programmer Calculator) ──────────────
+add_executable(b1air-calc
+    ../apps/calc/main.cpp
+    ../apps/calc/calc_engine.cpp
+)
+
+target_include_directories(b1air-calc PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../apps/calc
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
+)
+
+target_link_libraries(b1air-calc PRIVATE
+    Qt6::Core
+    Qt6::Gui
+    Qt6::Qml
+    Qt6::Quick
+    Qt6::WaylandClient
+    Threads::Threads
+)
+
+# ── b1air-view (Native Lightweight Image & Media Viewer) ──────────────────────
+add_executable(b1air-view
+    ../apps/view/main.cpp
+    ../apps/view/view_backend.cpp
+)
+
+target_include_directories(b1air-view PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../apps/view
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
+)
+
+target_link_libraries(b1air-view PRIVATE
+    Qt6::Core
+    Qt6::Gui
+    Qt6::Qml
+    Qt6::Quick
+    Qt6::WaylandClient
+    Threads::Threads
+)
+
+# ── b1air-notes (Native Markdown Scratchpad with Obsidian & Notion Sync) ──────
+add_executable(b1air-notes
+    ../apps/notes/main.cpp
+    ../apps/notes/notes_backend.cpp
+)
+
+target_include_directories(b1air-notes PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../apps/notes
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
+)
+
+target_link_libraries(b1air-notes PRIVATE
+    Qt6::Core
+    Qt6::Gui
+    Qt6::Qml
+    Qt6::Quick
+    Qt6::WaylandClient
+    Qt6::Network
+    Threads::Threads
+)
+
+# ── b1air-git (Native Visual Git & Diff Tool) ─────────────────────────────────
+add_executable(b1air-git
+    ../apps/git/main.cpp
+    ../apps/git/git_backend.cpp
+)
+
+target_include_directories(b1air-git PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../apps/git
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
+)
+
+target_link_libraries(b1air-git PRIVATE
+    Qt6::Core
+    Qt6::Gui
+    Qt6::Qml
+    Qt6::Quick
+    Qt6::WaylandClient
+    Threads::Threads
+)
+
+install(TARGETS b1air-shell b1air-files b1air-monitor b1air-text b1air-settings b1air-term b1air-calc b1air-view b1air-notes b1air-git DESTINATION /usr/local/bin)

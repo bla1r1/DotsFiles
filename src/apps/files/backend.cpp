@@ -394,6 +394,14 @@ void FileManagerBackend::triggerQuickLook(const QString& path) {
     }
 }
 
+void FileManagerBackend::setWallpaper(const QString& path) {
+    if (path.isEmpty()) return;
+    // The daemon owns this: it applies via Sway IPC, falls back to swaybg, and
+    // caches the image for SDDM. Spawning swaybg here would leave a second one
+    // running on top of the first.
+    QProcess::startDetached("b1air-daemon", QStringList() << "wallpaper" << "set" << path);
+}
+
 bool FileManagerBackend::createFolder(const QString& name) {
     if (name.isEmpty()) return false;
     QDir dir(m_currentPath);

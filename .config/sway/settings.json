@@ -32,7 +32,7 @@
   "touchpadSwipeWorkspace": true,
   "touchpadNaturalSwipe": true,
   "touchpadPinchZoom": true,
-  "autostartApps": ["waybar", "b1air-shell"],
+  "autostartApps": ["b1air-shell"],
   "autostartCustom": [],
   "notificationRules": {
     "telegram": true,

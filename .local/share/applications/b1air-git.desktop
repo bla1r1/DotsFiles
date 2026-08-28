@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Git Diff Tool
+GenericName=Git Repository & Diff Tool
+Comment=Visual Git Status, Diff & Commit Tool
+Exec=b1air-git
+Icon=git
+Terminal=false
+Type=Application
+Categories=Development;RevisionControl;
+StartupWMClass=b1air-git

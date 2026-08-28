@@ -17,6 +17,7 @@ class FileManagerBackend : public QObject {
     Q_OBJECT
 
     Q_PROPERTY(QString currentPath READ currentPath WRITE setCurrentPath NOTIFY currentPathChanged)
+    Q_PROPERTY(QString homePath READ homePath CONSTANT)
     Q_PROPERTY(bool canGoBack READ canGoBack NOTIFY historyChanged)
     Q_PROPERTY(bool canGoForward READ canGoForward NOTIFY historyChanged)
     Q_PROPERTY(bool showHidden READ showHidden WRITE setShowHidden NOTIFY showHiddenChanged)
@@ -36,6 +37,11 @@ public:
     virtual ~FileManagerBackend() = default;
 
     QString currentPath() const;
+    // The real home directory. The QML side used to derive this from
+    // currentPath, so opening the app on a folder made that folder "home":
+    // every Favorites entry then pointed inside it and the breadcrumb
+    // labelled it "~".
+    QString homePath() const { return QDir::homePath(); }
     void setCurrentPath(const QString& path);
 
     bool canGoBack() const;
@@ -71,6 +77,7 @@ public slots:
     void openItem(const QString& path);
     void openTerminal(const QString& path = QString());
     void triggerQuickLook(const QString& path);
+    void setWallpaper(const QString& path);
     bool createFolder(const QString& name);
     bool deleteItem(const QString& path);
     bool renameItem(const QString& oldPath, const QString& newName);

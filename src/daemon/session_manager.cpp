@@ -24,12 +24,21 @@ static void session_sig_handler(int) {
 
 // ── Spawn helper that runs command in background detached ────────────────────
 static void spawn_detached(const std::string& cmd) {
-    std::string full = cmd + " >/dev/null 2>&1 &";
+    const char* rundir = std::getenv("XDG_RUNTIME_DIR");
+    const char* wdisp = std::getenv("WAYLAND_DISPLAY");
+    const char* swaysock = std::getenv("SWAYSOCK");
+    
+    std::string env_prefix = "QT_QPA_PLATFORM=\"wayland;xcb\" ";
+    if (rundir && strlen(rundir) > 0) env_prefix += "XDG_RUNTIME_DIR=\"" + std::string(rundir) + "\" ";
+    if (wdisp && strlen(wdisp) > 0) env_prefix += "WAYLAND_DISPLAY=\"" + std::string(wdisp) + "\" ";
+    if (swaysock && strlen(swaysock) > 0) env_prefix += "SWAYSOCK=\"" + std::string(swaysock) + "\" ";
+    
+    std::string full = env_prefix + cmd + " >/dev/null 2>&1 &";
     std::system(full.c_str());
 }
 
 static bool is_process_running(const std::string& pattern) {
-    std::string check = "pgrep -f \"" + pattern + "\" >/dev/null 2>&1";
+    std::string check = "pgrep -x \"" + pattern + "\" >/dev/null 2>&1 || pgrep -f \"" + pattern + "\" >/dev/null 2>&1";
     return (std::system(check.c_str()) == 0);
 }
 
@@ -109,6 +118,20 @@ int SessionManager::run_session() {
         }
     }
 
+    const char* swaysock = std::getenv("SWAYSOCK");
+    if (!swaysock || strlen(swaysock) == 0) {
+        FILE* fp = popen("ls -t /run/user/$(id -u)/sway-ipc.*.sock 2>/dev/null | head -n1", "r");
+        if (fp) {
+            char buf[256];
+            if (fgets(buf, sizeof(buf), fp) != nullptr) {
+                std::string s = buf;
+                while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
+                if (!s.empty()) setenv("SWAYSOCK", s.c_str(), 1);
+            }
+            pclose(fp);
+        }
+    }
+
     // 1. Export Wayland & Qt Environment
     setenv("XDG_CURRENT_DESKTOP", "sway", 1);
     setenv("XDG_SESSION_TYPE", "wayland", 1);
@@ -169,12 +192,7 @@ int SessionManager::run_session() {
         spawn_detached(idle_cmd);
     }
 
-    // 10. Launch Waybar
-    if (!is_process_running("waybar")) {
-        spawn_detached("waybar");
-    }
-
-    // 11. Launch Native Desktop Shell
+    // 10. Launch Native Desktop Shell & TopBar (integrated Layer-Shell)
     const char* home = std::getenv("HOME");
     if (!is_process_running("quickshell")) {
         std::string qs_main = std::string(home ? home : "") + "/.config/quickshell/Main.qml";

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Image Viewer
+GenericName=Image & Media Viewer
+Comment=Fast Lightweight Image & Media Viewer
+Exec=b1air-view %U
+Icon=image-x-generic
+Terminal=false
+Type=Application
+MimeType=image/png;image/jpeg;image/webp;image/gif;image/bmp;image/svg+xml;
+Categories=Graphics;Viewer;
+StartupWMClass=b1air-view

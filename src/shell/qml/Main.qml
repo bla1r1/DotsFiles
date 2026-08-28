@@ -7,9 +7,17 @@ import Quickshell.Wayland
 import "./Services"
 import "WindowRegistry.js" as Registry
 
-PanelWindow {
-    id: masterWindow
-    color: "transparent"
+Scope {
+    id: rootScope
+
+    TopBar {
+        id: mainTopBar
+        onRequestCommand: (cmd, notify) => masterWindow.handleIpcCommand(cmd, notify)
+    }
+
+    PanelWindow {
+        id: masterWindow
+        color: "transparent"
     
     IpcHandler {
         target: "main"
@@ -91,13 +99,16 @@ PanelWindow {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        height: 65 
+        height: 42
     }
 
     MouseArea {
-        anchors.fill: parent
+        anchors.top: topBarHole.bottom
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
         enabled: masterWindow.isVisible
-        onClicked: switchWidget("hidden", "")
+        onClicked: masterWindow.switchWidget("hidden", "")
     }
 
     Component.onCompleted: {
@@ -464,4 +475,5 @@ PanelWindow {
         active: true
         source: "osd/OsdOverlay.qml"
     }
+}
 }
