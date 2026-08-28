@@ -1,8 +1,6 @@
 pragma Singleton
 
 import QtQuick
-import Quickshell
-import Quickshell.Io
 import "../WindowRegistry.js" as LayoutMath
 
 // =============================================================================
@@ -13,7 +11,7 @@ import "../WindowRegistry.js" as LayoutMath
 // Material You palette for vibrant, modern rice aesthetics.
 // =============================================================================
 
-Singleton {
+QtObject {
     id: root
 
     component FontScale: QtObject {
@@ -151,14 +149,32 @@ Singleton {
 
     // Tint helper
     function tint(c, alpha) {
-        return Qt.rgba(c.r, c.g, c.b, alpha);
+        if (!c) return Qt.rgba(0, 0, 0, alpha !== undefined ? alpha : 1.0);
+        if (typeof c === "object" && c.r !== undefined) {
+            return Qt.rgba(c.r, c.g, c.b, alpha !== undefined ? alpha : 1.0);
+        }
+        let s = String(c).trim();
+        if (s.startsWith("#") && s.length >= 7) {
+            let r = parseInt(s.substring(1, 3), 16) / 255.0;
+            let g = parseInt(s.substring(3, 5), 16) / 255.0;
+            let b = parseInt(s.substring(5, 7), 16) / 255.0;
+            return Qt.rgba(r, g, b, alpha !== undefined ? alpha : 1.0);
+        }
+        return Qt.rgba(0.5, 0.5, 0.5, alpha !== undefined ? alpha : 1.0);
     }
 
-    // Readable text on an arbitrary fill. `accentText` is the on-primary colour
-    // and was being used on top of blue, mauve and peach tiles alike — on a pale
-    // tone that is dark-on-dark. Luminance decides instead.
+    // Readable text on an arbitrary fill.
     function contrastOn(c) {
-        return (0.299 * c.r + 0.587 * c.g + 0.114 * c.b) > 0.55 ? _p.ground : _p.text;
+        let r = 0.5, g = 0.5, b = 0.5;
+        if (typeof c === "object" && c.r !== undefined) {
+            r = c.r; g = c.g; b = c.b;
+        } else if (String(c).startsWith("#") && String(c).length >= 7) {
+            let s = String(c).trim();
+            r = parseInt(s.substring(1, 3), 16) / 255.0;
+            g = parseInt(s.substring(3, 5), 16) / 255.0;
+            b = parseInt(s.substring(5, 7), 16) / 255.0;
+        }
+        return (0.299 * r + 0.587 * g + 0.114 * b) > 0.55 ? _p.ground : _p.text;
     }
 
     // ── Glassmorphic & Translucency Tokens ────────────────────────────────────
@@ -282,28 +298,6 @@ Singleton {
         set("lavender", "lavender");
 
         root._p.loaded = true;
-    }
-
-    function _parse(txt) {
-        txt = (txt || "").trim();
-        const start = txt.indexOf("{");
-        const end = txt.lastIndexOf("}");
-        if (start < 0 || end < start)
-            return null;
-        try {
-            return JSON.parse(txt.slice(start, end + 1));
-        } catch (e) {
-            console.warn("Design: cannot parse —", e);
-            return null;
-        }
-    }
-
-    property Process paletteReader: Process {
-        command: ["cat", "/tmp/qs_colors.json"]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: root._applyPalette(this.text)
-        }
     }
 
     // Legacy aliases

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Text Editor
+Comment=Lightweight and fast text and configuration editor
+Exec=b1air-text %U
+Icon=text-editor
+Terminal=false
+Type=Application
+Categories=Utility;TextEditor;
+MimeType=text/plain;text/x-chdr;text/x-csrc;text/x-c++hdr;text/x-c++src;text/x-python;application/x-shellscript;text/x-qml;text/markdown;application/json;
+StartupNotify=true
+StartupWMClass=b1air-text

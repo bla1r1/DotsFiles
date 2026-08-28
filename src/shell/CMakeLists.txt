@@ -12,19 +12,21 @@ if(CCACHE_PROGRAM)
     set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_PROGRAM}")
 endif()
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml Quick WaylandClient)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml QmlModels Quick WaylandClient DBus)
 find_package(LayerShellQt REQUIRED)
 find_package(Threads REQUIRED)
 
 set(SOURCES
     main.cpp
     b1air_bridge.cpp
-    ../sway_ipc.cpp
-    ../system_control.cpp
-    ../user_manager.cpp
-    ../focustime_db.cpp
-    ../settings_manager.cpp
-    ../session_manager.cpp
+    dbus_adaptor.cpp
+    ../daemon/daemon_dbus.cpp
+    ../daemon/sway_ipc.cpp
+    ../daemon/system_control.cpp
+    ../daemon/user_manager.cpp
+    ../daemon/focustime_db.cpp
+    ../daemon/settings_manager.cpp
+    ../daemon/session_manager.cpp
 )
 
 add_executable(b1air-shell ${SOURCES})
@@ -32,6 +34,7 @@ add_executable(b1air-shell ${SOURCES})
 target_include_directories(b1air-shell PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/..
+    ${CMAKE_CURRENT_SOURCE_DIR}/../daemon
 )
 
 target_link_libraries(b1air-shell PRIVATE
@@ -40,9 +43,117 @@ target_link_libraries(b1air-shell PRIVATE
     Qt6::Qml
     Qt6::Quick
     Qt6::WaylandClient
+    Qt6::DBus
     LayerShellQt::Interface
     Threads::Threads
     sqlite3
+    systemd
 )
 
-install(TARGETS b1air-shell DESTINATION /usr/local/bin)
+# ── b1air-files (Native File Manager & Gallery) ──────────────────────────────
+add_executable(b1air-files
+    ../apps/files/main.cpp
+    ../apps/files/backend.cpp
+)
+
+target_include_directories(b1air-files PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../apps/files
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
+)
+
+target_link_libraries(b1air-files PRIVATE
+    Qt6::Core
+    Qt6::Gui
+    Qt6::Qml
+    Qt6::Quick
+    Qt6::WaylandClient
+    Threads::Threads
+)
+
+# ── b1air-monitor (Native Activity Monitor & Task Manager) ───────────────────
+add_executable(b1air-monitor
+    ../apps/monitor/main.cpp
+    ../apps/monitor/backend.cpp
+)
+
+target_include_directories(b1air-monitor PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../apps/monitor
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
+)
+
+target_link_libraries(b1air-monitor PRIVATE
+    Qt6::Core
+    Qt6::Gui
+    Qt6::Qml
+    Qt6::Quick
+    Qt6::WaylandClient
+    Threads::Threads
+)
+
+# ── b1air-text (Native Minimal Text & Config Editor) ─────────────────────────
+add_executable(b1air-text
+    ../apps/text/main.cpp
+    ../apps/text/backend.cpp
+)
+
+target_include_directories(b1air-text PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../apps/text
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
+)
+
+target_link_libraries(b1air-text PRIVATE
+    Qt6::Core
+    Qt6::Gui
+    Qt6::Qml
+    Qt6::Quick
+    Qt6::WaylandClient
+    Threads::Threads
+)
+
+# ── b1air-settings (Native Desktop Settings Application) ─────────────────────
+add_executable(b1air-settings
+    ../apps/settings/main.cpp
+)
+
+target_include_directories(b1air-settings PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../apps/settings
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
+)
+
+target_link_libraries(b1air-settings PRIVATE
+    Qt6::Core
+    Qt6::Gui
+    Qt6::Qml
+    Qt6::Quick
+    Qt6::WaylandClient
+    Threads::Threads
+)
+
+# ── b1air-term (Native Terminal Emulator) ────────────────────────────────────
+add_executable(b1air-term
+    ../apps/term/main.cpp
+    ../apps/term/terminal_item.cpp
+)
+
+target_include_directories(b1air-term PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../apps/term
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
+)
+
+target_link_libraries(b1air-term PRIVATE
+    Qt6::Core
+    Qt6::Gui
+    Qt6::Qml
+    Qt6::Quick
+    Qt6::WaylandClient
+    Threads::Threads
+    vterm
+    util
+)
+
+install(TARGETS b1air-shell b1air-files b1air-monitor b1air-text b1air-settings b1air-term DESTINATION /usr/local/bin)

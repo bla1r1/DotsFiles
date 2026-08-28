@@ -24,6 +24,7 @@
 #include <dirent.h>
 #include <csignal>
 #include <climits>
+#include <sys/statvfs.h>
 
 namespace b1air {
 
@@ -3111,6 +3112,155 @@ bool SystemControl::vault_unmount(const std::string& mount_point) {
 std::string SystemControl::vault_status() {
     std::string mounts = exec_cmd_full("mount | grep -E 'gocryptfs|cryfs|encfs' | awk '{print $3}'");
     return mounts.empty() ? "{\"active\":false,\"mounts\":[]}" : "{\"active\":true}";
+}
+
+bool SystemControl::kill_process(int pid, bool force) {
+    if (pid <= 1) return false;
+    return (::kill(pid, force ? SIGKILL : SIGTERM) == 0);
+}
+
+std::string SystemControl::get_system_stats_json() {
+    // 1. CPU calculation via /proc/stat
+    static unsigned long long s_prev_idle = 0, s_prev_total = 0;
+    double cpu_pct = 0.0;
+    {
+        std::ifstream f("/proc/stat");
+        std::string cpu;
+        unsigned long long u, n, s, i, io, irq, sirq, st;
+        if (f >> cpu >> u >> n >> s >> i >> io >> irq >> sirq >> st) {
+            unsigned long long idle = i + io;
+            unsigned long long non_idle = u + n + s + irq + sirq + st;
+            unsigned long long total = idle + non_idle;
+            if (s_prev_total > 0 && total > s_prev_total) {
+                unsigned long long d_total = total - s_prev_total;
+                unsigned long long d_idle = idle - s_prev_idle;
+                cpu_pct = (double)(d_total - d_idle) * 100.0 / (double)d_total;
+                if (cpu_pct < 0.0) cpu_pct = 0.0;
+                if (cpu_pct > 100.0) cpu_pct = 100.0;
+            }
+            s_prev_idle = idle;
+            s_prev_total = total;
+        }
+    }
+
+    // 2. Cores & CPU Model
+    unsigned int cores = std::thread::hardware_concurrency();
+    std::string cpu_model = "CPU";
+    {
+        std::ifstream f("/proc/cpuinfo");
+        std::string line;
+        while (std::getline(f, line)) {
+            if (line.rfind("model name", 0) == 0 || line.rfind("Hardware", 0) == 0 || line.rfind("Processor", 0) == 0) {
+                auto col = line.find(':');
+                if (col != std::string::npos && col + 2 < line.size()) {
+                    cpu_model = line.substr(col + 2);
+                    // sanitize quotes
+                    for (char& c : cpu_model) if (c == '"' || c == '\\') c = ' ';
+                    break;
+                }
+            }
+        }
+    }
+
+    // 3. Memory & Swap via /proc/meminfo
+    long long total_kb = 0, avail_kb = 0, swap_total_kb = 0, swap_free_kb = 0;
+    {
+        std::ifstream f("/proc/meminfo");
+        std::string key;
+        long long val;
+        std::string unit;
+        while (f >> key >> val >> unit) {
+            if (key == "MemTotal:") total_kb = val;
+            else if (key == "MemAvailable:") avail_kb = val;
+            else if (key == "SwapTotal:") swap_total_kb = val;
+            else if (key == "SwapFree:") swap_free_kb = val;
+        }
+    }
+    long long used_kb = total_kb - avail_kb;
+    if (used_kb < 0) used_kb = 0;
+    double mem_pct = total_kb > 0 ? ((double)used_kb * 100.0 / (double)total_kb) : 0.0;
+    long long swap_used_kb = swap_total_kb - swap_free_kb;
+    if (swap_used_kb < 0) swap_used_kb = 0;
+
+    // 4. Disk Info via statvfs("/")
+    double disk_total_gb = 0.0, disk_free_gb = 0.0, disk_pct = 0.0;
+    struct statvfs fs;
+    if (statvfs("/", &fs) == 0) {
+        double total_bytes = (double)fs.f_blocks * (double)fs.f_frsize;
+        double free_bytes = (double)fs.f_bavail * (double)fs.f_frsize;
+        disk_total_gb = total_bytes / (1024.0 * 1024.0 * 1024.0);
+        disk_free_gb = free_bytes / (1024.0 * 1024.0 * 1024.0);
+        if (total_bytes > 0) {
+            disk_pct = ((total_bytes - free_bytes) * 100.0) / total_bytes;
+        }
+    }
+
+    // 5. Load average & Uptime
+    std::string loadavg = "";
+    {
+        std::ifstream f("/proc/loadavg");
+        std::string l1, l2, l3;
+        if (f >> l1 >> l2 >> l3) loadavg = l1 + " " + l2 + " " + l3;
+    }
+
+    std::string uptime_str = "";
+    {
+        std::ifstream f("/proc/uptime");
+        double up_sec = 0;
+        if (f >> up_sec) {
+            int hrs = (int)up_sec / 3600;
+            int mins = ((int)up_sec % 3600) / 60;
+            uptime_str = std::to_string(hrs) + "h " + std::to_string(mins) + "m";
+        }
+    }
+
+    // 6. Top Processes via ps
+    std::ostringstream proc_json;
+    proc_json << "[";
+    FILE* fp = popen("ps -eo pid,pcpu,pmem,user,comm --sort=-pcpu | head -n 35", "r");
+    if (fp) {
+        char line[256];
+        bool first = true;
+        // Skip header
+        if (fgets(line, sizeof(line), fp)) {
+            while (fgets(line, sizeof(line), fp)) {
+                int pid;
+                float pcpu, pmem;
+                char user[64], comm[128];
+                if (sscanf(line, "%d %f %f %63s %127s", &pid, &pcpu, &pmem, user, comm) >= 5) {
+                    if (!first) proc_json << ",";
+                    first = false;
+                    proc_json << "{\"pid\":" << pid
+                              << ",\"cpu\":" << pcpu
+                              << ",\"mem\":" << pmem
+                              << ",\"user\":\"" << user << "\""
+                              << ",\"name\":\"" << comm << "\"}";
+                }
+            }
+        }
+        pclose(fp);
+    }
+    proc_json << "]";
+
+    std::ostringstream res;
+    res << std::fixed << std::setprecision(1)
+        << "{"
+        << "\"cpu_pct\":" << cpu_pct << ","
+        << "\"cpu_model\":\"" << cpu_model << "\","
+        << "\"cores\":" << cores << ","
+        << "\"ram_used_mb\":" << (used_kb / 1024) << ","
+        << "\"ram_total_mb\":" << (total_kb / 1024) << ","
+        << "\"ram_pct\":" << mem_pct << ","
+        << "\"swap_used_mb\":" << (swap_used_kb / 1024) << ","
+        << "\"swap_total_mb\":" << (swap_total_kb / 1024) << ","
+        << "\"disk_total_gb\":" << disk_total_gb << ","
+        << "\"disk_free_gb\":" << disk_free_gb << ","
+        << "\"disk_pct\":" << disk_pct << ","
+        << "\"load_avg\":\"" << loadavg << "\","
+        << "\"uptime\":\"" << uptime_str << "\","
+        << "\"processes\":" << proc_json.str()
+        << "}";
+    return res.str();
 }
 
 } // namespace b1air

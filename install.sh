@@ -125,7 +125,7 @@ arch_packages() {
         # Modern CLI & Shell
         fish starship eza bat fzf zoxide fastfetch btop
         # Terminal Emulators
-        kitty
+        kitty libvterm
         # GUI Applications
         firefox thunar imv
         # Clipboard & Screenshots

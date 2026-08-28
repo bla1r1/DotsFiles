@@ -166,7 +166,10 @@ PopupShell {
             IconButton {
                 icon: "\u{f0493}"   // cog
                 bordered: true
-                onClicked: center.openFull("settings")
+                onClicked: {
+                    Quickshell.execDetached(["b1air-settings"]);
+                    window.close();
+                }
             }
         }
 

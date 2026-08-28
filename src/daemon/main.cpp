@@ -4,6 +4,7 @@
 #include "system_control.hpp"
 #include "settings_manager.hpp"
 #include "session_manager.hpp"
+#include "daemon_dbus.hpp"
 
 #include <iostream>
 #include <string>
@@ -157,7 +158,9 @@ int main(int argc, char* argv[]) {
 
     std::string cmd = argv[1];
 
-    if (cmd == "session" || cmd == "start-session") {
+    if (cmd == "dbus" || cmd == "service" || cmd == "dbus-service") {
+        return DaemonDBus::run_service();
+    } else if (cmd == "session" || cmd == "start-session") {
         return SessionManager::run_session();
     } else if (cmd == "settings") {
         std::string sub = (argc >= 3) ? argv[2] : "apply";
@@ -173,6 +176,10 @@ int main(int argc, char* argv[]) {
         return SystemControl::run_gamepad_inhibit();
     } else if (cmd == "stats") {
         std::string date_arg = (argc >= 3) ? argv[2] : "";
+        if (DaemonDBus::is_running()) {
+            std::cout << DaemonDBus::call_get_stats(date_arg) << "\n";
+            return 0;
+        }
         FocusTimeDB db;
         if (!db.open()) {
             std::cerr << "{\"error\":\"failed to open database\"}\n";
@@ -362,10 +369,13 @@ int main(int argc, char* argv[]) {
             std::cout << SystemControl::get_volume() << "\n";
             return 0;
         } else if (sub == "up" || sub == "inc") {
+            if (DaemonDBus::is_running()) return DaemonDBus::call_volume_up(step) ? 0 : 1;
             return SystemControl::volume_up(step) ? 0 : 1;
         } else if (sub == "down" || sub == "dec") {
+            if (DaemonDBus::is_running()) return DaemonDBus::call_volume_down(step) ? 0 : 1;
             return SystemControl::volume_down(step) ? 0 : 1;
         } else if (sub == "mute" || sub == "toggle") {
+            if (DaemonDBus::is_running()) return DaemonDBus::call_volume_mute() ? 0 : 1;
             return SystemControl::volume_toggle_mute() ? 0 : 1;
         } else {
             std::cerr << "Usage: " << argv[0] << " volume {get|up [N]|down [N]|mute}\n";
@@ -425,10 +435,13 @@ int main(int argc, char* argv[]) {
             std::cout << SystemControl::brightness_get() << "\n";
             return 0;
         } else if (sub == "up" || sub == "inc") {
+            if (DaemonDBus::is_running()) return DaemonDBus::call_brightness_up(step) ? 0 : 1;
             return SystemControl::brightness_up(step) ? 0 : 1;
         } else if (sub == "down" || sub == "dec") {
+            if (DaemonDBus::is_running()) return DaemonDBus::call_brightness_down(step) ? 0 : 1;
             return SystemControl::brightness_down(step) ? 0 : 1;
         } else if (sub == "set") {
+            if (DaemonDBus::is_running()) return DaemonDBus::call_brightness_set(step) ? 0 : 1;
             return SystemControl::brightness_set(step) ? 0 : 1;
         } else {
             std::cerr << "Usage: " << argv[0] << " brightness {available|get|up [N]|down [N]|set <pct>}\n";
@@ -568,12 +581,26 @@ int main(int argc, char* argv[]) {
             return SystemControl::term_theme_set(sub) ? 0 : 1;
         }
     } else if (cmd == "reload") {
+        if (DaemonDBus::is_running()) return DaemonDBus::call_reload() ? 0 : 1;
         return SystemControl::reload_desktop() ? 0 : 1;
+    } else if (cmd == "monitor-json" || cmd == "sysinfo-json") {
+        std::cout << SystemControl::get_system_stats_json() << "\n";
+        return 0;
+    } else if (cmd == "kill-process") {
+        if (argc < 3) {
+            std::cerr << "Usage: " << argv[0] << " kill-process <pid> [--force]\n";
+            return 1;
+        }
+        int pid = std::atoi(argv[2]);
+        bool force = (argc >= 4 && std::string(argv[3]) == "--force");
+        return SystemControl::kill_process(pid, force) ? 0 : 1;
     } else if (cmd == "game-mode" || cmd == "gamemode") {
         std::string sub = (argc >= 3) ? argv[2] : "toggle";
         if (sub == "on" || sub == "enable") {
+            if (DaemonDBus::is_running()) return DaemonDBus::call_game_mode(true) ? 0 : 1;
             return SystemControl::enable_game_mode() ? 0 : 1;
         } else if (sub == "off" || sub == "disable") {
+            if (DaemonDBus::is_running()) return DaemonDBus::call_game_mode(false) ? 0 : 1;
             return SystemControl::disable_game_mode() ? 0 : 1;
         } else if (sub == "toggle") {
             return SystemControl::toggle_game_mode() ? 0 : 1;
@@ -590,6 +617,7 @@ int main(int argc, char* argv[]) {
             return 1;
         }
         std::string sub = argv[2];
+        if (DaemonDBus::is_running()) return DaemonDBus::call_power(sub) ? 0 : 1;
         if (sub == "lock") return SystemControl::lock_session() ? 0 : 1;
         if (sub == "logout") return SystemControl::logout_session() ? 0 : 1;
         if (sub == "suspend") return SystemControl::suspend_system() ? 0 : 1;
@@ -756,6 +784,7 @@ int main(int argc, char* argv[]) {
         }
         return 0;
     } else if (cmd == "lock") {
+        if (DaemonDBus::is_running()) return DaemonDBus::call_lock() ? 0 : 1;
         std::string mode = (argc >= 3) ? argv[2] : "auto";
         return SystemControl::lock_session(mode) ? 0 : 1;
     } else if (cmd == "polkit" || cmd == "polkit-agent") {

@@ -193,6 +193,10 @@ public:
     // Desktop Reload
     static bool reload_desktop();
 
+    // System Monitor & Task Manager
+    static std::string get_system_stats_json();
+    static bool kill_process(int pid, bool force = false);
+
     // Native Polkit Authentication Agent
     static int polkit_agent_run();
     static std::string polkit_prompt_dialog(const std::string& action_id, const std::string& message, const std::string& user = "");

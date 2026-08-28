@@ -149,6 +149,13 @@ PanelWindow {
         function onHeightChanged() { handleNativeScreenChange(); }
     }
 
+    Connections {
+        target: (typeof Bridge !== "undefined") ? Bridge : null
+        function onIpcTriggered(action, target, arg) {
+            masterWindow.handleIpcCommand(action + ":" + target + ":" + (arg || ""), true);
+        }
+    }
+
     function handleNativeScreenChange() {
         if (masterWindow.currentActive === "hidden") return;
         

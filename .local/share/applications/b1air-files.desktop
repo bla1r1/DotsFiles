@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Files
+Comment=File Manager & Media Gallery
+Exec=b1air-files %U
+Icon=system-file-manager
+Terminal=false
+Type=Application
+Categories=System;FileTools;FileManager;Utility;
+MimeType=inode/directory;
+StartupNotify=true
+StartupWMClass=b1air-files

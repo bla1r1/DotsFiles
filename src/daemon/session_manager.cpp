@@ -3,6 +3,7 @@
 #include "system_control.hpp"
 #include "sway_ipc.hpp"
 #include "focustime_db.hpp"
+#include "daemon_dbus.hpp"
 
 #include <iostream>
 #include <thread>
@@ -175,15 +176,21 @@ int SessionManager::run_session() {
 
     // 11. Launch Native Desktop Shell
     const char* home = std::getenv("HOME");
-    if (!is_process_running("b1air-shell") && !is_process_running("quickshell.*Main.qml")) {
-        if (access("/usr/local/bin/b1air-shell", X_OK) == 0 || (home && access((std::string(home) + "/.local/bin/b1air-shell").c_str(), X_OK) == 0)) {
-            spawn_detached("b1air-shell");
-        } else {
-            std::string qs_main = std::string(home ? home : "") + "/.config/quickshell/Main.qml";
-            if (access(qs_main.c_str(), R_OK) == 0) {
-                spawn_detached("quickshell -p " + qs_main);
-            }
+    if (!is_process_running("quickshell")) {
+        std::string qs_main = std::string(home ? home : "") + "/.config/quickshell/Main.qml";
+        if (access(qs_main.c_str(), R_OK) == 0) {
+            spawn_detached("quickshell -p " + qs_main);
         }
+    }
+
+    // 12. Auto-tune compositor effects for software rasterizer / VM (KDE Plasma approach)
+    FILE* fp = popen("glxinfo 2>/dev/null | grep -iE 'llvmpipe|softpipe|swrast' || true", "r");
+    if (fp) {
+        char buf[128];
+        if (fgets(buf, sizeof(buf), fp) != nullptr && strlen(buf) > 0) {
+            std::system("swaymsg 'blur disable; shadows disable; default_dim_inactive 0.0' >/dev/null 2>&1 || true");
+        }
+        pclose(fp);
     }
 
     // 12. Autostart Applications from settings.json
@@ -207,10 +214,25 @@ int SessionManager::run_session() {
 
     std::cout << "[b1air-session] All desktop services, UI, and background workers initialized.\n";
 
-    // Main session loop waiting for termination signal
+    sd_bus *dbus = nullptr;
+    DaemonDBus::init_server(&dbus);
+
+    // Main session loop processing D-Bus messages with kernel epoll (0% CPU)
     while (g_session_running) {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        if (dbus) {
+            int r = sd_bus_process(dbus, nullptr);
+            if (r < 0) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                continue;
+            }
+            if (r > 0) continue;
+            sd_bus_wait(dbus, (uint64_t) 1000000);
+        } else {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
     }
+
+    if (dbus) sd_bus_unref(dbus);
 
     running_flag = 0;
     std::cout << "[b1air-session] Session terminating gracefully.\n";

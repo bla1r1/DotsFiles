@@ -1,33 +1,15 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
-import Quickshell
 import "../Ui"
 import "../Services"
 import "components" as Sections
 
-// =============================================================================
-// Settings — a rail and pages, not one long scroll.
-//
-// The eleven section components in settings/components/ were written for
-// exactly this and then never wired to anything: nothing referenced them, and
-// nothing did before this rework either. They are not dead weight, they are a
-// half-built version of this window.
-//
-// Audio and Network are here, but only their durable half: the per-app mixer,
-// per-device levels, saved Wi-Fi profiles and paired devices. "Make it louder"
-// and "join this network" stay in the Control Center — the rule in
-// docs/migration.md is that a popup changes state and settings change
-// configuration, not that whole subsystems are missing from settings.
-//
-// Sections read and write Services/Settings directly rather than having values
-// threaded through this file. Passing them down would rebuild, in miniature,
-// the "every consumer keeps its own copy" problem the store exists to end.
-// =============================================================================
-
-PopupShell {
+Item {
     id: app
 
+    property bool framed: false
+    property string page: "monitors"
     property string searchQuery: ""
 
     Component.onCompleted: if (!app.page) app.page = "monitors"
@@ -98,6 +80,10 @@ PopupShell {
 
     RowLayout {
         anchors.fill: parent
+        anchors.leftMargin: Design.s(16)
+        anchors.rightMargin: Design.s(16)
+        anchors.topMargin: Design.s(14)
+        anchors.bottomMargin: Design.s(14)
         spacing: Design.s(Design.space.lg)
 
         // ── Rail ─────────────────────────────────────────────────────────────
