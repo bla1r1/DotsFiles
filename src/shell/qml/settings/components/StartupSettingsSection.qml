@@ -16,7 +16,7 @@ ColumnLayout {
     Layout.fillWidth: true
     spacing: Design.s(Design.space.lg)
 
-    property var autostartApps: Settings.autostartApps || ["waybar", "polkit", "quickshell"]
+    property var autostartApps: Settings.autostartApps || ["polkit", "quickshell"]
     property var autostartCustom: Settings.autostartCustom || []
     property bool openGuideAtStartup: Settings.openGuideAtStartup || false
     property bool showAppPicker: false
@@ -133,12 +133,12 @@ ColumnLayout {
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: Design.s(2)
-                    Label { text: "Waybar Top Bar"; weight: Design.weight.semibold }
+                    Label { text: "Native Quickshell Top Bar"; weight: Design.weight.semibold }
                     Label { text: "Status bar with workspaces, clock, and hardware monitors"; role: "caption"; dim: true }
                 }
                 Toggle {
-                    checked: section.isAppEnabled("waybar")
-                    onToggled: section.toggleApp("waybar")
+                    checked: section.isAppEnabled("quickshell")
+                    onToggled: section.toggleApp("quickshell")
                 }
             }
 

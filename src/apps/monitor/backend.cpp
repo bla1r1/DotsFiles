@@ -2,12 +2,12 @@
 
 #include <QDir>
 #include <QFile>
+#include <QProcess>
 #include <QTextStream>
 #include <sys/statvfs.h>
 #include <csignal>
 #include <thread>
 #include <algorithm>
-#include <cstdio>
 #include <fstream>
 
 namespace b1air {
@@ -280,27 +280,32 @@ void MonitorBackend::updateLoadAndUptime() {
 
 void MonitorBackend::updateProcesses() {
     std::vector<ProcessInfo> list;
-    FILE* fp = popen("ps -eo pid,pcpu,pmem,user,comm --sort=-pcpu | head -n 40", "r");
-    if (fp) {
-        char line[256];
-        // skip header
-        if (fgets(line, sizeof(line), fp)) {
-            while (fgets(line, sizeof(line), fp)) {
-                int pid;
-                float pcpu, pmem;
-                char user[64], comm[128];
-                if (sscanf(line, "%d %f %f %63s %127s", &pid, &pcpu, &pmem, user, comm) >= 5) {
-                    ProcessInfo p;
-                    p.pid = pid;
-                    p.cpu = pcpu;
-                    p.mem = pmem;
-                    p.user = QString::fromUtf8(user);
-                    p.name = QString::fromUtf8(comm);
-                    list.push_back(p);
-                }
-            }
-        }
-        pclose(fp);
+    QProcess ps;
+    ps.start("ps", {"-eo", "pid,pcpu,pmem,user,comm", "--sort=-pcpu"});
+    if (!ps.waitForFinished(1000) || ps.exitStatus() != QProcess::NormalExit || ps.exitCode() != 0) {
+        if (m_procModel) m_procModel->updateProcesses(list);
+        return;
+    }
+    const QStringList lines = QString::fromUtf8(ps.readAllStandardOutput()).split('\n', Qt::SkipEmptyParts);
+    // The first line is the ps header.  Limit in-process rather than through
+    // a shell pipeline, so process names can never become shell source.
+    for (int i = 1; i < lines.size() && i <= 40; ++i) {
+        const QStringList fields = lines[i].simplified().split(' ', Qt::SkipEmptyParts);
+        if (fields.size() < 5) continue;
+        bool pidOk = false;
+        const int pid = fields[0].toInt(&pidOk);
+        if (!pidOk) continue;
+        bool cpuOk = false, memOk = false;
+        const float cpu = fields[1].toFloat(&cpuOk);
+        const float mem = fields[2].toFloat(&memOk);
+        if (!cpuOk || !memOk) continue;
+        ProcessInfo p;
+        p.pid = pid;
+        p.cpu = cpu;
+        p.mem = mem;
+        p.user = fields[3];
+        p.name = fields[4];
+        list.push_back(p);
     }
 
     if (m_procModel) {

@@ -75,17 +75,17 @@ ShellRoot {
 
     Process {
         id: suspendProcess
-        command: ["systemctl", "suspend"]
+        command: ["b1air-daemon", "power", "suspend"]
     }
 
     Process {
         id: poweroffProcess
-        command: ["systemctl", "poweroff"]
+        command: ["b1air-daemon", "power", "shutdown"]
     }
 
     Process {
         id: reloadProcess
-        command: ["systemctl", "reboot"]
+        command: ["b1air-daemon", "power", "reboot"]
     }
 
     WlSessionLock {
@@ -105,7 +105,7 @@ ShellRoot {
                 readonly property real sc: scaler.baseScale
                 // --------------------------------
 
-                property string staticWallpaperPath: "file:///tmp/lock_bg.png"
+                property string staticWallpaperPath: "file://" + (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/b1air/lock_bg.png"
 
                 property string batPct: "100"
                 property string batStatus: "AC"

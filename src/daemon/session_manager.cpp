@@ -4,6 +4,7 @@
 #include "sway_ipc.hpp"
 #include "focustime_db.hpp"
 #include "daemon_dbus.hpp"
+#include "runtime.hpp"
 
 #include <iostream>
 #include <thread>
@@ -13,6 +14,11 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <cstring>
+#include <cctype>
+#include <sys/wait.h>
+#include <fcntl.h>
+#include <filesystem>
+#include <array>
 
 namespace b1air {
 
@@ -23,23 +29,95 @@ static void session_sig_handler(int) {
 }
 
 // ── Spawn helper that runs command in background detached ────────────────────
-static void spawn_detached(const std::string& cmd) {
-    const char* rundir = std::getenv("XDG_RUNTIME_DIR");
-    const char* wdisp = std::getenv("WAYLAND_DISPLAY");
-    const char* swaysock = std::getenv("SWAYSOCK");
-    
-    std::string env_prefix = "QT_QPA_PLATFORM=\"wayland;xcb\" ";
-    if (rundir && strlen(rundir) > 0) env_prefix += "XDG_RUNTIME_DIR=\"" + std::string(rundir) + "\" ";
-    if (wdisp && strlen(wdisp) > 0) env_prefix += "WAYLAND_DISPLAY=\"" + std::string(wdisp) + "\" ";
-    if (swaysock && strlen(swaysock) > 0) env_prefix += "SWAYSOCK=\"" + std::string(swaysock) + "\" ";
-    
-    std::string full = env_prefix + cmd + " >/dev/null 2>&1 &";
-    std::system(full.c_str());
+static void spawn_shell_detached(const std::string& cmd) {
+    if (cmd.empty() || cmd.size() > 4096) return;
+    const pid_t pid = fork();
+    if (pid < 0) return;
+    if (pid == 0) {
+        setsid();
+        setenv("QT_QPA_PLATFORM", "wayland;xcb", 1);
+        const int null_fd = open("/dev/null", O_RDWR | O_CLOEXEC);
+        if (null_fd >= 0) {
+            dup2(null_fd, STDIN_FILENO); dup2(null_fd, STDOUT_FILENO); dup2(null_fd, STDERR_FILENO);
+            if (null_fd > STDERR_FILENO) close(null_fd);
+        }
+        execl("/bin/sh", "sh", "-c", cmd.c_str(), static_cast<char*>(nullptr));
+        _exit(127);
+    }
+}
+
+static void spawn_argv_detached(const std::vector<std::string>& args) {
+    if (args.empty()) return;
+    const pid_t pid = fork();
+    if (pid < 0) return;
+    if (pid == 0) {
+        std::vector<char*> argv;
+        for (const auto& arg : args) argv.push_back(const_cast<char*>(arg.c_str()));
+        argv.push_back(nullptr);
+        execvp(argv[0], argv.data());
+        _exit(127);
+    }
+}
+
+static bool run_status(const std::vector<std::string>& args) {
+    if (args.empty()) return false;
+    std::vector<char*> argv;
+    for (const auto& arg : args) argv.push_back(const_cast<char*>(arg.c_str()));
+    argv.push_back(nullptr);
+    const pid_t pid = fork();
+    if (pid < 0) return false;
+    if (pid == 0) {
+        const int null_fd = open("/dev/null", O_RDWR | O_CLOEXEC);
+        if (null_fd >= 0) {
+            dup2(null_fd, STDOUT_FILENO);
+            dup2(null_fd, STDERR_FILENO);
+            if (null_fd > STDERR_FILENO) close(null_fd);
+        }
+        execvp(argv[0], argv.data());
+        _exit(127);
+    }
+    int status = 0;
+    return waitpid(pid, &status, 0) == pid && WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
+
+static std::string run_capture(const std::vector<std::string>& args) {
+    if (args.empty()) return {};
+    int pipefd[2];
+    if (pipe(pipefd) != 0) return {};
+    const pid_t pid = fork();
+    if (pid < 0) { close(pipefd[0]); close(pipefd[1]); return {}; }
+    if (pid == 0) {
+        dup2(pipefd[1], STDOUT_FILENO);
+        close(pipefd[0]); close(pipefd[1]);
+        std::vector<char*> argv;
+        for (const auto& arg : args) argv.push_back(const_cast<char*>(arg.c_str()));
+        argv.push_back(nullptr);
+        execvp(argv[0], argv.data());
+        _exit(127);
+    }
+    close(pipefd[1]);
+    std::string output;
+    std::array<char, 512> buffer{};
+    ssize_t n;
+    while ((n = read(pipefd[0], buffer.data(), buffer.size())) > 0) output.append(buffer.data(), static_cast<size_t>(n));
+    close(pipefd[0]);
+    int status = 0;
+    waitpid(pid, &status, 0);
+    return output;
+}
+
+static bool safe_custom_command(const std::string& cmd) {
+    if (cmd.empty() || cmd.size() > 1024) return false;
+    for (unsigned char c : cmd) {
+        if (std::iscntrl(c) || c == ';' || c == '&' || c == '|' || c == '`' ||
+            c == '$' || c == '<' || c == '>' || c == '\'' || c == '"' ||
+            c == '(' || c == ')' || c == '{' || c == '}' || c == '\\') return false;
+    }
+    return true;
 }
 
 static bool is_process_running(const std::string& pattern) {
-    std::string check = "pgrep -x \"" + pattern + "\" >/dev/null 2>&1 || pgrep -f \"" + pattern + "\" >/dev/null 2>&1";
-    return (std::system(check.c_str()) == 0);
+    return run_status({"pgrep", "-x", pattern}) || run_status({"pgrep", "-f", pattern});
 }
 
 // ── Focus Tracker Thread ─────────────────────────────────────────────────────
@@ -72,7 +150,7 @@ static void focus_tracker_thread() {
 
     ipc.subscribe_events({"window", "workspace"}, [&](const std::string&, const std::string&) {
         if (!g_session_running) return;
-        bool is_locked = (access("/tmp/swaylock.lock", F_OK) == 0);
+        bool is_locked = (access(runtime_path("swaylock.lock").c_str(), F_OK) == 0);
         WindowInfo win = ipc.get_focused_window();
         std::string new_app = is_locked ? "Screen Locked" : (win.app_class.empty() ? "Desktop" : win.app_class);
         std::string new_title = is_locked ? "Locked" : win.title;
@@ -103,6 +181,19 @@ int SessionManager::run_session() {
 
     std::cout << "[b1air-session] Initializing native b1air Desktop Session Manager...\n";
 
+    // A session started by a launcher/SSH helper may not inherit the variables
+    // normally supplied by SDDM.  Without these, Qt/Quickshell cannot reach the
+    // user's Wayland and D-Bus sessions, so every panel silently becomes a
+    // no-op.  Derive only the standard per-user values; never import arbitrary
+    // shell variables into the activation environment.
+    if (!std::getenv("XDG_RUNTIME_DIR")) {
+        setenv("XDG_RUNTIME_DIR", (std::string("/run/user/") + std::to_string(getuid())).c_str(), 1);
+    }
+    if (!std::getenv("DBUS_SESSION_BUS_ADDRESS")) {
+        setenv("DBUS_SESSION_BUS_ADDRESS",
+               (std::string("unix:path=") + std::getenv("XDG_RUNTIME_DIR")).append("/bus").c_str(), 1);
+    }
+
     // 0. Auto-discover Wayland Display if unset
     const char* wdisp = std::getenv("WAYLAND_DISPLAY");
     if (!wdisp || strlen(wdisp) == 0) {
@@ -120,16 +211,20 @@ int SessionManager::run_session() {
 
     const char* swaysock = std::getenv("SWAYSOCK");
     if (!swaysock || strlen(swaysock) == 0) {
-        FILE* fp = popen("ls -t /run/user/$(id -u)/sway-ipc.*.sock 2>/dev/null | head -n1", "r");
-        if (fp) {
-            char buf[256];
-            if (fgets(buf, sizeof(buf), fp) != nullptr) {
-                std::string s = buf;
-                while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
-                if (!s.empty()) setenv("SWAYSOCK", s.c_str(), 1);
+        std::error_code ec;
+        const std::filesystem::path run_user = std::filesystem::path("/run/user") / std::to_string(getuid());
+        std::filesystem::file_time_type newest{};
+        std::string newest_socket;
+        for (const auto& entry : std::filesystem::directory_iterator(run_user, ec)) {
+            const std::string name = entry.path().filename().string();
+            if (name.rfind("sway-ipc.", 0) != 0 || !name.ends_with(".sock")) continue;
+            const auto mtime = entry.last_write_time(ec);
+            if (newest_socket.empty() || mtime > newest) {
+                newest = mtime;
+                newest_socket = entry.path().string();
             }
-            pclose(fp);
         }
+        if (!newest_socket.empty()) setenv("SWAYSOCK", newest_socket.c_str(), 1);
     }
 
     // 1. Export Wayland & Qt Environment
@@ -143,12 +238,21 @@ int SessionManager::run_session() {
     setenv("MOZ_ENABLE_WAYLAND", "1", 1);
 
     // 2. DBus Activation Environment
-    std::system("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE >/dev/null 2>&1 || true");
+    // Do not publish the whole login environment to every user service.  It may
+    // contain credentials inherited from a shell, editor, or development tool.
+    // Only export variables required to activate the desktop session.
+    run_status({"dbus-update-activation-environment", "--systemd",
+                "DBUS_SESSION_BUS_ADDRESS", "XDG_RUNTIME_DIR", "PATH", "HOME",
+                "USER", "LANG", "WAYLAND_DISPLAY", "SWAYSOCK",
+                "XDG_CURRENT_DESKTOP", "XDG_SESSION_DESKTOP", "XDG_SESSION_TYPE",
+                "QT_QPA_PLATFORM", "QT_QUICK_BACKEND", "QSG_RHI_BACKEND",
+                "QSG_RENDER_LOOP", "MOZ_ENABLE_WAYLAND", "GDK_BACKEND",
+                "WLR_RENDERER", "WLR_RENDERER_ALLOW_SOFTWARE", "WLR_NO_HARDWARE_CURSORS"});
 
     // 3. GNOME / GTK Theme GSettings
-    std::system("gsettings set org.gnome.desktop.interface color-scheme prefer-dark >/dev/null 2>&1 || true");
-    std::system("gsettings set org.gnome.desktop.interface gtk-theme Tokyonight-Dark >/dev/null 2>&1 || true");
-    std::system("gsettings set org.gnome.desktop.interface icon-theme Papirus-Dark >/dev/null 2>&1 || true");
+    run_status({"gsettings", "set", "org.gnome.desktop.interface", "color-scheme", "prefer-dark"});
+    run_status({"gsettings", "set", "org.gnome.desktop.interface", "gtk-theme", "Tokyonight-Dark"});
+    run_status({"gsettings", "set", "org.gnome.desktop.interface", "icon-theme", "Papirus-Dark"});
 
     // 4. Load Desktop Settings
     DesktopSettings settings = SettingsManager::load();
@@ -177,7 +281,7 @@ int SessionManager::run_session() {
 
     // 7. Launch Polkit Agent
     if (!is_process_running("b1air-daemon polkit") && !is_process_running("polkit-gnome")) {
-        spawn_detached("b1air-daemon polkit-agent");
+        spawn_argv_detached({"b1air-polkit-agent"});
     }
 
     // 9. Launch Swayidle
@@ -185,11 +289,11 @@ int SessionManager::run_session() {
         std::string idle_cmd = "swayidle -w "
             "lock 'b1air-daemon lock' "
             "timeout " + std::to_string(settings.dimTimeout) + " 'b1air-daemon ddc dim' resume 'b1air-daemon ddc undim' "
-            "timeout " + std::to_string(settings.lockTimeout) + " 'loginctl lock-session' resume 'b1air-daemon ddc undim' "
+            "timeout " + std::to_string(settings.lockTimeout) + " 'b1air-daemon power lock' resume 'b1air-daemon ddc undim' "
             "timeout " + std::to_string(settings.dpmsTimeout) + " 'swaymsg \"output * dpms off\"' resume 'swaymsg \"output * dpms on\"; b1air-daemon ddc undim' "
-            "timeout " + std::to_string(settings.suspendTimeout) + " 'systemctl suspend' resume 'swaymsg \"output * dpms on\"; b1air-daemon ddc undim' "
+            "timeout " + std::to_string(settings.suspendTimeout) + " 'b1air-daemon power suspend' resume 'swaymsg \"output * dpms on\"; b1air-daemon ddc undim' "
             "before-sleep 'loginctl lock-session'";
-        spawn_detached(idle_cmd);
+            spawn_shell_detached(idle_cmd);
     }
 
     // 10. Launch Native Desktop Shell & TopBar (integrated Layer-Shell)
@@ -197,36 +301,38 @@ int SessionManager::run_session() {
     if (!is_process_running("quickshell")) {
         std::string qs_main = std::string(home ? home : "") + "/.config/quickshell/Main.qml";
         if (access(qs_main.c_str(), R_OK) == 0) {
-            spawn_detached("quickshell -p " + qs_main);
+            spawn_argv_detached({"quickshell", "-p", qs_main});
         }
     }
 
     // 12. Auto-tune compositor effects for software rasterizer / VM (KDE Plasma approach)
-    FILE* fp = popen("glxinfo 2>/dev/null | grep -iE 'llvmpipe|softpipe|swrast' || true", "r");
-    if (fp) {
-        char buf[128];
-        if (fgets(buf, sizeof(buf), fp) != nullptr && strlen(buf) > 0) {
-            std::system("swaymsg 'blur disable; shadows disable; default_dim_inactive 0.0' >/dev/null 2>&1 || true");
-        }
-        pclose(fp);
+    const std::string glx_info = run_capture({"glxinfo"});
+    if (glx_info.find("llvmpipe") != std::string::npos ||
+        glx_info.find("softpipe") != std::string::npos ||
+        glx_info.find("swrast") != std::string::npos) {
+        run_status({"swaymsg", "blur disable; shadows disable; default_dim_inactive 0.0"});
     }
 
     // 12. Autostart Applications from settings.json
     for (const auto& app : settings.autostartApps) {
         if (app == "telegram" && !is_process_running("telegram-desktop")) {
-            spawn_detached("telegram-desktop -startintray");
+            spawn_argv_detached({"telegram-desktop", "-startintray"});
         } else if (app == "discord" && !is_process_running("discord") && !is_process_running("vesktop")) {
-            spawn_detached("vesktop --start-minimized || discord --start-minimized");
+            if (access("/usr/bin/vesktop", X_OK) == 0) spawn_argv_detached({"vesktop", "--start-minimized"});
+            else spawn_argv_detached({"discord", "--start-minimized"});
         } else if (app == "spotify" && !is_process_running("spotify")) {
-            spawn_detached("spotify --minimized");
+            spawn_argv_detached({"spotify", "--minimized"});
         } else if (app == "steam" && !is_process_running("steam")) {
-            spawn_detached("steam -silent");
+            spawn_argv_detached({"steam", "-silent"});
         }
     }
 
     for (const auto& custom_cmd : settings.autostartCustom) {
-        if (!custom_cmd.empty()) {
-            spawn_detached(custom_cmd);
+        // Custom autostart is intentionally shell-backed, but reject command
+        // chaining and substitutions so a malformed settings file cannot turn
+        // this into an arbitrary command injection primitive.
+        if (safe_custom_command(custom_cmd)) {
+            spawn_shell_detached(custom_cmd);
         }
     }
 

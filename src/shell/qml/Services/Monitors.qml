@@ -49,15 +49,9 @@ Singleton {
         brightnessReader.running = true;
     }
 
-    // swaymsg does not go looking for its socket: without SWAYSOCK in the
-    // environment it just fails, and a shell started outside sway's own
-    // environment then reports no displays at all. Find the socket first.
-    readonly property string swaymsg:
-        "SWAYSOCK=${SWAYSOCK:-$(ls -t ${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/sway-ipc.*.sock 2>/dev/null | head -1)} swaymsg"
-
     Process {
         id: outputReader
-        command: ["sh", "-c", root.swaymsg + " -t get_outputs"]
+        command: ["swaymsg", "-t", "get_outputs"]
         stdout: StdioCollector {
             onStreamFinished: root._parseOutputs(this.text)
         }

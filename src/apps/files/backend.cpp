@@ -389,7 +389,8 @@ void FileManagerBackend::openTerminal(const QString& path) {
     if (!fi.isDir()) {
         target = fi.absolutePath();
     }
-    QProcess::startDetached("kitty", QStringList() << "--directory" << target);
+    // b1air-term accepts a directory argument and starts in it.
+    QProcess::startDetached("b1air-term", QStringList() << target);
 }
 
 void FileManagerBackend::triggerQuickLook(const QString& path) {

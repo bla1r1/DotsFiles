@@ -589,13 +589,13 @@ PopupShell {
             ActionButton {
                 icon: "\u{f033e}"
                 label: "Lock"
-                onActivated: Quickshell.execDetached(["sh", "-c", "swaylock -f 2>/dev/null || loginctl lock-session"])
+                onActivated: Quickshell.execDetached(["b1air-daemon", "power", "lock"])
             }
 
             ActionButton {
                 icon: "\u{f04b2}"
                 label: "Sleep"
-                onActivated: Quickshell.execDetached(["systemctl", "suspend"])
+                onActivated: Quickshell.execDetached(["b1air-daemon", "power", "suspend"])
             }
 
             ActionButton {
@@ -604,7 +604,7 @@ PopupShell {
                 iconTone: Design.peach
                 tone: Design.peach
                 destructive: true
-                onActivated: Quickshell.execDetached(["systemctl", "reboot"])
+                onActivated: Quickshell.execDetached(["b1air-daemon", "power", "reboot"])
             }
 
             ActionButton {
@@ -613,7 +613,7 @@ PopupShell {
                 iconTone: Design.danger
                 tone: Design.danger
                 destructive: true
-                onActivated: Quickshell.execDetached(["systemctl", "poweroff"])
+                onActivated: Quickshell.execDetached(["b1air-daemon", "power", "shutdown"])
             }
         }
     }

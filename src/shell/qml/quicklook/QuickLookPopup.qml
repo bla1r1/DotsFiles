@@ -39,6 +39,9 @@ PopupShell {
         if (root.fileType === "text") {
             textLoader.running = true;
         } else if (root.fileType === "archive") {
+            archiveLoader.command = root.filePath.toLowerCase().endsWith(".zip")
+                ? ["unzip", "-l", root.filePath]
+                : ["tar", "-tf", root.filePath];
             archiveLoader.running = true;
         } else if (root.fileType === "pdf") {
             pdfLoader.running = true;
@@ -55,7 +58,7 @@ PopupShell {
 
     Process {
         id: archiveLoader
-        command: ["bash", "-c", "tar -tf '" + root.filePath + "' 2>/dev/null | head -n 40 || unzip -l '" + root.filePath + "' 2>/dev/null | head -n 40"]
+        command: ["tar", "-tf", root.filePath]
         stdout: StdioCollector {
             onStreamFinished: root.fileText = this.text
         }

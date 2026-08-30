@@ -75,11 +75,11 @@ ColumnLayout {
     }
 
     function cleanPackageCache() {
-        Quickshell.execDetached(["kitty", "--title", "Clean Package Cache", "bash", "-c", "sudo paccache -rk2 || sudo pacman -Sc --noconfirm; echo 'Done! Press enter to exit'; read"]);
+        Quickshell.execDetached(["b1air-term", "-e", "fish", "-lc", "sudo paccache -rk2; or sudo pacman -Sc --noconfirm; printf '\\nDone! Press enter to exit\\n'; read"]);
     }
 
     function cleanOrphanPackages() {
-        Quickshell.execDetached(["kitty", "--title", "Remove Orphan Packages", "bash", "-c", "orphans=$(pacman -Qtdq); if [ -n \"$orphans\" ]; then sudo pacman -Rns $orphans; else echo 'No orphan packages found.'; fi; echo 'Press enter to exit'; read"]);
+        Quickshell.execDetached(["b1air-term", "-e", "fish", "-lc", "set orphans (pacman -Qtdq); if test (count $orphans) -gt 0; sudo pacman -Rns $orphans; else; echo 'No orphan packages found.'; end; printf '\\nPress enter to exit\\n'; read"]);
     }
 
     // ── 1. Desktop Environment Updates ───────────────────────────────────────

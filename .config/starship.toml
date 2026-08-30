@@ -14,7 +14,6 @@ $docker_context\
 $fill\
 $cmd_duration\
 $time\
-$line_break\
 $character"""
 
 # Move the rest of the prompt to the right
@@ -57,7 +56,7 @@ diverged = "⇕⇡${ahead_count}⇣${behind_count}"
 untracked = "󰋗 "
 stashed = " "
 modified = " "
-staged = "󰄬 "
+staged = "+"
 renamed = "󰁔 "
 deleted = " "
 

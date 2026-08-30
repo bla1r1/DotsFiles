@@ -4,23 +4,73 @@
 #include <iostream>
 #include <cstring>
 #include <cstdlib>
+#include <cctype>
+#include <cerrno>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/wait.h>
+#include <vector>
 
 namespace b1air {
 
+// The service intentionally lives on the user bus, but still verify the
+// sender credentials before dispatching any state-changing operation. This
+// keeps a future move to a broader bus or activation model fail-closed.
+static bool sender_is_current_user(sd_bus_message *m, sd_bus_error *error) {
+    uid_t sender_uid = static_cast<uid_t>(-1);
+    sd_bus_creds* creds = nullptr;
+    const bool valid = sd_bus_query_sender_creds(m, SD_BUS_CREDS_UID, &creds) >= 0 &&
+                       sd_bus_creds_get_uid(creds, &sender_uid) >= 0 && sender_uid == getuid();
+    sd_bus_creds_unref(creds);
+    if (!valid) {
+        sd_bus_error_set_const(error, SD_BUS_ERROR_ACCESS_DENIED,
+                               "b1air.Daemon accepts calls only from the session user");
+        return false;
+    }
+    return true;
+}
+
+static bool spawn_detached(const std::vector<std::string>& args, const char* wayland_display = nullptr) {
+    if (args.empty()) return false;
+    pid_t pid = fork();
+    if (pid < 0) return false;
+    if (pid == 0) {
+        (void)setsid();
+        const int null_fd = open("/dev/null", O_RDWR | O_CLOEXEC);
+        if (null_fd >= 0) {
+            dup2(null_fd, STDIN_FILENO); dup2(null_fd, STDOUT_FILENO); dup2(null_fd, STDERR_FILENO);
+            if (null_fd > STDERR_FILENO) close(null_fd);
+        }
+        if (wayland_display) setenv("WAYLAND_DISPLAY", wayland_display, 1);
+        std::vector<char*> argv;
+        for (const auto& arg : args) argv.push_back(const_cast<char*>(arg.c_str()));
+        argv.push_back(nullptr);
+        execvp(argv[0], argv.data());
+        _exit(127);
+    }
+    return true;
+}
+
+#define REQUIRE_SESSION_USER() do { if (!sender_is_current_user(m, ret_error)) return -EACCES; } while (0)
+
 static int method_lock(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
     SystemControl::lock_session();
     return sd_bus_reply_method_return(m, "");
 }
 
 static int method_reload(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
-    std::system("swaymsg reload; b1air-shell forceReload >/dev/null 2>&1 || true");
+    REQUIRE_SESSION_USER();
+    spawn_detached({"swaymsg", "reload"});
+    spawn_detached({"b1air-shell", "forceReload"});
     return sd_bus_reply_method_return(m, "");
 }
 
 static int method_volume_up(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
     int step = 5;
     sd_bus_message_read(m, "i", &step);
     SystemControl::volume_up(step);
@@ -29,6 +79,7 @@ static int method_volume_up(sd_bus_message *m, void *userdata, sd_bus_error *ret
 
 static int method_volume_down(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
     int step = 5;
     sd_bus_message_read(m, "i", &step);
     SystemControl::volume_down(step);
@@ -37,12 +88,14 @@ static int method_volume_down(sd_bus_message *m, void *userdata, sd_bus_error *r
 
 static int method_volume_mute(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
     SystemControl::volume_toggle_mute();
     return sd_bus_reply_method_return(m, "");
 }
 
 static int method_brightness_up(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
     int step = 5;
     sd_bus_message_read(m, "i", &step);
     SystemControl::brightness_up(step);
@@ -51,6 +104,7 @@ static int method_brightness_up(sd_bus_message *m, void *userdata, sd_bus_error 
 
 static int method_brightness_down(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
     int step = 5;
     sd_bus_message_read(m, "i", &step);
     SystemControl::brightness_down(step);
@@ -59,6 +113,7 @@ static int method_brightness_down(sd_bus_message *m, void *userdata, sd_bus_erro
 
 static int method_brightness_set(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
     int pct = 50;
     sd_bus_message_read(m, "i", &pct);
     SystemControl::brightness_set(pct);
@@ -67,6 +122,7 @@ static int method_brightness_set(sd_bus_message *m, void *userdata, sd_bus_error
 
 static int method_gamemode(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
     int enabled = 0;
     sd_bus_message_read(m, "b", &enabled);
     if (enabled) SystemControl::enable_game_mode();
@@ -76,6 +132,7 @@ static int method_gamemode(sd_bus_message *m, void *userdata, sd_bus_error *ret_
 
 static int method_capture(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
     const char *mode = "full";
     sd_bus_message_read(m, "s", &mode);
     SystemControl::capture_screenshot(mode ? mode : "full");
@@ -84,6 +141,7 @@ static int method_capture(sd_bus_message *m, void *userdata, sd_bus_error *ret_e
 
 static int method_power(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
     const char *action = "lock";
     sd_bus_message_read(m, "s", &action);
     std::string act = action ? action : "lock";
@@ -97,6 +155,7 @@ static int method_power(sd_bus_message *m, void *userdata, sd_bus_error *ret_err
 
 static int method_get_stats(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
     const char *date = "";
     sd_bus_message_read(m, "s", &date);
     FocusTimeDB db;
@@ -127,8 +186,7 @@ static const sd_bus_vtable daemon_vtable[] = {
     SD_BUS_VTABLE_END
 };
 
-static std::string get_qs_prefix() {
-    std::string prefix = "";
+static std::string get_wayland_display() {
     const char *wdisp = std::getenv("WAYLAND_DISPLAY");
     if (!wdisp || strlen(wdisp) == 0) {
         const char *rundir = std::getenv("XDG_RUNTIME_DIR");
@@ -136,55 +194,75 @@ static std::string get_qs_prefix() {
             for (int i = 0; i < 5; ++i) {
                 std::string sock = std::string(rundir) + "/wayland-" + std::to_string(i);
                 if (access(sock.c_str(), F_OK) == 0) {
-                    prefix = "WAYLAND_DISPLAY=wayland-" + std::to_string(i) + " ";
-                    break;
+                    return "wayland-" + std::to_string(i);
                 }
             }
         }
-        if (prefix.empty()) prefix = "WAYLAND_DISPLAY=wayland-1 ";
+        return "wayland-1";
     }
-    return prefix;
+    return wdisp;
 }
 
-static std::string get_qs_cmd(const std::string& subcmd) {
-    const char *home = std::getenv("HOME");
-    std::string home_str = home ? home : "/home/dev";
-    return get_qs_prefix() + "quickshell -p " + home_str + "/.config/quickshell/Main.qml ipc call main " + subcmd + " >/dev/null 2>&1 &";
+static bool valid_panel(const std::string& panel) {
+    return panel == "launcher" || panel == "launchpad" || panel == "spotlight" ||
+           panel == "settings" || panel == "control" || panel == "clipboard" ||
+           panel == "calendar" || panel == "music" || panel == "menu";
+}
+
+static bool safe_shell_arg(const std::string& value, size_t max_len = 4096) {
+    if (value.empty() || value.size() > max_len) return value.empty();
+    for (unsigned char c : value) {
+        if (std::iscntrl(c) || c == '\'' || c == '"' || c == '`' || c == '$' ||
+            c == ';' || c == '&' || c == '|' || c == '<' || c == '>') return false;
+    }
+    return true;
 }
 
 static int method_shell_toggle(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
     const char *panel = "launcher";
     sd_bus_message_read(m, "s", &panel);
     std::string p = (panel && strlen(panel) > 0) ? panel : "launcher";
-    std::string cmd = get_qs_cmd("toggle " + p + " ''");
-    std::system(cmd.c_str());
+    if (!valid_panel(p)) return sd_bus_error_set_const(ret_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid panel");
+    const char* home = std::getenv("HOME");
+    const std::string qml = std::string(home ? home : "/home/dev") + "/.config/quickshell/Main.qml";
+    spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "toggle", p, ""}, get_wayland_display().c_str());
     return sd_bus_reply_method_return(m, "");
 }
 
 static int method_shell_open(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
     const char *panel = "launcher";
     const char *arg = "";
     sd_bus_message_read(m, "ss", &panel, &arg);
     std::string p = (panel && strlen(panel) > 0) ? panel : "launcher";
     std::string a = arg ? arg : "";
-    std::string cmd = get_qs_cmd("open " + p + " '" + a + "'");
-    std::system(cmd.c_str());
+    if (!valid_panel(p) || !safe_shell_arg(a)) {
+        return sd_bus_error_set_const(ret_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid shell argument");
+    }
+    const char* home = std::getenv("HOME");
+    const std::string qml = std::string(home ? home : "/home/dev") + "/.config/quickshell/Main.qml";
+    spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "open", p, a}, get_wayland_display().c_str());
     return sd_bus_reply_method_return(m, "");
 }
 
 static int method_shell_close(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
-    std::string cmd = get_qs_cmd("close");
-    std::system(cmd.c_str());
+    REQUIRE_SESSION_USER();
+    const char* home = std::getenv("HOME");
+    const std::string qml = std::string(home ? home : "/home/dev") + "/.config/quickshell/Main.qml";
+    spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "close"}, get_wayland_display().c_str());
     return sd_bus_reply_method_return(m, "");
 }
 
 static int method_shell_reload(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
-    std::string cmd = get_qs_cmd("forceReload");
-    std::system(cmd.c_str());
+    REQUIRE_SESSION_USER();
+    const char* home = std::getenv("HOME");
+    const std::string qml = std::string(home ? home : "/home/dev") + "/.config/quickshell/Main.qml";
+    spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "forceReload"}, get_wayland_display().c_str());
     return sd_bus_reply_method_return(m, "");
 }
 

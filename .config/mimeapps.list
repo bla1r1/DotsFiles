@@ -1,6 +1,6 @@
 [Default Applications]
 # Text and Code
-text/plain=nvim.desktop;micro.desktop;kitty.desktop;
+text/plain=b1air-text.desktop;nvim.desktop;micro.desktop;
 text/markdown=nvim.desktop;micro.desktop;
 text/x-c=nvim.desktop;micro.desktop;
 text/x-c++=nvim.desktop;micro.desktop;
@@ -18,14 +18,14 @@ x-scheme-handler/about=firefox.desktop;chromium.desktop;
 x-scheme-handler/unknown=firefox.desktop;chromium.desktop;
 
 # File Manager & Directories
-inode/directory=thunar.desktop;yazi.desktop;kitty.desktop;
+inode/directory=b1air-files.desktop;yazi.desktop;
 
 # Images
-image/jpeg=imv.desktop;org.gnome.Loupe.desktop;
-image/png=imv.desktop;org.gnome.Loupe.desktop;
-image/gif=imv.desktop;org.gnome.Loupe.desktop;
-image/webp=imv.desktop;org.gnome.Loupe.desktop;
-image/svg+xml=imv.desktop;org.gnome.Loupe.desktop;
+image/jpeg=b1air-view.desktop;org.gnome.Loupe.desktop;
+image/png=b1air-view.desktop;org.gnome.Loupe.desktop;
+image/gif=b1air-view.desktop;org.gnome.Loupe.desktop;
+image/webp=b1air-view.desktop;org.gnome.Loupe.desktop;
+image/svg+xml=b1air-view.desktop;org.gnome.Loupe.desktop;
 
 # Audio & Video
 audio/mpeg=mpv.desktop;
@@ -47,4 +47,4 @@ application/x-rar=xarchiver.desktop;org.gnome.FileRoller.desktop;
 application/pdf=zathura.desktop;org.gnome.Evince.desktop;firefox.desktop;
 
 # Terminal
-x-scheme-handler/terminal=kitty.desktop;
+x-scheme-handler/terminal=b1air-term.desktop;

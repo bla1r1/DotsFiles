@@ -595,8 +595,8 @@ ApplicationWindow {
                                             text: modelData.name
                                             font.family: "Fira Sans SemiBold, JetBrainsMono Nerd Font, sans-serif"
                                             font.pixelSize: 11
-                                            font.bold: isLast
-                                            color: isLast ? window.colBlue : (crumbHover.containsMouse ? "#ffffff" : window.colFg)
+                                            font.bold: parent.isLast
+                                            color: parent.isLast ? window.colBlue : (crumbHover.containsMouse ? "#ffffff" : window.colFg)
                                         }
 
                                         HoverHandler { id: crumbHover }

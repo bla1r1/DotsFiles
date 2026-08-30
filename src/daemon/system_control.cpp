@@ -2,8 +2,10 @@
 #include "sway_ipc.hpp"
 #include "settings_manager.hpp"
 #include "json.hpp"
+#include "secret_store.hpp"
 
 #include <iostream>
+#include <openssl/crypto.h>
 #include <fstream>
 #include <cstdlib>
 #include <unistd.h>
@@ -21,17 +23,24 @@
 #include <unordered_map>
 #include <thread>
 #include <cstring>
+#include <cctype>
+#include <cstdio>
+#include <cstdarg>
 #include <dirent.h>
+#include <filesystem>
 #include <csignal>
 #include <climits>
 #include <sys/statvfs.h>
+#include <sys/wait.h>
+#include <systemd/sd-bus.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include "runtime.hpp"
 
 namespace b1air {
 
-static const char* STATE_FILE = "/tmp/sway-game-mode.state";
-
 static bool is_game_mode_active() {
-    return (access(STATE_FILE, F_OK) == 0);
+    return (access(runtime_path("game-mode.state").c_str(), F_OK) == 0);
 }
 
 // ── Helper to execute command and capture single line stdout ────────────────
@@ -79,12 +88,373 @@ static std::string json_escape(const std::string& s) {
     return out;
 }
 
+// Quote data before passing it to one of the legacy shell-only helpers.
+// New code should prefer execve/QProcess and avoid a shell entirely.
+static std::string shell_quote(const std::string& s) {
+    std::string out = "'";
+    for (char c : s) {
+        if (c == '\'') out += "'\\''";
+        else out += c;
+    }
+    out += "'";
+    return out;
+}
+
+static bool valid_geometry(const std::string& value) {
+    if (value.empty() || value.size() > 128) return false;
+    for (unsigned char c : value) {
+        if (!(std::isdigit(c) || c == ',' || c == ' ' || c == 'x' || c == 'X' || c == '-' || c == '.')) return false;
+    }
+    return true;
+}
+
+// Sway receives commands as a small command language over IPC.  File paths
+// must therefore not be interpolated into that language without rejecting its
+// separators and quoting characters.  The same path is still passed as an
+// argv element to external tools, but Sway needs this additional check.
+static bool safe_sway_path(const std::string& value) {
+    if (value.empty() || value.size() > PATH_MAX) return false;
+    for (unsigned char c : value) {
+        if (std::iscntrl(c) || c == '\'' || c == '"' || c == '\\' ||
+            c == ';' || c == '{' || c == '}' || c == '[' || c == ']' ||
+            c == '$' || c == '#') return false;
+    }
+    return true;
+}
+
+static bool safe_wallpaper_file(const std::string& value, std::string& resolved) {
+    if (value.empty() || value.size() > PATH_MAX) return false;
+    char path[PATH_MAX];
+    if (!realpath(value.c_str(), path)) return false;
+    struct stat st{};
+    if (stat(path, &st) != 0 || !S_ISREG(st.st_mode) || st.st_size <= 0 || st.st_size > 50 * 1024 * 1024) return false;
+    const std::string lower = [&] {
+        std::string ext = std::filesystem::path(path).extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        return ext;
+    }();
+    if (lower != ".jpg" && lower != ".jpeg" && lower != ".png" && lower != ".webp") return false;
+    resolved = path;
+    return true;
+}
+
+static bool safe_art_url(const std::string& url) {
+    if (url.size() > 2048) return false;
+    const bool http = url.rfind("http://", 0) == 0;
+    const bool https = url.rfind("https://", 0) == 0;
+    if (!http && !https) return url.rfind("file://", 0) == 0;
+
+    const size_t authority_start = url.find("://") + 3;
+    const size_t authority_end = url.find_first_of("/?#", authority_start);
+    const std::string authority = url.substr(
+        authority_start, authority_end == std::string::npos ? std::string::npos : authority_end - authority_start);
+    if (authority.empty() || authority.find('@') != std::string::npos) return false;
+
+    std::string host;
+    std::string service = http ? "80" : "443";
+    if (authority.front() == '[') {
+        const size_t close = authority.find(']');
+        if (close == std::string::npos) return false;
+        host = authority.substr(1, close - 1);
+        if (close + 1 < authority.size()) {
+            if (authority[close + 1] != ':') return false;
+            service = authority.substr(close + 2);
+        }
+    } else {
+        const size_t colon = authority.rfind(':');
+        if (colon != std::string::npos) {
+            host = authority.substr(0, colon);
+            service = authority.substr(colon + 1);
+        } else {
+            host = authority;
+        }
+    }
+    if (host.empty() || (service != "80" && service != "443")) return false;
+
+    addrinfo hints{};
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_family = AF_UNSPEC;
+    addrinfo* results = nullptr;
+    if (getaddrinfo(host.c_str(), service.c_str(), &hints, &results) != 0 || !results) return false;
+
+    bool has_address = false;
+    bool public_only = true;
+    for (addrinfo* it = results; it; it = it->ai_next) {
+        if (!it->ai_addr) continue;
+        has_address = true;
+        if (it->ai_family == AF_INET) {
+            const auto* sa = reinterpret_cast<const sockaddr_in*>(it->ai_addr);
+            const uint32_t ip = ntohl(sa->sin_addr.s_addr);
+            const bool private_v4 = (ip >> 24) == 0 || (ip >> 24) == 10 ||
+                                    (ip >> 24) == 127 || (ip >> 16) == 0xA9FE ||
+                                    (ip >> 20) == 0xAC1 || (ip >> 16) == 0xC0A8 ||
+                                    (ip >> 28) >= 14;
+            public_only = public_only && !private_v4;
+        } else if (it->ai_family == AF_INET6) {
+            const auto* sa = reinterpret_cast<const sockaddr_in6*>(it->ai_addr);
+            const unsigned char* b = sa->sin6_addr.s6_addr;
+            const bool loopback = IN6_IS_ADDR_LOOPBACK(&sa->sin6_addr);
+            const bool local = IN6_IS_ADDR_LINKLOCAL(&sa->sin6_addr) ||
+                               (b[0] >= 0xfc && b[0] <= 0xfd) ||
+                               IN6_IS_ADDR_UNSPECIFIED(&sa->sin6_addr) ||
+                               IN6_IS_ADDR_MULTICAST(&sa->sin6_addr);
+            public_only = public_only && !loopback && !local;
+        } else {
+            public_only = false;
+        }
+    }
+    freeaddrinfo(results);
+    return has_address && public_only;
+}
+
+static std::string read_file_string(const std::string& path);
+
+static pid_t runtime_pid(const std::string& path) {
+    std::string text = read_file_string(path);
+    while (!text.empty() && (text.back() == '\n' || text.back() == '\r')) text.pop_back();
+    if (text.empty() || text.size() > 10) return -1;
+    for (char c : text) if (c < '0' || c > '9') return -1;
+    errno = 0;
+    const long value = std::strtol(text.c_str(), nullptr, 10);
+    return errno == 0 && value > 0 && value <= INT_MAX ? static_cast<pid_t>(value) : -1;
+}
+
+static bool run_argv_with_input(const std::vector<std::string>& args, const std::string& input, bool append_newline) {
+    if (args.empty()) return false;
+    int pipefd[2];
+    if (pipe(pipefd) != 0) return false;
+    std::vector<char*> argv;
+    for (const auto& arg : args) argv.push_back(const_cast<char*>(arg.c_str()));
+    argv.push_back(nullptr);
+    pid_t pid = fork();
+    if (pid == 0) {
+        close(pipefd[1]);
+        dup2(pipefd[0], STDIN_FILENO);
+        close(pipefd[0]);
+        execvp(argv[0], argv.data());
+        _exit(127);
+    }
+    close(pipefd[0]);
+    if (pid < 0) { close(pipefd[1]); return false; }
+    std::string payload = append_newline ? input + "\n" : input;
+    const char* data = payload.data();
+    size_t remaining = payload.size();
+    while (remaining > 0) {
+        ssize_t written = write(pipefd[1], data, remaining);
+        if (written <= 0) break;
+        data += written;
+        remaining -= static_cast<size_t>(written);
+    }
+    close(pipefd[1]);
+    int status = 0;
+    return waitpid(pid, &status, 0) == pid && WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
+
+static bool run_argv_with_stdin(const std::vector<std::string>& args, const std::string& input) {
+    return run_argv_with_input(args, input, true);
+}
+
+static bool run_argv_with_raw_stdin(const std::vector<std::string>& args, const std::string& input) {
+    return run_argv_with_input(args, input, false);
+}
+
+static bool run_argv_status(const std::vector<std::string>& args) {
+    if (args.empty()) return false;
+    std::vector<char*> argv;
+    for (const auto& arg : args) argv.push_back(const_cast<char*>(arg.c_str()));
+    argv.push_back(nullptr);
+    pid_t pid = fork();
+    if (pid == 0) {
+        const int null_fd = open("/dev/null", O_RDWR | O_CLOEXEC);
+        if (null_fd >= 0) {
+            dup2(null_fd, STDOUT_FILENO); dup2(null_fd, STDERR_FILENO);
+            if (null_fd > STDERR_FILENO) close(null_fd);
+        }
+        execvp(argv[0], argv.data());
+        _exit(127);
+    }
+    if (pid < 0) return false;
+    int status = 0;
+    return waitpid(pid, &status, 0) == pid && WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
+
+static bool run_argv_status_env(const std::vector<std::string>& args,
+                                const std::vector<std::pair<std::string, std::string>>& env) {
+    if (args.empty()) return false;
+    std::vector<char*> argv;
+    for (const auto& arg : args) argv.push_back(const_cast<char*>(arg.c_str()));
+    argv.push_back(nullptr);
+    pid_t pid = fork();
+    if (pid == 0) {
+        const int null_fd = open("/dev/null", O_RDWR | O_CLOEXEC);
+        if (null_fd >= 0) {
+            dup2(null_fd, STDOUT_FILENO); dup2(null_fd, STDERR_FILENO);
+            if (null_fd > STDERR_FILENO) close(null_fd);
+        }
+        for (const auto& [key, value] : env) (void)setenv(key.c_str(), value.c_str(), 1);
+        execvp(argv[0], argv.data());
+        _exit(127);
+    }
+    if (pid < 0) return false;
+    int status = 0;
+    return waitpid(pid, &status, 0) == pid && WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
+
+static bool run_argv_detached(const std::vector<std::string>& args) {
+    if (args.empty()) return false;
+    pid_t pid = fork();
+    if (pid < 0) return false;
+    if (pid == 0) {
+        (void)setsid();
+        const int null_fd = open("/dev/null", O_RDWR | O_CLOEXEC);
+        if (null_fd >= 0) {
+            dup2(null_fd, STDIN_FILENO); dup2(null_fd, STDOUT_FILENO); dup2(null_fd, STDERR_FILENO);
+            if (null_fd > STDERR_FILENO) close(null_fd);
+        }
+        std::vector<char*> argv;
+        for (const auto& arg : args) argv.push_back(const_cast<char*>(arg.c_str()));
+        argv.push_back(nullptr);
+        execvp(argv[0], argv.data());
+        _exit(127);
+    }
+    return true;
+}
+
+static pid_t spawn_argv_detached(const std::vector<std::string>& args) {
+    if (args.empty()) return -1;
+    pid_t pid = fork();
+    if (pid < 0) return -1;
+    if (pid == 0) {
+        (void)setsid();
+        const int null_fd = open("/dev/null", O_RDWR | O_CLOEXEC);
+        if (null_fd >= 0) {
+            dup2(null_fd, STDIN_FILENO); dup2(null_fd, STDOUT_FILENO); dup2(null_fd, STDERR_FILENO);
+            if (null_fd > STDERR_FILENO) close(null_fd);
+        }
+        std::vector<char*> argv;
+        for (const auto& arg : args) argv.push_back(const_cast<char*>(arg.c_str()));
+        argv.push_back(nullptr);
+        execvp(argv[0], argv.data());
+        _exit(127);
+    }
+    return pid;
+}
+
+static void notify_user(const std::string& app, const std::string& title,
+                        const std::string& body = {}, const std::string& icon = {},
+                        const std::string& hint = {}, const std::string& urgency = {}) {
+    std::vector<std::string> args = {"notify-send"};
+    if (!app.empty()) { args.push_back("-a"); args.push_back(app); }
+    if (!icon.empty()) { args.push_back("-i"); args.push_back(icon); }
+    if (!urgency.empty()) { args.push_back("-u"); args.push_back(urgency); }
+    if (!hint.empty()) { args.push_back("-h"); args.push_back(hint); }
+    args.push_back(title);
+    if (!body.empty()) args.push_back(body);
+    (void)run_argv_status(args);
+}
+
+static std::string run_argv_capture(const std::vector<std::string>& args, const std::string& input = "") {
+    if (args.empty()) return "";
+    int out_pipe[2];
+    if (pipe(out_pipe) != 0) return "";
+    int in_pipe[2] = {-1, -1};
+    if (!input.empty() && pipe(in_pipe) != 0) { close(out_pipe[0]); close(out_pipe[1]); return ""; }
+    std::vector<char*> argv;
+    for (const auto& arg : args) argv.push_back(const_cast<char*>(arg.c_str()));
+    argv.push_back(nullptr);
+    pid_t pid = fork();
+    if (pid == 0) {
+        dup2(out_pipe[1], STDOUT_FILENO);
+        dup2(out_pipe[1], STDERR_FILENO);
+        close(out_pipe[0]); close(out_pipe[1]);
+        if (!input.empty()) { close(in_pipe[1]); dup2(in_pipe[0], STDIN_FILENO); close(in_pipe[0]); }
+        execvp(argv[0], argv.data());
+        _exit(127);
+    }
+    close(out_pipe[1]);
+    if (pid < 0) { close(out_pipe[0]); if (in_pipe[0] >= 0) { close(in_pipe[0]); close(in_pipe[1]); } return ""; }
+    if (!input.empty()) {
+        close(in_pipe[0]);
+        std::string payload = input + "\n";
+        (void)write(in_pipe[1], payload.data(), payload.size());
+        close(in_pipe[1]);
+    }
+    std::string output;
+    std::array<char, 4096> buffer;
+    ssize_t count;
+    while ((count = read(out_pipe[0], buffer.data(), buffer.size())) > 0) output.append(buffer.data(), count);
+    close(out_pipe[0]);
+    int status = 0;
+    waitpid(pid, &status, 0);
+    return output;
+}
+
+static bool logind_call(const char* method, const char* signature = "", ...) {
+    sd_bus* bus = nullptr;
+    sd_bus_error error = SD_BUS_ERROR_NULL;
+    sd_bus_message* reply = nullptr;
+    if (sd_bus_open_system(&bus) < 0) return false;
+
+    va_list ap;
+    va_start(ap, signature);
+    int r = sd_bus_call_methodv(bus, "org.freedesktop.login1", "/org/freedesktop/login1",
+                                "org.freedesktop.login1.Manager", method, &error, &reply,
+                                signature, ap);
+    va_end(ap);
+    sd_bus_error_free(&error);
+    sd_bus_message_unref(reply);
+    sd_bus_unref(bus);
+    return r >= 0;
+}
+
+static bool logind_session_call(const char* method) {
+    const char* session = std::getenv("XDG_SESSION_ID");
+    if (!session || *session == '\0') return false;
+    return logind_call(method, "s", session);
+}
+
 static std::string read_file_string(const std::string& path) {
-    std::ifstream in(path);
-    if (!in) return "";
-    std::stringstream buffer;
-    buffer << in.rdbuf();
-    return buffer.str();
+    const int fd = open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) return "";
+    struct stat st{};
+    if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode) || st.st_size > 16 * 1024 * 1024) {
+        close(fd);
+        return "";
+    }
+    std::string result(static_cast<size_t>(st.st_size), '\0');
+    size_t offset = 0;
+    while (offset < result.size()) {
+        const ssize_t n = read(fd, result.data() + offset, result.size() - offset);
+        if (n <= 0) { close(fd); return ""; }
+        offset += static_cast<size_t>(n);
+    }
+    close(fd);
+    return result;
+}
+
+static bool write_private_file(const std::string& path, const std::string& contents) {
+    const int fd = open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW, 0600);
+    if (fd < 0) return false;
+    if (fchmod(fd, 0600) != 0) { close(fd); return false; }
+    size_t offset = 0;
+    while (offset < contents.size()) {
+        const ssize_t n = write(fd, contents.data() + offset, contents.size() - offset);
+        if (n <= 0) { close(fd); return false; }
+        offset += static_cast<size_t>(n);
+    }
+    const bool ok = fsync(fd) == 0;
+    close(fd);
+    return ok;
+}
+
+static bool write_fd_all(int fd, const std::string& contents) {
+    size_t offset = 0;
+    while (offset < contents.size()) {
+        const ssize_t n = write(fd, contents.data() + offset, contents.size() - offset);
+        if (n <= 0) return false;
+        offset += static_cast<size_t>(n);
+    }
+    return true;
 }
 
 // ── Game Mode ────────────────────────────────────────────────────────────────
@@ -94,16 +464,13 @@ bool SystemControl::enable_game_mode() {
         ipc.send_command(0, "blur disable; shadows disable; corner_radius 0; default_border pixel 0; output * adaptive_sync on");
     }
 
-    std::system("powerprofilesctl set performance 2>/dev/null || true");
-    std::system("pw-metadata -n settings 0 clock.force-quantum 256 2>/dev/null || true");
-    std::system("killall -SIGUSR1 waybar 2>/dev/null || true");
+    (void)run_argv_status({"powerprofilesctl", "set", "performance"});
+    (void)run_argv_status({"pw-metadata", "-n", "settings", "0", "clock.force-quantum", "256"});
     SettingsManager::set_json_value("notificationsDnd", "true");
 
-    std::ofstream out(STATE_FILE);
-    out << "1\n";
-    out.close();
+    if (!write_private_file(runtime_path("game-mode.state"), "1\n")) return false;
 
-    std::system("notify-send -a 'Game Mode' -i 'input-gaming' 'Game Mode Enabled' 'Compositor effects disabled • Performance active' 2>/dev/null || true");
+    notify_user("Game Mode", "Game Mode Enabled", "Compositor effects disabled • Performance active", "input-gaming");
     return true;
 }
 
@@ -113,14 +480,13 @@ bool SystemControl::disable_game_mode() {
         ipc.send_command(0, "blur enable; shadows enable; corner_radius 10; default_border pixel 2; output * adaptive_sync off");
     }
 
-    std::system("powerprofilesctl set balanced 2>/dev/null || true");
-    std::system("pw-metadata -n settings 0 clock.force-quantum 0 2>/dev/null || true");
-    std::system("killall -SIGUSR1 waybar 2>/dev/null || true");
+    (void)run_argv_status({"powerprofilesctl", "set", "balanced"});
+    (void)run_argv_status({"pw-metadata", "-n", "settings", "0", "clock.force-quantum", "0"});
     SettingsManager::set_json_value("notificationsDnd", "false");
 
-    unlink(STATE_FILE);
+    unlink(runtime_path("game-mode.state").c_str());
 
-    std::system("notify-send -a 'Game Mode' -i 'input-gaming' 'Game Mode Disabled' 'Standard desktop profile restored' 2>/dev/null || true");
+    notify_user("Game Mode", "Game Mode Disabled", "Standard desktop profile restored", "input-gaming");
     return true;
 }
 
@@ -144,14 +510,13 @@ bool SystemControl::run_quickshell_lock() {
         return false;
     }
     ddc_dim();
-    std::string cmd = "quickshell -p '" + qs_lock + "'";
-    int ret = std::system(cmd.c_str());
+    const int ret = run_argv_status({"quickshell", "-p", qs_lock}) ? 0 : 1;
     ddc_undim();
     return (ret == 0);
 }
 
 bool SystemControl::run_swaylock() {
-    if (std::system("pgrep -x swaylock >/dev/null 2>&1") == 0) return true;
+    if (!run_argv_capture({"pidof", "swaylock"}).empty()) return true;
 
     std::string help_text = exec_cmd_full("swaylock --help 2>&1");
     auto supports = [&](const std::string& flag) {
@@ -163,57 +528,43 @@ bool SystemControl::run_swaylock() {
     std::string user_wp = home_str + "/.config/sway/wallpaper.jpg";
     std::string cache_wp = home_str + "/.cache/current_wallpaper.jpg";
 
-    std::string cmd = "swaylock --ignore-empty-password --color '1a1b26' --font 'JetBrainsMono Nerd Font'";
+    std::vector<std::string> args = {"swaylock", "--ignore-empty-password", "--color", "1a1b26", "--font", "JetBrainsMono Nerd Font"};
 
     if (access("/var/cache/wallpaper/current.jpg", R_OK) == 0) {
-        cmd += " --image '/var/cache/wallpaper/current.jpg' --scaling fill";
+        args.insert(args.end(), {"--image", "/var/cache/wallpaper/current.jpg", "--scaling", "fill"});
     } else if (access(cache_wp.c_str(), R_OK) == 0) {
-        cmd += " --image '" + cache_wp + "' --scaling fill";
+        args.insert(args.end(), {"--image", cache_wp, "--scaling", "fill"});
     } else if (access(user_wp.c_str(), R_OK) == 0) {
-        cmd += " --image '" + user_wp + "' --scaling fill";
+        args.insert(args.end(), {"--image", user_wp, "--scaling", "fill"});
     }
 
-    if (supports("--indicator-idle-visible")) cmd += " --indicator-idle-visible";
-    if (supports("--indicator-radius")) cmd += " --indicator-radius 85";
-    if (supports("--indicator-thickness")) cmd += " --indicator-thickness 6";
-    if (supports("--ring-color")) cmd += " --ring-color '7aa2f7'";
-    if (supports("--inside-color")) cmd += " --inside-color '16161ecc'";
-    if (supports("--line-color")) cmd += " --line-color '00000000'";
-    if (supports("--separator-color")) cmd += " --separator-color '00000000'";
-    if (supports("--key-hl-color")) cmd += " --key-hl-color '7aa2f7'";
-    if (supports("--bs-hl-color")) cmd += " --bs-hl-color 'f7768e'";
-    if (supports("--text-color")) cmd += " --text-color 'c0caf5'";
-    if (supports("--text-clear-color")) cmd += " --text-clear-color 'e0af68'";
-    if (supports("--ring-ver-color")) cmd += " --ring-ver-color '9ece6a'";
-    if (supports("--inside-ver-color")) cmd += " --inside-ver-color '16161ecc'";
-    if (supports("--text-ver-color")) cmd += " --text-ver-color '9ece6a'";
-    if (supports("--ring-wrong-color")) cmd += " --ring-wrong-color 'f7768e'";
-    if (supports("--inside-wrong-color")) cmd += " --inside-wrong-color '16161ecc'";
-    if (supports("--text-wrong-color")) cmd += " --text-wrong-color 'f7768e'";
-    if (supports("--show-keyboard-layout")) cmd += " --show-keyboard-layout";
-    if (supports("--layout-bg-color")) cmd += " --layout-bg-color '16161ecc'";
-    if (supports("--layout-border-color")) cmd += " --layout-border-color '7aa2f7'";
-    if (supports("--layout-text-color")) cmd += " --layout-text-color 'c0caf5'";
-
-    if (supports("--screenshots")) cmd += " --screenshots";
+    auto add_flag = [&](const char* flag) { if (supports(flag)) args.emplace_back(flag); };
+    auto add_pair = [&](const char* flag, const char* value) { if (supports(flag)) args.insert(args.end(), {flag, value}); };
+    add_flag("--indicator-idle-visible"); add_pair("--indicator-radius", "85"); add_pair("--indicator-thickness", "6");
+    add_pair("--ring-color", "7aa2f7"); add_pair("--inside-color", "16161ecc"); add_pair("--line-color", "00000000");
+    add_pair("--separator-color", "00000000"); add_pair("--key-hl-color", "7aa2f7"); add_pair("--bs-hl-color", "f7768e");
+    add_pair("--text-color", "c0caf5"); add_pair("--text-clear-color", "e0af68"); add_pair("--ring-ver-color", "9ece6a");
+    add_pair("--inside-ver-color", "16161ecc"); add_pair("--text-ver-color", "9ece6a"); add_pair("--ring-wrong-color", "f7768e");
+    add_pair("--inside-wrong-color", "16161ecc"); add_pair("--text-wrong-color", "f7768e"); add_flag("--show-keyboard-layout");
+    add_pair("--layout-bg-color", "16161ecc"); add_pair("--layout-border-color", "7aa2f7"); add_pair("--layout-text-color", "c0caf5");
+    add_flag("--screenshots");
     if (supports("--clock")) {
-        cmd += " --clock";
-        if (supports("--timestr")) cmd += " --timestr '%H:%M'";
-        if (supports("--datestr")) cmd += " --datestr '%A, %B %d, %Y'";
+        args.emplace_back("--clock");
+        add_pair("--timestr", "%H:%M"); add_pair("--datestr", "%A, %B %d, %Y");
     }
-    if (supports("--effect-blur")) cmd += " --effect-blur 10x4";
-    if (supports("--effect-dim")) cmd += " --effect-dim 0.20";
-    if (supports("--effect-vignette")) cmd += " --effect-vignette 0.25:0.25";
-    if (supports("--grace")) cmd += " --grace 1";
-    if (supports("--fade-in")) cmd += " --fade-in 0.2";
+    add_pair("--effect-blur", "10x4"); add_pair("--effect-dim", "0.20"); add_pair("--effect-vignette", "0.25:0.25");
+    add_pair("--grace", "1"); add_pair("--fade-in", "0.2");
 
     ddc_dim();
-    int ret = std::system(cmd.c_str());
+    const int ret = run_argv_status(args) ? 0 : 1;
     ddc_undim();
     return (ret == 0);
 }
 
 bool SystemControl::lock_session(const std::string& mode) {
+    // Tell logind first so inhibitors, lock state and suspend coordination use
+    // the same session lifecycle as KDE/GNOME.
+    (void)logind_session_call("LockSession");
     if (mode == "swaylock") {
         return run_swaylock();
     }
@@ -226,25 +577,22 @@ bool SystemControl::lock_session(const std::string& mode) {
 }
 
 bool SystemControl::logout_session() {
+    if (logind_session_call("TerminateSession")) return true;
     SwayIPC ipc;
-    if (ipc.connect()) {
-        ipc.send_command(0, "exit");
-        return true;
-    }
-    return (std::system("swaymsg exit 2>/dev/null || loginctl terminate-session self") == 0);
+    return ipc.connect() && ipc.send_command(0, "exit").find("success") != std::string::npos;
 }
 
 bool SystemControl::suspend_system() {
     lock_session();
-    return (std::system("systemctl suspend 2>/dev/null || loginctl suspend 2>/dev/null || zzz 2>/dev/null || elogind-tool suspend 2>/dev/null || echo mem > /sys/power/state 2>/dev/null") == 0);
+    return logind_call("Suspend", "b", true);
 }
 
 bool SystemControl::reboot_system() {
-    return (std::system("systemctl reboot 2>/dev/null || loginctl reboot 2>/dev/null || /sbin/reboot 2>/dev/null || reboot 2>/dev/null") == 0);
+    return logind_call("Reboot", "b", true);
 }
 
 bool SystemControl::shutdown_system() {
-    return (std::system("systemctl poweroff 2>/dev/null || loginctl poweroff 2>/dev/null || /sbin/poweroff 2>/dev/null || poweroff 2>/dev/null") == 0);
+    return logind_call("PowerOff", "b", true);
 }
 
 // ── Power Profiles ───────────────────────────────────────────────────────────
@@ -258,30 +606,39 @@ std::string SystemControl::power_profile_get() {
 }
 
 bool SystemControl::power_profile_set(const std::string& profile) {
-    if (std::system(("powerprofilesctl set " + profile + " >/dev/null 2>&1").c_str()) == 0) {
+    if (profile != "performance" && profile != "power-saver" && profile != "balanced") return false;
+    if (run_argv_status({"powerprofilesctl", "set", profile})) {
         return true;
     }
     std::string gov = (profile == "performance" ? "performance" : (profile == "power-saver" ? "powersave" : "schedutil"));
-    return (std::system(("echo " + gov + " | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor >/dev/null 2>&1").c_str()) == 0);
+    bool changed = false;
+    std::error_code ec;
+    for (const auto& cpu : std::filesystem::directory_iterator("/sys/devices/system/cpu", ec)) {
+        const std::string name = cpu.path().filename().string();
+        if (name.rfind("cpu", 0) != 0 || name.size() <= 3 ||
+            !std::all_of(name.begin() + 3, name.end(), [](char c) { return std::isdigit(static_cast<unsigned char>(c)); })) continue;
+        const std::string governor = (cpu.path() / "cpufreq/scaling_governor").string();
+        if (access(governor.c_str(), W_OK) == 0) changed = run_argv_with_stdin({"tee", governor}, gov) || changed;
+        else if (run_argv_with_stdin({"sudo", "tee", governor}, gov)) changed = true;
+    }
+    return changed;
 }
 
 // ── Caffeine / Idle Inhibitor (Stay Awake Mode) ──────────────────────────────
-static const char* CAFFEINE_STATE_FILE = "/tmp/b1air-caffeine.state";
-
 bool SystemControl::caffeine_is_active() {
-    return (access(CAFFEINE_STATE_FILE, F_OK) == 0);
+    return (access(runtime_path("caffeine.state").c_str(), F_OK) == 0);
 }
 
 bool SystemControl::caffeine_set(bool active) {
     if (active) {
-        int fd = open(CAFFEINE_STATE_FILE, O_CREAT | O_WRONLY | O_TRUNC, 0644);
+        int fd = open(runtime_path("caffeine.state").c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0600);
         if (fd >= 0) close(fd);
-        std::system("swaymsg inhibit_idle focus >/dev/null 2>&1");
-        std::system("notify-send -a \"b1air DE\" -i caffeine \"Caffeine Mode Active\" \"Screen sleep and idle lock disabled\" 2>/dev/null");
+        (void)run_argv_status({"swaymsg", "inhibit_idle", "focus"});
+        notify_user("b1air DE", "Caffeine Mode Active", "Screen sleep and idle lock disabled", "caffeine");
     } else {
-        unlink(CAFFEINE_STATE_FILE);
-        std::system("swaymsg inhibit_idle none >/dev/null 2>&1");
-        std::system("notify-send -a \"b1air DE\" -i caffeine \"Caffeine Mode Disabled\" \"Normal screen sleep restored\" 2>/dev/null");
+        unlink(runtime_path("caffeine.state").c_str());
+        (void)run_argv_status({"swaymsg", "inhibit_idle", "none"});
+        notify_user("b1air DE", "Caffeine Mode Disabled", "Normal screen sleep restored", "caffeine");
     }
     return true;
 }
@@ -303,6 +660,28 @@ struct DesktopAppEntry {
     bool no_display = false;
     bool terminal = false;
 };
+
+static std::string resolve_desktop_icon(const std::string& icon) {
+    if (icon.empty()) return {};
+    if (icon.front() == '/') return icon;
+
+    const char* home = std::getenv("HOME");
+    std::vector<std::string> roots = {
+        "/usr/share/icons/hicolor/scalable/apps/",
+        "/usr/share/icons/hicolor/48x48/apps/",
+        "/usr/share/icons/hicolor/64x64/apps/",
+        "/usr/share/icons/AdwaitaLegacy/48x48/legacy/",
+        "/usr/share/pixmaps/"
+    };
+    if (home) roots.push_back(std::string(home) + "/.local/share/icons/hicolor/scalable/apps/");
+    for (const auto& root : roots) {
+        for (const auto& ext : {std::string(".svg"), std::string(".png"), std::string(".xpm")}) {
+            std::string candidate = root + icon + ext;
+            if (access(candidate.c_str(), R_OK) == 0) return candidate;
+        }
+    }
+    return {};
+}
 
 static std::string s_apps_cache_category;
 static std::string s_apps_cache_json;
@@ -408,7 +787,7 @@ std::string SystemControl::apps_list_json(const std::string& category) {
                      e_low.find("floorp") != std::string::npos || e_low.find("qutebrowser") != std::string::npos);
         } else if (cat_low == "terminal") {
             match = (c_low.find("terminalemulator") != std::string::npos ||
-                     e_low.find("kitty") != std::string::npos || e_low.find("foot") != std::string::npos ||
+                     e_low.find("b1air-term") != std::string::npos || e_low.find("foot") != std::string::npos ||
                      e_low.find("alacritty") != std::string::npos || e_low.find("ghostty") != std::string::npos ||
                      e_low.find("wezterm") != std::string::npos || e_low.find("konsole") != std::string::npos ||
                      e_low.find("xterm") != std::string::npos || e_low.find("blackbox") != std::string::npos);
@@ -452,7 +831,9 @@ std::string SystemControl::apps_list_json(const std::string& category) {
                            "\"exec\":\"" + json_escape(a.exec) + "\","
                            "\"desktopFile\":\"" + json_escape(a.desktop_file) + "\","
                            "\"icon\":\"" + json_escape(a.icon) + "\","
-                           "\"comment\":\"" + json_escape(a.comment) + "\"}";
+                           "\"iconPath\":\"" + json_escape(resolve_desktop_icon(a.icon)) + "\","
+                           "\"comment\":\"" + json_escape(a.comment) + "\","
+                           "\"category\":\"" + json_escape(a.categories) + "\"}";
         res += item;
         if (i + 1 < matched.size()) res += ",";
     }
@@ -468,8 +849,9 @@ std::string SystemControl::pick_color() {
     std::string pos = exec_cmd("slurp -p 2>/dev/null");
     if (pos.empty()) return "";
     while (!pos.empty() && (pos.back() == '\n' || pos.back() == '\r' || pos.back() == ' ')) pos.pop_back();
+    if (!valid_geometry(pos)) return "";
 
-    std::string hex = exec_cmd("grim -g \"" + pos + " 1x1\" -t ppm - 2>/dev/null | convert - -format '%[pixel:p{0,0}]' info: 2>/dev/null || grim -g \"" + pos + " 1x1\" -t png - 2>/dev/null | python3 -c 'import sys; from PIL import Image; im=Image.open(sys.stdin.buffer); r,g,b=im.getpixel((0,0))[:3]; print(f\"#{r:02x}{g:02x}{b:02x}\")' 2>/dev/null");
+    std::string hex = exec_cmd("grim -g \"" + pos + " 1x1\" -t ppm - 2>/dev/null | convert - -format '%[pixel:p{0,0}]' info: 2>/dev/null");
     
     if (hex.empty() || hex[0] != '#') {
         hex = exec_cmd("grim -g \"" + pos + " 1x1\" -t ppm - 2>/dev/null | tail -c 3 | xxd -p | sed 's/^/#/' 2>/dev/null");
@@ -477,8 +859,11 @@ std::string SystemControl::pick_color() {
 
     if (!hex.empty()) {
         while (!hex.empty() && (hex.back() == '\n' || hex.back() == '\r' || hex.back() == ' ')) hex.pop_back();
-        std::system(("wl-copy \"" + hex + "\" 2>/dev/null").c_str());
-        std::system(("notify-send -a \"b1air DE\" -i color-picker \"Color Picked\" \"" + hex + " copied to clipboard\" 2>/dev/null").c_str());
+        if (hex.size() != 7 || hex[0] != '#' ||
+            !std::all_of(hex.begin() + 1, hex.end(), [](unsigned char c) { return std::isxdigit(c); })) return "";
+        (void)run_argv_with_stdin({"wl-copy"}, hex);
+        (void)run_argv_status({"notify-send", "-a", "b1air DE", "-i", "color-picker",
+                                "Color Picked", hex + " copied to clipboard"});
         return hex;
     }
     return "";
@@ -643,19 +1028,12 @@ std::string SystemControl::window_list_open_json() {
 
 // ── Multi-Monitor Layout Manager ─────────────────────────────────────────────
 static std::string get_monitors_state_file() {
-    const char* home = std::getenv("HOME");
-    std::string state_dir = std::string(home ? home : "/tmp") + "/.config/sway/state";
-    mkdir(state_dir.c_str(), 0755);
-    return state_dir + "/monitors-layout.json";
+    return runtime_path("monitors-layout.json");
 }
 
 bool SystemControl::monitors_save(const std::string& layout_json) {
     std::string path = get_monitors_state_file();
-    std::ofstream out(path);
-    if (!out) return false;
-    out << layout_json << "\n";
-    out.close();
-    return true;
+    return write_private_file(path, layout_json + "\n");
 }
 
 bool SystemControl::monitors_apply(const std::string& layout_json) {
@@ -813,17 +1191,33 @@ bool SystemControl::capture_screenshot(const std::string& mode) {
     std::string timestamp = ss.str();
     std::string filepath = target_dir + "/screenshot_" + timestamp + ".png";
 
-    std::string cmd;
+    std::string geometry;
     if (mode == "area") {
-        cmd = "grim -g \"$(slurp)\" " + filepath + " && wl-copy < " + filepath;
+        geometry = run_argv_capture({"slurp"});
+        if (geometry.empty() || !valid_geometry(geometry)) return false;
     } else if (mode == "window") {
-        cmd = "grim -g \"$(swaymsg -t get_tree | jq -j '.. | select(.focused?) | .rect | \"\\(.x),\\(.y) \\(.width)x\\(.height)\"')\" " + filepath + " && wl-copy < " + filepath;
-    } else {
-        cmd = "grim " + filepath + " && wl-copy < " + filepath;
+        SwayIPC ipc;
+        if (!ipc.connect()) return false;
+        const std::string tree = ipc.get_tree();
+        const size_t focused = tree.find("\"focused\":true");
+        const size_t rect = focused == std::string::npos ? std::string::npos : tree.rfind("\"rect\":", focused);
+        if (rect == std::string::npos) return false;
+        try {
+            const int x = std::stoi(tree.substr(tree.find("\"x\":", rect) + 4));
+            const int y = std::stoi(tree.substr(tree.find("\"y\":", rect) + 4));
+            const int w = std::stoi(tree.substr(tree.find("\"width\":", rect) + 8));
+            const int h = std::stoi(tree.substr(tree.find("\"height\":", rect) + 9));
+            geometry = std::to_string(x) + "," + std::to_string(y) + " " + std::to_string(w) + "x" + std::to_string(h);
+        } catch (...) { return false; }
     }
-
-    cmd += " && notify-send -a 'Screenshot' -i '" + filepath + "' 'Screenshot Saved' '" + filepath + "'";
-    return (std::system(cmd.c_str()) == 0);
+    std::vector<std::string> grim_args = {"grim"};
+    if (!geometry.empty()) { grim_args.push_back("-g"); grim_args.push_back(geometry); }
+    grim_args.push_back(filepath);
+    if (!run_argv_status(grim_args)) return false;
+    const std::string image = read_file_string(filepath);
+    if (image.empty() || !run_argv_with_raw_stdin({"wl-copy", "-t", "image/png"}, image)) return false;
+    notify_user("Screenshot", "Screenshot Saved", filepath, filepath);
+    return true;
 }
 
 // ── Fullscreen Toggle ────────────────────────────────────────────────────────
@@ -962,13 +1356,10 @@ std::string SystemControl::wifi_list_json() {
 }
 
 std::string SystemControl::wifi_connect(const std::string& ssid, const std::string& password) {
-    std::string cmd;
-    if (password.empty()) {
-        cmd = "nmcli device wifi connect \"" + ssid + "\" 2>&1";
-    } else {
-        cmd = "nmcli device wifi connect \"" + ssid + "\" password \"" + password + "\" 2>&1";
-    }
-    std::string out = exec_cmd(cmd);
+    const std::vector<std::string> args = {"nmcli", "device", "wifi", "connect", ssid};
+    // nmcli prompts for the secret when no password argument is supplied;
+    // feed it through stdin so it never appears in /proc or process listings.
+    std::string out = password.empty() ? run_argv_capture(args) : run_argv_capture(args, password);
     bool ok = (out.find("successfully") != std::string::npos || out.find("Connection successfully activated") != std::string::npos);
     return "{\"success\":" + std::string(ok ? "true" : "false") + ",\"message\":\"" + json_escape(out) + "\"}";
 }
@@ -1018,15 +1409,22 @@ std::string SystemControl::bt_list_json() {
 }
 
 bool SystemControl::bt_connect(const std::string& mac) {
-    return std::system(("bluetoothctl connect " + mac + " >/dev/null 2>&1").c_str()) == 0;
+    if (mac.size() != 17) return false;
+    for (size_t i = 0; i < mac.size(); ++i) {
+        if (i % 3 == 2) { if (mac[i] != ':') return false; }
+        else if (!std::isxdigit(static_cast<unsigned char>(mac[i]))) return false;
+    }
+    return run_argv_with_stdin({"bluetoothctl", "connect", mac}, "");
 }
 
 bool SystemControl::bt_disconnect(const std::string& mac) {
-    return std::system(("bluetoothctl disconnect " + mac + " >/dev/null 2>&1").c_str()) == 0;
+    if (mac.size() != 17) return false;
+    return run_argv_with_stdin({"bluetoothctl", "disconnect", mac}, "");
 }
 
 bool SystemControl::bt_pair(const std::string& mac) {
-    return std::system(("bluetoothctl pair " + mac + " >/dev/null 2>&1").c_str()) == 0;
+    if (mac.size() != 17) return false;
+    return run_argv_with_stdin({"bluetoothctl", "pair", mac}, "");
 }
 
 // ── Media Player Status ──────────────────────────────────────────────────────
@@ -1063,66 +1461,76 @@ std::string SystemControl::get_media_status_json() {
 
 // ── Volume & Microphone ──────────────────────────────────────────────────────
 int SystemControl::get_volume() {
-    std::string v = exec_cmd("wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | awk '{print int($2*100)}'");
-    if (v.empty()) v = exec_cmd("pamixer --get-volume 2>/dev/null");
-    try { return std::stoi(v); } catch (...) { return 0; }
+    std::string raw = run_argv_capture({"wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"});
+    size_t start = raw.find("0.");
+    if (start != std::string::npos) {
+        try { return static_cast<int>(std::stod(raw.substr(start)) * 100.0); } catch (...) {}
+    }
+    raw = run_argv_capture({"pamixer", "--get-volume"});
+    try { return std::stoi(raw); } catch (...) { return 0; }
 }
 
 bool SystemControl::volume_up(int step) {
-    if (std::system(("wpctl set-volume -l 1.5 @DEFAULT_AUDIO_SINK@ " + std::to_string(step) + "%+ 2>/dev/null").c_str()) != 0) {
-        std::system(("pamixer -i " + std::to_string(step) + " 2>/dev/null").c_str());
+    if (!run_argv_status({"wpctl", "set-volume", "-l", "1.5", "@DEFAULT_AUDIO_SINK@", std::to_string(step) + "%+"})) {
+        (void)run_argv_status({"pamixer", "-i", std::to_string(step)});
     }
     int vol = get_volume();
     std::string icon = (vol > 60) ? "audio-volume-high" : ((vol > 30) ? "audio-volume-medium" : "audio-volume-low");
-    std::system(("notify-send -h string:x-canonical-private-synchronous:sys-notify -u low -i " + icon + " 'Volume: " + std::to_string(vol) + "%' 2>/dev/null || true").c_str());
+    notify_user("b1air DE", "Volume: " + std::to_string(vol) + "%", {}, icon,
+                "string:x-canonical-private-synchronous:sys-notify", "low");
     return true;
 }
 
 bool SystemControl::volume_down(int step) {
-    if (std::system(("wpctl set-volume @DEFAULT_AUDIO_SINK@ " + std::to_string(step) + "%- 2>/dev/null").c_str()) != 0) {
-        std::system(("pamixer -d " + std::to_string(step) + " 2>/dev/null").c_str());
+    if (!run_argv_status({"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", std::to_string(step) + "%-"})) {
+        (void)run_argv_status({"pamixer", "-d", std::to_string(step)});
     }
     int vol = get_volume();
     std::string icon = (vol > 60) ? "audio-volume-high" : ((vol > 30) ? "audio-volume-medium" : "audio-volume-low");
-    std::system(("notify-send -h string:x-canonical-private-synchronous:sys-notify -u low -i " + icon + " 'Volume: " + std::to_string(vol) + "%' 2>/dev/null || true").c_str());
+    notify_user("b1air DE", "Volume: " + std::to_string(vol) + "%", {}, icon,
+                "string:x-canonical-private-synchronous:sys-notify", "low");
     return true;
 }
 
 bool SystemControl::volume_toggle_mute() {
-    if (std::system("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle 2>/dev/null") != 0) {
-        std::system("pamixer -t 2>/dev/null");
+    if (!run_argv_status({"wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"})) {
+        (void)run_argv_status({"pamixer", "-t"});
     }
-    std::string mute = exec_cmd("wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | grep -q MUTED && echo 'true' || echo 'false'");
-    if (mute != "true") {
-        mute = exec_cmd("pamixer --get-mute 2>/dev/null");
-    }
-    if (mute == "true") {
-        std::system("notify-send -h string:x-canonical-private-synchronous:sys-notify -u low -i audio-volume-muted 'Volume Muted' 2>/dev/null || true");
+    std::string mute_raw = run_argv_capture({"wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"});
+    bool muted = mute_raw.find("MUTED") != std::string::npos;
+    if (!muted) muted = run_argv_capture({"pamixer", "--get-mute"}) == "true";
+    if (muted) {
+        notify_user("b1air DE", "Volume Muted", {}, "audio-volume-muted",
+                    "string:x-canonical-private-synchronous:sys-notify", "low");
     } else {
         int vol = get_volume();
-        std::system(("notify-send -h string:x-canonical-private-synchronous:sys-notify -u low -i audio-volume-high 'Volume: " + std::to_string(vol) + "%' 2>/dev/null || true").c_str());
+        notify_user("b1air DE", "Volume: " + std::to_string(vol) + "%", {}, "audio-volume-high",
+                    "string:x-canonical-private-synchronous:sys-notify", "low");
     }
     return true;
 }
 
 std::string SystemControl::get_mic_status() {
-    std::string mute = exec_cmd("wpctl get-volume @DEFAULT_AUDIO_SOURCE@ 2>/dev/null | grep -q MUTED && echo 'muted' || echo 'unmuted'");
+    std::string raw = run_argv_capture({"wpctl", "get-volume", "@DEFAULT_AUDIO_SOURCE@"});
+    std::string mute = raw.find("MUTED") != std::string::npos ? "muted" : "unmuted";
     if (mute != "muted") {
-        std::string pm = exec_cmd("pamixer --default-source --get-mute 2>/dev/null");
+        std::string pm = run_argv_capture({"pamixer", "--default-source", "--get-mute"});
         if (pm == "true") mute = "muted";
     }
     return mute;
 }
 
 bool SystemControl::mic_toggle() {
-    if (std::system("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle 2>/dev/null") != 0) {
-        std::system("pamixer --default-source -t 2>/dev/null || true");
+    if (!run_argv_status({"wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "toggle"})) {
+        (void)run_argv_status({"pamixer", "--default-source", "-t"});
     }
     std::string status = get_mic_status();
     if (status == "muted") {
-        std::system("notify-send -h string:x-canonical-private-synchronous:sys-notify -u low -i microphone-sensitivity-muted 'Microphone Muted' 2>/dev/null || true");
+        notify_user("b1air DE", "Microphone Muted", {}, "microphone-sensitivity-muted",
+                    "string:x-canonical-private-synchronous:sys-notify", "low");
     } else {
-        std::system("notify-send -h string:x-canonical-private-synchronous:sys-notify -u low -i microphone-sensitivity-high 'Microphone Unmuted' 2>/dev/null || true");
+        notify_user("b1air DE", "Microphone Unmuted", {}, "microphone-sensitivity-high",
+                    "string:x-canonical-private-synchronous:sys-notify", "low");
     }
     return true;
 }
@@ -1144,27 +1552,32 @@ bool SystemControl::brightness_available() {
 }
 
 int SystemControl::brightness_get() {
-    std::string val = exec_cmd("brightnessctl -c backlight -m 2>/dev/null | awk -F, 'NR == 1 { gsub(\"%\", \"\", $4); print $4 }'");
+    std::string raw = run_argv_capture({"brightnessctl", "-c", "backlight", "-m"});
+    size_t percent = raw.find('%');
+    size_t begin = percent;
+    while (begin > 0 && std::isdigit(static_cast<unsigned char>(raw[begin - 1]))) --begin;
+    std::string val = percent != std::string::npos ? raw.substr(begin, percent - begin) : "";
     try { return std::stoi(val); } catch (...) { return 100; }
 }
 
 bool SystemControl::brightness_up(int step) {
-    std::system(("brightnessctl -c backlight -e4 -n2 set " + std::to_string(step) + "%+ >/dev/null 2>&1 || true").c_str());
+    (void)run_argv_status({"brightnessctl", "-c", "backlight", "-e4", "-n2", "set", std::to_string(step) + "%+"});
     int b = brightness_get();
-    std::system(("notify-send -h string:x-canonical-private-synchronous:sys-notify -u low -i display-brightness 'Brightness: " + std::to_string(b) + "%' 2>/dev/null || true").c_str());
+    notify_user("b1air DE", "Brightness: " + std::to_string(b) + "%", {}, "display-brightness",
+                "string:x-canonical-private-synchronous:sys-notify", "low");
     return true;
 }
 
 bool SystemControl::brightness_down(int step) {
-    std::system(("brightnessctl -c backlight -e4 -n2 set " + std::to_string(step) + "%- >/dev/null 2>&1 || true").c_str());
+    (void)run_argv_status({"brightnessctl", "-c", "backlight", "-e4", "-n2", "set", std::to_string(step) + "%-"});
     int b = brightness_get();
-    std::system(("notify-send -h string:x-canonical-private-synchronous:sys-notify -u low -i display-brightness 'Brightness: " + std::to_string(b) + "%' 2>/dev/null || true").c_str());
+    notify_user("b1air DE", "Brightness: " + std::to_string(b) + "%", {}, "display-brightness",
+                "string:x-canonical-private-synchronous:sys-notify", "low");
     return true;
 }
 
 bool SystemControl::brightness_set(int pct) {
-    std::system(("brightnessctl -c backlight -e4 -n2 set " + std::to_string(pct) + "% >/dev/null 2>&1 || true").c_str());
-    return true;
+    return run_argv_status({"brightnessctl", "-c", "backlight", "-e4", "-n2", "set", std::to_string(pct) + "%"});
 }
 
 // ── DDC/CI External Monitor Controls ─────────────────────────────────────────
@@ -1174,9 +1587,8 @@ struct DdcDisplay {
 };
 
 static std::string get_sway_cache_dir() {
-    const char* home = std::getenv("HOME");
-    std::string dir = std::string(home ? home : "/tmp") + "/.cache/sway";
-    mkdir(dir.c_str(), 0755);
+    std::string dir = runtime_dir() + "/sway";
+    mkdir(dir.c_str(), 0700);
     mkdir((dir + "/monitor-brightness-values").c_str(), 0755);
     return dir;
 }
@@ -1270,16 +1682,22 @@ static int get_ddc_brightness_single(const std::string& id) {
     std::replace(safe_id.begin(), safe_id.end(), '/', '_');
     std::string val_cache = cache_dir + "/monitor-brightness-values/" + safe_id;
 
-    std::string arg = (id.rfind("bus:", 0) == 0) ? ("--bus " + id.substr(4)) :
-                      ((id.rfind("display:", 0) == 0) ? ("--display " + id.substr(8)) : ("--display " + id));
+    std::vector<std::string> ddc_args = {"timeout", "2s", "ddcutil", "getvcp", "10"};
+    if (id.rfind("bus:", 0) == 0) ddc_args.insert(ddc_args.end(), {"--bus", id.substr(4)});
+    else if (id.rfind("display:", 0) == 0) ddc_args.insert(ddc_args.end(), {"--display", id.substr(8)});
+    else ddc_args.insert(ddc_args.end(), {"--display", id});
+    ddc_args.push_back("--noverify");
 
-    std::string out = exec_cmd("timeout 2s ddcutil getvcp 10 " + arg + " --noverify 2>/dev/null | sed -n 's/.*current value = *\\([0-9]\\+\\).*/\\1/p'");
+    std::string out = run_argv_capture(ddc_args);
+    size_t value_pos = out.find("current value =");
+    if (value_pos != std::string::npos) {
+        value_pos = out.find_first_of("0123456789", value_pos);
+        out = value_pos == std::string::npos ? "" : out.substr(value_pos);
+    }
     if (!out.empty()) {
         try {
             int v = std::stoi(out);
-            std::ofstream val_out(val_cache);
-            val_out << v << "\n";
-            val_out.close();
+            (void)write_private_file(val_cache, std::to_string(v) + "\n");
             return v;
         } catch (...) {}
     }
@@ -1313,15 +1731,15 @@ bool SystemControl::ddc_set(const std::string& id, int percent) {
     std::replace(safe_id.begin(), safe_id.end(), '/', '_');
     std::string val_cache = cache_dir + "/monitor-brightness-values/" + safe_id;
 
-    std::ofstream val_out(val_cache);
-    val_out << percent << "\n";
-    val_out.close();
+    (void)write_private_file(val_cache, std::to_string(percent) + "\n");
 
-    std::string arg = (id.rfind("bus:", 0) == 0) ? ("--bus " + id.substr(4)) :
-                      ((id.rfind("display:", 0) == 0) ? ("--display " + id.substr(8)) : ("--display " + id));
-
-    std::system(("timeout 2s ddcutil setvcp 10 " + std::to_string(percent) + " " + arg + " --noverify >/dev/null 2>&1 &").c_str());
-    std::system("pkill -RTMIN+3 waybar 2>/dev/null || true");
+    std::vector<std::string> args = {"timeout", "2s", "ddcutil", "setvcp", "10", std::to_string(percent)};
+    if (id.rfind("bus:", 0) == 0) args.insert(args.end(), {"--bus", id.substr(4)});
+    else if (id.rfind("display:", 0) == 0) args.insert(args.end(), {"--display", id.substr(8)});
+    else args.insert(args.end(), {"--display", id});
+    args.push_back("--noverify");
+    (void)run_argv_detached(args);
+    (void)run_argv_status({"pkill", "-RTMIN+3", "waybar"});
     return true;
 }
 
@@ -1360,25 +1778,26 @@ bool SystemControl::ddc_refresh() {
 
 bool SystemControl::ddc_dim() {
     std::string cur = std::to_string(brightness_get());
-    std::ofstream out("/tmp/b1air_brightness.saved");
+    std::ofstream out(runtime_path("brightness.saved"));
     out << cur << "\n";
     out.close();
 
-    std::system("brightnessctl -c backlight set 10% >/dev/null 2>&1 || true");
-    std::system("ddcutil setvcp 10 10 --noverify >/dev/null 2>&1 || true");
+    (void)run_argv_status({"brightnessctl", "-c", "backlight", "set", "10%"});
+    (void)run_argv_status({"ddcutil", "setvcp", "10", "10", "--noverify"});
     return true;
 }
 
 bool SystemControl::ddc_undim() {
     std::string saved = "100";
-    std::ifstream in("/tmp/b1air_brightness.saved");
+    std::ifstream in(runtime_path("brightness.saved"));
     if (in) {
         in >> saved;
         in.close();
     }
-    std::system(("brightnessctl -c backlight set " + saved + "% >/dev/null 2>&1 || true").c_str());
-    std::system("ddcutil setvcp 10 100 --noverify >/dev/null 2>&1 || true");
-    unlink("/tmp/b1air_brightness.saved");
+    bool valid_saved = !saved.empty() && std::all_of(saved.begin(), saved.end(), [](char c) { return std::isdigit(static_cast<unsigned char>(c)); });
+    if (valid_saved) (void)run_argv_status({"brightnessctl", "-c", "backlight", "set", saved + "%"});
+    (void)run_argv_status({"ddcutil", "setvcp", "10", "100", "--noverify"});
+    unlink(runtime_path("brightness.saved").c_str());
     return true;
 }
 
@@ -1424,7 +1843,7 @@ static std::string weather_hex_from_desc(const std::string& d_in) {
 
 std::string SystemControl::weather_get_json(bool force) {
     const char* home = std::getenv("HOME");
-    std::string home_str = home ? home : "/tmp";
+    const std::string home_str = home ? home : "/tmp";
     std::string cache_dir = home_str + "/.cache/quickshell/weather";
     mkdir(cache_dir.c_str(), 0755);
     std::string json_file = cache_dir + "/weather.json";
@@ -1440,7 +1859,9 @@ std::string SystemControl::weather_get_json(bool force) {
     }
 
     std::string env_file = home_str + "/.config/quickshell/calendar/.env";
-    std::string api_key = std::getenv("OPENWEATHER_KEY") ? std::getenv("OPENWEATHER_KEY") : "";
+    std::string api_key;
+    SecretStore secrets;
+    (void)secrets.get("weather-api-key", api_key);
     std::string city_id = std::getenv("OPENWEATHER_CITY_ID") ? std::getenv("OPENWEATHER_CITY_ID") : "";
     std::string unit = std::getenv("OPENWEATHER_UNIT") ? std::getenv("OPENWEATHER_UNIT") : "metric";
 
@@ -1456,15 +1877,16 @@ std::string SystemControl::weather_get_json(bool force) {
                 k.erase(std::remove_if(k.begin(), k.end(), ::isspace), k.end());
                 while (!v.empty() && (v.back() == '\r' || v.back() == '\n' || v.back() == '"' || v.back() == '\'')) v.pop_back();
                 while (!v.empty() && (v.front() == '"' || v.front() == '\'')) v.erase(v.begin());
-                if (k == "OPENWEATHER_KEY") api_key = v;
-                else if (k == "OPENWEATHER_CITY_ID") city_id = v;
+                // Legacy .env is intentionally ignored for credentials. Users
+                // must migrate the key through b1air-secret-service.
+                if (k == "OPENWEATHER_CITY_ID") city_id = v;
                 else if (k == "OPENWEATHER_UNIT") unit = v;
             }
         }
     }
 
     if (api_key.empty() || api_key == "Skipped" || api_key == "OPENWEATHER_KEY" || city_id.empty()) {
-        std::string raw = exec_cmd_full("curl -fsS --max-time 5 'https://wttr.in/?format=j1' 2>/dev/null");
+        std::string raw = run_argv_capture({"curl", "-fsS", "--max-time", "5", "https://wttr.in/?format=j1"});
         if (!raw.empty()) {
             try {
                 auto data = nlohmann::json::parse(raw);
@@ -1556,8 +1978,8 @@ std::string SystemControl::weather_get_json(bool force) {
         return dummy;
     }
 
-    std::string url = "http://api.openweathermap.org/data/2.5/forecast?APPID=" + api_key + "&id=" + city_id + "&units=" + unit;
-    std::string raw = exec_cmd_full("curl -fsS --max-time 8 '" + url + "' 2>/dev/null");
+    std::string url = "https://api.openweathermap.org/data/2.5/forecast?APPID=" + api_key + "&id=" + city_id + "&units=" + unit;
+    std::string raw = run_argv_capture({"curl", "-fsS", "--max-time", "8", url});
 
     if (raw.empty() || raw.find("\"cod\":\"200\"") == std::string::npos) {
         std::string cached = read_file_string(json_file);
@@ -1565,15 +1987,18 @@ std::string SystemControl::weather_get_json(bool force) {
         return get_dummy_weather_json();
     }
 
-    std::string transform_cmd = "jq -c '"
+    const std::string transform_program =
         "def weather_icon($code): if ($code == \"50d\" or $code == \"50n\") then \"\" elif $code == \"01d\" then \"\" elif $code == \"01n\" then \"\" elif ($code | test(\"^(02|03|04)[dn]$\")) then \"\" elif ($code | test(\"^(09|10)[dn]$\")) then \"\" elif ($code == \"11d\" or $code == \"11n\") then \"\" elif ($code == \"13d\" or $code == \"13n\") then \"\" else \"\" end; "
         "def weather_hex($code): if ($code == \"50d\" or $code == \"50n\") then \"#84afdb\" elif $code == \"01d\" then \"#f9e2af\" elif $code == \"01n\" then \"#cba6f7\" elif ($code | test(\"^(02|03|04)[dn]$\")) then \"#bac2de\" elif ($code | test(\"^(09|10)[dn]$\")) then \"#74c7ec\" elif $code == \"11d\" then \"#f9e2af\" elif ($code == \"13d\" or $code == \"13n\") then \"#cdd6f4\" else \"#cdd6f4\" end; "
         "def one_decimal: ((. * 10 | round) / 10 | tostring); "
         "def titlecase: split(\" \") | map(if length > 0 then (.[0:1] | ascii_upcase) + .[1:] else . end) | join(\" \"); "
         "def day_forecast($idx; $items): ($items[(($items | length) / 2 | floor)].weather[0].icon // \"04d\") as $code | { id: ($idx | tostring), day: ($items[0].dt | strftime(\"%a\")), day_full: ($items[0].dt | strftime(\"%A\")), date: ($items[0].dt | strftime(\"%d %b\")), max: ([$items[].main.temp_max] | max | one_decimal), min: ([$items[].main.temp_min] | min | one_decimal), feels_like: ([$items[].main.feels_like] | max | one_decimal), wind: ([$items[].wind.speed] | max | round | tostring), humidity: (([$items[].main.humidity] | add / length) | round | tostring), pop: (([$items[].pop] | max // 0) * 100 | floor | tostring), icon: weather_icon($code), hex: weather_hex($code), desc: (($items[(($items | length) / 2 | floor)].weather[0].description // \"Unknown\") | titlecase), hourly: [ $items[] | (.weather[0].icon // \"04d\") as $hour_code | { time: (.dt | strftime(\"%H:%M\")), temp: (.main.temp | one_decimal), icon: weather_icon($hour_code), hex: weather_hex($hour_code) } ] }; "
-        ".list as $items | ($items | map(.dt_txt[0:10]) | unique | .[:5]) as $dates | { forecast: [ range(0; ($dates | length)) as $idx | $dates[$idx] as $date | day_forecast($idx; [$items[] | select(.dt_txt | startswith($date))]) ] }' << 'EOF'\n" + raw + "\nEOF";
+        ".list as $items | ($items | map(.dt_txt[0:10]) | unique | .[:5]) as $dates | { forecast: [ range(0; ($dates | length)) as $idx | $dates[$idx] as $date | day_forecast($idx; [$items[] | select(.dt_txt | startswith($date))]) ] }";
 
-    std::string formatted = exec_cmd_full(transform_cmd);
+    // Feed network data through stdin.  Never embed an HTTP response in a
+    // shell here-document: an attacker-controlled line such as EOF could
+    // terminate it and turn the remainder into shell syntax.
+    std::string formatted = run_argv_capture({"jq", "-c", transform_program}, raw);
     if (formatted.find("\"forecast\":") != std::string::npos) {
         std::ofstream out(json_file);
         out << formatted << "\n";
@@ -1594,21 +2019,23 @@ std::string SystemControl::weather_get_current_info(const std::string& field) {
     std::strftime(buf, sizeof(buf), "%H:%M", tm);
     std::string curr_time = buf;
 
-    std::string cmd = "jq -r --arg ct \"" + curr_time + "\" '((.forecast[0].hourly | map(select(.time <= $ct)) | last) // .forecast[0].hourly[0]) | ";
-    if (field == "icon" || field == "--current-icon") cmd += ".icon' << 'EOF'\n" + json + "\nEOF";
-    else if (field == "temp" || field == "--current-temp") cmd += "(.temp + \"°C\")' << 'EOF'\n" + json + "\nEOF";
-    else if (field == "hex" || field == "--current-hex") cmd += ".hex' << 'EOF'\n" + json + "\nEOF";
-    else {
-        cmd += "(.icon + \"\\n\" + .temp + \"°C\")' << 'EOF'\n" + json + "\nEOF";
-    }
-
-    return exec_cmd_full(cmd);
+    std::string program = "((.forecast[0].hourly | map(select(.time <= $ct)) | last) // .forecast[0].hourly[0]) | ";
+    if (field == "icon" || field == "--current-icon") program += ".icon";
+    else if (field == "temp" || field == "--current-temp") program += "(.temp + \"°C\")";
+    else if (field == "hex" || field == "--current-hex") program += ".hex";
+    else program += "(.icon + \"\\n\" + .temp + \"°C\")";
+    return run_argv_capture({"jq", "-r", "--arg", "ct", curr_time, program}, json);
 }
 
 // ── Keyboard Backlight ───────────────────────────────────────────────────────
 static std::string detect_kbd_device() {
-    std::string dev = exec_cmd("brightnessctl -l 2>/dev/null | grep -o \"[^\']*kbd_backlight[^\']*\" | head -n1");
-    return dev;
+    const std::string raw = run_argv_capture({"brightnessctl", "-l"});
+    const size_t marker = raw.find("kbd_backlight");
+    if (marker == std::string::npos) return "";
+    const size_t begin = raw.rfind('\'', marker);
+    const size_t end = raw.find('\'', marker);
+    if (begin == std::string::npos || end == std::string::npos || end <= begin + 1) return "";
+    return raw.substr(begin + 1, end - begin - 1);
 }
 
 bool SystemControl::kbd_backlight_available() {
@@ -1619,66 +2046,74 @@ bool SystemControl::kbd_backlight_available() {
 int SystemControl::kbd_backlight_get() {
     std::string dev = detect_kbd_device();
     if (dev.empty()) return 0;
-    std::string val = exec_cmd("brightnessctl -d '" + dev + "' -m 2>/dev/null | awk -F, 'NR == 1 { gsub(\"%\", \"\", $4); print $4 }'");
+    std::string raw = run_argv_capture({"brightnessctl", "-d", dev, "-m"});
+    size_t percent = raw.find('%');
+    size_t begin = percent;
+    while (begin > 0 && std::isdigit(static_cast<unsigned char>(raw[begin - 1]))) --begin;
+    std::string val = percent != std::string::npos ? raw.substr(begin, percent - begin) : "";
     try { return std::stoi(val); } catch (...) { return 0; }
 }
 
 bool SystemControl::kbd_backlight_inc(int step) {
     std::string dev = detect_kbd_device();
     if (dev.empty()) return false;
-    std::system(("brightnessctl -d '" + dev + "' set " + std::to_string(step) + "%+ >/dev/null 2>&1 || true").c_str());
+    (void)run_argv_status({"brightnessctl", "-d", dev, "set", std::to_string(step) + "%+"});
     int val = kbd_backlight_get();
-    std::system(("notify-send -h string:x-canonical-private-synchronous:sys-notify-kbd -u low -i input-keyboard 'Keyboard Backlight: " + std::to_string(val) + "%' 2>/dev/null || true").c_str());
-    std::system("pkill -RTMIN+2 waybar 2>/dev/null || true");
+    notify_user("b1air DE", "Keyboard Backlight: " + std::to_string(val) + "%", {}, "input-keyboard",
+                "string:x-canonical-private-synchronous:sys-notify-kbd", "low");
+    (void)run_argv_status({"pkill", "-RTMIN+2", "waybar"});
     return true;
 }
 
 bool SystemControl::kbd_backlight_dec(int step) {
     std::string dev = detect_kbd_device();
     if (dev.empty()) return false;
-    std::system(("brightnessctl -d '" + dev + "' set " + std::to_string(step) + "%- >/dev/null 2>&1 || true").c_str());
+    (void)run_argv_status({"brightnessctl", "-d", dev, "set", std::to_string(step) + "%-"});
     int val = kbd_backlight_get();
-    std::system(("notify-send -h string:x-canonical-private-synchronous:sys-notify-kbd -u low -i input-keyboard 'Keyboard Backlight: " + std::to_string(val) + "%' 2>/dev/null || true").c_str());
-    std::system("pkill -RTMIN+2 waybar 2>/dev/null || true");
+    notify_user("b1air DE", "Keyboard Backlight: " + std::to_string(val) + "%", {}, "input-keyboard",
+                "string:x-canonical-private-synchronous:sys-notify-kbd", "low");
+    (void)run_argv_status({"pkill", "-RTMIN+2", "waybar"});
     return true;
 }
 
 bool SystemControl::kbd_backlight_set(int val) {
     std::string dev = detect_kbd_device();
     if (dev.empty()) return false;
-    std::system(("brightnessctl -d '" + dev + "' set " + std::to_string(val) + "% >/dev/null 2>&1 || true").c_str());
-    std::system("pkill -RTMIN+2 waybar 2>/dev/null || true");
+    (void)run_argv_status({"brightnessctl", "-d", dev, "set", std::to_string(val) + "%"});
+    (void)run_argv_status({"pkill", "-RTMIN+2", "waybar"});
     return true;
 }
 
 bool SystemControl::kbd_backlight_off() {
     std::string dev = detect_kbd_device();
     if (dev.empty()) return false;
-    std::system(("brightnessctl -d '" + dev + "' set 0 >/dev/null 2>&1 || true").c_str());
-    std::system("notify-send -h string:x-canonical-private-synchronous:sys-notify-kbd -u low -i input-keyboard 'Keyboard Backlight: OFF' 2>/dev/null || true");
-    std::system("pkill -RTMIN+2 waybar 2>/dev/null || true");
+    (void)run_argv_status({"brightnessctl", "-d", dev, "set", "0"});
+    notify_user("b1air DE", "Keyboard Backlight: OFF", {}, "input-keyboard",
+                "string:x-canonical-private-synchronous:sys-notify-kbd", "low");
+    (void)run_argv_status({"pkill", "-RTMIN+2", "waybar"});
     return true;
 }
 
 // ── Wallpaper ────────────────────────────────────────────────────────────────
 bool SystemControl::wallpaper_set(const std::string& filepath, const std::string& /*mode*/) {
-    if (access(filepath.c_str(), R_OK) != 0) return false;
+    std::string resolved_path;
+    if (!safe_wallpaper_file(filepath, resolved_path) || access(resolved_path.c_str(), R_OK) != 0 || !safe_sway_path(resolved_path)) return false;
 
     const char* home = std::getenv("HOME");
     std::string cache_file = std::string(home ? home : "/tmp") + "/.cache/current_wallpaper.jpg";
 
     // Copy to user cache
-    std::system(("cp -f '" + filepath + "' '" + cache_file + "' 2>/dev/null || true").c_str());
+    (void)run_argv_status({"cp", "-f", resolved_path, cache_file});
     // Copy to SDDM cache if writable
-    std::system(("cp -f '" + filepath + "' /var/cache/wallpaper/current.jpg 2>/dev/null || true").c_str());
+    (void)run_argv_status({"cp", "-f", resolved_path, "/var/cache/wallpaper/current.jpg"});
 
     // Apply to Sway
     SwayIPC ipc;
     if (ipc.connect()) {
-        ipc.send_command(0, "output * bg '" + filepath + "' fill");
+        ipc.send_command(0, "output * bg '" + resolved_path + "' fill");
     } else {
-        std::system("pkill -x swaybg 2>/dev/null || true");
-        std::system(("swaybg -m fill -i '" + filepath + "' >/dev/null 2>&1 &").c_str());
+        (void)run_argv_status({"pkill", "-x", "swaybg"});
+        (void)run_argv_detached({"swaybg", "-m", "fill", "-i", resolved_path});
     }
 
     return true;
@@ -1723,15 +2158,15 @@ bool SystemControl::wallpaper_restore() {
 
 // ── Night Light ──────────────────────────────────────────────────────────────
 bool SystemControl::night_light_on(int temp) {
-    std::system("pkill wlsunset 2>/dev/null || true");
-    std::system(("wlsunset -t " + std::to_string(temp) + " >/dev/null 2>&1 &").c_str());
-    std::system("notify-send -a 'Night Light' -i 'weather-clear-night' 'Night Light Enabled' 'Warm color temperature active' 2>/dev/null || true");
+    (void)run_argv_status({"pkill", "-x", "wlsunset"});
+    (void)run_argv_detached({"wlsunset", "-t", std::to_string(temp)});
+    notify_user("Night Light", "Night Light Enabled", "Warm color temperature active", "weather-clear-night");
     return true;
 }
 
 bool SystemControl::night_light_off() {
-    std::system("pkill wlsunset 2>/dev/null || true");
-    std::system("notify-send -a 'Night Light' -i 'weather-clear' 'Night Light Disabled' 'Standard display colors restored' 2>/dev/null || true");
+    (void)run_argv_status({"pkill", "-x", "wlsunset"});
+    notify_user("Night Light", "Night Light Disabled", "Standard display colors restored", "weather-clear");
     return true;
 }
 
@@ -1779,14 +2214,14 @@ std::string SystemControl::get_updates_json(bool /*force*/) {
 }
 
 bool SystemControl::launch_system_upgrade() {
-    return (std::system("kitty --title systemupdate bash -c 'yay -Syu; echo \"\nPress Enter to close...\"; read -r _' &") == 0);
+    return run_argv_detached({"b1air-term", "-e", "fish", "-lc", "yay -Syu"});
 }
 
 // ── Terminal Themes ──────────────────────────────────────────────────────────
 std::vector<std::string> SystemControl::term_theme_list() {
     std::vector<std::string> res;
     const char* home = std::getenv("HOME");
-    std::string themes_dir = std::string(home ? home : "") + "/.config/kitty/themes";
+    std::string themes_dir = std::string(home ? home : "") + "/.config/b1air-term/themes";
 
     DIR* dir = opendir(themes_dir.c_str());
     if (!dir) return res;
@@ -1804,18 +2239,31 @@ std::vector<std::string> SystemControl::term_theme_list() {
 
 bool SystemControl::term_theme_set(const std::string& theme) {
     const char* home = std::getenv("HOME");
-    std::string conf_file = std::string(home ? home : "") + "/.config/kitty/kitty.conf";
-    std::string theme_file = std::string(home ? home : "") + "/.config/kitty/themes/" + theme + ".conf";
+    std::string conf_file = std::string(home ? home : "") + "/.config/b1air-term/term.conf";
+    if (theme.empty() || theme.size() > 128 || theme.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-.") != std::string::npos || theme.find("..") != std::string::npos) return false;
+    std::string theme_file = std::string(home ? home : "") + "/.config/b1air-term/themes/" + theme + ".conf";
 
     if (access(theme_file.c_str(), R_OK) != 0) {
         std::cerr << "Theme file not found: " << theme_file << "\n";
         return false;
     }
 
-    std::string cmd = "sed -i -E 's|^include themes/.*|include themes/" + theme + ".conf|' '" + conf_file + "'";
-    std::system(cmd.c_str());
-    std::system("killall -SIGUSR1 kitty 2>/dev/null || true");
-    std::cout << "✓ Kitty theme updated to '" << theme << "'\n";
+    std::string config = read_file_string(conf_file);
+    if (config.empty()) return false;
+    std::istringstream lines(config);
+    std::ostringstream updated;
+    std::string line;
+    bool replaced = false;
+    while (std::getline(lines, line)) {
+        if (line.rfind("include themes/", 0) == 0) {
+            updated << "include themes/" << theme << ".conf\n";
+            replaced = true;
+        } else {
+            updated << line << '\n';
+        }
+    }
+    if (!replaced || !write_private_file(conf_file, updated.str())) return false;
+    std::cout << "✓ b1air-term theme updated to '" << theme << "'\n";
     return true;
 }
 
@@ -1835,7 +2283,8 @@ int SystemControl::run_gamepad_inhibit() {
                         ssize_t n = read(fd, buf, sizeof(buf));
                         close(fd);
                         if (n > 0) {
-                            std::system("systemd-inhibit --what=idle --who='b1air-gamepad' --why='Gamepad Active' sleep 120 >/dev/null 2>&1 &");
+                            (void)run_argv_detached({"systemd-inhibit", "--what=idle", "--who=b1air-gamepad",
+                                                     "--why=Gamepad Active", "sleep", "120"});
                         }
                     }
                 }
@@ -1853,20 +2302,22 @@ bool SystemControl::reload_desktop() {
     if (ipc.connect()) {
         ipc.send_command(0, "reload");
     } else {
-        std::system("swaymsg reload 2>/dev/null || true");
+        (void)run_argv_status({"swaymsg", "reload"});
     }
 
-    std::system("qs -p ~/.config/quickshell/Main.qml ipc call main forceReload 2>/dev/null || true");
-    std::system("killall -SIGUSR2 waybar 2>/dev/null || true");
+    const char* home = std::getenv("HOME");
+    const std::string main_qml = std::string(home ? home : "") + "/.config/quickshell/Main.qml";
+    (void)run_argv_status({"qs", "-p", main_qml, "ipc", "call", "main", "forceReload"});
     return true;
 }
 
 // ── Equalizer Controls ───────────────────────────────────────────────────────
-static const char* EQ_STATE_FILE = "/tmp/eq_state.json";
+static std::string eq_state_file() { return runtime_path("eq_state.json"); }
 
 static void ensure_default_eq_state() {
-    if (access(EQ_STATE_FILE, F_OK) != 0) {
-        std::ofstream out(EQ_STATE_FILE);
+    const std::string path = eq_state_file();
+    if (access(path.c_str(), F_OK) != 0) {
+        std::ofstream out(path);
         out << "{\"b1\": 0, \"b2\": 0, \"b3\": 0, \"b4\": 0, \"b5\": 0, \"b6\": 0, \"b7\": 0, \"b8\": 0, \"b9\": 0, \"b10\": 0, \"preset\": \"Flat\", \"pending\": false}\n";
         out.close();
     }
@@ -1874,7 +2325,7 @@ static void ensure_default_eq_state() {
 
 std::string SystemControl::eq_get_state_json() {
     ensure_default_eq_state();
-    std::string s = read_file_string(EQ_STATE_FILE);
+    std::string s = read_file_string(eq_state_file());
     return s.empty() ? "{\"b1\":0,\"b2\":0,\"b3\":0,\"b4\":0,\"b5\":0,\"b6\":0,\"b7\":0,\"b8\":0,\"b9\":0,\"b10\":0,\"preset\":\"Flat\",\"pending\":false}" : s;
 }
 
@@ -1906,9 +2357,7 @@ bool SystemControl::eq_apply() {
         size_t true_pos = cur_state.find("true", pending_pos);
         if (true_pos != std::string::npos && true_pos - pending_pos < 20) {
             cur_state.replace(true_pos, 4, "false");
-            std::ofstream out(EQ_STATE_FILE);
-            out << cur_state << "\n";
-            out.close();
+            (void)write_private_file(eq_state_file(), cur_state + "\n");
         }
     }
 
@@ -1945,7 +2394,7 @@ bool SystemControl::eq_apply() {
     if (out) {
         out << preset_content;
         out.close();
-        std::system("easyeffects -l live_eq >/dev/null 2>&1 &");
+        (void)run_argv_detached({"easyeffects", "-l", "live_eq"});
         return true;
     }
     return false;
@@ -1978,12 +2427,7 @@ bool SystemControl::eq_set_band(int band_idx, int val) {
         << ", \"b6\": " << b[5] << ", \"b7\": " << b[6] << ", \"b8\": " << b[7] << ", \"b9\": " << b[8] << ", \"b10\": " << b[9]
         << ", \"preset\": \"Custom\", \"pending\": true}\n";
 
-    std::ofstream ofs(EQ_STATE_FILE);
-    if (ofs) {
-        ofs << out.str();
-        return true;
-    }
-    return false;
+    return write_private_file(eq_state_file(), out.str());
 }
 
 bool SystemControl::eq_set_preset(const std::string& preset) {
@@ -2003,11 +2447,7 @@ bool SystemControl::eq_set_preset(const std::string& preset) {
         << ", \"b6\": " << b[5] << ", \"b7\": " << b[6] << ", \"b8\": " << b[7] << ", \"b9\": " << b[8] << ", \"b10\": " << b[9]
         << ", \"preset\": \"" << preset << "\", \"pending\": false}\n";
 
-    std::ofstream ofs(EQ_STATE_FILE);
-    if (ofs) {
-        ofs << out.str();
-        ofs.close();
-    }
+    (void)write_private_file(eq_state_file(), out.str());
     return eq_apply();
 }
 
@@ -2018,11 +2458,7 @@ bool SystemControl::eq_set_all(const std::vector<int>& bands) {
         << ", \"b6\": " << bands[5] << ", \"b7\": " << bands[6] << ", \"b8\": " << bands[7] << ", \"b9\": " << bands[8] << ", \"b10\": " << bands[9]
         << ", \"preset\": \"Custom\", \"pending\": false}\n";
 
-    std::ofstream ofs(EQ_STATE_FILE);
-    if (ofs) {
-        ofs << out.str();
-        ofs.close();
-    }
+    (void)write_private_file(eq_state_file(), out.str());
     return eq_apply();
 }
 
@@ -2037,7 +2473,7 @@ std::string SystemControl::media_get_info_json() {
 
     std::string placeholder = tmp_dir + "/placeholder_blank.png";
     if (access(placeholder.c_str(), R_OK) != 0) {
-        std::system(("convert -size 500x500 xc:'#313244' '" + placeholder + "' 2>/dev/null || true").c_str());
+        (void)run_argv_status({"convert", "-size", "500x500", "xc:#313244", placeholder});
     }
 
     std::string default_grad = "linear-gradient(45deg, #cba6f7, #89b4fa, #f38ba8, #cba6f7)";
@@ -2121,14 +2557,25 @@ std::string SystemControl::media_get_info_json() {
     } else if (!raw_url.empty()) {
         // Spawn async processor
         std::thread([=]() {
-            if (raw_url.rfind("http", 0) == 0) {
-                std::system(("curl -s -L --max-time 10 -o '" + final_art + "' '" + raw_url + "' || cp '" + placeholder + "' '" + final_art + "'").c_str());
+            if (safe_art_url(raw_url) && (raw_url.rfind("http://", 0) == 0 || raw_url.rfind("https://", 0) == 0)) {
+                if (!run_argv_status({"curl", "-fsS", "--proto", "=http,https", "--proto-redir", "=http,https",
+                                      "--connect-timeout", "3", "--max-time", "10", "--max-filesize", "5242880",
+                                      "-o", final_art, raw_url}))
+                    (void)run_argv_status({"cp", placeholder, final_art});
+            } else if (safe_art_url(raw_url) && raw_url.rfind("file://", 0) == 0) {
+                std::string clean = raw_url.substr(7);
+                char local_path[PATH_MAX];
+                struct stat local_stat{};
+                if (!realpath(clean.c_str(), local_path) || stat(local_path, &local_stat) != 0 ||
+                    !S_ISREG(local_stat.st_mode) || local_stat.st_size <= 0 || local_stat.st_size > 5 * 1024 * 1024 ||
+                    !run_argv_status({"cp", local_path, final_art}))
+                    (void)run_argv_status({"cp", placeholder, final_art});
             } else {
-                std::string clean = (raw_url.rfind("file://", 0) == 0) ? raw_url.substr(7) : raw_url;
-                std::system(("cp '" + clean + "' '" + final_art + "' 2>/dev/null || cp '" + placeholder + "' '" + final_art + "'").c_str());
+                (void)run_argv_status({"cp", placeholder, final_art});
             }
-            std::system(("convert '" + final_art + "' -blur 0x20 -brightness-contrast -30x-10 '" + blur_path + "' 2>/dev/null || cp '" + final_art + "' '" + blur_path + "'").c_str());
-            std::string colors = exec_cmd("convert '" + final_art + "' -resize 50x50 -alpha off +dither -quantize RGB -colors 3 -depth 8 -format '%c' histogram:info: 2>/dev/null | grep -E -o '#[0-9A-Fa-f]{6}' | head -n 3 | tr '\\n' ' '");
+            if (!run_argv_status({"convert", final_art, "-blur", "0x20", "-brightness-contrast", "-30x-10", blur_path}))
+                (void)run_argv_status({"cp", final_art, blur_path});
+            std::string colors = exec_cmd("convert " + shell_quote(final_art) + " -resize 50x50 -alpha off +dither -quantize RGB -colors 3 -depth 8 -format '%c' histogram:info: 2>/dev/null | grep -E -o '#[0-9A-Fa-f]{6}' | head -n 3 | tr '\\n' ' '");
             std::stringstream css(colors);
             std::string c1, c2, c3;
             css >> c1 >> c2 >> c3;
@@ -2200,8 +2647,7 @@ bool SystemControl::diary_open() {
     }
 
     std::string uri = "obsidian://open?vault=Obsidian&file=Diary/" + std::string(year) + "/" + filename;
-    std::string cmd = "xdg-open '" + uri + "' >/dev/null 2>&1 &";
-    return (std::system(cmd.c_str()) == 0);
+    return run_argv_detached({"xdg-open", uri});
 }
 
 // ── Calendar Schedule ────────────────────────────────────────────────────────
@@ -2249,14 +2695,14 @@ std::string SystemControl::dotfiles_status_json() {
         return "{\"ok\":false,\"error\":\"repo_not_found\"}";
     }
 
-    std::system(("git -C '" + repo + "' fetch --quiet origin >/dev/null 2>&1 &").c_str());
+    (void)run_argv_detached({"git", "-C", repo, "fetch", "--quiet", "origin"});
 
-    std::string branch = exec_cmd("git -C '" + repo + "' rev-parse --abbrev-ref HEAD 2>/dev/null");
+    std::string branch = exec_cmd("git -C " + shell_quote(repo) + " rev-parse --abbrev-ref HEAD 2>/dev/null");
     if (branch.empty()) branch = "main";
-    std::string local_hash = exec_cmd("git -C '" + repo + "' rev-parse --short HEAD 2>/dev/null");
-    std::string remote_ref = exec_cmd("git -C '" + repo + "' rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null");
+    std::string local_hash = exec_cmd("git -C " + shell_quote(repo) + " rev-parse --short HEAD 2>/dev/null");
+    std::string remote_ref = exec_cmd("git -C " + shell_quote(repo) + " rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null");
     if (remote_ref.empty()) remote_ref = "origin/main";
-    std::string remote_hash = exec_cmd("git -C '" + repo + "' rev-parse --short '" + remote_ref + "' 2>/dev/null");
+    std::string remote_hash = exec_cmd("git -C " + shell_quote(repo) + " rev-parse --short " + shell_quote(remote_ref) + " 2>/dev/null");
 
     bool update_available = (!remote_hash.empty() && local_hash != remote_hash);
 
@@ -2266,17 +2712,20 @@ std::string SystemControl::dotfiles_status_json() {
 bool SystemControl::dotfiles_sync() {
     std::string repo = find_dotfiles_repo();
     if (repo.empty()) return false;
-    std::string cmd = "kitty --title dotfiles-update sh -lc 'git -C " + repo + " pull --ff-only && bash " + repo + "/update-dotfiles.sh --repo-dir " + repo + "; echo \"\\nPress Enter to close...\"; read -r _' &";
-    return (std::system(cmd.c_str()) == 0);
+    std::string script = "bash " + shell_quote(repo + "/update-dotfiles.sh") + " --repo-dir " + shell_quote(repo) + "; printf '\\nPress Enter to close...\\n'; read -r _";
+    return run_argv_detached({"b1air-term", "-e", "fish", "-lc", script});
 }
 
 bool SystemControl::dotfiles_sys() {
-    std::string cmd = "kitty --title system-update sh -lc 'if command -v yay >/dev/null 2>&1; then yay -Syu; elif command -v paru >/dev/null 2>&1; then paru -Syu; else sudo pacman -Syu; fi; echo \"\\nPress Enter to close...\"; read -r _' &";
-    return (std::system(cmd.c_str()) == 0);
+    const std::string script = "if command -v yay >/dev/null 2>&1; then yay -Syu; "
+                              "elif command -v paru >/dev/null 2>&1; then paru -Syu; "
+                              "else sudo pacman -Syu; fi; printf '\\nPress Enter to close...\\n'; read -r _";
+    return run_argv_detached({"b1air-term", "-e", "fish", "-lc", script});
 }
 
 // ── Screen Capture, Recording & QR Scanner ───────────────────────────────────
 bool SystemControl::capture(const std::string& mode, const std::string& geom, bool edit) {
+    if (!geom.empty() && !valid_geometry(geom)) return false;
     const char* home = std::getenv("HOME");
     std::string target_dir = std::string(home ? home : "/tmp") + "/Pictures/Screenshots";
     mkdir(target_dir.c_str(), 0755);
@@ -2288,39 +2737,61 @@ bool SystemControl::capture(const std::string& mode, const std::string& geom, bo
     std::string timestamp = ss.str();
     std::string filepath = target_dir + "/Screenshot_" + timestamp + ".png";
 
-    std::string grim_cmd = "grim ";
-    if (!geom.empty()) {
-        grim_cmd += "-g \"" + geom + "\" ";
-    } else if (mode == "area") {
-        grim_cmd += "-g \"$(slurp)\" ";
-    } else if (mode == "window") {
-        grim_cmd += "-g \"$(swaymsg -t get_tree | jq -j '.. | select(.focused?) | .rect | \"\\(.x),\\(.y) \\(.width)x\\(.height)\"')\" ";
+    std::string selected = geom;
+    if (selected.empty() && mode == "area") selected = run_argv_capture({"slurp"});
+    if (!selected.empty() && !valid_geometry(selected)) return false;
+    if (selected.empty() && mode == "window") {
+        SwayIPC ipc;
+        if (!ipc.connect()) return false;
+        const std::string tree = ipc.get_tree();
+        const size_t focused = tree.find("\"focused\":true");
+        const size_t rect = focused == std::string::npos ? std::string::npos : tree.rfind("\"rect\":", focused);
+        if (rect == std::string::npos) return false;
+        try {
+            const int x = std::stoi(tree.substr(tree.find("\"x\":", rect) + 4));
+            const int y = std::stoi(tree.substr(tree.find("\"y\":", rect) + 4));
+            const int w = std::stoi(tree.substr(tree.find("\"width\":", rect) + 8));
+            const int h = std::stoi(tree.substr(tree.find("\"height\":", rect) + 9));
+            selected = std::to_string(x) + "," + std::to_string(y) + " " + std::to_string(w) + "x" + std::to_string(h);
+        } catch (...) { return false; }
     }
-
-    std::string cmd;
+    std::vector<std::string> grim_args = {"grim"};
+    if (!selected.empty()) { grim_args.push_back("-g"); grim_args.push_back(selected); }
+    grim_args.push_back(filepath);
+    if (!run_argv_status(grim_args)) return false;
     if (edit) {
-        cmd = grim_cmd + "- | GSK_RENDERER=gl satty --filename - --output-filename '" + filepath + "' --init-tool brush --copy-command wl-copy";
+        if (!run_argv_status_env({"satty", "--filename", filepath, "--output-filename", filepath,
+                                  "--init-tool", "brush", "--copy-command", "wl-copy"},
+                                 {{"GSK_RENDERER", "gl"}})) return false;
     } else {
-        cmd = grim_cmd + "'" + filepath + "' && wl-copy < '" + filepath + "'";
+        const std::string image = read_file_string(filepath);
+        if (image.empty() || !run_argv_with_raw_stdin({"wl-copy", "-t", "image/png"}, image)) return false;
     }
-
-    cmd += " && notify-send -a 'Screenshot' -i '" + filepath + "' 'Screenshot Saved' '" + filepath + "'";
-    return (std::system(cmd.c_str()) == 0);
+    notify_user("Screenshot", "Screenshot Saved", filepath, filepath);
+    return true;
 }
 
 bool SystemControl::record_stop() {
-    const char* home = std::getenv("HOME");
-    std::string cache_dir = std::string(home ? home : "/tmp") + "/.cache/qs_recording_state";
+    std::string cache_dir = runtime_dir();
     std::string pid_file = cache_dir + "/rec_pid";
 
     if (access(pid_file.c_str(), R_OK) == 0) {
         std::string pid_str = read_file_string(pid_file);
         while (!pid_str.empty() && (pid_str.back() == '\n' || pid_str.back() == '\r')) pid_str.pop_back();
 
-        if (!pid_str.empty() && pid_str != "0") {
-            std::system(("kill -SIGINT " + pid_str + " 2>/dev/null || true").c_str());
+        auto decimal_id = [](const std::string& s) {
+            if (s.empty() || s.size() > 10) return false;
+            for (char c : s) if (c < '0' || c > '9') return false;
+            return true;
+        };
+        if (decimal_id(pid_str) && pid_str != "0") {
+            errno = 0;
+            const long parsed_pid = std::strtol(pid_str.c_str(), nullptr, 10);
+            const pid_t pid = static_cast<pid_t>(parsed_pid);
+            if (errno != 0 || parsed_pid <= 0 || parsed_pid > INT_MAX) return false;
+            (void)::kill(pid, SIGINT);
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            std::system(("kill -9 " + pid_str + " 2>/dev/null || true").c_str());
+            (void)::kill(pid, SIGKILL);
         }
 
         std::string pw_modules = cache_dir + "/pw_modules";
@@ -2328,8 +2799,8 @@ bool SystemControl::record_stop() {
         if (in) {
             std::string mod_id;
             while (std::getline(in, mod_id)) {
-                if (!mod_id.empty()) {
-                    std::system(("pactl unload-module " + mod_id + " 2>/dev/null || true").c_str());
+                if (decimal_id(mod_id)) {
+                    (void)run_argv_capture({"pactl", "unload-module", mod_id});
                 }
             }
             in.close();
@@ -2341,7 +2812,10 @@ bool SystemControl::record_stop() {
         unlink((cache_dir + "/final_file").c_str());
         unlink((cache_dir + "/processing.lock").c_str());
 
-        std::system(("notify-send -a 'Screen Recorder' -i '" + final_file + "' '⏺ Recording Saved' '" + final_file + "' 2>/dev/null || true").c_str());
+        if (!final_file.empty()) {
+            (void)run_argv_capture({"notify-send", "-a", "Screen Recorder", "-i", final_file,
+                                     "⏺ Recording Saved", final_file});
+        }
         return true;
     }
     return false;
@@ -2349,8 +2823,7 @@ bool SystemControl::record_stop() {
 
 bool SystemControl::record_toggle(const std::string& geom, double desk_vol, double mic_vol, bool desk_mute, bool mic_mute, const std::string& mic_dev) {
     const char* home = std::getenv("HOME");
-    std::string cache_dir = std::string(home ? home : "/tmp") + "/.cache/qs_recording_state";
-    mkdir(cache_dir.c_str(), 0755);
+    std::string cache_dir = runtime_dir();
     std::string pid_file = cache_dir + "/rec_pid";
 
     if (access(pid_file.c_str(), R_OK) == 0) {
@@ -2366,17 +2839,20 @@ bool SystemControl::record_toggle(const std::string& geom, double desk_vol, doub
     ss << std::put_time(std::localtime(&in_time_t), "%Y-%m-%d-%H%M%S");
     std::string vid_file = record_dir + "/Recording_" + ss.str() + ".mp4";
 
-    std::ofstream pw_out(cache_dir + "/pw_modules");
     std::string audio_mix;
+    const std::string modules_path = cache_dir + "/pw_modules";
+    const int modules_fd = open(modules_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC | O_NOFOLLOW, 0600);
+    if (modules_fd < 0) return false;
 
     if (!desk_mute) {
         std::string desk_sink = exec_cmd("pactl get-default-sink 2>/dev/null");
         if (!desk_sink.empty()) {
             std::string sink_id = exec_cmd("pactl load-module module-null-sink sink_name=qs_virt_desk 2>/dev/null");
-            std::string loop_id = exec_cmd("pactl load-module module-loopback source=" + desk_sink + ".monitor sink=qs_virt_desk 2>/dev/null");
+            std::string loop_id = run_argv_capture({"pactl", "load-module", "module-loopback",
+                                                     "source=" + desk_sink + ".monitor", "sink=qs_virt_desk"});
             int vol_int = static_cast<int>(desk_vol * 65536);
-            std::system(("pactl set-sink-volume qs_virt_desk " + std::to_string(vol_int) + " 2>/dev/null || true").c_str());
-            if (pw_out) pw_out << sink_id << "\n" << loop_id << "\n";
+            (void)run_argv_status({"pactl", "set-sink-volume", "qs_virt_desk", std::to_string(vol_int)});
+            (void)write_fd_all(modules_fd, sink_id + "\n" + loop_id + "\n");
             audio_mix += "qs_virt_desk.monitor|";
         }
     }
@@ -2385,57 +2861,52 @@ bool SystemControl::record_toggle(const std::string& geom, double desk_vol, doub
         std::string source = (!mic_dev.empty() && mic_dev != "null") ? mic_dev : exec_cmd("pactl get-default-source 2>/dev/null");
         if (!source.empty()) {
             std::string sink_id = exec_cmd("pactl load-module module-null-sink sink_name=qs_virt_mic 2>/dev/null");
-            std::string loop_id = exec_cmd("pactl load-module module-loopback source=" + source + " sink=qs_virt_mic 2>/dev/null");
+            std::string loop_id = run_argv_capture({"pactl", "load-module", "module-loopback",
+                                                     "source=" + source, "sink=qs_virt_mic"});
             int vol_int = static_cast<int>(mic_vol * 65536);
-            std::system(("pactl set-sink-volume qs_virt_mic " + std::to_string(vol_int) + " 2>/dev/null || true").c_str());
-            if (pw_out) pw_out << sink_id << "\n" << loop_id << "\n";
+            (void)run_argv_status({"pactl", "set-sink-volume", "qs_virt_mic", std::to_string(vol_int)});
+            (void)write_fd_all(modules_fd, sink_id + "\n" + loop_id + "\n");
             audio_mix += "qs_virt_mic.monitor|";
         }
     }
-    if (pw_out) pw_out.close();
+    fchmod(modules_fd, 0600);
+    close(modules_fd);
 
     if (!audio_mix.empty() && audio_mix.back() == '|') audio_mix.pop_back();
 
-    std::string gsr_cmd = "gpu-screen-recorder -w portal -c mp4 -f 60 ";
-    if (!audio_mix.empty()) gsr_cmd += "-a '" + audio_mix + "' ";
-    if (!geom.empty()) gsr_cmd += "-g '" + geom + "' ";
-    gsr_cmd += "-o '" + vid_file + "' >/dev/null 2>&1 & echo $!";
+    std::vector<std::string> gsr_args = {"gpu-screen-recorder", "-w", "portal", "-c", "mp4", "-f", "60"};
+    if (!audio_mix.empty()) { gsr_args.push_back("-a"); gsr_args.push_back(audio_mix); }
+    if (!geom.empty()) { gsr_args.push_back("-g"); gsr_args.push_back(geom); }
+    gsr_args.push_back("-o"); gsr_args.push_back(vid_file);
+    const pid_t recorder_pid = spawn_argv_detached(gsr_args);
+    if (recorder_pid <= 0 || !write_private_file(pid_file, std::to_string(recorder_pid) + "\n") ||
+        !write_private_file(cache_dir + "/final_file", vid_file + "\n")) return false;
 
-    std::string pid = exec_cmd(gsr_cmd);
-    std::ofstream pid_out(pid_file);
-    pid_out << pid << "\n";
-    pid_out.close();
-
-    std::ofstream fin_out(cache_dir + "/final_file");
-    fin_out << vid_file << "\n";
-    fin_out.close();
-
-    std::system("notify-send -a 'Screen Recorder' '⏺ Recording Started' 'Recording in progress...' 2>/dev/null || true");
+    notify_user("Screen Recorder", "⏺ Recording Started", "Recording in progress...");
     return true;
 }
 
 std::string SystemControl::scan_qr(const std::string& geom) {
-    std::string tmp_img = "/dev/shm/qs_qr_temp_" + std::to_string(getpid()) + ".png";
-    std::string grim_cmd = geom.empty() ? ("grim '" + tmp_img + "'") : ("grim -g \"" + geom + "\" '" + tmp_img + "'");
-    std::system(grim_cmd.c_str());
+    if (!geom.empty() && !valid_geometry(geom)) return "";
+    std::string tmp_img = runtime_path(("qr-scan-" + std::to_string(getpid()) + ".png").c_str());
+    std::vector<std::string> grim_args = {"grim"};
+    if (!geom.empty()) { grim_args.push_back("-g"); grim_args.push_back(geom); }
+    grim_args.push_back(tmp_img);
+    if (!run_argv_status(grim_args)) return "";
 
-    std::string xml = exec_cmd_full("zbarimg --xml -q '" + tmp_img + "' 2>/dev/null");
+    std::string xml = run_argv_capture({"zbarimg", "--xml", "-q", tmp_img});
     unlink(tmp_img.c_str());
 
-    std::string res_file = "/tmp/qs_qr_result";
+    std::string res_file = runtime_path("qr_result");
     if (xml.empty()) {
-        std::ofstream out(res_file);
-        out << "0,0,0,0|||NOT_FOUND\n";
-        out.close();
+        (void)write_private_file(res_file, "0,0,0,0|||NOT_FOUND\n");
         return "0,0,0,0|||NOT_FOUND";
     }
 
     // Parse XML: extract <symbol> <data> and <polygon points="...">
     size_t sym_pos = xml.find("<symbol");
     if (sym_pos == std::string::npos) {
-        std::ofstream out(res_file);
-        out << "0,0,0,0|||NOT_FOUND\n";
-        out.close();
+        (void)write_private_file(res_file, "0,0,0,0|||NOT_FOUND\n");
         return "0,0,0,0|||NOT_FOUND";
     }
 
@@ -2485,30 +2956,49 @@ std::string SystemControl::scan_qr(const std::string& geom) {
     }
 
     std::string result = std::to_string(min_x) + "," + std::to_string(min_y) + "," + std::to_string(w) + "," + std::to_string(h) + "|||" + clean_data;
-    std::ofstream out(res_file);
-    out << result << "\n";
-    out.close();
+    (void)write_private_file(res_file, result + "\n");
     return result;
 }
 
 // ── Native Polkit Agent & Authentication Dialog ──────────────────────────────
-std::string SystemControl::polkit_prompt_dialog(const std::string& action_id, const std::string& message, const std::string& user) {
-    const char* home = std::getenv("HOME");
-    std::string home_str = home ? home : "/tmp";
-    std::string qml_path = home_str + "/.config/quickshell/polkit/PolkitDialog.qml";
+std::string SystemControl::polkit_prompt_dialog(const std::string& action_id, const std::string& message,
+                                                const std::string& user, const std::string& cookie) {
+    // Authentication UI must not be loaded from a user-writable QML tree:
+    // replacing it would turn the Polkit agent into a password stealer.
+    const std::string qml_candidates[] = {
+        "/usr/local/share/b1air-shell/qml/polkit/PolkitDialog.qml",
+        "/usr/share/b1air-shell/qml/polkit/PolkitDialog.qml"
+    };
+    std::string qml_path;
+    for (const auto& candidate : qml_candidates) {
+        struct stat st{};
+        if (stat(candidate.c_str(), &st) == 0 && S_ISREG(st.st_mode) &&
+            st.st_uid == 0 && (st.st_mode & 022) == 0) {
+            qml_path = candidate;
+            break;
+        }
+    }
+    if (qml_path.empty()) return "";
     
-    std::string resp_file = "/tmp/polkit_resp_" + std::to_string(getpid()) + "_" + std::to_string(time(nullptr));
+    std::string resp_template = runtime_path("polkit-response-XXXXXX");
+    std::vector<char> resp_buf(resp_template.begin(), resp_template.end());
+    resp_buf.push_back('\0');
+    int response_fd = mkstemp(resp_buf.data());
+    if (response_fd < 0) return "";
+    std::string resp_file(resp_buf.data());
+    fchmod(response_fd, 0600);
+    close(response_fd);
     unlink(resp_file.c_str());
 
     std::string target_user = user.empty() ? (std::getenv("USER") ? std::getenv("USER") : "root") : user;
 
-    std::string cmd = "env POLKIT_ACTION=\"" + action_id + "\" "
-                      "POLKIT_MESSAGE=\"" + message + "\" "
-                      "POLKIT_USER=\"" + target_user + "\" "
-                      "POLKIT_RESP_FILE=\"" + resp_file + "\" "
-                      "quickshell -p \"" + qml_path + "\" >/dev/null 2>&1";
-
-    std::system(cmd.c_str());
+    if (!run_argv_status_env({"quickshell", "-p", qml_path}, {
+            {"POLKIT_ACTION", action_id}, {"POLKIT_MESSAGE", message},
+            {"POLKIT_USER", target_user}, {"POLKIT_COOKIE", cookie},
+            {"POLKIT_RESP_FILE", resp_file}})) {
+        unlink(resp_file.c_str());
+        return "";
+    }
 
     // Wait for response file (up to 30s)
     std::string password = "";
@@ -2534,37 +3024,117 @@ std::string SystemControl::polkit_prompt_dialog(const std::string& action_id, co
 }
 
 int SystemControl::polkit_agent_run() {
-    std::cout << "b1air Polkit Authentication Agent running..." << std::endl;
-    while (true) {
-        std::this_thread::sleep_for(std::chrono::seconds(60));
+    std::cerr << "Use b1air-polkit-agent for the registered graphical Polkit listener\n";
+    return 1;
+}
+
+bool SystemControl::polkit_write_response(const std::string& path, const std::string& response) {
+    const std::string prefix = runtime_dir() + "/";
+    if (path.rfind(prefix, 0) != 0 || path.find("..") != std::string::npos) return false;
+    const int fd = open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC, 0600);
+    if (fd < 0) return false;
+    size_t written = 0;
+    while (written < response.size()) {
+        const ssize_t count = write(fd, response.data() + written, response.size() - written);
+        if (count <= 0) { close(fd); return false; }
+        written += static_cast<size_t>(count);
     }
-    return 0;
+    fchmod(fd, 0600);
+    close(fd);
+    return true;
 }
 
 // ── Remote Desktop (WayVNC) & Screencast Management ───────────────────────────
 bool SystemControl::remote_desktop_start(int port, const std::string& password) {
-    remote_desktop_stop();
-    std::string cmd = "setsid wayvnc --render-cursor 0.0.0.0 " + std::to_string(port);
-    if (!password.empty()) {
-        const char* home = std::getenv("HOME");
-        if (home) {
-            std::string pass_file = std::string(home) + "/.cache/wayvnc_pass";
-            std::ofstream out(pass_file);
-            if (out) out << password;
-        }
+    if (port < 1024 || port > 65535 || password.size() > 256) return false;
+    for (unsigned char c : password) {
+        if (c < 0x21 || c == 0x7f || c == '\n' || c == '\r') return false;
     }
-    cmd += " >/tmp/wayvnc.log 2>&1 < /dev/null &";
-    std::system(cmd.c_str());
+
+    SecretStore secrets;
+    if (!password.empty() && !secrets.set("vnc-password", password)) return false;
+    std::string vnc_password;
+    if (!secrets.get("vnc-password", vnc_password) || vnc_password.empty()) {
+        std::cerr << "WayVNC password is not configured; refusing unauthenticated start\n";
+        return false;
+    }
+
+    remote_desktop_stop();
+    const char* bind = std::getenv("B1AIR_DEV_MODE");
+    const char* unsafe_bind = std::getenv("B1AIR_DEV_VNC_UNSAFE");
+    const bool unsafe_dev_bind = bind && std::string(bind) == "1" && unsafe_bind && std::string(unsafe_bind) == "1";
+    std::string bind_address = unsafe_dev_bind ? "0.0.0.0" : "127.0.0.1";
+    if (unsafe_dev_bind) std::cerr << "WARNING: WayVNC is intentionally exposed on all interfaces in unsafe dev mode\n";
+
+    const std::string tls_key = runtime_path("wayvnc-tls.key");
+    const std::string tls_cert = runtime_path("wayvnc-tls.crt");
+    if (access(tls_key.c_str(), R_OK) != 0 || access(tls_cert.c_str(), R_OK) != 0) {
+        (void)run_argv_capture({"openssl", "req", "-x509", "-newkey", "ed25519", "-nodes",
+                                 "-keyout", tls_key, "-out", tls_cert, "-days", "2",
+                                 "-subj", "/CN=b1air-wayvnc"});
+    }
+    struct stat key_stat{}, cert_stat{};
+    if (stat(tls_key.c_str(), &key_stat) != 0 || stat(tls_cert.c_str(), &cert_stat) != 0 ||
+        !S_ISREG(key_stat.st_mode) || !S_ISREG(cert_stat.st_mode)) return false;
+    chmod(tls_key.c_str(), 0600);
+    chmod(tls_cert.c_str(), 0600);
+
+    // WayVNC needs the password in its config while running. The config is
+    // ephemeral, mode 0600, and lives below the private runtime directory.
+    const std::string config_path = runtime_path("wayvnc.conf");
+    char config_text[4096];
+    const int config_size = std::snprintf(config_text, sizeof(config_text),
+        "address=%s\nport=%d\nenable_auth=true\nrelax_encryption=false\n"
+        "certificate_file=%s\nprivate_key_file=%s\npassword=%s\n",
+        bind_address.c_str(), port, tls_cert.c_str(), tls_key.c_str(), vnc_password.c_str());
+    const bool config_written = config_size >= 0 && static_cast<size_t>(config_size) < sizeof(config_text) &&
+        write_private_file(config_path, std::string(config_text, static_cast<size_t>(config_size)));
+    OPENSSL_cleanse(config_text, sizeof(config_text));
+    if (!config_written) return false;
+
+    const std::string pid_file = runtime_path("wayvnc.pid");
+    const std::string log_path = runtime_path("wayvnc.log");
+    const pid_t child = fork();
+    if (child < 0) return false;
+    if (child == 0) {
+        (void)setsid();
+        const int log_fd = open(log_path.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NOFOLLOW, 0600);
+        const int null_fd = open("/dev/null", O_RDONLY | O_CLOEXEC);
+        if (log_fd < 0 || null_fd < 0) _exit(126);
+        dup2(null_fd, STDIN_FILENO);
+        dup2(log_fd, STDOUT_FILENO);
+        dup2(log_fd, STDERR_FILENO);
+        if (null_fd > STDERR_FILENO) close(null_fd);
+        if (log_fd > STDERR_FILENO) close(log_fd);
+        execlp("wayvnc", "wayvnc", "--render-cursor", "-C", config_path.c_str(), nullptr);
+        _exit(127);
+    }
+    if (!write_private_file(pid_file, std::to_string(child) + "\n")) {
+        (void)::kill(child, SIGTERM);
+        return false;
+    }
     return true;
 }
 
 bool SystemControl::remote_desktop_stop() {
-    std::system("pkill -x wayvnc 2>/dev/null || true");
+    const std::string pid_file = runtime_path("wayvnc.pid");
+    const pid_t pid = runtime_pid(pid_file);
+    if (pid > 0) {
+        (void)::kill(pid, SIGTERM);
+        std::this_thread::sleep_for(std::chrono::milliseconds(150));
+        (void)::kill(pid, SIGKILL);
+    }
+    unlink(pid_file.c_str());
+    // The config contains the VNC password. It must not survive the server.
+    unlink(runtime_path("wayvnc.conf").c_str());
+    unlink(runtime_path("wayvnc-tls.key").c_str());
+    unlink(runtime_path("wayvnc-tls.crt").c_str());
     return true;
 }
 
 bool SystemControl::remote_desktop_toggle() {
-    if (std::system("pgrep -x wayvnc >/dev/null 2>&1") == 0) {
+    const pid_t pid = runtime_pid(runtime_path("wayvnc.pid"));
+    if (pid > 0 && ::kill(pid, 0) == 0) {
         return remote_desktop_stop();
     } else {
         return remote_desktop_start();
@@ -2572,8 +3142,17 @@ bool SystemControl::remote_desktop_toggle() {
 }
 
 std::string SystemControl::remote_desktop_status_json() {
-    bool running = (std::system("pgrep -x wayvnc >/dev/null 2>&1") == 0);
-    std::string ip = exec_cmd("ip route get 1.1.1.1 2>/dev/null | awk '{print $7; exit}'");
+    const pid_t pid = runtime_pid(runtime_path("wayvnc.pid"));
+    bool running = pid > 0 && ::kill(pid, 0) == 0;
+    if (!running) {
+        unlink(runtime_path("wayvnc.pid").c_str());
+        unlink(runtime_path("wayvnc.conf").c_str());
+        unlink(runtime_path("wayvnc-tls.key").c_str());
+        unlink(runtime_path("wayvnc-tls.crt").c_str());
+    }
+    const char* bind = std::getenv("B1AIR_DEV_MODE");
+    bool dev_mode = bind && std::string(bind) == "1";
+    std::string ip = dev_mode ? exec_cmd("ip route get 1.1.1.1 2>/dev/null | awk '{print $7; exit}'") : "127.0.0.1";
     while (!ip.empty() && (ip.back() == '\n' || ip.back() == '\r' || ip.back() == ' ')) ip.pop_back();
     if (ip.empty()) ip = "127.0.0.1";
     
@@ -2590,16 +3169,15 @@ std::string SystemControl::remote_desktop_status_json() {
 bool SystemControl::set_screencast_prompt_free(bool enable) {
     const char* home = std::getenv("HOME");
     if (!home) return false;
+    const char* dev_mode = std::getenv("B1AIR_DEV_MODE");
+    if (enable && (!dev_mode || std::string(dev_mode) != "1")) return false;
     std::string dir = std::string(home) + "/.config/xdg-desktop-portal-wlr";
-    std::system(("mkdir -p " + dir).c_str());
+    if (dir.find_first_of("'\";$`&|<>") != std::string::npos) return false;
+    mkdir((std::string(home) + "/.config").c_str(), 0700);
+    mkdir(dir.c_str(), 0700);
     std::string cfg = dir + "/config";
     std::string content = "[screencast]\nmax_fps=60\nchooser_type=" + std::string(enable ? "none" : "simple") + "\n";
-    std::ofstream out(cfg);
-    if (out) {
-        out << content;
-        return true;
-    }
-    return false;
+    return write_private_file(cfg, content);
 }
 
 bool SystemControl::is_screencast_prompt_free() {
@@ -2637,12 +3215,12 @@ bool SystemControl::sidecar_remove_virtual_display() {
 
 bool SystemControl::qr_generate(const std::string& text, const std::string& out_path) {
     if (text.empty()) return false;
-    std::string path = out_path.empty() ? ("/tmp/b1air_qr_" + std::to_string(getpid()) + ".png") : out_path;
-    std::string cmd = "qrencode -s 8 -m 2 -o '" + path + "' '" + text + "' 2>/dev/null";
-    if (std::system(cmd.c_str()) != 0) return false;
+    std::string path = out_path.empty() ? runtime_path(("qr-" + std::to_string(getpid()) + ".png").c_str()) : out_path;
+    if (!run_argv_status({"qrencode", "-s", "8", "-m", "2", "-o", path, "--", text})) return false;
 
-    std::system(("wl-copy -t image/png < '" + path + "' 2>/dev/null || true").c_str());
-    std::system(("notify-send -a 'QR Code Generator' -i '" + path + "' 'QR Code Generated' 'Image copied to clipboard' 2>/dev/null || true").c_str());
+    const std::string png = read_file_string(path);
+    if (!png.empty()) (void)run_argv_with_raw_stdin({"wl-copy", "-t", "image/png"}, png);
+    notify_user("QR Code Generator", "QR Code Generated", "Image copied to clipboard", path);
     return true;
 }
 
@@ -2652,12 +3230,12 @@ bool SystemControl::ocr_screen(const std::string& geom) {
         g = exec_cmd("slurp 2>/dev/null");
         if (g.empty()) return false; // User canceled
     }
+    if (!valid_geometry(g)) return false;
 
-    std::string tmp_img = "/tmp/b1air_ocr_" + std::to_string(getpid()) + ".png";
-    std::string grim_cmd = "grim -g \"" + g + "\" '" + tmp_img + "' 2>/dev/null";
-    if (std::system(grim_cmd.c_str()) != 0) return false;
+    std::string tmp_img = runtime_path(("ocr-" + std::to_string(getpid()) + ".png").c_str());
+    if (!run_argv_status({"grim", "-g", g, tmp_img})) return false;
 
-    std::string text = exec_cmd_full("tesseract '" + tmp_img + "' stdout 2>/dev/null");
+    std::string text = run_argv_capture({"tesseract", tmp_img, "stdout"});
     unlink(tmp_img.c_str());
 
     // Trim whitespace
@@ -2665,20 +3243,16 @@ bool SystemControl::ocr_screen(const std::string& geom) {
     while (!text.empty() && (text.front() == '\n' || text.front() == '\r' || text.front() == ' ')) text.erase(0, 1);
 
     if (text.empty()) {
-        std::system("notify-send -a 'Screen OCR' 'No text recognized' 'Selection did not contain readable text' 2>/dev/null || true");
+        notify_user("Screen OCR", "No text recognized", "Selection did not contain readable text");
         return false;
     }
 
-    // Pipe to wl-copy
-    FILE* pipe = popen("wl-copy 2>/dev/null", "w");
-    if (pipe) {
-        fwrite(text.data(), 1, text.size(), pipe);
-        pclose(pipe);
-    }
+    // Send OCR text through stdin; never place recognized content in a shell command.
+    (void)run_argv_with_raw_stdin({"wl-copy"}, text);
 
     std::string preview = text.substr(0, 70);
     for (char& c : preview) if (c == '\'' || c == '"') c = ' ';
-    std::system(("notify-send -a 'Screen OCR' 'Text Copied to Clipboard' '" + preview + "...' 2>/dev/null || true").c_str());
+    (void)run_argv_capture({"notify-send", "-a", "Screen OCR", "Text Copied to Clipboard", preview + "..."});
     return true;
 }
 
@@ -2686,8 +3260,7 @@ bool SystemControl::quicklook_open(const std::string& path) {
     if (path.empty()) return false;
     char resolved[PATH_MAX];
     if (!realpath(path.c_str(), resolved)) return false;
-    std::string cmd = "b1air-shell open quicklook '" + std::string(resolved) + "'";
-    std::system(cmd.c_str());
+    (void)run_argv_status({"b1air-shell", "open", "quicklook", std::string(resolved)});
     return true;
 }
 
@@ -2715,7 +3288,7 @@ bool SystemControl::pip_toggle() {
 
     if (in_pip) {
         ipc.send_command(0, "unmark pip, sticky disable, floating disable");
-        std::system("notify-send -a 'Picture-in-Picture' 'PiP Disabled' 'Restored window to tiled layout' 2>/dev/null || true");
+        notify_user("Picture-in-Picture", "PiP Disabled", "Restored window to tiled layout");
         return true;
     }
 
@@ -2744,7 +3317,7 @@ bool SystemControl::pip_toggle() {
                            ", move position " + std::to_string(px) + " " + std::to_string(py) + 
                            ", mark pip";
     ipc.send_command(0, sway_cmd);
-    std::system("notify-send -a 'Picture-in-Picture' 'PiP Enabled' 'Pinned window to bottom-right' 2>/dev/null || true");
+    notify_user("Picture-in-Picture", "PiP Enabled", "Pinned window to bottom-right");
     return true;
 }
 
@@ -2803,18 +3376,21 @@ bool SystemControl::force_quit() {
         std::this_thread::sleep_for(std::chrono::milliseconds(150));
         kill(target_pid, SIGKILL);
         ipc.send_command(0, "kill");
-        std::system(("notify-send -a 'Force Quit' -u critical 'Terminated Window' 'Closed " + target_name + " (PID " + std::to_string(target_pid) + ")' 2>/dev/null || true").c_str());
+        const std::string notice = "Closed " + target_name + " (PID " + std::to_string(target_pid) + ")";
+        (void)run_argv_capture({"notify-send", "-a", "Force Quit", "-u", "critical",
+                                 "Terminated Window", notice});
         return true;
     }
 
     // Fallback: kill focused window
     ipc.send_command(0, "kill");
-    std::system("notify-send -a 'Force Quit' 'Window Closed' 'Sent kill signal to window' 2>/dev/null || true");
+    notify_user("Force Quit", "Window Closed", "Sent kill signal to window");
     return true;
 }
 
 bool SystemControl::cursor_locate() {
-    std::system("b1air-shell toggle ruler 2>/dev/null || notify-send -a 'b1air' -t 1500 'Cursor Located' 'Look here!' 2>/dev/null || true");
+    if (!run_argv_status({"b1air-shell", "toggle", "ruler"}))
+        notify_user("b1air", "Cursor Located", "Look here!");
     return true;
 }
 
@@ -2913,7 +3489,7 @@ bool SystemControl::audio_switch_output() {
 
     if (sink_names.empty()) {
         // Fallback: try wpctl status
-        std::system("notify-send -a 'Audio Switcher' 'No Output Devices' 'No secondary audio sinks found' 2>/dev/null || true");
+        notify_user("Audio Switcher", "No Output Devices", "No secondary sinks found");
         return false;
     }
 
@@ -2929,8 +3505,9 @@ bool SystemControl::audio_switch_output() {
     int next_idx = (current_idx + 1) % sink_names.size();
     std::string target_sink = sink_names[next_idx];
 
-    std::string set_cmd = "pactl set-default-sink '" + target_sink + "' 2>/dev/null || wpctl set-default '" + target_sink + "' 2>/dev/null";
-    std::system(set_cmd.c_str());
+    if (!run_argv_with_stdin({"pactl", "set-default-sink", target_sink}, "")) {
+        (void)run_argv_with_stdin({"wpctl", "set-default", target_sink}, "");
+    }
 
     std::string friendly_name = target_sink;
     if (friendly_name.find("analog") != std::string::npos || friendly_name.find("speaker") != std::string::npos) {
@@ -2941,27 +3518,32 @@ bool SystemControl::audio_switch_output() {
         friendly_name = "HDMI / DisplayPort Audio";
     }
 
-    std::system(("notify-send -a 'Audio Switcher' -i audio-speakers 'Audio Output Switched' '" + friendly_name + "' 2>/dev/null || true").c_str());
+    (void)run_argv_capture({"notify-send", "-a", "Audio Switcher", "-i", "audio-speakers", "Audio Output Switched", friendly_name});
     return true;
 }
 
 bool SystemControl::mic_rnnoise_is_active() {
-    return (access("/tmp/b1air_rnnoise.active", F_OK) == 0) || 
-           (!exec_cmd("pgrep -f 'source-rnnoise' 2>/dev/null").empty());
+    const std::string flag_path = runtime_path("rnnoise.active");
+    return access(flag_path.c_str(), F_OK) == 0;
 }
 
 bool SystemControl::mic_rnnoise_set(bool enable) {
     if (enable) {
-        std::ofstream flag("/tmp/b1air_rnnoise.active");
-        flag << "1\n";
-        flag.close();
-        // Launch PipeWire filter-chain RNNoise source if config exists
-        std::system("pipewire -c filter-chain/source-rnnoise.conf >/dev/null 2>&1 &");
-        std::system("notify-send -a 'Microphone' -i audio-input-microphone 'AI Noise Suppression: ON' 'Deep-learning background filter active' 2>/dev/null || true");
+        if (!write_private_file(runtime_path("rnnoise.active"), "1\n")) return false;
+        // Launch PipeWire filter-chain RNNoise source if config exists and track its PID.
+        const pid_t child = spawn_argv_detached({"pipewire", "-c", "filter-chain/source-rnnoise.conf"});
+        if (child <= 0 || !write_private_file(runtime_path("rnnoise.pid"), std::to_string(child) + "\n")) {
+            unlink(runtime_path("rnnoise.active").c_str());
+            if (child > 0) (void)::kill(child, SIGTERM);
+            return false;
+        }
+        notify_user("Microphone", "AI Noise Suppression: ON", "Deep-learning background filter active", "audio-input-microphone");
     } else {
-        unlink("/tmp/b1air_rnnoise.active");
-        std::system("pkill -f 'source-rnnoise' 2>/dev/null || true");
-        std::system("notify-send -a 'Microphone' -i audio-input-microphone 'AI Noise Suppression: OFF' 'Standard microphone input restored' 2>/dev/null || true");
+        unlink(runtime_path("rnnoise.active").c_str());
+        const pid_t child = runtime_pid(runtime_path("rnnoise.pid"));
+        if (child > 0) (void)::kill(child, SIGTERM);
+        unlink(runtime_path("rnnoise.pid").c_str());
+        notify_user("Microphone", "AI Noise Suppression: OFF", "Standard microphone input restored", "audio-input-microphone");
     }
     return true;
 }
@@ -2976,68 +3558,87 @@ bool SystemControl::record_gif(const std::string& geom) {
         g = exec_cmd("slurp 2>/dev/null");
         if (g.empty()) return false;
     }
+    if (!valid_geometry(g)) return false;
 
     const char* home = std::getenv("HOME");
     std::string out_dir = home ? (std::string(home) + "/Pictures/Screenshots") : "/tmp";
-    std::system(("mkdir -p '" + out_dir + "'").c_str());
+    std::error_code mkdir_ec;
+    std::filesystem::create_directories(out_dir, mkdir_ec);
+    if (mkdir_ec) return false;
 
     auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
     char ts[64];
     std::strftime(ts, sizeof(ts), "%Y-%m-%d_%H-%M-%S", std::localtime(&now));
     std::string gif_path = out_dir + "/recording_" + std::string(ts) + ".gif";
-    std::string tmp_mp4 = "/tmp/b1air_gif_temp_" + std::to_string(getpid()) + ".mp4";
+    std::string tmp_mp4 = runtime_path(("gif-" + std::to_string(getpid()) + ".mp4").c_str());
 
-    std::system("notify-send -a 'Screen-to-GIF' '⏺ Recording GIF' 'Capturing 5-second region animation...' 2>/dev/null || true");
+    notify_user("Screen-to-GIF", "⏺ Recording GIF", "Capturing 5-second region animation...");
 
     // Capture short region clip (5s)
-    std::string rec_cmd = "wf-recorder -g \"" + g + "\" -d 5 -f '" + tmp_mp4 + "' 2>/dev/null || " +
-                          "wl-screenrec -g \"" + g + "\" -f '" + tmp_mp4 + "' 2>/dev/null & sleep 5; pkill -INT -f '" + tmp_mp4 + "' 2>/dev/null || true";
-    std::system(rec_cmd.c_str());
+    const std::vector<std::string> wf_args = {"wf-recorder", "-g", g, "-d", "5", "-f", tmp_mp4};
+    if (!run_argv_status(wf_args)) {
+        const pid_t screenrec_pid = spawn_argv_detached({"wl-screenrec", "-g", g, "-f", tmp_mp4});
+        if (screenrec_pid > 0) {
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+            (void)::kill(screenrec_pid, SIGINT);
+            (void)::waitpid(screenrec_pid, nullptr, WNOHANG);
+        }
+    }
 
     // Two-pass optimal palette conversion to GIF
-    std::string conv_cmd = "ffmpeg -y -i '" + tmp_mp4 + "' -vf \"fps=15,scale=flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse\" '" + gif_path + "' 2>/dev/null";
-    std::system(conv_cmd.c_str());
+    (void)run_argv_status({"ffmpeg", "-y", "-i", tmp_mp4, "-vf",
+                           "fps=15,scale=flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse",
+                           gif_path});
     unlink(tmp_mp4.c_str());
 
     // Optional lossless optimization if gifsicle is installed
-    std::string opt_cmd = "gifsicle -O3 --lossy=30 -o '" + gif_path + "' '" + gif_path + "' 2>/dev/null || true";
-    std::system(opt_cmd.c_str());
+    (void)run_argv_status({"gifsicle", "-O3", "--lossy=30", "-o", gif_path, gif_path});
 
     // Copy to clipboard
-    std::system(("wl-copy -t image/gif < '" + gif_path + "' 2>/dev/null || true").c_str());
-    std::system(("notify-send -a 'Screen-to-GIF' -i '" + gif_path + "' 'GIF Saved & Copied' 'Copied animated GIF to clipboard' 2>/dev/null || true").c_str());
+    const std::string gif_data = read_file_string(gif_path);
+    if (!gif_data.empty()) (void)run_argv_with_raw_stdin({"wl-copy", "-t", "image/gif"}, gif_data);
+    notify_user("Screen-to-GIF", "GIF Saved & Copied", "Copied animated GIF to clipboard", gif_path);
     return true;
 }
 
 bool SystemControl::voice_memo() {
-    static const char* PID_FILE = "/tmp/b1air_voice_memo.pid";
-    if (access(PID_FILE, F_OK) == 0) {
+    const std::string pid_file = runtime_path("voice_memo.pid");
+    if (access(pid_file.c_str(), F_OK) == 0) {
         // Stop recording
-        std::ifstream pf(PID_FILE);
-        int pid = 0;
-        if (pf >> pid && pid > 0) {
-            kill(pid, SIGINT);
-        }
-        pf.close();
-        unlink(PID_FILE);
-        std::system("notify-send -a 'Voice Memo' '⏹ Recording Stopped' 'Saved audio memo to recordings folder' 2>/dev/null || true");
+        const pid_t pid = runtime_pid(pid_file);
+        if (pid > 0) (void)::kill(pid, SIGINT);
+        unlink(pid_file.c_str());
+        notify_user("Voice Memo", "⏹ Recording Stopped", "Saved audio memo to recordings folder");
         return true;
     }
 
     const char* home = std::getenv("HOME");
     std::string rec_dir = home ? (std::string(home) + "/Music/Recordings") : "/tmp";
-    std::system(("mkdir -p '" + rec_dir + "'").c_str());
+    std::error_code ec;
+    std::filesystem::create_directories(rec_dir, ec);
+    if (ec) return false;
 
     auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
     char ts[64];
     std::strftime(ts, sizeof(ts), "%Y-%m-%d_%H-%M-%S", std::localtime(&now));
     std::string wav_path = rec_dir + "/memo_" + std::string(ts) + ".wav";
 
-    std::string cmd = "pw-record '" + wav_path + "' >/dev/null 2>&1 & echo $! > " + std::string(PID_FILE);
-    std::system(cmd.c_str());
+    const pid_t child = fork();
+    if (child < 0) return false;
+    if (child == 0) {
+        const int null_fd = open("/dev/null", O_RDWR | O_CLOEXEC);
+        if (null_fd < 0) _exit(126);
+        dup2(null_fd, STDIN_FILENO); dup2(null_fd, STDOUT_FILENO); dup2(null_fd, STDERR_FILENO);
+        if (null_fd > STDERR_FILENO) close(null_fd);
+        execlp("pw-record", "pw-record", wav_path.c_str(), nullptr);
+        _exit(127);
+    }
+    if (!write_private_file(pid_file, std::to_string(child) + "\n")) {
+        (void)::kill(child, SIGTERM);
+        return false;
+    }
 
-    std::system(("wl-copy '" + wav_path + "' 2>/dev/null || true").c_str());
-    std::system("notify-send -a 'Voice Memo' '🎙️ Recording Started' 'Press Super+Shift+V again to stop' 2>/dev/null || true");
+    notify_user("Voice Memo", "🎙️ Recording Started", "Press Super+Shift+V again to stop");
     return true;
 }
 
@@ -3051,8 +3652,16 @@ std::string SystemControl::disk_sweeper_scan() {
     std::string user_cache = "0 B";
     std::string thumb_cache = "0 B";
     if (home) {
-        user_cache = exec_cmd(("du -sh '" + std::string(home) + "/.cache' 2>/dev/null | cut -f1").c_str());
-        thumb_cache = exec_cmd(("du -sh '" + std::string(home) + "/.cache/thumbnails' 2>/dev/null | cut -f1").c_str());
+        user_cache = run_argv_capture({"du", "-sh", std::string(home) + "/.cache"});
+        thumb_cache = run_argv_capture({"du", "-sh", std::string(home) + "/.cache/thumbnails"});
+        const auto trim_size = [](std::string value) {
+                const size_t tab = value.find('\t');
+                if (tab != std::string::npos) value.resize(tab);
+                while (!value.empty() && (value.back() == '\n' || value.back() == '\r')) value.pop_back();
+                return value;
+            };
+        if (!user_cache.empty()) user_cache = trim_size(user_cache);
+        if (!thumb_cache.empty()) thumb_cache = trim_size(thumb_cache);
     }
 
     std::string journal = exec_cmd("journalctl --disk-usage 2>/dev/null | grep -oE '[0-9\\.]+[M|G|K]B' | head -1");
@@ -3074,19 +3683,32 @@ std::string SystemControl::disk_sweeper_scan() {
 }
 
 bool SystemControl::disk_sweeper_clean() {
-    std::system("rm -rf ~/.cache/thumbnails/* 2>/dev/null || true");
-    std::system("journalctl --vacuum-time=7d >/dev/null 2>&1 || true");
-    std::system("sudo paccache -rk2 >/dev/null 2>&1 || sudo pacman -Sc --noconfirm >/dev/null 2>&1 || true");
-    std::system("notify-send -a 'Disk Sweeper' -i drive-harddisk 'Storage Cleaned' 'Reclaimed cache and thumbnail storage' 2>/dev/null || true");
+    const char* home = std::getenv("HOME");
+    if (home && *home) {
+        const std::filesystem::path thumbnails = std::filesystem::path(home) / ".cache/thumbnails";
+        std::error_code ec;
+        if (std::filesystem::is_directory(thumbnails, ec)) {
+            for (const auto& entry : std::filesystem::directory_iterator(
+                     thumbnails, std::filesystem::directory_options::skip_permission_denied, ec)) {
+                std::error_code remove_error;
+                // remove() does not recurse through a symlink, so a malicious
+                // thumbnail entry cannot redirect cleanup outside this cache.
+                std::filesystem::remove(entry.path(), remove_error);
+            }
+        }
+    }
+    (void)run_argv_status({"journalctl", "--vacuum-time=7d"});
+    if (!run_argv_status({"sudo", "paccache", "-rk2"}))
+        (void)run_argv_status({"sudo", "pacman", "-Sc", "--noconfirm"});
+    notify_user("Disk Sweeper", "Storage Cleaned", "Reclaimed cache and thumbnail storage", "drive-harddisk");
     return true;
 }
 
 bool SystemControl::snapshot_create(const std::string& comment) {
     std::string c = comment.empty() ? "b1air pre-update snapshot" : comment;
-    std::string cmd = "timeshift --create --comments \"" + c + "\" --tags O 2>/dev/null || " +
-                      "snapper create -d \"" + c + "\" 2>/dev/null || true";
-    std::system(cmd.c_str());
-    std::system("notify-send -a 'System Restore' -i document-save 'Restore Point Created' 'System snapshot saved successfully' 2>/dev/null || true");
+    if (!run_argv_status({"timeshift", "--create", "--comments", c, "--tags", "O"}))
+        (void)run_argv_status({"snapper", "create", "-d", c});
+    notify_user("System Restore", "Restore Point Created", "System snapshot saved successfully", "document-save");
     return true;
 }
 
@@ -3099,14 +3721,16 @@ std::string SystemControl::snapshot_list() {
 
 bool SystemControl::vault_mount(const std::string& vault_path, const std::string& mount_point, const std::string& password) {
     if (vault_path.empty() || mount_point.empty()) return false;
-    std::string cmd = "mkdir -p '" + mount_point + "'; printf '%s\\n' \"" + password + "\" | gocryptfs '" + vault_path + "' '" + mount_point + "' 2>/dev/null";
-    return (std::system(cmd.c_str()) == 0);
+    std::error_code ec;
+    std::filesystem::create_directories(mount_point, ec);
+    if (ec) return false;
+    return run_argv_with_stdin({"gocryptfs", vault_path, mount_point}, password);
 }
 
 bool SystemControl::vault_unmount(const std::string& mount_point) {
     if (mount_point.empty()) return false;
-    std::string cmd = "fusermount -u '" + mount_point + "' 2>/dev/null || umount '" + mount_point + "' 2>/dev/null";
-    return (std::system(cmd.c_str()) == 0);
+    if (run_argv_status({"fusermount", "-u", mount_point})) return true;
+    return run_argv_status({"umount", mount_point});
 }
 
 std::string SystemControl::vault_status() {
@@ -3217,28 +3841,27 @@ std::string SystemControl::get_system_stats_json() {
     // 6. Top Processes via ps
     std::ostringstream proc_json;
     proc_json << "[";
-    FILE* fp = popen("ps -eo pid,pcpu,pmem,user,comm --sort=-pcpu | head -n 35", "r");
-    if (fp) {
-        char line[256];
-        bool first = true;
-        // Skip header
-        if (fgets(line, sizeof(line), fp)) {
-            while (fgets(line, sizeof(line), fp)) {
-                int pid;
-                float pcpu, pmem;
-                char user[64], comm[128];
-                if (sscanf(line, "%d %f %f %63s %127s", &pid, &pcpu, &pmem, user, comm) >= 5) {
-                    if (!first) proc_json << ",";
-                    first = false;
-                    proc_json << "{\"pid\":" << pid
-                              << ",\"cpu\":" << pcpu
-                              << ",\"mem\":" << pmem
-                              << ",\"user\":\"" << user << "\""
-                              << ",\"name\":\"" << comm << "\"}";
-                }
-            }
-        }
-        pclose(fp);
+    const std::string process_output = run_argv_capture({"ps", "-eo", "pid,pcpu,pmem,user,comm", "--sort=-pcpu"});
+    std::istringstream process_stream(process_output);
+    std::string line;
+    bool first = true;
+    // Skip the header and limit in-process instead of through a shell pipeline.
+    std::getline(process_stream, line);
+    int process_count = 0;
+    while (process_count < 35 && std::getline(process_stream, line)) {
+        std::istringstream fields(line);
+        int pid;
+        float pcpu, pmem;
+        std::string user, comm;
+        if (!(fields >> pid >> pcpu >> pmem >> user >> comm)) continue;
+        if (!first) proc_json << ",";
+        first = false;
+        proc_json << "{\"pid\":" << pid
+                  << ",\"cpu\":" << pcpu
+                  << ",\"mem\":" << pmem
+                  << ",\"user\":\"" << json_escape(user) << "\""
+                  << ",\"name\":\"" << json_escape(comm) << "\"}";
+        ++process_count;
     }
     proc_json << "]";
 

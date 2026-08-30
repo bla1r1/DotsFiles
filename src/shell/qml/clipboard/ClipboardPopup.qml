@@ -79,7 +79,7 @@ PopupShell {
                 visible: Clipboard.items.count > 0
                 icon: "\u{f0156}"
                 label: "Clear All"
-                onActivated: Clipboard.clearHistory()
+                onActivated: clearConfirm.open()
             }
         }
 
@@ -261,5 +261,14 @@ PopupShell {
                 }
             }
         }
+    }
+
+    Dialog {
+        id: clearConfirm
+        title: "Clear clipboard history?"
+        modal: true
+        standardButtons: Dialog.Cancel | Dialog.Ok
+        onAccepted: Clipboard.clearHistory()
+        contentItem: Label { text: "All unpinned clipboard entries will be removed."; padding: 18; wrapMode: Text.WordWrap }
     }
 }

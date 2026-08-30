@@ -44,7 +44,7 @@ Scope {
         function toggleMusic() { masterWindow.handleIpcCommand("toggle:music:", true) }
         function toggleMonitors() { masterWindow.handleIpcCommand("toggle:monitors:", true) }
         function toggleGuide() { masterWindow.handleIpcCommand("toggle:guide:", true) }
-        function toggleUpdater() { masterWindow.handleIpcCommand("toggle:updater:", true) }
+        function togglePollKit() { masterWindow.handleIpcCommand("toggle:pollkit:", true) }
         function toggleSettings() { masterWindow.handleIpcCommand("toggle:settings:", true) }
         function toggleCalendar() { masterWindow.handleIpcCommand("toggle:calendar:", true) }
         function toggleClipboard() { masterWindow.handleIpcCommand("toggle:clipboard:", true) }

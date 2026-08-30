@@ -7,6 +7,8 @@
 #include <QColor>
 #include <vterm.h>
 #include <sys/types.h>
+#include <deque>
+#include <vector>
 
 namespace b1air {
 
@@ -93,8 +95,8 @@ private:
 
     int m_cols = 80;
     int m_rows = 24;
-    int m_fontSize = 13;
-    QString m_fontFamily = "JetBrainsMono Nerd Font";
+    int m_fontSize = 11;
+    QString m_fontFamily = "JetBrainsMono Nerd Font Mono";
     QString m_title = "Terminal";
 
     VTermPos m_cursorPos = {0, 0};
@@ -104,6 +106,9 @@ private:
     VTermPos m_selStart = {0, 0};
     VTermPos m_selEnd = {0, 0};
     bool m_hasSelection = false;
+
+    std::deque<std::vector<VTermScreenCell>> m_scrollback;
+    int m_viewOffset = 0;
 };
 
 } // namespace b1air

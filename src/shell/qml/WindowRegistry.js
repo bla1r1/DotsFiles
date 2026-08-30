@@ -51,7 +51,7 @@ function getLayout(name, mx, my, mw, mh, userScale) {
         "monitors":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
         "focustime": { w: s(900, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(900, scale)/2)), ry: Math.floor((mh/2)-(s(720, scale)/2)), comp: "focustime/FocusTimePopup.qml" },
         "guide":     { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
-        "updater":   { w: s(520, scale), h: s(400, scale), rx: Math.floor((mw/2)-(s(520, scale)/2)), ry: Math.floor((mh/2)-(s(400, scale)/2)), comp: "updater/UpdaterPopup.qml" },
+        "pollkit":   { w: s(520, scale), h: s(400, scale), rx: Math.floor((mw/2)-(s(520, scale)/2)), ry: Math.floor((mh/2)-(s(400, scale)/2)), comp: "pollkit/UpdaterPopup.qml" },
         "session":   { w: s(680, scale), h: s(280, scale), rx: Math.floor((mw/2)-(s(680, scale)/2)), ry: Math.floor((mh/2)-(s(280, scale)/2)), comp: "session/SessionMenu.qml" },
         "keyboard":  { w: s(250, scale), h: s(170, scale), rx: mw - s(330, scale), ry: s(58, scale), comp: "keyboard/KeyboardPopup.qml" },
         "spotlight": { w: s(660, scale), h: s(460, scale), rx: Math.floor((mw/2)-(s(660, scale)/2)), ry: Math.floor((mh/2)-(s(460, scale)/2)), comp: "launcher/SpotlightLauncher.qml" },

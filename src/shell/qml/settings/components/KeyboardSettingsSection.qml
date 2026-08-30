@@ -361,8 +361,13 @@ Card {
         function saveBinding(item, newKey) {
             if (!newKey || newKey.trim() === "") return;
             const cleanKey = newKey.trim();
-            const cmd = "mkdir -p ~/.config/sway/conf.d && echo 'bindsym --to-code " + cleanKey + " " + item.cmd + "' >> ~/.config/sway/conf.d/custom_keybinds.conf && swaymsg reload";
-            Quickshell.execDetached(["bash", "-c", cmd]);
+            if (!/^[A-Za-z0-9+_<>-]+$/.test(cleanKey)) {
+                shortcutsCard.statusMsg = "Unsupported key format";
+                statusTimer.restart();
+                return;
+            }
+            const cmd = "mkdir -p ~/.config/sway/conf.d && printf '%s\\n' \"bindsym --to-code $1 $2\" >> ~/.config/sway/conf.d/custom_keybinds.conf && swaymsg reload";
+            Quickshell.execDetached(["bash", "-c", cmd, "--", cleanKey, item.cmd]);
             shortcutsCard.editingId = "";
             shortcutsCard.statusMsg = "Keybind updated to " + cleanKey + " & Sway reloaded!";
             statusTimer.restart();
@@ -538,4 +543,3 @@ Card {
         }
     }
 }
-

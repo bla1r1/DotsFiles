@@ -21,7 +21,7 @@ DRY_RUN=0
 AUTO_YES=0
 PACKAGES_ONLY=0
 CONFIGS_ONLY=0
-SKIP_PULL=0
+SKIP_PULL=1
 
 # Protected files that contain user state and should NEVER be overwritten
 PROTECTED_FILES=(

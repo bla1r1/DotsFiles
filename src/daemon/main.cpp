@@ -5,6 +5,7 @@
 #include "settings_manager.hpp"
 #include "session_manager.hpp"
 #include "daemon_dbus.hpp"
+#include "runtime.hpp"
 
 #include <iostream>
 #include <string>
@@ -37,11 +38,11 @@ static void print_usage(const char* prog) {
               << "  user set-name <name>               Update user display / full name\n"
               << "  user set-shell <path>              Update user login shell\n"
               << "  user change-password               Launch secure interactive password prompt\n\n"
-              << "Compositor & Waybar Helpers:\n"
+              << "Compositor & Top Bar Helpers:\n"
               << "  layout                             Get active keyboard layout shorthand (US, UA, DE...)\n"
               << "  fullscreen-toggle                  Toggle fullscreen & auto-center floating window\n"
-              << "  wifi-status                        Get Waybar-formatted Wi-Fi JSON\n"
-              << "  media-status                       Get Waybar-formatted Media Player JSON\n"
+              << "  wifi-status                        Get top-bar Wi-Fi JSON\n"
+              << "  media-status                       Get top-bar Media Player JSON\n"
               << "  media-info                         Get full MPRIS & album art palette JSON for player\n"
               << "  weather [json|current|icon|temp]   Get live weather forecast JSON or current conditions\n"
               << "  schedule                           Get calendar schedule JSON\n"
@@ -63,7 +64,7 @@ static void print_usage(const char* prog) {
               << "                                     Manage and apply desktop & SDDM wallpaper\n"
               << "  night-light {on [temp]|off|toggle|auto}\n"
               << "                                     Control color temperature & blue light filter\n"
-              << "  term-theme {list|set <theme>}      List or switch Kitty terminal color palettes\n"
+              << "  term-theme {list|set <theme>}      List or switch b1air-term color palettes\n"
               << "  gamepad-inhibit                    Run daemon to inhibit idle when gamepads are active\n"
               << "  game-mode {on|off|toggle|status}   Control zero-overhead gaming optimizations\n"
               << "  power {lock|logout|suspend|reboot|shutdown}\n"
@@ -75,7 +76,7 @@ static void print_usage(const char* prog) {
               << "  scan-qr [geometry]                 Scan QR code on screen and decode\n"
               << "  polkit [agent|dialog <action> <msg> [user]]\n"
               << "                                     Native Polkit authentication agent & dialog\n"
-              << "  reload                             Reload compositor, Quickshell and Waybar\n"
+              << "  reload                             Reload compositor and Quickshell\n"
               << "  lock [quickshell|swaylock]         Lock session with b1air theme\n"
               << "  version                            Print version information\n"
               << "  help                               Show this help message\n";
@@ -132,7 +133,7 @@ static int run_focus_tracker() {
         if (!g_running) return;
 
         // Check lock state
-        bool is_locked = (access("/tmp/swaylock.lock", F_OK) == 0);
+        bool is_locked = (access(runtime_path("swaylock.lock").c_str(), F_OK) == 0);
 
         WindowInfo win = ipc.get_focused_window();
         std::string new_app = is_locked ? "Screen Locked" : (win.app_class.empty() ? "Desktop" : win.app_class);
@@ -312,16 +313,24 @@ int main(int argc, char* argv[]) {
         return 0;
     } else if (cmd == "remote") {
         std::string sub = (argc > 2) ? argv[2] : "status";
-        if (sub == "start") {
+        if (sub == "start" || sub == "start-stdin") {
             int port = (argc > 3) ? std::atoi(argv[3]) : 5900;
-            std::string pass = (argc > 4) ? argv[4] : "";
+            // Passwords must never be accepted from argv: they are visible in
+            // /proc and process listings. The UI uses start-stdin instead.
+            if (argc > 4) return 1;
+            std::string pass;
+            if (sub == "start-stdin") {
+                std::getline(std::cin, pass);
+                while (!pass.empty() && (pass.back() == '\r' || pass.back() == '\n')) pass.pop_back();
+            }
             return SystemControl::remote_desktop_start(port, pass) ? 0 : 1;
         } else if (sub == "stop") {
             return SystemControl::remote_desktop_stop() ? 0 : 1;
         } else if (sub == "toggle") {
             return SystemControl::remote_desktop_toggle() ? 0 : 1;
         } else if (sub == "prompt-free") {
-            bool en = (argc > 3 && std::string(argv[3]) == "off") ? false : true;
+            if (argc < 4 || (std::string(argv[3]) != "on" && std::string(argv[3]) != "off")) return 1;
+            bool en = std::string(argv[3]) == "on";
             return SystemControl::set_screencast_prompt_free(en) ? 0 : 1;
         } else {
             std::cout << SystemControl::remote_desktop_status_json() << "\n";
@@ -799,6 +808,10 @@ int main(int argc, char* argv[]) {
         } else {
             return SystemControl::polkit_agent_run();
         }
+    } else if (cmd == "polkit-write") {
+        if (argc < 3) return 1;
+        std::string response((std::istreambuf_iterator<char>(std::cin)), std::istreambuf_iterator<char>());
+        return SystemControl::polkit_write_response(argv[2], response) ? 0 : 1;
     } else if (cmd == "version" || cmd == "-v" || cmd == "--version") {
         std::cout << "b1air-daemon v2.5.0 (C++20, Session Manager, Inotify, Sway-IPC, Tokyo Night)\n";
         return 0;

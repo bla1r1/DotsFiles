@@ -356,7 +356,7 @@ ApplicationWindow {
                                     }
                                     MouseArea {
                                         id: delArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                        onClicked: NotesBackend.deleteCurrentNote()
+                                        onClicked: deleteConfirm.open()
                                     }
                                 }
                             }
@@ -464,5 +464,14 @@ ApplicationWindow {
                 }
             }
         }
+    }
+
+    Dialog {
+        id: deleteConfirm
+        title: "Delete note?"
+        modal: true
+        standardButtons: Dialog.Cancel | Dialog.Ok
+        onAccepted: NotesBackend.deleteNote(NotesBackend.currentNoteId)
+        contentItem: Label { text: "This note will be permanently deleted."; padding: 18; wrapMode: Text.WordWrap }
     }
 }

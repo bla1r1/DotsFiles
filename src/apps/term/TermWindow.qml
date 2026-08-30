@@ -19,12 +19,12 @@ Window {
 
     ListModel {
         id: tabsModel
-        ListElement { tabTitle: "zsh"; initialCmd: ""; initialDir: "" }
+    ListElement { tabTitle: "fish"; initialCmd: ""; initialDir: "" }
     }
 
     function createNewTab(cmd, dir) {
         tabsModel.append({
-            tabTitle: "zsh",
+            tabTitle: "fish",
             initialCmd: cmd || "",
             initialDir: dir || ""
         });
@@ -105,7 +105,7 @@ Window {
                                     spacing: Design.s(4)
 
                                     Label {
-                                        text: (index + 1) + ": " + (model.tabTitle || "zsh")
+                                        text: (index + 1) + ": " + (model.tabTitle || "fish")
                                         font.family: "JetBrainsMono Nerd Font"
                                         font.pixelSize: Design.s(10)
                                         font.bold: window.currentTabIndex === index

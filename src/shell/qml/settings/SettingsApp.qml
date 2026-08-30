@@ -27,7 +27,7 @@ Item {
         { isHeader: true, label: "PERSONALIZATION" },
         { id: "appearance",  icon: "\u{f0376}", label: "Appearance",       color: Design.mauve,    tags: "theme dark light catppuccin colors font gtk icons cursor style" },
         { id: "wallpaper",   icon: "\u{f02ca}", label: "Wallpaper",        color: Design.pink,     tags: "background wallpaper pictures desktop image slideshow photos" },
-        { id: "bar",         icon: "\u{f07e}",  label: "Top Bar (Waybar)", color: Design.blue,     tags: "waybar top bar panel position modules icons style" },
+        { id: "bar",         icon: "\u{f07e}",  label: "Native Top Bar", color: Design.blue,     tags: "top bar panel position modules icons style" },
         { id: "interface",   icon: "\u{f0b60}", label: "Interface Scale",  color: Design.blue,     tags: "scale ui dpi zoom layout font size text" },
         { id: "windows",     icon: "\u{f0379}", label: "Window & Gaps",    color: Design.sapphire, tags: "gaps border padding tiling sway layout corners blur opacity" },
         { id: "nightlight",  icon: "\u{f0599}", label: "Night Light",      color: Design.yellow,   tags: "night light wlsunset blue light temperature schedule eye protect" },
@@ -427,7 +427,7 @@ Item {
                     apiKey: Settings.weatherApiKey
                     cityId: Settings.weatherCityId
                     unit: Settings.weatherUnit
-                    onApiKeyChangedByUser: v => Settings.set("weatherApiKey", v)
+                    onApiKeyChangedByUser: v => Settings.setWeatherApiKey(v)
                     onCityIdChangedByUser: v => Settings.set("weatherCityId", v)
                     onUnitChangedByUser: v => Settings.set("weatherUnit", v)
                 }

@@ -6,6 +6,12 @@ set -euo pipefail
 
 DEFAULT_REPO_URL="https://github.com/bla1r1/DotsFiles.git"
 REPO_URL="${DOTFILES_REPO_URL:-${1:-$DEFAULT_REPO_URL}}"
+PINNED_COMMIT="${DOTFILES_COMMIT:-}"
+
+if [[ "$REPO_URL" != "$DEFAULT_REPO_URL" && "${DOTFILES_ALLOW_CUSTOM_REPO:-0}" != "1" ]]; then
+    echo "[ERROR] Refusing an untrusted repository URL. Set DOTFILES_ALLOW_CUSTOM_REPO=1 explicitly for development."
+    exit 1
+fi
 
 if [[ -n "${1:-}" && "$1" =~ ^https?://|^git@ ]]; then
     shift || true
@@ -24,6 +30,11 @@ for arg in "$@"; do
     esac
 done
 
+if [[ ! "$BRANCH" =~ ^[A-Za-z0-9_][A-Za-z0-9._/-]*$ ]]; then
+    echo "[ERROR] Invalid branch name."
+    exit 1
+fi
+
 if [[ ! -f /etc/arch-release ]]; then
     echo "[ERROR] Unsupported distribution. DotsFiles is crafted for Arch Linux."
     exit 1
@@ -41,6 +52,21 @@ else
     echo "[INFO] Cloning DotsFiles repository into $TARGET_DIR..."
     mkdir -p "$(dirname "$TARGET_DIR")"
     git clone --branch "$BRANCH" "$REPO_URL" "$TARGET_DIR"
+fi
+
+if [[ -n "$PINNED_COMMIT" ]]; then
+    if [[ ! "$PINNED_COMMIT" =~ ^[0-9a-fA-F]{40}$ ]]; then
+        echo "[ERROR] DOTFILES_COMMIT must be a full 40-character commit hash."
+        exit 1
+    fi
+    git -C "$TARGET_DIR" cat-file -e "$PINNED_COMMIT^{commit}" || {
+        echo "[ERROR] Requested pinned commit is not available locally."
+        exit 1
+    }
+    git -C "$TARGET_DIR" checkout --detach --quiet "$PINNED_COMMIT"
+else
+    echo "[ERROR] Refusing to execute an unpinned repository. Set DOTFILES_COMMIT to a verified 40-character commit hash."
+    exit 1
 fi
 
 if [[ "$INSTALLER" == "ui" ]]; then

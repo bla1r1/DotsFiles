@@ -16,14 +16,14 @@ Singleton {
     id: root
 
     readonly property ListModel items: ListModel {}
-    readonly property string cacheFile: Quickshell.env("HOME") + "/.cache/qs_clipboard.json"
     property string lastText: ""
+    property string pendingSave: ""
 
     // 1. Initial Load & Persistence
     Process {
         id: loadProcess
         running: true
-        command: ["bash", "-c", "cat ~/.cache/qs_clipboard.json 2>/dev/null || echo '[]'"]
+        command: ["b1air-secret-service", "get", "clipboard-history"]
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
@@ -38,6 +38,16 @@ Singleton {
                     console.log("Clipboard cache load error:", e);
                 }
             }
+        }
+    }
+
+    Process {
+        id: saveProcess
+        stdinEnabled: true
+        command: ["b1air-secret-service", "set", "clipboard-history"]
+        onStarted: {
+            write(root.pendingSave);
+            stdinEnabled = false;
         }
     }
 
@@ -127,7 +137,7 @@ Singleton {
     function copyToClipboard(text) {
         if (!text) return;
         root.lastText = text;
-        Quickshell.execDetached(["bash", "-c", "printf '%s' " + JSON.stringify(text) + " | wl-copy"]);
+        Quickshell.execDetached(["bash", "-c", "printf '%s' \"$1\" | wl-copy", "--", text]);
     }
 
     function togglePin(index) {
@@ -169,6 +179,8 @@ Singleton {
             });
         }
         const json = JSON.stringify(arr);
-        Quickshell.execDetached(["bash", "-c", "mkdir -p ~/.cache && printf '%s' " + JSON.stringify(json) + " > ~/.cache/qs_clipboard.json"]);
+        root.pendingSave = json;
+        if (saveProcess.running) saveProcess.running = false;
+        saveProcess.running = true;
     }
 }

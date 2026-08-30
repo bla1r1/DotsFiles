@@ -8,12 +8,9 @@ Singleton {
     id: root
 
     property var pinnedList: [
-        { id: "b1air-files", name: "Files", icon: "󰉋", cmd: "b1air-files" },
-        { id: "b1air-night", name: "Night Light", icon: "󱡁", cmd: "b1air-daemon night-light toggle" },
-        { id: "b1air-term", name: "Terminal", icon: "󰞷", cmd: "b1air-term" },
-        { id: "b1air-notes", name: "Notes", icon: "󰈙", cmd: "b1air-notes" },
-        { id: "b1air-git", name: "Git", icon: "󰊢", cmd: "b1air-git" },
-        { id: "b1air-control", name: "Control Center", icon: "󱥂", cmd: "toggle:control:" }
+        { id: "b1air-files", name: "Files", icon: "system-file-manager", cmd: "b1air-files" },
+        { id: "b1air-term", name: "Terminal", icon: "utilities-terminal", cmd: "b1air-term" },
+        { id: "firefox", name: "Browser", icon: "web-browser", cmd: "firefox" }
     ]
 
     function isPinned(appIdOrName) {
@@ -52,7 +49,9 @@ Singleton {
 
     function save() {
         let jsonStr = JSON.stringify(root.pinnedList);
-        saveProc.command = ["bash", "-c", "mkdir -p ~/.config/b1air && cat << 'EOF' > ~/.config/b1air/pinned_apps.json\n" + jsonStr + "\nEOF"];
+        saveProc.command = ["bash", "-c", "mkdir -p -- \"$1\" && printf '%s' \"$3\" > \"$2\"", "--",
+                            (Quickshell.env("HOME") || "/tmp") + "/.config/b1air",
+                            (Quickshell.env("HOME") || "/tmp") + "/.config/b1air/pinned_apps.json", jsonStr];
         saveProc.running = true;
     }
 

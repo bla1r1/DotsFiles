@@ -50,9 +50,9 @@ PopupShell {
 
     // ── Core System Actions ──────────────────────────────────────────────────
     readonly property var baseApps: [
-        { name: "Terminal", desc: "Kitty Terminal emulator", icon: "\u{f120}", cmd: "kitty", cat: "System" },
+        { name: "Terminal", desc: "Native b1air terminal emulator", icon: "\u{f120}", cmd: "b1air-term", cat: "System" },
         { name: "Launchpad", desc: "Full application launcher", icon: "\u{f009}", cmd: "b1air-shell toggle launchpad", cat: "System" },
-        { name: "File Manager", desc: "Browse files and folders (Thunar)", icon: "\u{f07b}", cmd: "thunar", cat: "System" },
+        { name: "File Manager", desc: "Native b1air file manager", icon: "\u{f07b}", cmd: "b1air-files", cat: "System" },
         { name: "Settings", desc: "System & Desktop Settings", icon: "\u{f013}", cmd: "b1air-shell toggle settings", cat: "System" },
         { name: "Control Center", desc: "Quick toggles & notifications", icon: "\u{f0f3}", cmd: "b1air-shell toggle control", cat: "System" },
         { name: "Clipboard History", desc: "Search clipboard history & snippets", icon: "\u{f0ea}", cmd: "b1air-shell toggle clipboard", cat: "Utilities" },
@@ -61,7 +61,7 @@ PopupShell {
         { name: "Lock Screen", desc: "Lock current user session", icon: "\u{f023}", cmd: "b1air-daemon power lock", cat: "Session" },
         { name: "Power Menu", desc: "Shutdown, reboot, sleep options", icon: "\u{f011}", cmd: "b1air-shell toggle session", cat: "Session" },
         { name: "Screenshot", desc: "Capture selected region", icon: "\u{f030}", cmd: "b1air-daemon screenshot area", cat: "Utilities" },
-        { name: "Task Manager", desc: "Btop system monitor", icon: "\u{f080}", cmd: "kitty btop", cat: "System" }
+        { name: "Task Manager", desc: "Native b1air system monitor", icon: "\u{f080}", cmd: "b1air-monitor", cat: "System" }
     ]
 
     function evaluateMath(expr) {
@@ -118,6 +118,14 @@ PopupShell {
         return cmd.replace(/%[a-zA-Z]/g, "").trim();
     }
 
+    function safeLaunchCommand(cmd) {
+        const value = (cmd || "").trim();
+        const forbidden = [";", "&", "|", "`", "$", "<", ">", "\\", "\n", "\r", "(", ")", "{", "}", "[", "]", "*", "?", "!", "~"];
+        if (!value || value.length > 512 || forbidden.some(c => value.includes(c))) return false;
+        Quickshell.execDetached(["swaymsg", "exec", value]);
+        return true;
+    }
+
     function execute(item) {
         window.close();
         let cmd = "";
@@ -128,18 +136,13 @@ PopupShell {
         }
         if (!cmd) return;
 
-        if (cmd.startsWith("b1air-shell") || cmd.startsWith("b1air-daemon")) {
-            Quickshell.execDetached(["bash", "-c", cmd]);
-            return;
-        }
-
         cmd = cleanExec(cmd);
-        Quickshell.execDetached(["swaymsg", "exec", cmd]);
+        safeLaunchCommand(cmd);
     }
 
     function getAppGlyph(name) {
         const n = (name || "").toLowerCase();
-        if (n.includes("term") || n.includes("kitty") || n.includes("foot") || n.includes("bash") || n.includes("sh")) return "\u{f120}";
+        if (n.includes("term") || n.includes("foot") || n.includes("bash") || n.includes("sh")) return "\u{f120}";
         if (n.includes("file") || n.includes("thunar") || n.includes("nemo") || n.includes("bulk")) return "\u{f07b}";
         if (n.includes("setting") || n.includes("pref") || n.includes("control")) return "\u{f013}";
         if (n.includes("cal") || n.includes("time") || n.includes("clock")) return "\u{f073}";
@@ -159,7 +162,7 @@ PopupShell {
 
     function getAppColor(name) {
         const n = (name || "").toLowerCase();
-        if (n.includes("term") || n.includes("kitty") || n.includes("foot")) return Design.green;
+        if (n.includes("term") || n.includes("foot")) return Design.green;
         if (n.includes("file") || n.includes("thunar") || n.includes("bulk")) return Design.peach;
         if (n.includes("setting") || n.includes("pref") || n.includes("control")) return Design.blue;
         if (n.includes("cal") || n.includes("time") || n.includes("clock")) return Design.red;

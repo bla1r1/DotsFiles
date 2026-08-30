@@ -5,7 +5,7 @@ import "../../Ui"
 import "../../Services"
 
 // =============================================================================
-// Top Bar & Waybar Settings
+// Native Quickshell Top Bar Settings
 // =============================================================================
 
 ColumnLayout {
@@ -21,14 +21,14 @@ ColumnLayout {
     property bool barShowTray: Settings.barShowTray !== undefined ? Settings.barShowTray : true
     property bool barClock24h: Settings.barClock24h !== undefined ? Settings.barClock24h : true
 
-    function restartWaybar() {
+    function reloadTopBar() {
         Quickshell.execDetached(["b1air-daemon", "reload"]);
     }
 
     // ── 1. Position & Layout ─────────────────────────────────────────────────
     Card {
         title: "Bar Position & Time Format"
-        subtitle: "Customize Waybar placement and clock style"
+        subtitle: "Customize the native top bar placement and clock style"
         icon: "\u{f07e}"
         accentColor: Design.sapphire
 
@@ -51,7 +51,7 @@ ColumnLayout {
                     onClicked: {
                         section.barPosition = "top";
                         Settings.set("barPosition", "top");
-                        section.restartWaybar();
+                        section.reloadTopBar();
                     }
                 }
                 Pill {
@@ -60,7 +60,7 @@ ColumnLayout {
                     onClicked: {
                         section.barPosition = "bottom";
                         Settings.set("barPosition", "bottom");
-                        section.restartWaybar();
+                        section.reloadTopBar();
                     }
                 }
             }
@@ -83,7 +83,7 @@ ColumnLayout {
                     const next = !section.barClock24h;
                     section.barClock24h = next;
                     Settings.set("barClock24h", next);
-                    section.restartWaybar();
+                    section.reloadTopBar();
                 }
             }
         }
@@ -113,7 +113,7 @@ ColumnLayout {
                     const next = !section.barShowCava;
                     section.barShowCava = next;
                     Settings.set("barShowCava", next);
-                    section.restartWaybar();
+                    section.reloadTopBar();
                 }
             }
         }
@@ -135,7 +135,7 @@ ColumnLayout {
                     const next = !section.barShowWeather;
                     section.barShowWeather = next;
                     Settings.set("barShowWeather", next);
-                    section.restartWaybar();
+                    section.reloadTopBar();
                 }
             }
         }
@@ -157,7 +157,7 @@ ColumnLayout {
                     const next = !section.barShowMedia;
                     section.barShowMedia = next;
                     Settings.set("barShowMedia", next);
-                    section.restartWaybar();
+                    section.reloadTopBar();
                 }
             }
         }
@@ -179,7 +179,7 @@ ColumnLayout {
                     const next = !section.barShowTray;
                     section.barShowTray = next;
                     Settings.set("barShowTray", next);
-                    section.restartWaybar();
+                    section.reloadTopBar();
                 }
             }
         }

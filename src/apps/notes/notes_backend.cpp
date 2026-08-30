@@ -47,6 +47,7 @@ void NotesBackend::saveConfig() {
 
     QFile file(m_storageDir + "/config.json");
     if (file.open(QIODevice::WriteOnly)) {
+        file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
         file.write(QJsonDocument(obj).toJson());
     }
 }

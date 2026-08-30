@@ -118,16 +118,18 @@ enable_multilib_repo() {
 arch_packages() {
     local pkgs=(
         # Core & Build
-        base-devel git rsync curl unzip jq cmake ccache
+        base-devel git rsync curl unzip jq cmake ccache openssl polkit
         # Wayland Compositor & Shell
         swaybg swayidle swaylock xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk xorg-xwayland
-        waybar layer-shell-qt wayvnc
+        layer-shell-qt wayvnc
         # Modern CLI & Shell
         fish starship eza bat fzf zoxide fastfetch btop
-        # Terminal Emulators
-        kitty libvterm
+        # Native b1air-term uses libvterm for terminal emulation.
+        libvterm
         # GUI Applications
-        firefox thunar imv
+        # b1air-files and b1air-view replace the old Thunar/Imv entries.
+        # Keep Firefox: there is no bundled browser replacement.
+        firefox
         # Clipboard & Screenshots
         wl-clipboard grim slurp satty
         # Audio & Media
@@ -321,6 +323,26 @@ deploy_dotfiles() {
     ok "Dotfiles deployed. Previous configs backed up in: $BACKUP_DIR"
 }
 
+configure_default_shell() {
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        log "Would set the login shell to /usr/bin/fish"
+        return 0
+    fi
+    if [[ ! -x /usr/bin/fish ]]; then
+        warn "Fish is not installed; keeping the current login shell."
+        return 0
+    fi
+    if ! grep -Fxq /usr/bin/fish /etc/shells 2>/dev/null; then
+        warn "/usr/bin/fish is not listed in /etc/shells; keeping the current login shell."
+        return 0
+    fi
+    local current_shell
+    current_shell="$(getent passwd "$USER" | cut -d: -f7)"
+    if [[ "$current_shell" != "/usr/bin/fish" ]]; then
+        chsh -s /usr/bin/fish "$USER" || sudo usermod -s /usr/bin/fish "$USER" || warn "Could not set Fish as the login shell."
+    fi
+}
+
 detect_and_install_vm_guest_tools() {
     if command -v systemd-detect-virt >/dev/null 2>&1; then
         local virt
@@ -404,7 +426,7 @@ configure_remote_desktop_permissions() {
 
 post_install_checks() {
     log "Running environment verification..."
-    local commands=(sway swaylock kitty fish starship eza bat fzf sddm b1air-daemon b1air-shell)
+    local commands=(sway swaylock fish starship eza bat fzf sddm b1air-daemon b1air-shell b1air-term b1air-files b1air-secret-service)
     local missing=()
 
     for cmd in "${commands[@]}"; do
@@ -449,6 +471,7 @@ main() {
     else
         warn "Skipping dotfiles deployment."
     fi
+    configure_default_shell
     [[ "$SKIP_SERVICES" -eq 0 ]] && enable_services || warn "Skipping services configuration."
 
     post_install_checks

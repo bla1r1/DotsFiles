@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
+import Quickshell.Widgets
 import "./Services"
 
 PanelWindow {
@@ -37,6 +38,14 @@ PanelWindow {
     readonly property color colWrkBorder: Qt.rgba(65/255, 72/255, 104/255, 0.40)
     readonly property string fontMain: "Fira Sans SemiBold, JetBrainsMono Nerd Font, sans-serif"
 
+    function safePinnedCommand(cmd) {
+        const value = (cmd || "").trim();
+        const forbidden = [";", "&", "|", "`", "$", "<", ">", "\\", "\n", "\r", "(", ")", "{", "}", "[", "]", "*", "?", "!", "~"];
+        if (!value || value.length > 512 || forbidden.some(c => value.includes(c))) return false;
+        Quickshell.execDetached(["bash", "-c", value]);
+        return true;
+    }
+
     // ── State Trackers ──────────────────────────────────────────────────────
     property string clockTime: "00:00"
     property string clockDate: ""
@@ -44,6 +53,57 @@ PanelWindow {
     property string loadAvg: "0.00"
     property string kbdLayout: "US"
     property var workspacesList: [ { num: 1, name: "1", focused: true } ]
+    property var runningApps: []
+
+    function refreshRunningApps() {
+        runningAppsProcess.running = false;
+        runningAppsProcess.running = true;
+    }
+
+    function collectSwayNodes(nodes, result, workspaceName) {
+        for (let node of (nodes || [])) {
+            let currentWorkspace = node.type === "workspace" ? (node.name || workspaceName) : workspaceName;
+            let appId = node.app_id || (node.window_properties ? node.window_properties.class : "") || "";
+            let title = node.name || appId;
+            let children = (node.nodes || []).concat(node.floating_nodes || []);
+            if (appId && node.pid && appId !== "b1air-topbar" && appId !== "waybar" && node.type !== "workspace") {
+                result.push({ id: node.id, appId: appId, title: title, workspace: currentWorkspace, focused: !!node.focused });
+            } else if (children.length > 0) {
+                collectSwayNodes(children, result, currentWorkspace);
+            }
+        }
+    }
+
+    function appIcon(appId) {
+        const id = (appId || "").toLowerCase();
+        if (id.includes("b1air-term")) return "file:///usr/share/icons/AdwaitaLegacy/48x48/legacy/utilities-terminal.png";
+        if (id.includes("b1air-files")) return "file:///usr/share/icons/AdwaitaLegacy/48x48/legacy/system-file-manager.png";
+        if (id.includes("b1air-monitor")) return "file:///usr/share/icons/AdwaitaLegacy/48x48/legacy/utilities-system-monitor.png";
+        if (id.includes("b1air-setting")) return "file:///usr/share/icons/AdwaitaLegacy/48x48/legacy/preferences-system.png";
+        if (id.includes("b1air-note") || id.includes("b1air-text")) return "file:///usr/share/icons/AdwaitaLegacy/48x48/legacy/accessories-text-editor.png";
+        if (id.includes("b1air-git")) return "file:///usr/share/icons/AdwaitaLegacy/48x48/legacy/applications-development.png";
+        if (id.includes("b1air-view")) return "file:///usr/share/icons/AdwaitaLegacy/48x48/mimetypes/image-x-generic.png";
+        if (id.includes("firefox") || id.includes("browser")) return "file:///usr/share/icons/AdwaitaLegacy/48x48/legacy/web-browser.png";
+        // Never pass an unknown app-id to image://icon: that produces the
+        // red/purple missing-icon tile. Use a real system fallback instead.
+        return "file:///usr/share/icons/AdwaitaLegacy/48x48/mimetypes/application-x-executable.png";
+    }
+
+    function iconSource(icon) {
+        const value = (icon || "application-x-executable").trim();
+        if (value.startsWith("/") || value.startsWith("file://")) return value.startsWith("file://") ? value : "file://" + value;
+        const legacy = {
+            "utilities-terminal": "utilities-terminal.png",
+            "system-file-manager": "system-file-manager.png",
+            "utilities-system-monitor": "utilities-system-monitor.png",
+            "preferences-system": "preferences-system.png",
+            "web-browser": "web-browser.png",
+            "network-wired": "network-wired.png",
+            "application-x-executable": "../mimetypes/application-x-executable.png"
+        };
+        if (legacy[value]) return "file:///usr/share/icons/AdwaitaLegacy/48x48/legacy/" + legacy[value];
+        return "image://icon/" + value;
+    }
 
     // Clock Timer (ticks every 1s)
     Timer {
@@ -108,6 +168,33 @@ PanelWindow {
                 }
             }
         }
+    }
+
+    Process {
+        id: runningAppsProcess
+        // Resolve the current socket on every refresh: Sway assigns a new
+        // socket after a restart, so inheriting an old SWAYSOCK hides windows.
+        command: ["bash", "-c", "SWAYSOCK=$(ls -t /run/user/$(id -u)/sway-ipc.*.sock 2>/dev/null | head -n1); export SWAYSOCK; swaymsg -t get_tree"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    let tree = JSON.parse(this.text);
+                    let apps = [];
+                    topBar.collectSwayNodes([tree], apps, "");
+                    topBar.runningApps = apps;
+                } catch (e) {
+                    topBar.runningApps = [];
+                }
+            }
+        }
+    }
+
+    Timer {
+        interval: 1000
+        running: true
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: topBar.refreshRunningApps()
     }
 
     // ── Bar Content Layout ──────────────────────────────────────────────────
@@ -200,12 +287,12 @@ PanelWindow {
                             radius: 6
                             color: pinArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.22) : "transparent"
 
-                            Text {
+                            IconImage {
                                 anchors.centerIn: parent
-                                text: modelData.icon || "󰀻"
-                                font.family: "JetBrainsMono Nerd Font"
-                                font.pixelSize: 13
-                                color: pinArea.containsMouse ? topBar.colBlue : topBar.colFg
+                                width: 17
+                                height: 17
+                                source: topBar.iconSource(modelData.icon)
+                                mipmap: true
                             }
 
                             MouseArea {
@@ -225,7 +312,7 @@ PanelWindow {
                                         } else if (cmd.startsWith("open:")) {
                                             topBar.requestCommand(cmd, true);
                                         } else {
-                                            Quickshell.execDetached(["bash", "-c", cmd]);
+                                            topBar.safePinnedCommand(cmd);
                                         }
                                     }
                                 }
@@ -246,7 +333,7 @@ PanelWindow {
                             text: "󰐕"
                             font.family: "JetBrainsMono Nerd Font"
                             font.pixelSize: 11
-                            color: addPinArea.containsMouse ? topBar.colBlue : topBar.colDim
+                            color: addPinArea.containsMouse ? topBar.colBlue : topBar.colFgDim
                         }
 
                         MouseArea {
@@ -262,6 +349,7 @@ PanelWindow {
 
             // 3. Workspaces Island
             Rectangle {
+                id: workspacesIsland
                 height: 30
                 width: workspacesRow.implicitWidth + 12
                 radius: 10
@@ -301,7 +389,9 @@ PanelWindow {
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {
-                                    Quickshell.execDetached(["bash", "-c", "SWAYSOCK=$(ls -t /run/user/1000/sway-ipc.*.sock 2>/dev/null | head -n1) swaymsg workspace " + (modelData.name || (index + 1))]);
+                                    const workspace = String(modelData.name || (index + 1));
+                                    if (/^[A-Za-z0-9_.-]+$/.test(workspace))
+                                        Quickshell.execDetached(["swaymsg", "workspace", workspace]);
                                 }
                             }
                         }
@@ -317,6 +407,46 @@ PanelWindow {
                         } else if (wheel.angleDelta.y < 0) {
                             Quickshell.execDetached(["bash", "-c", "SWAYSOCK=$(ls -t /run/user/1000/sway-ipc.*.sock 2>/dev/null | head -n1) swaymsg workspace next"]);
                         }
+                    }
+                }
+            }
+
+            // Old Waybar placed the taskbar after workspaces on the left.
+            // Keep that topology, but render compact native icons.
+            Row {
+                id: runningAppsRow
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 3
+                visible: topBar.runningApps.length > 0
+
+                Repeater {
+                    model: topBar.runningApps
+                    delegate: Rectangle {
+                        width: 28
+                        height: 28
+                        radius: 7
+                        color: modelData.focused ? Qt.rgba(122/255, 162/255, 247/255, 0.22) : topBar.colBg
+                        border.color: modelData.focused ? topBar.colBlue : topBar.colBorder
+                        border.width: 1
+
+                        IconImage {
+                            anchors.centerIn: parent
+                            width: 18
+                            height: 18
+                            source: topBar.iconSource(topBar.appIcon(modelData.appId))
+                            mipmap: true
+                        }
+
+                        MouseArea {
+                            id: runningArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: Quickshell.execDetached(["bash", "-c", "SWAYSOCK=$(ls -t /run/user/$(id -u)/sway-ipc.*.sock 2>/dev/null | head -n1); export SWAYSOCK; swaymsg '[con_id=" + String(modelData.id) + "] focus'"])
+                        }
+
+                        ToolTip.visible: runningArea.containsMouse
+                        ToolTip.text: modelData.title || modelData.appId
                     }
                 }
             }
@@ -355,7 +485,7 @@ PanelWindow {
                     if (mouse.button === Qt.MiddleButton) {
                         topBar.requestCommand("toggle:focustime:", true);
                     } else if (mouse.button === Qt.RightButton) {
-                        topBar.requestCommand("toggle:updater:", true);
+                        topBar.requestCommand("toggle:pollkit:", true);
                     } else {
                         topBar.requestCommand("toggle:calendar:", true);
                     }

@@ -24,7 +24,7 @@ echo "  [v] 📋 Clipboard Manager"
 echo "  [f] ⏱️  FocusTime Analytics"
 echo "  [m] 🎵 Media Player"
 echo "  [w] 🌐 Wi-Fi & Network"
-echo "  [t] 🐱 Launch Kitty Terminal"
+echo "  [t] Launch b1air Terminal"
 echo "  [n] 🔔 Test Notification Toast"
 echo "  [z] 📐 FancyZones Grid"
 echo "  [u] 📏 Screen Ruler"
@@ -48,7 +48,7 @@ while true; do
         z) echo "-> Toggling FancyZones..."; call_ipc "quickshell ipc call main toggleZones" ;;
         u) echo "-> Toggling Screen Ruler..."; call_ipc "quickshell ipc call main toggleRuler" ;;
         d) echo "-> Toggling DropShelf..."; call_ipc "quickshell ipc call main toggleShelf" ;;
-        t) echo "-> Launching Kitty..."; call_ipc "swaymsg exec kitty" ;;
+        t) echo "-> Launching b1air Terminal..."; call_ipc "swaymsg exec b1air-term" ;;
         n) echo "-> Sending Test Toast..."; call_ipc "notify-send 'b1air OS' 'Interactive test toast from macOS controller!'" ;;
         r) echo "-> Toggling WayVNC Server..."; call_ipc "b1air-daemon remote toggle" ;;
         x) echo "-> Closing Popups..."; call_ipc "quickshell ipc call main close" ;;

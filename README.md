@@ -49,6 +49,10 @@ Matches the desktop Tokyo Night theme with digital clock, user avatar synchroniz
 
 ## Installation
 
+Remote access is disabled and bound to localhost by default. For the background
+VM preview workflow only, explicitly start the session with `B1AIR_DEV_MODE=1`;
+this enables LAN binding and development-only prompt-free screencasting.
+
 ### Option 1: One-Line Installer
 
 Run the bootstrap script on an Arch Linux installation:
@@ -86,7 +90,7 @@ For an interactive menu:
 
 | Shortcut | Action | Target |
 | :--- | :--- | :--- |
-| `Super + Return` | Open Terminal | Kitty |
+| `Super + Return` | Open Terminal | b1air-term |
 | `Super + Space` | Application Launcher | Spotlight |
 | `Super + E` | File Manager | Thunar |
 | `Super + I` | Settings Hub | Settings App |
@@ -126,7 +130,8 @@ b1air-daemon brightness up 5       # Screen brightness +5%
 b1air-daemon color-picker          # Eyedropper hex to clipboard
 
 # Remote Desktop & Screencast
-b1air-daemon remote start          # Start headless WayVNC server
+b1air-secret-service set vnc-password  # Set encrypted WayVNC password (stdin recommended)
+b1air-daemon remote start-stdin 5900  # Start authenticated TLS WayVNC; password via stdin
 b1air-daemon remote stop           # Stop WayVNC
 b1air-daemon remote status         # JSON status of remote service
 b1air-daemon remote prompt-free on # Enable unattended screencasting
@@ -142,9 +147,8 @@ b1air-daemon game-mode toggle      # Switch between power-save and low-latency m
 
 ```text
 DotsFiles/
-├── .config/                   # User configurations (SwayFX, Waybar, Kitty, Fish, Kvantum)
+├── .config/                   # User configurations (SwayFX, Waybar, b1air-term, Fish, Kvantum)
 │   ├── fish/                  # Fish shell with Tokyo Night theme
-│   ├── kitty/                 # Kitty GPU terminal emulator
 │   ├── sway/                  # SwayFX compositor keybinds, rules, look & feel
 │   ├── systemd/               # Systemd user services for b1air session
 │   ├── waybar/                # Top status bar modules and CSS styling
@@ -166,7 +170,7 @@ DotsFiles/
 │   ├── sddm.conf              # SDDM display manager config
 │   └── tiny-dfr/              # MacBook Touch Bar daemon config
 ├── tools/                     # Development & remote control utilities
-│   ├── controller.py          # Web deck for testing desktop windows
+│   ├── controller.cpp         # C++ web deck for testing desktop windows
 │   └── controller.sh          # Terminal single-key interactive controller
 ├── docs/                      # Technical documentation
 │   └── ROADMAP.md             # Milestone roadmap & feature specs (M0-M14)

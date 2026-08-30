@@ -5,6 +5,8 @@
 #include <QClipboard>
 #include <QGuiApplication>
 #include <QProcess>
+#include <QSet>
+#include <algorithm>
 #include <iostream>
 
 using namespace b1air;
@@ -139,9 +141,8 @@ QString B1AirBridge::wifiSsid() const { return m_wifiSsid; }
 bool B1AirBridge::wifiConnected() const { return m_wifiConnected; }
 
 void B1AirBridge::setVolume(int vol) {
-    m_volume = vol;
-    std::string cmd = "wpctl set-volume @DEFAULT_AUDIO_SINK@ " + std::to_string(vol) + "% 2>/dev/null";
-    std::system(cmd.c_str());
+    m_volume = std::clamp(vol, 0, 150);
+    QProcess::startDetached("wpctl", QStringList() << "set-volume" << "@DEFAULT_AUDIO_SINK@" << (QString::number(m_volume) + "%"));
     emit volumeChanged();
 }
 
@@ -152,9 +153,8 @@ void B1AirBridge::setMuted(bool mute) {
 }
 
 void B1AirBridge::setMicVolume(int vol) {
-    m_micVolume = vol;
-    std::string cmd = "wpctl set-volume @DEFAULT_AUDIO_SOURCE@ " + std::to_string(vol) + "% 2>/dev/null";
-    std::system(cmd.c_str());
+    m_micVolume = std::clamp(vol, 0, 150);
+    QProcess::startDetached("wpctl", QStringList() << "set-volume" << "@DEFAULT_AUDIO_SOURCE@" << (QString::number(m_micVolume) + "%"));
     emit micVolumeChanged();
 }
 
@@ -162,10 +162,6 @@ void B1AirBridge::setMicMuted(bool mute) {
     m_micMuted = mute;
     SystemControl::mic_toggle();
     emit micMutedChanged();
-}
-
-void B1AirBridge::execute(const QString& command) {
-    QProcess::startDetached("bash", QStringList() << "-c" << command);
 }
 
 void B1AirBridge::copyToClipboard(const QString& text) {
@@ -177,14 +173,13 @@ void B1AirBridge::copyToClipboard(const QString& text) {
 }
 
 void B1AirBridge::focusWindow(qint64 con_id) {
-    std::string cmd = "swaymsg [con_id=" + std::to_string(con_id) + "] focus 2>/dev/null &";
-    std::system(cmd.c_str());
+    if (con_id <= 0) return;
+    QProcess::startDetached("swaymsg", QStringList() << ("[con_id=" + QString::number(con_id) + "]") << "focus");
 }
 
 void B1AirBridge::minimizeWindow(qint64 con_id) {
     if (con_id > 0) {
-        std::string cmd = "swaymsg [con_id=" + std::to_string(con_id) + "] mark --add _b1air_minimized, move scratchpad 2>/dev/null &";
-        std::system(cmd.c_str());
+        QProcess::startDetached("swaymsg", QStringList() << ("[con_id=" + QString::number(con_id) + "]") << "mark" << "--add" << "_b1air_minimized," << "move" << "scratchpad");
     } else {
         SystemControl::window_minimize();
     }
@@ -215,8 +210,12 @@ void B1AirBridge::powerAction(const QString& action) {
 }
 
 void B1AirBridge::playSound(const QString& soundName) {
-    std::string cmd = "canberra-gtk-play -i " + soundName.toStdString() + " 2>/dev/null || pw-play /usr/share/sounds/freedesktop/stereo/" + soundName.toStdString() + ".oga 2>/dev/null &";
-    std::system(cmd.c_str());
+    const QString name = soundName.trimmed();
+    static const QSet<QString> allowed = {"bell", "complete", "dialog-warning", "message", "phone-incoming"};
+    if (!allowed.contains(name)) return;
+    if (!QProcess::startDetached("canberra-gtk-play", QStringList() << "-i" << name)) {
+        QProcess::startDetached("pw-play", QStringList() << ("/usr/share/sounds/freedesktop/stereo/" + name + ".oga"));
+    }
 }
 
 QVariant B1AirBridge::getSetting(const QString& key, const QVariant& defaultVal) {

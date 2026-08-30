@@ -30,11 +30,23 @@ PanelWindow {
     property string actionMessage: Quickshell.env("POLKIT_MESSAGE") || "Authentication is required to perform this action."
     property string targetUser: Quickshell.env("POLKIT_USER") || Quickshell.env("USER") || "root"
     property string cookie: Quickshell.env("POLKIT_COOKIE") || ""
-    property string responseFile: Quickshell.env("POLKIT_RESP_FILE") || "/tmp/polkit_response"
+    property string responseFile: Quickshell.env("POLKIT_RESP_FILE") || ((Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/b1air/polkit-response")
 
     property bool isSubmitting: false
     property string errorMessage: ""
     property real shakeOffset: 0
+    property string pendingResponse: ""
+    property bool pendingCancel: false
+
+    Process {
+        id: responseWriter
+        stdinEnabled: true
+        command: ["b1air-daemon", "polkit-write", polkitWin.responseFile]
+        onStarted: {
+            write(polkitWin.pendingCancel ? "CANCELLED\n" : polkitWin.pendingResponse + "\n");
+            stdinEnabled = false;
+        }
+    }
 
     // Backdrop dimmer
     Rectangle {
@@ -264,9 +276,10 @@ PanelWindow {
         polkitWin.isSubmitting = true;
         polkitWin.errorMessage = "";
 
-        // Write response back to daemon response file or stdout
-        let data = pwdInput.text;
-        Quickshell.execDetached(["bash", "-c", `echo -n '${data.replace(/'/g, "'\\''")}' > "${polkitWin.responseFile}"`]);
+        // Send through stdin; never expose the password in argv or shell text.
+        polkitWin.pendingResponse = pwdInput.text;
+        polkitWin.pendingCancel = false;
+        responseWriter.running = true;
         
         // Short delay before closing dialog
         closeTimer.start();
@@ -282,7 +295,9 @@ PanelWindow {
     }
 
     function cancelAuth() {
-        Quickshell.execDetached(["bash", "-c", `echo "CANCELLED" > "${polkitWin.responseFile}"`]);
-        Qt.quit();
+        polkitWin.pendingResponse = "";
+        polkitWin.pendingCancel = true;
+        responseWriter.running = true;
+        closeTimer.start();
     }
 }

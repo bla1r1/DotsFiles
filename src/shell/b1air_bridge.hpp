@@ -73,7 +73,6 @@ public:
     void setMicMuted(bool mute);
 
     // QML Invocable Methods (0ms execution, in-process)
-    Q_INVOKABLE void execute(const QString& command);
     Q_INVOKABLE void copyToClipboard(const QString& text);
     Q_INVOKABLE void focusWindow(qint64 con_id);
     Q_INVOKABLE void minimizeWindow(qint64 con_id);

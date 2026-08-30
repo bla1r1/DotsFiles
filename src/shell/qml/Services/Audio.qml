@@ -8,7 +8,8 @@ import Quickshell.Services.Pipewire
 // =============================================================================
 // Owner of the audio state, on PipeWire directly.
 //
-// Was: `python3 get_audio_state.py` once a second, parsed from JSON, plus
+// Previously this used a separate script once a second; state is now queried
+// directly through the native daemon bridge.
 // `audio_control.sh` shelling out to pactl for every write. 60 process spawns a
 // minute for state that PipeWire already pushes.
 //
@@ -129,8 +130,10 @@ Singleton {
     function testAudio(sinkId) {
         const n = root._node(sinkId);
         const target = n ? n.name : "@DEFAULT_AUDIO_SINK@";
-        Quickshell.execDetached(["bash", "-c",
-            "paplay --device=" + target + " /usr/share/sounds/freedesktop/stereo/bell.oga 2>/dev/null || pw-play --target=" + target + " /usr/share/sounds/freedesktop/stereo/bell.oga 2>/dev/null || speaker-test -t sine -f 440 -l 1 2>/dev/null &"]);
+        // PipeWire node names are external data. Never interpolate them into
+        // a shell command; accept only the syntax supported by the tools.
+        if (!/^[A-Za-z0-9_.:@-]+$/.test(target)) return;
+        Quickshell.execDetached(["paplay", "--device=" + target, "/usr/share/sounds/freedesktop/stereo/bell.oga"]);
     }
 
     function isDeviceDisabled(name) {

@@ -9,6 +9,7 @@
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <QDBusReply>
+#include <QProcess>
 #include <QDir>
 #include <QStandardPaths>
 #include <LayerShellQt/shell.h>
@@ -45,18 +46,16 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // Quickshell Fallback if running legacy Quickshell process
-        QString qsCmd;
+        // Quickshell fallback if a legacy Quickshell process is running.
+        QStringList qsArgs = {"-p", QDir::homePath() + "/.config/quickshell/Main.qml", "ipc", "call", "main"};
         if (action == "close") {
-            qsCmd = "qs -p ~/.config/quickshell/Main.qml ipc call main close >/dev/null 2>&1";
+            qsArgs << "close";
         } else if (!target.isEmpty()) {
-            qsCmd = QString("qs -p ~/.config/quickshell/Main.qml ipc call main %1 %2 '%3' >/dev/null 2>&1")
-                        .arg(action, target, arg);
+            qsArgs << action << target << arg;
         } else {
-            qsCmd = QString("qs -p ~/.config/quickshell/Main.qml ipc call main %1 '' '' >/dev/null 2>&1")
-                        .arg(action);
+            qsArgs << action << "" << "";
         }
-        return (std::system(qsCmd.toUtf8().constData()) == 0) ? 0 : 1;
+        return QProcess::execute("qs", qsArgs) == 0 ? 0 : 1;
     }
 
     // ── Setup Environment & Performance Flags ────────────────────────────────

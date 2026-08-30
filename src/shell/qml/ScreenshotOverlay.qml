@@ -69,7 +69,7 @@ PanelWindow {
 
     function saveAudioPrefs() {
         let data = `${deskVol},${deskMute},${micVol},${micMute},${micDevice}`
-        Quickshell.execDetached(["bash", "-c", `echo '${data}' > ~/.cache/qs_audio_prefs`])
+        Quickshell.execDetached(["bash", "-c", "printf '%s' \"$1\" > \"$2\"", "--", data, (Quickshell.env("HOME") || "/tmp") + "/.cache/qs_audio_prefs"])
     }
 
     // --- Dynamic Mic Loader ---
@@ -131,7 +131,7 @@ PanelWindow {
     function saveCache() {
         if (root.hasSelection && !root.isVideoMode) {
             let data = Math.round(root.selX) + "," + Math.round(root.selY) + "," + Math.round(root.selW) + "," + Math.round(root.selH);
-            Quickshell.execDetached(["bash", "-c", "echo '" + data + "' > ~/.cache/qs_screenshot_geom"]);
+            Quickshell.execDetached(["bash", "-c", "printf '%s' \"$1\" > \"$2\"", "--", data, (Quickshell.env("HOME") || "/tmp") + "/.cache/qs_screenshot_geom"]);
         }
     }
 
@@ -590,7 +590,7 @@ PanelWindow {
                     visible: model.qSuccess
                     iconTxt: "󰆏"
                     onClicked: {
-                        Quickshell.execDetached(["bash", "-c", `echo -n '${model.qText.replace(/'/g, "'\\''")}' | wl-copy`]);
+                        Quickshell.execDetached(["wl-copy", model.qText]);
                         root.showQrPopup = false;
                     }
                 }
@@ -613,7 +613,7 @@ PanelWindow {
     Process {
         id: qrReaderProcess
         property string accumulated: ""
-        command: ["cat", "/tmp/qs_qr_result"]
+        command: ["cat", (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/b1air/qr_result"]
         stdout: SplitParser { splitMarker: ""; onRead: data => qrReaderProcess.accumulated += data }
         
         onExited: (exitCode) => {
@@ -703,7 +703,7 @@ PanelWindow {
 
             root.isQrSuccess = anySuccess;
             root.showQrPopup = true
-            Quickshell.execDetached(["bash", "-c", "rm -f /tmp/qs_qr_result"])
+            Quickshell.execDetached(["bash", "-c", "rm -f -- \"${1}\"", "--", (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/b1air/qr_result"])
         }
     }
     
@@ -715,37 +715,39 @@ PanelWindow {
     }
     
     function performQrScan() {
-        Quickshell.execDetached(["bash", "-c", "rm -f /tmp/qs_qr_result"])
+            Quickshell.execDetached(["bash", "-c", "rm -f -- \"${1}\"", "--", (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/b1air/qr_result"])
         root.isScanningQr = true; root.showQrPopup = false; qrModel.clear()
-        let cmd = `b1air-daemon scan-qr "${root.geometryString}"`
-        Quickshell.execDetached(["bash", "-c", cmd])
+        Quickshell.execDetached(["b1air-daemon", "scan-qr", root.geometryString])
         qrWaitTimer.start()
     }   
     
     // Add this Timer alongside your other timers (e.g. near qrWaitTimer)
     Timer {
         id: captureTimer
-        property string pendingCmd: ""
+        property bool pendingRecord: false
+        property bool pendingEditor: false
         interval: 80   // enough for Sway to actually unmap the surface
         repeat: false
         onTriggered: {
-            Quickshell.execDetached(["bash", "-c", pendingCmd])
+            if (pendingRecord) {
+                let args = ["b1air-daemon", "record", "toggle", "--geometry", root.geometryString,
+                            "--desk-vol", String(root.deskVol), "--desk-mute", String(root.deskMute),
+                            "--mic-vol", String(root.micVol), "--mic-mute", String(root.micMute)];
+                if (root.micDevice !== "" && /^[A-Za-z0-9_.:@-]+$/.test(root.micDevice)) args.push("--mic-dev", root.micDevice);
+                Quickshell.execDetached(args);
+            } else {
+                let args = ["b1air-daemon", "capture", "--geometry", root.geometryString];
+                if (pendingEditor) args.push("--edit");
+                Quickshell.execDetached(args);
+            }
             Qt.quit()
         }
     }
     
     function executeCapture(openEditor, isRecord) {
-        let cmd = ""
-        if (isRecord) {
-            cmd = `b1air-daemon record toggle --geometry "${root.geometryString}" --desk-vol ${root.deskVol} --desk-mute ${root.deskMute} --mic-vol ${root.micVol} --mic-mute ${root.micMute}`
-            if (root.micDevice !== "") cmd += ` --mic-dev "${root.micDevice}"`
-        } else {
-            cmd = `b1air-daemon capture --geometry "${root.geometryString}"`
-            if (openEditor) cmd += " --edit"
-        }
-    
         root.visible = false          // hide overlay immediately
-        captureTimer.pendingCmd = cmd
+        captureTimer.pendingRecord = isRecord
+        captureTimer.pendingEditor = openEditor
         captureTimer.start()          // fire grim only after compositor unmaps us
     }
 }

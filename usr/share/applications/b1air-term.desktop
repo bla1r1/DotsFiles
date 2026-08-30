@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=b1air Terminal
+Comment=Native b1air terminal emulator
+Exec=b1air-term
+Icon=utilities-terminal
+Terminal=false
+Categories=System;TerminalEmulator;Utility;
+Keywords=terminal;shell;command line;
+StartupWMClass=b1air-term
+

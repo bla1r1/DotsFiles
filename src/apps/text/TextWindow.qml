@@ -14,11 +14,26 @@ Window {
     visible: true
     color: "transparent"
 
-    onClosing: Qt.quit()
+    onClosing: function(close) {
+        if (TextBackend.isModified) {
+            close.accepted = false;
+            window.closeAfterSave = true;
+            unsavedDialog.open();
+        } else {
+            Qt.quit();
+        }
+    }
 
     property bool wordWrapEnabled: false
     property int currentLine: 1
     property int currentCol: 1
+    property bool closeAfterSave: false
+
+    function newFileWithConfirmation() {
+        window.closeAfterSave = false;
+        if (TextBackend.isModified) unsavedDialog.open();
+        else TextBackend.newFile();
+    }
 
     function calculateCursorPos() {
         let textBefore = editorArea.text.substring(0, editorArea.cursorPosition);
@@ -29,7 +44,7 @@ Window {
 
     // ── Global Shortcuts ─────────────────────────────────────────────────────
     Shortcut { sequence: "Ctrl+S"; onActivated: TextBackend.saveFile() }
-    Shortcut { sequence: "Ctrl+N"; onActivated: TextBackend.newFile() }
+    Shortcut { sequence: "Ctrl+N"; onActivated: window.newFileWithConfirmation() }
     Shortcut { sequence: "Escape"; onActivated: window.close() }
 
     Rectangle {
@@ -116,7 +131,7 @@ Window {
                     IconButton {
                         icon: "\u{f067}" // plus
                         bordered: true
-                        onClicked: TextBackend.newFile()
+                        onClicked: window.newFileWithConfirmation()
                     }
 
                     IconButton {
@@ -312,5 +327,23 @@ Window {
             }
         }
     }
-}
+
+    }
+
+    Dialog {
+        id: unsavedDialog
+        title: "Unsaved changes"
+        modal: true
+        standardButtons: Dialog.Cancel | Dialog.Discard | Dialog.Save
+        onAccepted: {
+            TextBackend.saveFile();
+            if (window.closeAfterSave) Qt.quit();
+            else TextBackend.newFile();
+        }
+        onDiscarded: {
+            if (window.closeAfterSave) Qt.quit();
+            else TextBackend.newFile();
+        }
+        contentItem: Label { text: "Save changes before starting a new file or closing the editor?"; padding: 18; wrapMode: Text.WordWrap }
+    }
 }

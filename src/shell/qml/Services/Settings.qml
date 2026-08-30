@@ -92,7 +92,7 @@ Singleton {
     readonly property alias gameModeHideWaybar: data.gameModeHideWaybar
     readonly property alias gameModeDND: data.gameModeDND
 
-    // Top Bar (Waybar)
+    // Native Top Bar
     readonly property alias barPosition: data.barPosition
     readonly property alias barShowCava: data.barShowCava
     readonly property alias barShowWeather: data.barShowWeather
@@ -125,6 +125,17 @@ Singleton {
 
     signal changed()
 
+    property string pendingWeatherApiKey: ""
+    Process {
+        id: secretWriter
+        stdinEnabled: true
+        command: ["b1air-secret-service", "set", "weather-api-key"]
+        onStarted: {
+            write(root.pendingWeatherApiKey + "\n");
+            stdinEnabled = false;
+        }
+    }
+
     // ── Writes ───────────────────────────────────────────────────────────────
     // One writer. Assign through this, never touch the file.
     //
@@ -142,6 +153,13 @@ Singleton {
             return;
         data[key] = value;
         root.flush();
+    }
+
+    function setWeatherApiKey(value) {
+        root.data.weatherApiKey = "";
+        root.pendingWeatherApiKey = String(value || "");
+        secretWriter.running = true;
+        root.changed();
     }
 
     function apply(obj) {
@@ -207,8 +225,8 @@ Singleton {
         screenshotSaveToFile: true,
         screenshotDelay: 0,
         defaultBrowser: "firefox",
-        defaultTerminal: "kitty",
-        defaultFileManager: "nautilus",
+        defaultTerminal: "b1air-term",
+        defaultFileManager: "b1air-files",
         defaultEditor: "code",
         gameModeEnabled: false,
         gameModeAdaptiveSync: false,
@@ -228,7 +246,7 @@ Singleton {
         touchpadSwipeWorkspace: true,
         touchpadNaturalSwipe: true,
         touchpadPinchZoom: true,
-        autostartApps: ["waybar", "polkit", "quickshell"],
+        autostartApps: ["polkit", "quickshell"],
         autostartCustom: [],
         notificationRules: {},
         notificationsDnd: false,
@@ -248,6 +266,9 @@ Singleton {
 
         onFileChanged: reload()
         onLoaded: {
+            // Credentials are owned by b1air-secret-service, never retained in
+            // the general settings JSON or exposed to QML after load.
+            data.weatherApiKey = "";
             root.loaded = true;
             root.changed();
         }
@@ -298,8 +319,8 @@ Singleton {
             property int screenshotDelay: 0
 
             property string defaultBrowser: "firefox"
-            property string defaultTerminal: "kitty"
-            property string defaultFileManager: "nautilus"
+            property string defaultTerminal: "b1air-term"
+            property string defaultFileManager: "b1air-files"
             property string defaultEditor: "code"
 
             property bool gameModeEnabled: false
@@ -325,7 +346,7 @@ Singleton {
             property bool touchpadNaturalSwipe: true
             property bool touchpadPinchZoom: true
 
-            property var autostartApps: ["waybar", "polkit", "quickshell"]
+            property var autostartApps: ["polkit", "quickshell"]
             property var autostartCustom: []
             property var notificationRules: ({})
             property bool notificationsDnd: false

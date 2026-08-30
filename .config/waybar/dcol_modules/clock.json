@@ -1,8 +1,0 @@
-{
-    "clock": {
-        "format": "{:%R}",
-        "on-click": "b1air-shell toggle calendar",
-        "on-click-middle": "b1air-shell toggle focustime",
-        "tooltip-format": "{:%A, %d %B %Y}"
-    }
-}

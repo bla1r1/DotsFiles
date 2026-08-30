@@ -28,11 +28,11 @@ ColumnLayout {
     // Scan wallpaper folder for images
     Process {
         id: dirScanner
-        command: ["bash", "-c", "find " + (section.wallpaperDir.replace(/^~/, Quickshell.env("HOME"))) + " -maxdepth 2 -type f ! -name '.*' \\( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \\) 2>/dev/null | sort"]
+        command: ["find", section.wallpaperDir.replace(/^~/, Quickshell.env("HOME")), "-maxdepth", "2", "-type", "f", "!", "-name", ".*", "-print"]
         stdout: StdioCollector {
             onStreamFinished: {
                 const lines = (this.text || "").trim().split("\n").filter(l => l.trim() !== "");
-                section.wallpaperList = lines.map(p => ({
+                    section.wallpaperList = lines.sort().map(p => ({
                     path: p,
                     name: p.split("/").pop().replace(/\.[^/.]+$/, "")
                 }));
@@ -43,7 +43,7 @@ ColumnLayout {
     // Read current wallpaper cache if present
     Process {
         id: currentWallReader
-        command: ["bash", "-c", "cat ${XDG_CACHE_HOME:-$HOME/.cache}/current_wallpaper.jpg 2>/dev/null | md5sum | awk '{print $1}' || echo ''"]
+        command: ["md5sum", (Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache")) + "/current_wallpaper.jpg"]
         stdout: StdioCollector {
             onStreamFinished: {
                 // Background scanner
@@ -235,4 +235,3 @@ ColumnLayout {
         }
     }
 }
-

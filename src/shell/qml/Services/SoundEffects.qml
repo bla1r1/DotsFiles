@@ -15,12 +15,9 @@ Singleton {
 
     function play(soundName) {
         if (!root.enabled) return;
-        Quickshell.execDetached([
-            "bash", "-c",
-            "canberra-gtk-play -i " + soundName + " 2>/dev/null || " +
-            "pw-play /usr/share/sounds/freedesktop/stereo/" + soundName + ".oga 2>/dev/null || " +
-            "paplay /usr/share/sounds/freedesktop/stereo/" + soundName + ".oga 2>/dev/null || true"
-        ]);
+        const allowed = ["camera-shutter", "dialog-information", "audio-volume-change", "message", "trash-empty", "device-added", "action"];
+        if (!allowed.includes(soundName)) return;
+        Quickshell.execDetached(["canberra-gtk-play", "-i", soundName]);
     }
 
     function playScreenshot() { root.play("camera-shutter"); }

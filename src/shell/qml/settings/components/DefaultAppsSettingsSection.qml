@@ -16,8 +16,8 @@ ColumnLayout {
     spacing: Design.s(Design.space.lg)
 
     property string defaultBrowser: Settings.defaultBrowser || "firefox"
-    property string defaultTerminal: Settings.defaultTerminal || "kitty"
-    property string defaultFileManager: Settings.defaultFileManager || "thunar"
+    property string defaultTerminal: Settings.defaultTerminal || "b1air-term"
+    property string defaultFileManager: Settings.defaultFileManager || "b1air-files"
     property string defaultEditor: Settings.defaultEditor || "code"
     property string defaultPlayer: Settings.defaultPlayer || "mpv"
 
@@ -79,7 +79,7 @@ ColumnLayout {
                         if (e.includes("firefox") || e.includes("chrome") || e.includes("chromium") || e.includes("brave") || e.includes("zen") || e.includes("vivaldi") || e.includes("librewolf") || e.includes("floorp") || e.includes("qutebrowser")) {
                             section.browserList.append({ name: app.name, exec: app.exec, desktopFile: app.desktopFile, icon: app.icon });
                         }
-                        if (e.includes("kitty") || e.includes("foot") || e.includes("alacritty") || e.includes("ghostty") || e.includes("wezterm") || e.includes("konsole") || e.includes("xterm")) {
+                        if (e.includes("b1air-term") || e.includes("foot") || e.includes("alacritty") || e.includes("ghostty") || e.includes("wezterm") || e.includes("konsole") || e.includes("xterm")) {
                             section.terminalList.append({ name: app.name, exec: app.exec, desktopFile: app.desktopFile, icon: app.icon });
                         }
                         if (e.includes("thunar") || e.includes("nautilus") || e.includes("dolphin") || e.includes("nemo") || e.includes("pcmanfm") || e.includes("yazi") || e.includes("ranger")) {
@@ -235,7 +235,7 @@ ColumnLayout {
             Layout.fillWidth: true
             spacing: Design.s(Design.space.xs)
             Icon { text: "\u{f071}"; role: "caption"; color: Design.yellow }
-            Label { text: "No terminal emulator installed on system. Install with: sudo pacman -S kitty"; role: "caption"; dim: true }
+            Label { text: "No b1air terminal installed on system. Build and install b1air-term first."; role: "caption"; dim: true }
         }
 
         RowLayout {

@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
+import Quickshell.Widgets
 import "../Ui"
 import "../Services"
 
@@ -36,10 +37,10 @@ PopupShell {
                         res.push({
                             name: app.name,
                             desc: app.comment || "Installed Application",
-                            icon: app.icon || "\u{f108}",
-                            app_id: app.icon || "",
+                            icon: app.iconPath || app.icon || "application-x-executable",
+                            app_id: app.icon || "application-x-executable",
                             cmd: app.exec,
-                            cat: app.category || "Applications"
+                            cat: window.categoryName(app.category)
                         });
                     }
                     window.systemApps = res;
@@ -50,22 +51,68 @@ PopupShell {
 
     // ── System Core Essentials ───────────────────────────────────────────────
     readonly property var baseApps: [
-        { name: "Files", desc: "Native File Manager & Gallery", icon: "󰉋", app_id: "b1air-files", cmd: "b1air-files", cat: "Utilities" },
-        { name: "Terminal", desc: "Multi-tab Native Terminal", icon: "󰞷", app_id: "b1air-term", cmd: "b1air-term", cat: "System" },
-        { name: "Notes", desc: "Markdown Notes with Obsidian & Notion Sync", icon: "󰈙", app_id: "b1air-notes", cmd: "b1air-notes", cat: "Utilities" },
-        { name: "Git", desc: "GitHub Desktop Style Git Client", icon: "󰊢", app_id: "b1air-git", cmd: "b1air-git", cat: "Development" },
-        { name: "System Monitor", desc: "Process & Hardware Monitor", icon: "", app_id: "b1air-monitor", cmd: "b1air-monitor", cat: "System" },
-        { name: "Media Viewer", desc: "Lightweight Image & Media Viewer", icon: "󰋩", app_id: "b1air-view", cmd: "b1air-view", cat: "Utilities" },
-        { name: "Text Editor", desc: "Minimal Text & Config Editor", icon: "󰈙", app_id: "b1air-text", cmd: "b1air-text", cat: "Utilities" },
-        { name: "Settings", desc: "Desktop Preferences & Appearance", icon: "󰒓", app_id: "b1air-settings", cmd: "b1air-settings", cat: "System" },
-        { name: "Control Center", desc: "Quick toggles, volume & brightness", icon: "󱥂", app_id: "b1air-control", cmd: "toggle:control:", cat: "System" },
-        { name: "Clipboard", desc: "Search clipboard history", icon: "󰅍", app_id: "b1air-clipboard", cmd: "toggle:clipboard:", cat: "Utilities" },
-        { name: "Calendar & Weather", desc: "Calendar, time, forecasts", icon: "󰃭", app_id: "b1air-calendar", cmd: "toggle:calendar:", cat: "Utilities" },
-        { name: "Spotlight", desc: "Quick search & app launcher", icon: "󰍉", app_id: "b1air-spotlight", cmd: "toggle:spotlight:", cat: "Utilities" },
-        { name: "Color Dropper", desc: "Pick screen color hex", icon: "󰈊", app_id: "color-picker", cmd: "b1air-daemon color-picker", cat: "Utilities" },
-        { name: "Lock Screen", desc: "Lock desktop session", icon: "󰌾", app_id: "system-lock-screen", cmd: "b1air-daemon power lock", cat: "Session" },
-        { name: "Power Menu", desc: "Shutdown, reboot, logout", icon: "⏻", app_id: "system-shutdown", cmd: "toggle:session:", cat: "Session" }
+        { name: "Files", desc: "Native File Manager & Gallery", icon: "system-file-manager", app_id: "system-file-manager", cmd: "b1air-files", cat: "Utilities" },
+        { name: "Terminal", desc: "Multi-tab Native Terminal", icon: "utilities-terminal", app_id: "utilities-terminal", cmd: "b1air-term", cat: "System" },
+        { name: "Notes", desc: "Markdown Notes with Obsidian & Notion Sync", icon: "text-editor", app_id: "text-editor", cmd: "b1air-notes", cat: "Utilities" },
+        { name: "Git", desc: "GitHub Desktop Style Git Client", icon: "git", app_id: "git", cmd: "b1air-git", cat: "Development" },
+        { name: "System Monitor", desc: "Process & Hardware Monitor", icon: "utilities-system-monitor", app_id: "utilities-system-monitor", cmd: "b1air-monitor", cat: "System" },
+        { name: "Media Viewer", desc: "Lightweight Image & Media Viewer", icon: "image-x-generic", app_id: "image-x-generic", cmd: "b1air-view", cat: "Utilities" },
+        { name: "Text Editor", desc: "Minimal Text & Config Editor", icon: "text-editor", app_id: "text-editor", cmd: "b1air-text", cat: "Utilities" },
+        { name: "Settings", desc: "Desktop Preferences & Appearance", icon: "preferences-system", app_id: "preferences-system", cmd: "b1air-settings", cat: "System" },
+        { name: "Control Center", desc: "Quick toggles, volume & brightness", icon: "preferences-system", app_id: "preferences-system", cmd: "toggle:control:", cat: "System" },
+        { name: "Clipboard", desc: "Search clipboard history", icon: "edit-paste", app_id: "edit-paste", cmd: "toggle:clipboard:", cat: "Utilities" },
+        { name: "Calendar & Weather", desc: "Calendar, time, forecasts", icon: "x-office-calendar", app_id: "x-office-calendar", cmd: "toggle:calendar:", cat: "Utilities" },
+        { name: "Spotlight", desc: "Quick search & app launcher", icon: "system-search", app_id: "system-search", cmd: "toggle:spotlight:", cat: "Utilities" },
+        { name: "Color Dropper", desc: "Pick screen color hex", icon: "color-picker", app_id: "color-picker", cmd: "b1air-daemon color-picker", cat: "Utilities" },
+        { name: "Lock Screen", desc: "Lock desktop session", icon: "system-lock-screen", app_id: "system-lock-screen", cmd: "b1air-daemon power lock", cat: "Session" },
+        { name: "Power Menu", desc: "Shutdown, reboot, logout", icon: "system-shutdown", app_id: "system-shutdown", cmd: "toggle:session:", cat: "Session" }
     ]
+
+    function categoryName(raw) {
+        const c = (raw || "").toLowerCase();
+        if (c.includes("development") || c.includes("ide") || c.includes("programming")) return "Development";
+        if (c.includes("graphics") || c.includes("viewer") || c.includes("image")) return "Graphics";
+        if (c.includes("audio") || c.includes("video") || c.includes("player")) return "Multimedia";
+        if (c.includes("game")) return "Games";
+        if (c.includes("office") || c.includes("wordprocessor")) return "Office";
+        if (c.includes("system") || c.includes("settings") || c.includes("hardware")) return "System";
+        return "Utilities";
+    }
+
+    function iconSource(icon) {
+        const value = (icon || "application-x-executable").trim();
+        if (value.startsWith("/") || value.startsWith("file://")) return value.startsWith("file://") ? value : "file://" + value;
+        const legacy = {
+            "utilities-terminal": "utilities-terminal.png",
+            "system-file-manager": "system-file-manager.png",
+            "utilities-system-monitor": "utilities-system-monitor.png",
+            "preferences-system": "preferences-system.png",
+            "text-editor": "accessories-text-editor.png",
+            "image-x-generic": "../mimetypes/image-x-generic.png",
+            "x-office-calendar": "../mimetypes/x-office-calendar.png",
+            "git": "applications-development.png",
+            "web-browser": "web-browser.png",
+            "edit-paste": "edit-paste.png",
+            "system-lock-screen": "system-lock-screen.png",
+            "system-shutdown": "system-shutdown.png",
+            "system-search": "system-search.png",
+            "color-picker": "insert-image.png"
+        };
+        if (legacy[value]) return "file:///usr/share/icons/AdwaitaLegacy/48x48/legacy/" + legacy[value];
+        return "image://icon/" + value;
+    }
+
+    function categoryColor(category) {
+        switch (categoryName(category)) {
+        case "System": return Design.blue;
+        case "Development": return Design.teal;
+        case "Graphics": return Design.peach;
+        case "Multimedia": return Design.mauve;
+        case "Games": return Design.red;
+        case "Office": return Design.yellow;
+        default: return Design.sapphire;
+        }
+    }
 
     readonly property var allApps: {
         let combined = [];
@@ -100,54 +147,38 @@ PopupShell {
         return list;
     }
 
+    function safeLaunchCommand(cmd) {
+        const value = (cmd || "").trim();
+        const forbidden = [";", "&", "|", "`", "$", "<", ">", "\\", "\n", "\r", "(", ")", "{", "}", "[", "]", "*", "?", "!", "~"];
+        if (!value || value.length > 512 || forbidden.some(c => value.includes(c))) return false;
+
+        // Launch our own applications directly.  Sending them through
+        // `swaymsg exec` makes failures invisible to the UI and depends on the
+        // compositor's shell environment.  External desktop entries still use
+        // Sway's launcher path below, after the strict character allowlist.
+        const nativeApps = [
+            "b1air-files", "b1air-term", "b1air-notes", "b1air-git",
+            "b1air-monitor", "b1air-view", "b1air-text", "b1air-settings"
+        ];
+        if (nativeApps.includes(value)) {
+            Quickshell.execDetached([value]);
+            return true;
+        }
+
+        Quickshell.execDetached(["swaymsg", "exec", value]);
+        return true;
+    }
+
     function cleanExec(cmd) {
         return cmd.replace(/%[a-zA-Z]/g, "").trim();
-    }
-
-    function getAppGlyph(name) {
-        const n = (name || "").toLowerCase();
-        if (n.includes("term") || n.includes("kitty") || n.includes("foot") || n.includes("bash") || n.includes("sh")) return "\u{f120}";
-        if (n.includes("file") || n.includes("thunar") || n.includes("nemo") || n.includes("bulk")) return "\u{f07b}";
-        if (n.includes("setting") || n.includes("pref") || n.includes("control")) return "\u{f013}";
-        if (n.includes("cal") || n.includes("time") || n.includes("clock")) return "\u{f073}";
-        if (n.includes("music") || n.includes("audio") || n.includes("sound") || n.includes("play")) return "\u{f001}";
-        if (n.includes("browser") || n.includes("web") || n.includes("firefox") || n.includes("chrom")) return "\u{f269}";
-        if (n.includes("code") || n.includes("edit") || n.includes("vim") || n.includes("text")) return "\u{f121}";
-        if (n.includes("spotlight") || n.includes("search") || n.includes("find")) return "\u{f002}";
-        if (n.includes("drop") || n.includes("color") || n.includes("picker")) return "\u{f1fb}";
-        if (n.includes("task") || n.includes("monitor") || n.includes("btop") || n.includes("top")) return "\u{f080}";
-        if (n.includes("lock")) return "\u{f023}";
-        if (n.includes("power") || n.includes("shut") || n.includes("exit")) return "\u{f011}";
-        if (n.includes("clip") || n.includes("copy")) return "\u{f0ea}";
-        if (n.includes("cmake") || n.includes("build") || n.includes("dev")) return "\u{f085}";
-        if (n.includes("avahi") || n.includes("vnc") || n.includes("ssh") || n.includes("net")) return "\u{f6ff}";
-        return "\u{f108}";
-    }
-
-    function getAppColor(name) {
-        const n = (name || "").toLowerCase();
-        if (n.includes("term") || n.includes("kitty") || n.includes("foot")) return Design.green;
-        if (n.includes("file") || n.includes("thunar") || n.includes("bulk")) return Design.peach;
-        if (n.includes("setting") || n.includes("pref") || n.includes("control")) return Design.blue;
-        if (n.includes("cal") || n.includes("time") || n.includes("clock")) return Design.red;
-        if (n.includes("music") || n.includes("audio")) return Design.mauve;
-        if (n.includes("browser") || n.includes("web") || n.includes("firefox")) return Design.peach;
-        if (n.includes("code") || n.includes("vim")) return Design.teal;
-        if (n.includes("spotlight") || n.includes("search")) return Design.sapphire;
-        if (n.includes("cmake")) return Design.yellow;
-        return Design.accent;
     }
 
     function launchApp(app) {
         window.close();
         if (!app || !app.cmd) return;
         let cmd = app.cmd.trim();
-        if (cmd.startsWith("b1air-shell") || cmd.startsWith("b1air-daemon")) {
-            Quickshell.execDetached(["bash", "-c", cmd]);
-            return;
-        }
         cmd = cleanExec(cmd);
-        Quickshell.execDetached(["swaymsg", "exec", cmd]);
+        safeLaunchCommand(cmd);
     }
 
     Component.onCompleted: {
@@ -244,7 +275,7 @@ PopupShell {
             RowLayout {
                 spacing: Design.s(4)
                 Repeater {
-                    model: ["All", "System", "Utilities"]
+                    model: ["All", "System", "Utilities", "Development", "Graphics", "Multimedia", "Games", "Office"]
                     delegate: Pill {
                         required property var modelData
                         label: modelData
@@ -312,15 +343,16 @@ PopupShell {
                                 width: Design.s(46)
                                 height: Design.s(46)
                                 radius: Design.s(12)
-                                color: Design.tint(window.getAppColor(modelData.name), itemHover.containsMouse ? 0.25 : 0.14)
-                                border.color: itemHover.containsMouse ? window.getAppColor(modelData.name) : Design.tint(window.getAppColor(modelData.name), 0.35)
+                                color: Design.tint(window.categoryColor(modelData.cat), itemHover.containsMouse ? 0.25 : 0.14)
+                                border.color: itemHover.containsMouse ? window.categoryColor(modelData.cat) : Design.tint(window.categoryColor(modelData.cat), 0.35)
                                 border.width: 1
 
-                                Icon {
+                                IconImage {
                                     anchors.centerIn: parent
-                                    text: window.getAppGlyph(modelData.name)
-                                    font.pixelSize: Design.s(20)
-                                    color: window.getAppColor(modelData.name)
+                                    width: Design.s(30)
+                                    height: Design.s(30)
+                                    source: window.iconSource(modelData.icon)
+                                    mipmap: true
                                 }
                             }
 
@@ -366,7 +398,7 @@ PopupShell {
                                 onClicked: {
                                     PinnedApps.togglePin({
                                         name: modelData.name,
-                                        icon: window.getAppGlyph(modelData.name),
+                                        icon: modelData.icon,
                                         cmd: modelData.cmd
                                     });
                                 }
@@ -383,7 +415,7 @@ PopupShell {
                                 if (mouse.button === Qt.RightButton) {
                                     PinnedApps.togglePin({
                                         name: modelData.name,
-                                        icon: window.getAppGlyph(modelData.name),
+                                        icon: modelData.icon,
                                         cmd: modelData.cmd
                                     });
                                 } else {

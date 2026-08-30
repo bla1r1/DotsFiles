@@ -168,7 +168,8 @@ void TerminalItem::launch(const QString &command, const QString &workingDir) {
         setenv("PATH", newPath.toUtf8().constData(), 1);
 
         if (!command.isEmpty()) {
-            execlp("bash", "bash", "-l", "-c", command.toUtf8().constData(), (char*)nullptr);
+            const char *shell = access("/usr/bin/fish", X_OK) == 0 ? "/usr/bin/fish" : "/bin/sh";
+            execlp(shell, shell, "-l", "-c", command.toUtf8().constData(), (char*)nullptr);
         } else {
             const char *shell = getenv("SHELL");
             if (!shell || strcmp(shell, "/bin/sh") == 0) {
@@ -291,7 +292,20 @@ void TerminalItem::paint(QPainter *painter) {
         while (col < m_cols) {
             VTermPos pos = { row, col };
             VTermScreenCell cell;
-            vterm_screen_get_cell(m_vts, pos, &cell);
+            if (m_viewOffset == 0) {
+                vterm_screen_get_cell(m_vts, pos, &cell);
+            } else {
+                const int total = static_cast<int>(m_scrollback.size()) + m_rows;
+                const int sourceRow = total - m_rows - m_viewOffset + row;
+                if (sourceRow < 0 || sourceRow >= total) {
+                    std::memset(&cell, 0, sizeof(cell));
+                    cell.width = 1;
+                } else if (sourceRow < static_cast<int>(m_scrollback.size())) {
+                    cell = m_scrollback[static_cast<size_t>(sourceRow)][static_cast<size_t>(col)];
+                } else {
+                    vterm_screen_get_cell(m_vts, {sourceRow - static_cast<int>(m_scrollback.size()), col}, &cell);
+                }
+            }
 
             int widthInCells = cell.width > 0 ? cell.width : 1;
 
@@ -327,7 +341,8 @@ void TerminalItem::paint(QPainter *painter) {
             if (cell.chars[0] != 0 && cell.chars[0] != ' ') {
                 QString text;
                 for (int i = 0; i < VTERM_MAX_CHARS_PER_CELL && cell.chars[i]; ++i) {
-                    text += QChar(cell.chars[i]);
+                    char32_t cp = static_cast<char32_t>(cell.chars[i]);
+                    text += QString::fromUcs4(&cp, 1);
                 }
 
                 QColor fg = toQColor(cell.fg, MochaText);
@@ -363,7 +378,8 @@ void TerminalItem::paint(QPainter *painter) {
         if (cell.chars[0] != 0 && cell.chars[0] != ' ') {
             QString text;
             for (int i = 0; i < VTERM_MAX_CHARS_PER_CELL && cell.chars[i]; ++i) {
-                text += QChar(cell.chars[i]);
+                char32_t cp = static_cast<char32_t>(cell.chars[i]);
+                text += QString::fromUcs4(&cp, 1);
             }
             painter->setPen(MochaBase);
             painter->drawText(QPointF(cx, cy + m_fontAscent), text);
@@ -373,6 +389,11 @@ void TerminalItem::paint(QPainter *painter) {
 
 void TerminalItem::keyPressEvent(QKeyEvent *event) {
     if (m_masterFd < 0) return;
+
+    if (m_viewOffset > 0) {
+        m_viewOffset = 0;
+        update();
+    }
 
     // Shortcuts: Copy & Paste
     if ((event->modifiers() & Qt::ControlModifier) && (event->modifiers() & Qt::ShiftModifier)) {
@@ -499,15 +520,15 @@ void TerminalItem::mouseReleaseEvent(QMouseEvent *event) {
 }
 
 void TerminalItem::wheelEvent(QWheelEvent *event) {
-    if (m_masterFd < 0) return;
+    if (m_masterFd < 0 || m_scrollback.empty()) return;
     int delta = event->angleDelta().y();
     if (delta > 0) {
-        // Scroll Up: send 3 Up arrows
-        write(m_masterFd, "\x1b[A\x1b[A\x1b[A", 9);
+        m_viewOffset = std::min(static_cast<int>(m_scrollback.size()), m_viewOffset + 3);
     } else if (delta < 0) {
-        // Scroll Down: send 3 Down arrows
-        write(m_masterFd, "\x1b[B\x1b[B\x1b[B", 9);
+        m_viewOffset = std::max(0, m_viewOffset - 3);
     }
+    update();
+    event->accept();
 }
 
 void TerminalItem::copySelection() {
@@ -527,7 +548,8 @@ void TerminalItem::copySelection() {
             vterm_screen_get_cell(m_vts, { r, c }, &cell);
             if (cell.chars[0]) {
                 for (int i = 0; i < VTERM_MAX_CHARS_PER_CELL && cell.chars[i]; ++i) {
-                    line += QChar(cell.chars[i]);
+                    char32_t cp = static_cast<char32_t>(cell.chars[i]);
+                    line += QString::fromUcs4(&cp, 1);
                 }
             } else {
                 line += ' ';
@@ -559,7 +581,7 @@ void TerminalItem::zoomOut() {
 }
 
 void TerminalItem::resetZoom() {
-    setFontSize(13);
+    setFontSize(11);
 }
 
 void TerminalItem::clear() {
@@ -623,17 +645,21 @@ int TerminalItem::cbResize(int rows, int cols, void *user) {
 }
 
 int TerminalItem::cbSbPushline(int cols, const VTermScreenCell *cells, void *user) {
-    Q_UNUSED(cols);
-    Q_UNUSED(cells);
-    Q_UNUSED(user);
+    auto *term = static_cast<TerminalItem *>(user);
+    if (!term || !cells || cols <= 0) return 0;
+    term->m_scrollback.emplace_back(cells, cells + cols);
+    while (term->m_scrollback.size() > 2000) term->m_scrollback.pop_front();
     return 1;
 }
 
 int TerminalItem::cbSbPopline(int cols, VTermScreenCell *cells, void *user) {
-    Q_UNUSED(cols);
-    Q_UNUSED(cells);
-    Q_UNUSED(user);
-    return 0;
+    auto *term = static_cast<TerminalItem *>(user);
+    if (!term || !cells || cols <= 0 || term->m_scrollback.empty()) return 0;
+    auto line = std::move(term->m_scrollback.back());
+    term->m_scrollback.pop_back();
+    const int count = std::min(cols, static_cast<int>(line.size()));
+    std::copy_n(line.begin(), count, cells);
+    return 1;
 }
 
 void TerminalItem::cbOutput(const char *s, size_t len, void *user) {

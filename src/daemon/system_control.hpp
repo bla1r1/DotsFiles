@@ -199,7 +199,9 @@ public:
 
     // Native Polkit Authentication Agent
     static int polkit_agent_run();
-    static std::string polkit_prompt_dialog(const std::string& action_id, const std::string& message, const std::string& user = "");
+    static std::string polkit_prompt_dialog(const std::string& action_id, const std::string& message,
+                                            const std::string& user = "", const std::string& cookie = "");
+    static bool polkit_write_response(const std::string& path, const std::string& response);
 };
 
 } // namespace b1air

@@ -13,6 +13,7 @@
 #include <poll.h>
 #include <algorithm>
 #include <cstring>
+#include <cctype>
 #include <thread>
 
 namespace b1air {
@@ -96,6 +97,29 @@ static std::vector<std::string> find_json_string_array(const std::string& json, 
     return res;
 }
 
+static bool valid_sway_token(const std::string& value, size_t max_len = 256) {
+    if (value.empty() || value.size() > max_len) return false;
+    for (unsigned char c : value) {
+        if (!(std::isalnum(c) || c == '_' || c == '-' || c == ',' || c == ':' || c == '+')) return false;
+    }
+    return true;
+}
+
+static std::string json_quote(const std::string& value) {
+    std::string out = "\"";
+    for (unsigned char c : value) {
+        if (c == '\\') out += "\\\\";
+        else if (c == '\"') out += "\\\"";
+        else if (c == '\n') out += "\\n";
+        else if (c == '\r') out += "\\r";
+        else if (c == '\t') out += "\\t";
+        else if (c < 0x20) return "";
+        else out += static_cast<char>(c);
+    }
+    out += '"';
+    return out;
+}
+
 DesktopSettings SettingsManager::load(const std::string& path_arg) {
     std::string path = path_arg.empty() ? get_settings_filepath() : path_arg;
     DesktopSettings s;
@@ -131,6 +155,17 @@ DesktopSettings SettingsManager::load(const std::string& path_arg) {
     s.dpmsTimeout = find_json_int(content, "dpmsTimeout", s.dpmsTimeout);
     s.suspendTimeout = find_json_int(content, "suspendTimeout", s.suspendTimeout);
 
+    // Keep numeric settings within compositor/systemd-safe bounds before they
+    // are interpolated into the trusted idle command below.
+    s.gapsInner = std::clamp(s.gapsInner, 0, 100);
+    s.gapsOuter = std::clamp(s.gapsOuter, 0, 100);
+    s.borderWidth = std::clamp(s.borderWidth, 0, 20);
+    s.workspaceCount = std::clamp(s.workspaceCount, 1, 100);
+    s.dimTimeout = std::clamp(s.dimTimeout, 0, 86400);
+    s.lockTimeout = std::clamp(s.lockTimeout, 0, 86400);
+    s.dpmsTimeout = std::clamp(s.dpmsTimeout, 0, 86400);
+    s.suspendTimeout = std::clamp(s.suspendTimeout, 0, 86400);
+
     s.autostartApps = find_json_string_array(content, "autostartApps");
 
     return s;
@@ -149,8 +184,8 @@ bool SettingsManager::save(const DesktopSettings& s, const std::string& path_arg
     if (!out) return false;
 
     out << "{\n"
-        << "  \"language\": \"" << s.language << "\",\n"
-        << "  \"kbOptions\": \"" << s.kbOptions << "\",\n"
+        << "  \"language\": " << json_quote(s.language) << ",\n"
+        << "  \"kbOptions\": " << json_quote(s.kbOptions) << ",\n"
         << "  \"gapsInner\": " << s.gapsInner << ",\n"
         << "  \"gapsOuter\": " << s.gapsOuter << ",\n"
         << "  \"borderWidth\": " << s.borderWidth << ",\n"
@@ -159,7 +194,7 @@ bool SettingsManager::save(const DesktopSettings& s, const std::string& path_arg
         << "  \"workspaceCount\": " << s.workspaceCount << ",\n"
         << "  \"guideShortcut\": " << (s.guideShortcut ? "true" : "false") << ",\n"
         << "  \"topbarHelpIcon\": " << (s.topbarHelpIcon ? "true" : "false") << ",\n"
-        << "  \"barPosition\": \"" << s.barPosition << "\",\n"
+        << "  \"barPosition\": " << json_quote(s.barPosition) << ",\n"
         << "  \"barShowCava\": " << (s.barShowCava ? "true" : "false") << ",\n"
         << "  \"barShowWeather\": " << (s.barShowWeather ? "true" : "false") << ",\n"
         << "  \"barShowMedia\": " << (s.barShowMedia ? "true" : "false") << ",\n"
@@ -172,7 +207,7 @@ bool SettingsManager::save(const DesktopSettings& s, const std::string& path_arg
         << "  \"autostartApps\": [";
 
     for (size_t i = 0; i < s.autostartApps.size(); ++i) {
-        out << "\"" << s.autostartApps[i] << "\"" << (i + 1 < s.autostartApps.size() ? ", " : "");
+        out << json_quote(s.autostartApps[i]) << (i + 1 < s.autostartApps.size() ? ", " : "");
     }
 
     out << "]\n}\n";
@@ -182,6 +217,7 @@ bool SettingsManager::save(const DesktopSettings& s, const std::string& path_arg
 
 // ── Apply Settings directly to Sway IPC & configs ─────────────────────────────
 static void update_input_conf_file(const std::string& layout, const std::string& options) {
+    if (!valid_sway_token(layout, 64) || !valid_sway_token(options, 256)) return;
     const char* home = std::getenv("HOME");
     std::string input_conf = std::string(home ? home : "") + "/.config/sway/conf.d/input.conf";
 
@@ -223,8 +259,8 @@ bool SettingsManager::apply_to_sway(const DesktopSettings& s) {
 
     update_input_conf_file(s.language, s.kbOptions);
 
-    // Signal Waybar to reload
-    std::system("killall -SIGUSR2 waybar 2>/dev/null || true");
+    // The native Quickshell bar observes settings through the shell reload;
+    // there is no legacy Waybar process to signal.
     return true;
 }
 
@@ -240,6 +276,9 @@ std::string SettingsManager::get_json_string(const std::string& key) {
 }
 
 bool SettingsManager::set_json_value(const std::string& key, const std::string& val) {
+    if (key.empty() || key.size() > 128 || key.find('"') != std::string::npos) return false;
+    const std::string quoted_val = json_quote(val);
+    if (quoted_val.empty()) return false;
     std::string path = get_settings_filepath();
     std::string content = read_file_contents(path);
     if (content.empty()) content = "{}";
@@ -251,7 +290,7 @@ bool SettingsManager::set_json_value(const std::string& key, const std::string& 
         if (colon != std::string::npos) {
             size_t comma = content.find_first_of(",}", colon + 1);
             if (comma != std::string::npos) {
-                std::string new_val = " \"" + val + "\"";
+                std::string new_val = " " + quoted_val;
                 content.replace(colon + 1, comma - (colon + 1), new_val);
             }
         }
@@ -259,7 +298,7 @@ bool SettingsManager::set_json_value(const std::string& key, const std::string& 
         // Insert before last closing brace
         size_t last_brace = content.rfind('}');
         if (last_brace != std::string::npos) {
-            std::string entry = (last_brace > 1 && content[last_brace - 1] != '{' ? ",\n  \"" : "  \"") + key + "\": \"" + val + "\"\n";
+            std::string entry = (last_brace > 1 && content[last_brace - 1] != '{' ? ",\n  \"" : "  \"") + key + "\": " + quoted_val + "\n";
             content.insert(last_brace, entry);
         }
     }

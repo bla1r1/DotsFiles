@@ -22,26 +22,29 @@ ColumnLayout {
     property bool vncRunning: false
     property string localIp: "127.0.0.1"
     property int vncPort: 5900
-    property bool promptFree: true
-    property bool uinputReady: true
+    property bool promptFree: false
+    property bool uinputReady: false
+    readonly property bool devMode: Quickshell.env("B1AIR_DEV_MODE") === "1"
     property string vncPassword: ""
 
-    function refreshStatus() {
-        Quickshell.execDetached(["bash", "-c", "b1air-daemon remote status > /tmp/b1air_remote_status.json"], (out) => {
-            fetchStatusFile();
-        });
-        // Quick check
-        fetchStatusFile();
+    Process {
+        id: vncStarter
+        stdinEnabled: true
+        command: ["b1air-daemon", "remote", "start-stdin", String(section.vncPort)]
+        onStarted: {
+            write(section.vncPassword + "\n");
+            stdinEnabled = false;
+        }
     }
 
-    function fetchStatusFile() {
-        Quickshell.execDetached(["cat", "/tmp/b1air_remote_status.json"], (data) => {
+    function refreshStatus() {
+        Quickshell.execDetached(["b1air-daemon", "remote", "status"], (data) => {
             try {
                 if (data && data.trim().startsWith("{")) {
                     let parsed = JSON.parse(data.trim());
                     section.vncRunning = parsed.running || false;
                     section.localIp = parsed.ip || "127.0.0.1";
-                    section.promptFree = parsed.promptFreeScreencast !== undefined ? parsed.promptFreeScreencast : true;
+                    section.promptFree = section.devMode && parsed.promptFreeScreencast === true;
                     section.uinputReady = parsed.uinputReady !== undefined ? parsed.uinputReady : true;
                 }
             } catch (e) {}
@@ -56,8 +59,8 @@ ColumnLayout {
     Card {
         title: "Remote Desktop (WayVNC)"
         subtitle: section.vncRunning
-            ? "Server active on port " + section.vncPort + " — accessible on local network"
-            : "Direct hardware-accelerated remote desktop with zero permission popups"
+            ? "Server active on port " + section.vncPort + " — local session only"
+            : (section.devMode ? "Development mode: available to the local network" : "Stopped — starts on localhost in production mode")
         icon: "\u{f0379}"
         accentColor: Design.blue
 
@@ -70,7 +73,7 @@ ColumnLayout {
                 spacing: 0
                 Label { text: "Remote Desktop Server"; weight: Design.weight.semibold }
                 Label {
-                    text: section.vncRunning ? "Active (Listening on " + section.localIp + ":" + section.vncPort + ")" : "Stopped"
+                    text: section.vncRunning ? "Active (Listening on " + (section.devMode ? section.localIp : "127.0.0.1") + ":" + section.vncPort + ")" : "Stopped"
                     role: "caption"
                     dim: true
                 }
@@ -80,7 +83,10 @@ ColumnLayout {
                 checked: section.vncRunning
                 onToggled: {
                     if (checked) {
-                        Quickshell.execDetached(["b1air-daemon", "remote", "start", String(section.vncPort), section.vncPassword]);
+                        // Never put a VNC password in argv: it is visible through
+                        // process listings. Password-backed/TLS mode is enabled
+                        // by the daemon's secret-store integration.
+                        vncStarter.running = true;
                         section.vncRunning = true;
                     } else {
                         Quickshell.execDetached(["b1air-daemon", "remote", "stop"]);
@@ -92,6 +98,18 @@ ColumnLayout {
         }
 
         Item { height: Design.s(Design.space.xs) }
+
+        RowLayout {
+            Layout.fillWidth: true
+            Label { text: "VNC password"; role: "caption"; dim: true }
+            Field {
+                Layout.fillWidth: true
+                text: section.vncPassword
+                echoMode: TextInput.Password
+                placeholder: "Required for TLS authentication"
+                onCommitted: v => section.vncPassword = v
+            }
+        }
 
         // Quick Connect Badge & Copy
         RowLayout {
@@ -110,7 +128,7 @@ ColumnLayout {
                 label: "Copy Address"
                 icon: "\u{f00c5}"
                 onActivated: {
-                    Quickshell.execDetached(["bash", "-c", "printf '%s' 'vnc://" + section.localIp + ":" + section.vncPort + "' | wl-copy"]);
+                    Quickshell.execDetached(["wl-copy", "vnc://" + section.localIp + ":" + section.vncPort]);
                     SoundEffects.play(SoundEffects.action);
                 }
             }
@@ -134,14 +152,15 @@ ColumnLayout {
                 spacing: 0
                 Label { text: "Silent Screencast Sharing"; weight: Design.weight.semibold }
                 Label {
-                    text: "Allow trusted remote tools to capture screen without interactive popup confirmation"
+                    text: section.devMode ? "Allow trusted remote tools to capture screen without interactive popup confirmation" : "Available only in explicit development mode"
                     role: "caption"
                     dim: true
                 }
             }
 
             Switch {
-                checked: section.promptFree
+                checked: section.promptFree && section.devMode
+                enabled: section.devMode
                 onToggled: {
                     section.promptFree = checked;
                     Quickshell.execDetached(["b1air-daemon", "remote", "prompt-free", checked ? "on" : "off"]);

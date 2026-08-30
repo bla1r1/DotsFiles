@@ -23,7 +23,7 @@ ColumnLayout {
             color: Design.sapphire,
             items: [
                 { key: "Mod + Space", label: "Spotlight Launcher", desc: "Launch apps, calculate math, run shell commands" },
-                { key: "Mod + Return", label: "Kitty Terminal", desc: "Open GPU-accelerated terminal emulator" },
+                { key: "Mod + Return", label: "b1air Terminal", desc: "Open the native terminal emulator" },
                 { key: "Mod + F", label: "Web Browser", desc: "Open default internet browser" },
                 { key: "Mod + E", label: "File Manager", desc: "Open graphical files & directories explorer" },
                 { key: "Mod + C", label: "Code Editor", desc: "Launch default text & code editor" }

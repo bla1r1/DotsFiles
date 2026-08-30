@@ -9,6 +9,8 @@
 #include <sstream>
 #include <fstream>
 #include <vector>
+#include <sys/wait.h>
+#include <algorithm>
 
 namespace b1air {
 
@@ -25,6 +27,22 @@ static std::string escape_json(const std::string& s) {
         else o << c;
     }
     return o.str();
+}
+
+static bool run_argv(const std::vector<std::string>& args) {
+    if (args.empty()) return false;
+    std::vector<char*> argv;
+    argv.reserve(args.size() + 1);
+    for (const auto& arg : args) argv.push_back(const_cast<char*>(arg.c_str()));
+    argv.push_back(nullptr);
+    pid_t pid = fork();
+    if (pid < 0) return false;
+    if (pid == 0) {
+        execvp(argv[0], argv.data());
+        _exit(127);
+    }
+    int status = 0;
+    return waitpid(pid, &status, 0) == pid && WIFEXITED(status) && WEXITSTATUS(status) == 0;
 }
 
 UserProfile UserManager::get_current_user_profile() {
@@ -143,37 +161,29 @@ bool UserManager::set_avatar(const std::string& image_path) {
 bool UserManager::set_name(const std::string& new_name) {
     if (new_name.empty()) return false;
     UserProfile p = get_current_user_profile();
-
-    std::string cmd = "chfn -f '" + new_name + "' '" + p.username + "' 2>/dev/null || sudo chfn -f '" + new_name + "' '" + p.username + "' 2>/dev/null";
-    return (std::system(cmd.c_str()) == 0);
+    return run_argv({"chfn", "-f", new_name, p.username});
 }
 
 bool UserManager::set_shell(const std::string& new_shell) {
     if (new_shell.empty()) return false;
     struct stat st;
-    if (stat(new_shell.c_str(), &st) != 0 || !(st.st_mode & S_IXUSR)) {
+    if (stat(new_shell.c_str(), &st) != 0 || !(st.st_mode & S_IXUSR) || new_shell.find('\n') != std::string::npos) {
         return false;
     }
     UserProfile p = get_current_user_profile();
-
-    std::string cmd = "chsh -s '" + new_shell + "' '" + p.username + "' 2>/dev/null || sudo chsh -s '" + new_shell + "' '" + p.username + "' 2>/dev/null";
-    return (std::system(cmd.c_str()) == 0);
+    std::ifstream shells("/etc/shells");
+    std::string line;
+    bool allowed = false;
+    while (std::getline(shells, line)) if (line == new_shell) { allowed = true; break; }
+    if (!allowed) return false;
+    return run_argv({"chsh", "-s", new_shell, p.username});
 }
 
 bool UserManager::change_password() {
-    UserProfile p = get_current_user_profile();
-
-    // Check installed terminal emulators
-    std::string cmd;
-    if (std::system("command -v kitty >/dev/null 2>&1") == 0) {
-        cmd = "kitty --title \"Change Password - b1air\" -e sh -c \"echo '=== Change Password for " + p.username + " ==='; passwd; echo 'Press any key to close...'; read -n 1\" &";
-    } else if (std::system("command -v foot >/dev/null 2>&1") == 0) {
-        cmd = "foot -T \"Change Password - b1air\" sh -c \"echo '=== Change Password for " + p.username + " ==='; passwd; echo 'Press any key to close...'; read -n 1\" &";
-    } else {
-        cmd = "passwd &";
-    }
-
-    return (std::system(cmd.c_str()) == 0);
+    // Use the bundled terminal for interactive password changes.
+    if (access("/usr/local/bin/b1air-term", X_OK) == 0 || access("/usr/bin/b1air-term", X_OK) == 0)
+        return run_argv({"b1air-term", "-e", "passwd"});
+    return run_argv({"passwd"});
 }
 
 } // namespace b1air
