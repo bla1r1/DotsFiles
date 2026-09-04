@@ -43,8 +43,12 @@ int main(int argc, char* argv[]) {
     });
 
     QStringList searchPaths = {
-        home + "/DotsFiles/src/apps/settings/SettingsWindow.qml",
+        // shell/qml is the actively maintained copy; apps/settings's is a
+        // stale fork that has no sibling Ui/ directory, so its relative
+        // `import "Ui"` crashes the moment it's actually the one loaded —
+        // which it always was, since it used to be tried first.
         home + "/DotsFiles/src/shell/qml/SettingsWindow.qml",
+        home + "/DotsFiles/src/apps/settings/SettingsWindow.qml",
         home + "/.config/quickshell/SettingsWindow.qml",
         home + "/.config/b1air-shell/SettingsWindow.qml",
         "/usr/share/b1air-shell/qml/SettingsWindow.qml"

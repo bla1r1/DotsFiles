@@ -1,0 +1,5 @@
+# bluetoothd doesn't notice a Bluetooth adapter coming back after its rfkill
+# soft-block clears (e.g. via a laptop's hardware Fn radio-kill key) — it just
+# keeps reporting "No default controller available" until something makes it
+# re-probe. Restarting the service on the unblock event is the reliable fix.
+SUBSYSTEM=="rfkill", ENV{RFKILL_TYPE}=="bluetooth", ENV{RFKILL_STATE}=="1", RUN+="/usr/bin/systemctl restart bluetooth.service"

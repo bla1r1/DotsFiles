@@ -21,7 +21,14 @@ namespace b1air {
 static bool sender_is_current_user(sd_bus_message *m, sd_bus_error *error) {
     uid_t sender_uid = static_cast<uid_t>(-1);
     sd_bus_creds* creds = nullptr;
-    const bool valid = sd_bus_query_sender_creds(m, SD_BUS_CREDS_UID, &creds) >= 0 &&
+    // SD_BUS_CREDS_UID alone only reads what the transport attached to the
+    // message directly (raw SO_PEERCRED on a peer-to-peer connection). On a
+    // session bus routed through dbus-broker — the normal case, and what
+    // every real desktop install actually runs — the message carries no
+    // socket-level UID at all, so this returned -ENODATA and rejected every
+    // legitimate call. AUGMENT tells sd-bus to fall back to reading
+    // /proc/<sender-pid>/status when the transport didn't attach it.
+    const bool valid = sd_bus_query_sender_creds(m, SD_BUS_CREDS_UID | SD_BUS_CREDS_AUGMENT, &creds) >= 0 &&
                        sd_bus_creds_get_uid(creds, &sender_uid) >= 0 && sender_uid == getuid();
     sd_bus_creds_unref(creds);
     if (!valid) {
@@ -58,7 +65,11 @@ static bool spawn_detached(const std::vector<std::string>& args, const char* way
 static int method_lock(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
     REQUIRE_SESSION_USER();
-    SystemControl::lock_session();
+    // lock_session() blocks until the lock screen is actually dismissed —
+    // fine for a one-off CLI call, fatal here: sd-bus dispatches this on the
+    // daemon's own event loop, so every other D-Bus call (volume, brightness,
+    // Wi-Fi, ...) would hang for as long as the screen stayed locked.
+    SystemControl::lock_session_async();
     return sd_bus_reply_method_return(m, "");
 }
 
@@ -161,7 +172,7 @@ static int method_power(sd_bus_message *m, void *userdata, sd_bus_error *ret_err
     const char *action = "lock";
     sd_bus_message_read(m, "s", &action);
     std::string act = action ? action : "lock";
-    if (act == "lock") SystemControl::lock_session();
+    if (act == "lock") SystemControl::lock_session_async();
     else if (act == "logout") SystemControl::logout_session();
     else if (act == "suspend") SystemControl::suspend_system();
     else if (act == "reboot") SystemControl::reboot_system();

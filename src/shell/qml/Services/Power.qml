@@ -70,6 +70,20 @@ Singleton {
         }
     }
 
+    // Real battery estimate from UPower, not system uptime — the Control
+    // Center used to pair "Discharging"/"Charging" with the uptime clock
+    // (from /proc/uptime, meant for the power-profile row), which reads
+    // exactly like a time-to-empty/full estimate but has nothing to do with
+    // the battery and just climbs for as long as the machine has been on.
+    readonly property string timeRemainingText: {
+        if (!root._bat) return "";
+        const secs = root.charging ? root._bat.timeToFull : root._bat.timeToEmpty;
+        if (!secs || secs <= 0) return "";
+        const h = Math.floor(secs / 3600);
+        const m = Math.floor((secs % 3600) / 60);
+        return h + "h " + m + "m";
+    }
+
     // ── Profile ──────────────────────────────────────────────────────────────
     property string profile: "balanced"
     property bool hasProfiles: false
@@ -124,8 +138,14 @@ Singleton {
     }
 
     function setBrightness(pct) {
+        // `-e4` maps the given percentage through a perceptual curve before
+        // writing it — great for a relative +/- step, but the slider reads
+        // back a plain linear raw/max off sysfs, so dragging to what looks
+        // like 80% actually lands the hardware near 40% and the number jumps
+        // straight back to something else. Absolute sets stay linear so the
+        // slider position and the displayed percentage agree.
         root.brightness = pct;   // optimistic; the FileView confirms
-        Quickshell.execDetached(["brightnessctl", "-c", "backlight", "-e4", "-n2", "set", pct + "%"]);
+        Quickshell.execDetached(["brightnessctl", "-c", "backlight", "-n2", "set", pct + "%"]);
     }
 
     function stepBrightness(delta) {
@@ -206,7 +226,16 @@ Singleton {
         printErrors: false
         onFileChanged: reload()
         onLoaded: {
-            root.brightnessRaw = parseInt(text()) || 0;
+            // A write to this sysfs file can fire more than one inotify
+            // event, and a reload triggered mid-write sometimes reads back
+            // empty. parseInt("") is NaN, and `|| 0` turned that into a
+            // literal 0 — which then instantly overwrote the displayed
+            // brightness with 0% for a frame before the next good read
+            // landed. An unparseable read means "try again next event", not
+            // "brightness is now zero" — keep the last known value instead.
+            const parsed = parseInt(text());
+            if (isNaN(parsed)) return;
+            root.brightnessRaw = parsed;
             if (!root.brightnessHeld && root.brightnessMax > 0)
                 root.brightness = Math.round(root.brightnessRaw * 100 / root.brightnessMax);
         }

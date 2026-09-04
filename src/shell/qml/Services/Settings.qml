@@ -34,7 +34,6 @@ Singleton {
     // Type and default declared once. Reads are typed: no parseInt at the call
     // site, no `|| 1.0` scattered through the shell.
 
-    readonly property alias uiScale: data.uiScale
     readonly property alias openGuideAtStartup: data.openGuideAtStartup
     readonly property alias topbarHelpIcon: data.topbarHelpIcon
     readonly property alias guideShortcut: data.guideShortcut
@@ -192,7 +191,6 @@ Singleton {
     // The schema defaults, kept separately so reset() has something to go back
     // to — the same reason dconf stores only deltas.
     readonly property var defaults: ({
-        uiScale: 1.0,
         openGuideAtStartup: false,
         topbarHelpIcon: true,
         guideShortcut: "Mod+H",
@@ -276,7 +274,6 @@ Singleton {
 
         JsonAdapter {
             id: data
-            property real uiScale: 1.0
             property bool openGuideAtStartup: false
             property bool topbarHelpIcon: true
             property string guideShortcut: "Mod+H"

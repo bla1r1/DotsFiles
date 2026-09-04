@@ -40,6 +40,21 @@ ColumnLayout {
         && section.activeEditIndex < monitorsModel.count)
         ? monitorsModel.get(section.activeEditIndex) : null
 
+    // Plain, unambiguously-reactive mirror of the active row's scale. The
+    // Scale stepper used to read straight off ListModel.get(index).sysScale
+    // (via `activeMonitor` and then directly) and never once visibly moved
+    // on click — the model row was updating, but nothing was actually
+    // re-evaluating the display from it. Driving the label off a real QML
+    // property instead of ListModel/get() indirection sidesteps that
+    // entirely, whatever its exact cause.
+    property real currentSysScale: 1.0
+    function setSysScale(v) {
+        const clamped = Math.max(0.5, Math.min(3.0, Math.round(v * 100) / 100));
+        section.currentSysScale = clamped;
+        if (section.activeMonitor) monitorsModel.setProperty(section.activeEditIndex, "sysScale", clamped);
+        section.markDirty();
+    }
+
     // ── Service plumbing ─────────────────────────────────────────────────────
     property bool _held: false
     function _hold(on) {
@@ -97,6 +112,13 @@ ColumnLayout {
         if (section.activeEditIndex >= monitorsModel.count)
             section.activeEditIndex = 0;
         section.dirty = false;
+        section.currentSysScale = monitorsModel.count > 0
+            ? monitorsModel.get(section.activeEditIndex).sysScale : 1.0;
+    }
+
+    onActiveEditIndexChanged: {
+        if (monitorsModel.count > 0 && section.activeEditIndex < monitorsModel.count)
+            section.currentSysScale = monitorsModel.get(section.activeEditIndex).sysScale;
     }
 
     function markDirty() { section.dirty = true; }
@@ -654,20 +676,9 @@ ColumnLayout {
         // Scale stepper
         Stepper {
             label: "Scale"
-            valueText: section.activeMonitor
-                ? (Math.round(section.activeMonitor.sysScale * 100) / 100) + "×" : "1×"
-            onDecrement: {
-                if (!section.activeMonitor) return;
-                monitorsModel.setProperty(section.activeEditIndex, "sysScale",
-                    Math.max(0.5, Math.round((section.activeMonitor.sysScale - 0.25) * 100) / 100));
-                section.markDirty();
-            }
-            onIncrement: {
-                if (!section.activeMonitor) return;
-                monitorsModel.setProperty(section.activeEditIndex, "sysScale",
-                    Math.min(3.0, Math.round((section.activeMonitor.sysScale + 0.25) * 100) / 100));
-                section.markDirty();
-            }
+            valueText: (Math.round(section.currentSysScale * 100) / 100) + "×"
+            onDecrement: section.setSysScale(section.currentSysScale - 0.25)
+            onIncrement: section.setSysScale(section.currentSysScale + 0.25)
         }
 
         // Orientation row
@@ -704,11 +715,15 @@ ColumnLayout {
 
         Label {
             visible: section.activeMonitor !== null
+            // "Desktop area" used to read close enough to "Resolution" (the
+            // section right above) that changing Scale looked like it was
+            // changing the actual output resolution — it wasn't; this number
+            // is the logical/effective area after scaling, and the physical
+            // mode sway actually applies is spelled out here now too.
             text: section.activeMonitor
-                ? "Desktop area " + Math.round(section.activeMonitor.resW / section.activeMonitor.sysScale)
-                  + "×" + Math.round(section.activeMonitor.resH / section.activeMonitor.sysScale)
-                  + " at " + Math.round(section.activeMonitor.uiX / section.uiScale)
-                  + "," + Math.round(section.activeMonitor.uiY / section.uiScale)
+                ? "Scaled to " + Math.round(section.activeMonitor.resW / section.currentSysScale)
+                  + "×" + Math.round(section.activeMonitor.resH / section.currentSysScale)
+                  + " — physical output stays " + section.activeMonitor.resW + "×" + section.activeMonitor.resH
                 : ""
             role: "caption"
             color: Design.textFaint

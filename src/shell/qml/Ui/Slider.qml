@@ -195,18 +195,6 @@ Item {
             }
             settle.restart();
         }
-
-        onWheel: wheel => {
-            const step = wheel.angleDelta.y > 0 ? 5 : -5;
-            const cur = root.active ? root._local : root.value;
-            const target = Math.max(root.minimum, Math.min(root.maximum, cur + step));
-            settle.stop();
-            root._dragging = true;
-            root._local = target;
-            root.moved(target);
-            settle.restart();
-            root._dragging = false;
-        }
     }
 }
 

@@ -31,7 +31,5 @@ function fish_prompt --description 'Write out the prompt'
         end
     end
 
-    # Keep the prompt on one line. A literal \n here is rendered by some Fish
-    # versions instead of being treated as a line break.
-    printf '%s%s%s%s%s%s%s❯ %s' (set_color 7aa2f7) "󰣇 " $color_cwd (prompt_pwd) $normal $git_info $arrow_color $normal
+    echo -n -s (set_color 7aa2f7) "󰣇 " $color_cwd (prompt_pwd) $normal $git_info "\n" $arrow_color "❯ " $normal
 end

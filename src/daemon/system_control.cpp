@@ -514,6 +514,39 @@ bool SystemControl::run_quickshell_lock() {
     return (ret == 0);
 }
 
+bool SystemControl::lock_session_async() {
+    // Called from more than one place that can legitimately overlap — a lid
+    // bindswitch and swayidle's own `lock`/before-sleep hooks can all fire
+    // within the same second of a lid close. Without this, each one spawns
+    // its own Lock.qml, stacking duplicate lock screens on top of each other.
+    if (!run_argv_capture({"pgrep", "-f", "quickshell -p .*Lock.qml"}).empty()) return true;
+
+    (void)logind_session_call("LockSession");
+    const std::string qs_lock = b1air::qml_entry("Lock.qml");
+    if (qs_lock.empty()) return run_swaylock();
+
+    // Double-fork so the daemon never has to wait on this: the immediate
+    // child exits right away (reaped below) and the grandchild — the actual
+    // quickshell process — is reparented to init, instead of sitting around
+    // as a zombie under the daemon until something happens to reap it.
+    pid_t pid = fork();
+    if (pid == 0) {
+        setsid();
+        if (fork() == 0) {
+            const int null_fd = open("/dev/null", O_RDWR | O_CLOEXEC);
+            if (null_fd >= 0) {
+                dup2(null_fd, STDIN_FILENO); dup2(null_fd, STDOUT_FILENO); dup2(null_fd, STDERR_FILENO);
+                if (null_fd > STDERR_FILENO) close(null_fd);
+            }
+            execlp("quickshell", "quickshell", "-p", qs_lock.c_str(), static_cast<char*>(nullptr));
+            _exit(127);
+        }
+        _exit(0);
+    }
+    if (pid > 0) waitpid(pid, nullptr, 0);
+    return pid > 0;
+}
+
 bool SystemControl::run_swaylock() {
     if (!run_argv_capture({"pidof", "swaylock"}).empty()) return true;
 
@@ -582,7 +615,10 @@ bool SystemControl::logout_session() {
 }
 
 bool SystemControl::suspend_system() {
-    lock_session();
+    // lock_session() blocks until the screen is unlocked again — an idle
+    // timeout calling this would never reach Suspend until someone typed
+    // their password first, defeating the entire point of auto-suspend.
+    lock_session_async();
     return logind_call("Suspend", "b", true);
 }
 
@@ -1470,42 +1506,23 @@ int SystemControl::get_volume() {
 }
 
 bool SystemControl::volume_up(int step) {
-    if (!run_argv_status({"wpctl", "set-volume", "-l", "1.5", "@DEFAULT_AUDIO_SINK@", std::to_string(step) + "%+"})) {
-        (void)run_argv_status({"pamixer", "-i", std::to_string(step)});
-    }
-    int vol = get_volume();
-    std::string icon = (vol > 60) ? "audio-volume-high" : ((vol > 30) ? "audio-volume-medium" : "audio-volume-low");
-    notify_user("b1air DE", "Volume: " + std::to_string(vol) + "%", {}, icon,
-                "string:x-canonical-private-synchronous:sys-notify", "low");
-    return true;
+    // The OSD bar already covers this (see the mute/brightness fixes above).
+    return run_argv_status({"wpctl", "set-volume", "-l", "1.5", "@DEFAULT_AUDIO_SINK@", std::to_string(step) + "%+"})
+        || run_argv_status({"pamixer", "-i", std::to_string(step)});
 }
 
 bool SystemControl::volume_down(int step) {
-    if (!run_argv_status({"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", std::to_string(step) + "%-"})) {
-        (void)run_argv_status({"pamixer", "-d", std::to_string(step)});
-    }
-    int vol = get_volume();
-    std::string icon = (vol > 60) ? "audio-volume-high" : ((vol > 30) ? "audio-volume-medium" : "audio-volume-low");
-    notify_user("b1air DE", "Volume: " + std::to_string(vol) + "%", {}, icon,
-                "string:x-canonical-private-synchronous:sys-notify", "low");
-    return true;
+    return run_argv_status({"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", std::to_string(step) + "%-"})
+        || run_argv_status({"pamixer", "-d", std::to_string(step)});
 }
 
 bool SystemControl::volume_toggle_mute() {
     if (!run_argv_status({"wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"})) {
         (void)run_argv_status({"pamixer", "-t"});
     }
-    std::string mute_raw = run_argv_capture({"wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"});
-    bool muted = mute_raw.find("MUTED") != std::string::npos;
-    if (!muted) muted = run_argv_capture({"pamixer", "--get-mute"}) == "true";
-    if (muted) {
-        notify_user("b1air DE", "Volume Muted", {}, "audio-volume-muted",
-                    "string:x-canonical-private-synchronous:sys-notify", "low");
-    } else {
-        int vol = get_volume();
-        notify_user("b1air DE", "Volume: " + std::to_string(vol) + "%", {}, "audio-volume-high",
-                    "string:x-canonical-private-synchronous:sys-notify", "low");
-    }
+    // The shell's own OSD watches PipeWire's mute/volume state directly and
+    // shows the on-screen bar for this; a desktop notification on top of that
+    // was a redundant toast for every single press.
     return true;
 }
 
@@ -1523,14 +1540,9 @@ bool SystemControl::mic_toggle() {
     if (!run_argv_status({"wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "toggle"})) {
         (void)run_argv_status({"pamixer", "--default-source", "-t"});
     }
-    std::string status = get_mic_status();
-    if (status == "muted") {
-        notify_user("b1air DE", "Microphone Muted", {}, "microphone-sensitivity-muted",
-                    "string:x-canonical-private-synchronous:sys-notify", "low");
-    } else {
-        notify_user("b1air DE", "Microphone Unmuted", {}, "microphone-sensitivity-high",
-                    "string:x-canonical-private-synchronous:sys-notify", "low");
-    }
+    // The shell's own OSD watches PipeWire's source mute state directly and
+    // shows the on-screen bar for this; a desktop notification on top of
+    // that was a redundant toast for every single press.
     return true;
 }
 
@@ -1560,19 +1572,14 @@ int SystemControl::brightness_get() {
 }
 
 bool SystemControl::brightness_up(int step) {
-    (void)run_argv_status({"brightnessctl", "-c", "backlight", "-e4", "-n2", "set", std::to_string(step) + "%+"});
-    int b = brightness_get();
-    notify_user("b1air DE", "Brightness: " + std::to_string(b) + "%", {}, "display-brightness",
-                "string:x-canonical-private-synchronous:sys-notify", "low");
-    return true;
+    // The shell's own OSD watches the backlight sysfs file directly and
+    // shows the on-screen bar for this; a desktop notification on top of
+    // that was a redundant toast for every single press.
+    return run_argv_status({"brightnessctl", "-c", "backlight", "-e4", "-n2", "set", std::to_string(step) + "%+"});
 }
 
 bool SystemControl::brightness_down(int step) {
-    (void)run_argv_status({"brightnessctl", "-c", "backlight", "-e4", "-n2", "set", std::to_string(step) + "%-"});
-    int b = brightness_get();
-    notify_user("b1air DE", "Brightness: " + std::to_string(b) + "%", {}, "display-brightness",
-                "string:x-canonical-private-synchronous:sys-notify", "low");
-    return true;
+    return run_argv_status({"brightnessctl", "-c", "backlight", "-e4", "-n2", "set", std::to_string(step) + "%-"});
 }
 
 bool SystemControl::brightness_set(int pct) {
@@ -1801,6 +1808,12 @@ bool SystemControl::ddc_undim() {
 }
 
 // ── Weather Forecast & Live Status ───────────────────────────────────────────
+// This is the fallback for every weather-fetch failure — no OpenWeatherMap
+// key AND wttr.in also unreachable, a configured key whose fetch failed
+// (usually the network, not the key), or a response jq couldn't parse — not
+// only the literal "no key configured" case. It used to say "No API Key" in
+// all of them, so a plain transient network blip at startup looked like a
+// permanent configuration problem.
 static std::string get_dummy_weather_json() {
     auto now = std::chrono::system_clock::now();
     std::string json = "{\"forecast\":[";
@@ -1813,7 +1826,7 @@ static std::string get_dummy_weather_json() {
         std::strftime(day_full, sizeof(day_full), "%A", tm);
         std::strftime(date_str, sizeof(date_str), "%d %b", tm);
 
-        json += "{\"id\":\"" + std::to_string(i) + "\",\"day\":\"" + day_short + "\",\"day_full\":\"" + day_full + "\",\"date\":\"" + date_str + "\",\"max\":\"0.0\",\"min\":\"0.0\",\"feels_like\":\"0.0\",\"wind\":\"0\",\"humidity\":\"0\",\"pop\":\"0\",\"icon\":\"\",\"hex\":\"#cdd6f4\",\"desc\":\"No API Key\",\"hourly\":[{\"time\":\"00:00\",\"temp\":\"0.0\",\"icon\":\"\",\"hex\":\"#cdd6f4\"}]}";
+        json += "{\"id\":\"" + std::to_string(i) + "\",\"day\":\"" + day_short + "\",\"day_full\":\"" + day_full + "\",\"date\":\"" + date_str + "\",\"max\":\"0.0\",\"min\":\"0.0\",\"feels_like\":\"0.0\",\"wind\":\"0\",\"humidity\":\"0\",\"pop\":\"0\",\"icon\":\"\",\"hex\":\"#cdd6f4\",\"desc\":\"Weather unavailable\",\"hourly\":[{\"time\":\"00:00\",\"temp\":\"0.0\",\"icon\":\"\",\"hex\":\"#cdd6f4\"}]}";
         if (i + 1 < 5) json += ",";
     }
     json += "]}";
@@ -1971,11 +1984,12 @@ std::string SystemControl::weather_get_json(bool force) {
                 }
             } catch (...) {}
         }
-        std::string dummy = get_dummy_weather_json();
-        std::ofstream out(json_file);
-        out << dummy << "\n";
-        out.close();
-        return dummy;
+        // Not cached: this is a fetch failure (wttr.in unreachable, bad
+        // response), not a real result — writing it to the cache used to
+        // make a transient network blip at startup (curl failing because
+        // Wi-Fi wasn't up yet) stick for a full 15 minutes, since the next
+        // call would just read the cached failure back and never retry.
+        return get_dummy_weather_json();
     }
 
     std::string url = "https://api.openweathermap.org/data/2.5/forecast?APPID=" + api_key + "&id=" + city_id + "&units=" + unit;

@@ -689,6 +689,12 @@ PanelWindow {
                                 color: topBar.colFg
                             }
                         }
+                        MouseArea {
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: topBar.requestCommand("toggle:battery:", true)
+                        }
                     }
 
                     // Notification Bell (opens Control Center)

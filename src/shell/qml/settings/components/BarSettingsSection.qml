@@ -185,4 +185,22 @@ ColumnLayout {
             }
         }
     }
+
+    // Used to live alone on its own "Interface Scale" page, back when it sat
+    // next to a UI scale slider — that slider is gone (scale now follows the
+    // display's own scale, set from Displays), leaving a page with nothing
+    // but this one control. It's a bar setting; it belongs with the rest.
+    Card {
+        title: "Workspaces"
+        subtitle: "How many workspace numbers the bar shows"
+        icon: "\u{f0b60}"
+        accentColor: Design.blue
+
+        Stepper {
+            label: "Workspace count"
+            valueText: Settings.workspaceCount.toString()
+            onDecrement: Settings.set("workspaceCount", Math.max(1, Settings.workspaceCount - 1))
+            onIncrement: Settings.set("workspaceCount", Math.min(20, Settings.workspaceCount + 1))
+        }
+    }
 }

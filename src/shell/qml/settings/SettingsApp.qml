@@ -27,8 +27,7 @@ Item {
         { isHeader: true, label: "PERSONALIZATION" },
         { id: "appearance",  icon: "\u{f0376}", label: "Appearance",       color: Design.mauve,    tags: "theme dark light catppuccin colors font gtk icons cursor style" },
         { id: "wallpaper",   icon: "\u{f02ca}", label: "Wallpaper",        color: Design.pink,     tags: "background wallpaper pictures desktop image slideshow photos" },
-        { id: "bar",         icon: "\u{f07e}",  label: "Native Top Bar", color: Design.blue,     tags: "top bar panel position modules icons style" },
-        { id: "interface",   icon: "\u{f0b60}", label: "Interface Scale",  color: Design.blue,     tags: "scale ui dpi zoom layout font size text" },
+        { id: "bar",         icon: "\u{f07e}",  label: "Native Top Bar", color: Design.blue,     tags: "top bar panel position modules icons style workspaces scale ui dpi" },
         { id: "windows",     icon: "\u{f0379}", label: "Window & Gaps",    color: Design.sapphire, tags: "gaps border padding tiling sway layout corners blur opacity" },
         { id: "nightlight",  icon: "\u{f0599}", label: "Night Light",      color: Design.yellow,   tags: "night light wlsunset blue light temperature schedule eye protect" },
 
@@ -76,6 +75,18 @@ Item {
     function open(id) {
         if (app.pages.some(p => !p.isHeader && p.id === id))
             app.page = id;
+    }
+
+    // Unlike every other popup this doesn't extend PopupShell (it also has to
+    // load inside its own standalone window, which never had one), so it
+    // never got PopupShell's background Rectangle — the panel rendered fully
+    // see-through with just its individual rows drawing anything at all.
+    Rectangle {
+        anchors.fill: parent
+        radius: Design.s(Design.radius.panel)
+        color: Design.glassBg
+        border.color: Design.glassBorder
+        border.width: Design.border
     }
 
     RowLayout {
@@ -296,15 +307,6 @@ Item {
                 Sections.UserSettingsSection {
                     Layout.fillWidth: true
                     visible: app.page === "user"
-                }
-
-                Sections.InterfaceSettingsSection {
-                    Layout.fillWidth: true
-                    visible: app.page === "interface"
-                    uiScale: Settings.uiScale
-                    workspaceCount: Settings.workspaceCount
-                    onUiScaleChangedByUser: v => Settings.set("uiScale", v)
-                    onWorkspaceCountChangedByUser: v => Settings.set("workspaceCount", v)
                 }
 
                 Sections.WindowSettingsSection {

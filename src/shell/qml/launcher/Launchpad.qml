@@ -152,16 +152,34 @@ PopupShell {
         const forbidden = [";", "&", "|", "`", "$", "<", ">", "\\", "\n", "\r", "(", ")", "{", "}", "[", "]", "*", "?", "!", "~"];
         if (!value || value.length > 512 || forbidden.some(c => value.includes(c))) return false;
 
+        // Settings has no standalone window anymore: the QML it would load
+        // (shell/qml/SettingsWindow.qml) imports Services, which imports
+        // Quickshell types that only exist inside the running quickshell
+        // process — a separate QQmlApplicationEngine can't resolve them.
+        // SettingsApp.qml already exists as an in-shell panel for exactly
+        // this reason; open that instead of spawning a binary that can only
+        // ever fail to load.
+        if (value === "b1air-settings") {
+            if (typeof masterWindow !== "undefined" && masterWindow.handleIpcCommand) {
+                masterWindow.handleIpcCommand("open:settings:", true);
+            }
+            return true;
+        }
+
         // Launch our own applications directly.  Sending them through
         // `swaymsg exec` makes failures invisible to the UI and depends on the
         // compositor's shell environment.  External desktop entries still use
         // Sway's launcher path below, after the strict character allowlist.
         const nativeApps = [
             "b1air-files", "b1air-term", "b1air-notes", "b1air-git",
-            "b1air-monitor", "b1air-view", "b1air-text", "b1air-settings"
+            "b1air-monitor", "b1air-view", "b1air-text"
         ];
         if (nativeApps.includes(value)) {
-            Quickshell.execDetached([value]);
+            // execvp resolves a bare name via PATH, and this whole suite
+            // installs to ~/.local/bin — not guaranteed to be on it (it
+            // wasn't, for every session already running before that got
+            // fixed). Absolute path sidesteps PATH entirely.
+            Quickshell.execDetached([Quickshell.env("HOME") + "/.local/bin/" + value]);
             return true;
         }
 

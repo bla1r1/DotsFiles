@@ -45,8 +45,10 @@ int main(int argc, char* argv[]) {
     engine.rootContext()->setContextProperty("TextBackend", &backend);
 
     QStringList searchPaths = {
-        home + "/DotsFiles/src/apps/text/TextWindow.qml",
+        // shell/qml is the actively maintained copy; apps/text's has quietly
+        // diverged from it (missed every fix made against the shell copy).
         home + "/DotsFiles/src/shell/qml/TextWindow.qml",
+        home + "/DotsFiles/src/apps/text/TextWindow.qml",
         home + "/.config/quickshell/TextWindow.qml",
         home + "/.config/b1air-shell/TextWindow.qml",
         "/usr/share/b1air-shell/qml/TextWindow.qml"

@@ -628,7 +628,7 @@ int main(int argc, char* argv[]) {
         }
         std::string sub = argv[2];
         if (DaemonDBus::is_running()) return DaemonDBus::call_power(sub) ? 0 : 1;
-        if (sub == "lock") return SystemControl::lock_session() ? 0 : 1;
+        if (sub == "lock") return SystemControl::lock_session_async() ? 0 : 1;
         if (sub == "logout") return SystemControl::logout_session() ? 0 : 1;
         if (sub == "suspend") return SystemControl::suspend_system() ? 0 : 1;
         if (sub == "reboot") return SystemControl::reboot_system() ? 0 : 1;
@@ -799,8 +799,12 @@ int main(int argc, char* argv[]) {
         return 0;
     } else if (cmd == "lock") {
         if (DaemonDBus::is_running()) return DaemonDBus::call_lock() ? 0 : 1;
-        std::string mode = (argc >= 3) ? argv[2] : "auto";
-        return SystemControl::lock_session(mode) ? 0 : 1;
+        // No explicit mode: this is the common path (swayidle, the lock
+        // keybind) and should return as soon as the lock screen is spawned,
+        // not block until it's dismissed. An explicit mode is a manual
+        // debug override, where waiting for the real result is expected.
+        if (argc < 3) return SystemControl::lock_session_async() ? 0 : 1;
+        return SystemControl::lock_session(argv[2]) ? 0 : 1;
     } else if (cmd == "polkit" || cmd == "polkit-agent") {
         std::string sub = (argc >= 3) ? argv[2] : "agent";
         if (sub == "dialog") {

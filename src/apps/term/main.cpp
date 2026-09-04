@@ -60,8 +60,10 @@ int main(int argc, char* argv[]) {
     });
 
     QStringList searchPaths = {
-        home + "/DotsFiles/src/apps/term/TermWindow.qml",
+        // shell/qml is the actively maintained copy; apps/term's has quietly
+        // diverged from it (missed every fix made against the shell copy).
         home + "/DotsFiles/src/shell/qml/TermWindow.qml",
+        home + "/DotsFiles/src/apps/term/TermWindow.qml",
         home + "/.config/quickshell/TermWindow.qml",
         home + "/.config/b1air-shell/TermWindow.qml",
         "/usr/share/b1air-shell/qml/TermWindow.qml"

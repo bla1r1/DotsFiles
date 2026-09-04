@@ -131,8 +131,19 @@ PopupShell {
         return cells;
     }
 
-    readonly property var todayForecast: (window.weatherData && window.weatherData.forecast && window.weatherData.forecast.length > 0)
-        ? window.weatherData.forecast[0] : null
+    // The forecast array is 5 days starting today (index 0 = today), so the
+    // selected calendar day maps onto it by how many days out it is. Used to
+    // just show forecast[0] no matter which day was clicked — clicking a
+    // date changed nothing but which cell was highlighted.
+    readonly property int selectedDayOffset: {
+        const today = new Date(window.currentYear, window.currentMonth, window.currentTime.getDate());
+        const sel = new Date(window.viewYear, window.viewMonth, window.selectedDay);
+        return Math.round((sel - today) / 86400000);
+    }
+
+    readonly property var todayForecast: (window.weatherData && window.weatherData.forecast
+        && window.selectedDayOffset >= 0 && window.selectedDayOffset < window.weatherData.forecast.length)
+        ? window.weatherData.forecast[window.selectedDayOffset] : null
 
     RowLayout {
         anchors.fill: parent

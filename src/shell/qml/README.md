@@ -88,7 +88,6 @@ Fast access menu positioned at the top-right under the Waybar:
 Desktop settings suite (`$mod+shift+s`):
 - **`SettingsApp.qml`**: Master window with category rail navigation.
 - **`components/`**: 15 modular category sub-views:
-  - `InterfaceSettingsSection.qml`: Global UI scale and workspace count.
   - `AppearanceSettingsSection.qml`: Themes, dark mode, and accents.
   - `MonitorSettingsSection.qml`: Resolution, refresh rate, and display layout.
   - `NightLightSettingsSection.qml`: Warm temperature schedule and manual toggle.

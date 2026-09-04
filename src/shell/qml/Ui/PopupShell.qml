@@ -39,10 +39,11 @@ Item {
     readonly property string configDir: Quickshell.env("QS_CONFIG_DIR")
         || (Quickshell.env("HOME") + "/.config/quickshell")
 
-    // Design cannot read Settings itself: the standalone apps load these tokens
-    // without Quickshell. The shell root binds this too, so the scale is right
-    // from startup and not only once a popup has been opened.
-    Binding { target: Design; property: "uiScale"; value: Settings.uiScale }
+    // NOT Screen.devicePixelRatio — Qt Quick already renders this surface at
+    // the compositor's real output scale on its own; binding uiScale to it
+    // too doubled the effect, rendering everything roughly scale² as big.
+    // See Main.qml's copy of this binding for the full explanation.
+    Binding { target: Design; property: "uiScale"; value: 1.0 }
 
     // Every popup rebuilt this call with its own path juggling.
     function close() {

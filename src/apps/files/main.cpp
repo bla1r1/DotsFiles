@@ -46,8 +46,10 @@ int main(int argc, char* argv[]) {
     engine.rootContext()->setContextProperty("FilesBackend", &backend);
 
     QStringList searchPaths = {
-        home + "/DotsFiles/src/apps/files/FilesWindow.qml",
+        // shell/qml is the actively maintained copy; apps/files's has quietly
+        // diverged from it (missed every fix made against the shell copy).
         home + "/DotsFiles/src/shell/qml/FilesWindow.qml",
+        home + "/DotsFiles/src/apps/files/FilesWindow.qml",
         home + "/.config/quickshell/FilesWindow.qml",
         home + "/.config/b1air-shell/FilesWindow.qml",
         "/usr/share/b1air-shell/qml/FilesWindow.qml"

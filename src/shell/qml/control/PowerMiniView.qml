@@ -83,8 +83,8 @@ MiniView {
                     }
 
                     Label {
-                        text: Power.status + (Power.upHours > 0 || Power.upMins > 0
-                            ? " • up " + Power.upHours + "h " + Power.upMins + "m" : "")
+                        text: Power.status + (Power.timeRemainingText !== ""
+                            ? " • " + (Power.charging ? "until full " : "left ") + Power.timeRemainingText : "")
                         role: "caption"
                         dim: true
                         Layout.fillWidth: true

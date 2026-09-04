@@ -7,6 +7,14 @@ export XDG_CURRENT_DESKTOP="b1air:sway"
 export XDG_SESSION_DESKTOP="b1air"
 export XDG_SESSION_TYPE="wayland"
 
+# The whole b1air-files/term/notes/git/monitor/view/text/settings suite
+# installs to ~/.local/bin (make PREFIX="$HOME/.local/bin" install), not
+# /usr/local/bin — SDDM's own environment has no reason to include it, so
+# every Quickshell.execDetached(["b1air-files"]) etc. execvp'd straight into
+# "command not found" with nothing surfacing the failure. Everything spawned
+# from this session (sway, quickshell, the daemon) inherits this PATH.
+export PATH="$HOME/.local/bin:$PATH"
+
 # Wayland & Toolkit Defaults
 export MOZ_ENABLE_WAYLAND=1
 export QT_QPA_PLATFORM="wayland;xcb"

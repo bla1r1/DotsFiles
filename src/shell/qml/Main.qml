@@ -110,7 +110,7 @@ Scope {
     WlrLayershell.namespace: "qs-master"
     WlrLayershell.layer: WlrLayer.Overlay
     
-    exclusionMode: ExclusionMode.Ignore 
+    exclusionMode: ExclusionMode.Ignore
     focusable: isVisible
 
     width: Screen.width
@@ -118,6 +118,15 @@ Scope {
 
     visible: isVisible
     readonly property string scriptDir: Quickshell.env("QS_SCRIPT_DIR") || (Quickshell.env("HOME") + "/.config/sway/scripts")
+
+    // Without a mask this layer-shell surface claims pointer input across the
+    // whole screen — including the transparent strip over the TopBar — even
+    // though nothing is drawn there. That silently ate every click meant for
+    // TopBar's own surface underneath whenever a popup was open. Masking to
+    // just the below-the-bar MouseArea lets clicks over the bar fall through.
+    mask: Region {
+        item: masterWindow.isVisible ? clickCatcher : null
+    }
 
     Item {
         id: topBarHole
@@ -128,6 +137,7 @@ Scope {
     }
 
     MouseArea {
+        id: clickCatcher
         anchors.top: topBarHole.bottom
         anchors.bottom: parent.bottom
         anchors.left: parent.left
@@ -159,11 +169,19 @@ Scope {
 
     // Was fed by its own jq subprocess reading settings.json; now one typed
     // read from the store, which is watching the file anyway.
-    readonly property real globalUiScale: Settings.uiScale
+    readonly property real globalUiScale: Design.uiScale
 
-    // Without this the Interface scale setting moved window geometry while every
-    // size inside the window ignored it until some popup happened to be open.
-    Binding { target: Design; property: "uiScale"; value: Settings.uiScale }
+    // NOT the real Wayland output scale (Screen.devicePixelRatio) — Qt Quick
+    // already renders every window, layer-shell surfaces included, at the
+    // compositor's real scale on its own; nothing here has to ask for that.
+    // Binding this to devicePixelRatio doubled it: the surface was already
+    // being drawn at (say) 1.5x by Qt, and then every Design.s() size in it
+    // got multiplied by another 1.5x on top, so the bar rendered enormous at
+    // any scale other than 1.0. uiScale is a separate, purely cosmetic
+    // "make the shell chrome bigger/smaller" preference on top of whatever
+    // the real display scale already is — which is exactly why it used to be
+    // a manual setting instead of derived from anything.
+    Binding { target: Design; property: "uiScale"; value: 1.0 }
     property string lastIpcCommand: ""
     property string loadedWidget: ""
 

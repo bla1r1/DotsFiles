@@ -406,6 +406,18 @@ deploy_session_files() {
         sudo install -m 644 "$REPO_DIR/usr/share/xdg-desktop-portal/b1air-portals.conf" /usr/share/xdg-desktop-portal/b1air-portals.conf
         ok "Installed /usr/share/xdg-desktop-portal/b1air-portals.conf"
     fi
+
+    # 4. udev rules (e.g. bluetoothd doesn't reliably notice its adapter
+    # coming back after an rfkill unblock without a nudge)
+    if [[ -d "$REPO_DIR/etc/udev/rules.d" ]]; then
+        sudo install -d -m 755 /etc/udev/rules.d
+        for rule in "$REPO_DIR"/etc/udev/rules.d/*.rules; do
+            [[ -f "$rule" ]] || continue
+            sudo install -m 644 "$rule" "/etc/udev/rules.d/$(basename "$rule")"
+            ok "Installed /etc/udev/rules.d/$(basename "$rule")"
+        done
+        sudo udevadm control --reload-rules 2>/dev/null || true
+    fi
 }
 
 deploy_dotfiles() {
@@ -441,6 +453,12 @@ deploy_dotfiles() {
 
     # Build and install b1air-daemon C++ suite
     build_b1air_suite
+
+    # deploy_sddm_theme was only ever called from the DRY_RUN branch above —
+    # a real install never called it at all, so /usr/share/sddm/themes/b1air
+    # and /etc/sddm.conf were never deployed on any machine that actually ran
+    # this script for real. The dry-run preview lied about what would happen.
+    deploy_sddm_theme
 
     # Deploy Wayland session files & portals
     deploy_session_files

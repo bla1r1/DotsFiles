@@ -19,6 +19,7 @@
 #include <fcntl.h>
 #include <filesystem>
 #include <array>
+#include <chrono>
 
 namespace b1air {
 
@@ -179,6 +180,20 @@ int SessionManager::run_session() {
     std::signal(SIGINT, session_sig_handler);
     std::signal(SIGTERM, session_sig_handler);
 
+    // Startup is occasionally slow enough to notice, with no clear single
+    // cause — these timestamps turn the next slow boot into a log line
+    // pointing at the actual step, instead of another guess.
+    const auto t0 = std::chrono::steady_clock::now();
+    auto mark = [&](const char* step) {
+        const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - t0).count();
+        // stderr, not stdout: sway (which execs this) has its own stdout
+        // wired to /dev/null, so anything printed there — this session's
+        // entire prior "[b1air-session] ..." log included — was never going
+        // anywhere. stderr lands in ~/.local/share/sddm/wayland-session.log.
+        std::cerr << "[b1air-session] +" << ms << "ms: " << step << "\n";
+    };
+
     std::cout << "[b1air-session] Initializing native b1air Desktop Session Manager...\n";
 
     // A session started by a launcher/SSH helper may not inherit the variables
@@ -248,18 +263,22 @@ int SessionManager::run_session() {
                 "QT_QPA_PLATFORM", "QT_QUICK_BACKEND", "QSG_RHI_BACKEND",
                 "QSG_RENDER_LOOP", "MOZ_ENABLE_WAYLAND", "GDK_BACKEND",
                 "WLR_RENDERER", "WLR_RENDERER_ALLOW_SOFTWARE", "WLR_NO_HARDWARE_CURSORS"});
+    mark("dbus-update-activation-environment done");
 
     // 3. GNOME / GTK Theme GSettings
     run_status({"gsettings", "set", "org.gnome.desktop.interface", "color-scheme", "prefer-dark"});
     run_status({"gsettings", "set", "org.gnome.desktop.interface", "gtk-theme", "Tokyonight-Dark"});
     run_status({"gsettings", "set", "org.gnome.desktop.interface", "icon-theme", "Papirus-Dark"});
+    mark("gsettings done");
 
     // 4. Load Desktop Settings
     DesktopSettings settings = SettingsManager::load();
     SettingsManager::apply_to_sway(settings);
+    mark("settings loaded and applied");
 
     // 5. Restore Wallpaper
     SystemControl::wallpaper_restore();
+    mark("wallpaper restored");
 
     // 6. Spawn Background Threads (Focus tracker, Gamepad inhibitor, Settings inotify watcher)
     std::thread focus_th(focus_tracker_thread);
@@ -292,7 +311,18 @@ int SessionManager::run_session() {
             "timeout " + std::to_string(settings.lockTimeout) + " 'b1air-daemon power lock' resume 'b1air-daemon ddc undim' "
             "timeout " + std::to_string(settings.dpmsTimeout) + " 'swaymsg \"output * dpms off\"' resume 'swaymsg \"output * dpms on\"; b1air-daemon ddc undim' "
             "timeout " + std::to_string(settings.suspendTimeout) + " 'b1air-daemon power suspend' resume 'swaymsg \"output * dpms on\"; b1air-daemon ddc undim' "
-            "before-sleep 'loginctl lock-session'";
+            // `loginctl lock-session` only asks logind to emit the session's
+            // Lock signal and returns immediately — it doesn't wait for our
+            // lock screen to actually be up. That's fine when something is
+            // there to catch the signal, but a lid-close suspend (handled
+            // entirely by logind's own HandleLidSwitch, never touching
+            // b1air-daemon's suspend_system()) has nothing subscribed to it,
+            // so the system suspended before the lock screen had rendered —
+            // it only appeared to lock on resume, once the spawn that started
+            // before sleep finally got to run. Calling the lock command
+            // directly, the same one `lock` above uses, blocks before-sleep
+            // until the screen is actually up.
+            "before-sleep 'b1air-daemon lock'";
             spawn_shell_detached(idle_cmd);
     }
 
@@ -301,6 +331,7 @@ int SessionManager::run_session() {
         const std::string qs_main = qml_entry("Main.qml");
         if (!qs_main.empty()) spawn_argv_detached({"quickshell", "-p", qs_main});
     }
+    mark("quickshell spawned (shell's own startup begins now, untimed)");
 
     // 12. Auto-tune compositor effects for software rasterizer / VM (KDE Plasma approach)
     //
@@ -327,6 +358,7 @@ int SessionManager::run_session() {
     if (software_render) {
         run_status({"swaymsg", "blur disable; shadows disable; default_dim_inactive 0.0"});
     }
+    mark("glxinfo / renderer detection done");
 
     // 12. Autostart Applications from settings.json
     for (const auto& app : settings.autostartApps) {
@@ -351,6 +383,7 @@ int SessionManager::run_session() {
         }
     }
 
+    mark("autostart apps launched");
     std::cout << "[b1air-session] All desktop services, UI, and background workers initialized.\n";
 
     sd_bus *dbus = nullptr;

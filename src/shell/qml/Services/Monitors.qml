@@ -134,6 +134,24 @@ Singleton {
             return;
         Daemon.monitorsApply(JSON.stringify(layout));
         applyRecheck.restart();
+        // Design.uiScale follows Screen.devicePixelRatio, but nothing tells
+        // TopBar's or a popup's own PanelWindow surface to renegotiate its
+        // actual Wayland buffer size against the new scale — only a reload
+        // does that, so a scale change left the bar clipped (rendered at the
+        // new scale, but still sized for the old one) until the shell
+        // happened to reload for some unrelated reason.
+        reloadAfterScale.restart();
+    }
+
+    Timer {
+        id: reloadAfterScale
+        interval: 1200
+        // Daemon.reload() also runs `swaymsg reload`, which re-reads sway's
+        // config files from disk — since the scale we just applied at
+        // runtime was never written to one, that snapped it straight back
+        // to whatever the config says (1x). forceReload() only reloads the
+        // shell's own QML, which is all that's actually needed here.
+        onTriggered: Daemon.forceReload()
     }
 
     function setEnabled(name, enabled) {

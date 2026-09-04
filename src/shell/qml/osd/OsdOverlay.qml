@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Services.Pipewire
 import "../Ui"
+import "../Services"
 
 // =============================================================================
 // On-Screen Display (OSD) Overlay
@@ -103,6 +104,14 @@ PanelWindow {
         let v = Math.round(currentMicVol * 100);
         let ic = currentMicMute ? "\u{f036d}" : "\u{f036c}";
         showOsd(ic, currentMicMute ? "Mic Muted" : "Microphone", v, currentMicMute, currentMicMute ? Design.red : Design.peach);
+    }
+
+    // ── Track Brightness Changes ─────────────────────────────────────────────
+    readonly property int currentBrightness: Power.brightness
+
+    onCurrentBrightnessChanged: {
+        if (!osdWindow._ready || !Power.hasBacklight) return;
+        showOsd("\u{f00df}", "Brightness", currentBrightness, false, Design.yellow);
     }
 
     Timer {

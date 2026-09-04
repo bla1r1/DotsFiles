@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls
 import Quickshell
 import B1air.Daemon
 import Quickshell.Io
@@ -128,10 +129,24 @@ PopupShell {
     }
 
     // ── Main dashboard ───────────────────────────────────────────────────────
-    ColumnLayout {
+    // The tile grid plus every mini-view below it never fit the popup's fixed
+    // height once more than a couple of tiles were visible — content past the
+    // bottom just clipped, with no way to reach it. A Flickable lets it
+    // scroll instead; the ColumnLayout keeps its own layout unchanged, it's
+    // just no longer forced to exactly the popup's height.
+    Flickable {
         anchors.fill: parent
-        spacing: Design.s(Design.space.md)
         visible: center.currentView === "main"
+        contentWidth: width
+        contentHeight: mainColumn.implicitHeight
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+        ScrollBar.vertical: ScrollBar {}
+
+    ColumnLayout {
+        id: mainColumn
+        width: parent.width
+        spacing: Design.s(Design.space.md)
 
         // ── 1. Header ────────────────────────────────────────────────────────
         RowLayout {
@@ -617,6 +632,7 @@ PopupShell {
                 onActivated: Daemon.power("shutdown")
             }
         }
+    }
     }
 
     // ── Mini-settings pages ──────────────────────────────────────────────────

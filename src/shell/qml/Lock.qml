@@ -9,6 +9,12 @@ import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Services.Pam
 import "./Ui"
+// Aliased: QtCore's own `Settings` type collides with Services/Settings.qml's
+// singleton of the same name, and an unaliased directory import made the
+// engine refuse to create either — "Composite Singleton Type Settings is not
+// creatable" — which crashed Lock.qml on every single launch. Nothing here
+// rendered, ever; the lock "not appearing" was this, not a spawn problem.
+import "./Services" as Services
 import "WindowRegistry.js" as LayoutMath
 
 ShellRoot {
@@ -110,8 +116,14 @@ ShellRoot {
 
                 property string staticWallpaperPath: "file://" + (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/b1air/lock_bg.png"
 
-                property string batPct: "100"
-                property string batStatus: "AC"
+                // Was its own `cat /sys/class/power_supply/BAT*/capacity` poller.
+                // This machine has two BAT* nodes and the glob's first match
+                // (BAT0) isn't the one UPower treats as the real battery, so the
+                // lock screen always showed a stale 100% no matter the real
+                // charge. Power already resolves the correct device for TopBar;
+                // reuse it instead of re-guessing from sysfs.
+                readonly property string batPct: Services.Power.hasBattery ? String(Services.Power.capacity) : "100"
+                readonly property string batStatus: Services.Power.hasBattery ? (Services.Power.charging ? "Charging" : "Discharging") : "AC"
                 property string currentUser: "User"
                 property string faceIconPath: ""
                 property string kbLayout: "US"
@@ -216,22 +228,6 @@ ShellRoot {
                     interval: 2000
                     onTriggered: { kbPoller.running = true; kbEvents.running = true; }
                 }
-
-                Process {
-                    id: batPoller
-                    running: !screenRoot.isDesktop
-                    command: ["bash", "-c", "cat /sys/class/power_supply/BAT*/capacity 2>/dev/null | head -n1 || echo '100'; cat /sys/class/power_supply/BAT*/status 2>/dev/null | head -n1 || echo 'AC'"]
-                    stdout: StdioCollector {
-                        onStreamFinished: {
-                            let lines = this.text.trim().split("\n");
-                            if (lines.length >= 2) {
-                                screenRoot.batPct = lines[0] || "100";
-                                screenRoot.batStatus = lines[1] || "Unknown";
-                            }
-                        }
-                    }
-                }
-                Timer { interval: 5000; running: !screenRoot.isDesktop; repeat: true; triggeredOnStart: true; onTriggered: batPoller.running = true }
 
                 Process {
                     id: weatherPoller

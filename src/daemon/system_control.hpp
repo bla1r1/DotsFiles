@@ -14,6 +14,13 @@ public:
 
     // Power & Session management
     static bool lock_session(const std::string& mode = "auto"); // "auto", "quickshell", "swaylock"
+    // Non-blocking: spawns the lock screen and returns immediately, instead
+    // of waiting for it to be dismissed. lock_session() waits for
+    // run_quickshell_lock()'s child to exit, which is fine for an explicit
+    // "lock now" call but wrong for swayidle's before-sleep hook — logind
+    // only grants a few seconds before forcing sleep regardless, so a
+    // blocking call there gets killed mid-lock and looks like it never ran.
+    static bool lock_session_async();
     static bool run_swaylock();
     static bool run_quickshell_lock();
     static bool logout_session();
