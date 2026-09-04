@@ -169,25 +169,107 @@ arch_packages() {
         pipewire wireplumber pipewire-pulse playerctl libcanberra sound-theme-freedesktop ffmpeg gifsicle noise-suppression-for-voice
         # System & Hardware
         upower brightnessctl ddcutil pacman-contrib libnotify
+        # glxinfo: the session auto-tunes compositor effects off on a software
+        # rasterizer, and without this the check silently never fires.
+        mesa-utils
         # Network & Bluetooth
         networkmanager bluez bluez-utils
         # Display Manager (SDDM) & Qt6 Components
         sddm qt6-declarative qt6-wayland qt6-svg qt6-virtualkeyboard
         # Theming & Fonts
         kvantum
-        noto-fonts-emoji noto-fonts-cjk ttf-jetbrains-mono-nerd ttf-fira-sans
+        noto-fonts noto-fonts-emoji noto-fonts-cjk ttf-jetbrains-mono-nerd ttf-fira-sans
+        ttf-liberation
         papirus-icon-theme
         # Utilities & Tools
         imagemagick sqlite tesseract tesseract-data-eng zbar qrencode
+        # Tools the shell shells out to. Without these the button exists, the
+        # command does not, and the action fails for no visible reason.
+        power-profiles-daemon pamixer poppler gocryptfs easyeffects
+        wlsunset snapper
+        # Storage & archives: removable media, phones, NTFS volumes, 7z.
+        udisks2 gvfs ntfs-3g 7zip
+        # Desktop plumbing every DE ships: XDG user directories, Qt platform
+        # theming (this repo already ships qt5ct/qt6ct configs), printing.
+        xdg-user-dirs qt5ct qt6ct cups
+        # Input method — the CJK fonts below are useless without a way to type.
+        fcitx5 fcitx5-qt fcitx5-gtk fcitx5-configtool
     )
 
     [[ "$NO_AUR" -eq 1 ]] && pkgs+=(sway)
     echo "${pkgs[@]}"
 }
 
+# Display-controller vendors present on the PCI bus, read straight from sysfs:
+# lspci would mean depending on pciutils, which is the same trap that left the
+# software-rendering check silently disabled.
+gpu_vendors() {
+    local vendors=() dev class vendor
+    for dev in /sys/bus/pci/devices/*; do
+        [[ -r "$dev/class" && -r "$dev/vendor" ]] || continue
+        class="$(< "$dev/class")"
+        [[ "$class" == 0x03* ]] || continue     # 0x03xxxx = display controller
+        vendor="$(< "$dev/vendor")"
+        case "$vendor" in
+            0x10de) vendors+=(nvidia) ;;
+            0x1002) vendors+=(amd) ;;
+            0x8086) vendors+=(intel) ;;
+        esac
+    done
+    [[ ${#vendors[@]} -gt 0 ]] && printf '%s\n' "${vendors[@]}" | sort -u
+    return 0
+}
+
+# The nvidia package is built against a specific kernel; the wrong variant
+# leaves the module unbuilt and the session without a driver.
+nvidia_package_for_kernel() {
+    case "$(uname -r)" in
+        *-lts)  echo "nvidia-lts" ;;
+        *-arch*) echo "nvidia" ;;
+        *)      echo "nvidia-dkms" ;;
+    esac
+}
+
+install_gpu_drivers() {
+    local virt
+    virt="$(systemd-detect-virt 2>/dev/null || echo none)"
+    if [[ "$virt" != "none" ]]; then
+        log "Virtual machine ($virt) — skipping GPU drivers; mesa already covers it."
+        return 0
+    fi
+
+    local vendors pkgs=()
+    vendors="$(gpu_vendors)"
+    if [[ -z "$vendors" ]]; then
+        warn "No PCI display controller recognised; leaving graphics drivers alone."
+        return 0
+    fi
+
+    local vendor nv
+    while read -r vendor; do
+        [[ -n "$vendor" ]] || continue
+        case "$vendor" in
+            nvidia)
+                nv="$(nvidia_package_for_kernel)"
+                log "NVIDIA GPU detected — installing ${nv} for kernel $(uname -r)."
+                pkgs+=("$nv" nvidia-utils) ;;
+            amd)
+                log "AMD GPU detected — installing Vulkan and VA-API userspace."
+                pkgs+=(vulkan-radeon libva-mesa-driver) ;;
+            intel)
+                log "Intel GPU detected — installing Vulkan and VA-API userspace."
+                pkgs+=(vulkan-intel intel-media-driver) ;;
+        esac
+    done <<< "$vendors"
+
+    pkg_install "${pkgs[@]}"
+}
+
 aur_packages() {
     local pkgs=(
         swayfx
+        # Screen recording: the daemon calls wl-screenrec; AUR-only.
+        wl-screenrec
     )
     echo "${pkgs[@]}"
 }
@@ -424,6 +506,10 @@ enable_services() {
 
     sudo systemctl enable NetworkManager || warn "Failed to enable NetworkManager"
     sudo systemctl enable bluetooth || warn "Failed to enable Bluetooth"
+    # Installed above, but inert until enabled: the shell's power-profile
+    # switch talks to this daemon, and printing needs the cups socket.
+    sudo systemctl enable power-profiles-daemon || warn "Failed to enable power-profiles-daemon"
+    sudo systemctl enable cups.socket || warn "Failed to enable CUPS"
     # ponytail: SDDM last and strict — enabling it early boots the user into a broken session
     sudo systemctl enable sddm || { err "Failed to enable SDDM."; exit 1; }
 }
@@ -511,6 +597,7 @@ main() {
     if [[ "$SKIP_PACKAGES" -eq 0 ]]; then
         step multilib   enable_multilib_repo
         step packages   pkg_install $(arch_packages)
+        step gpu        install_gpu_drivers
         if [[ "$NO_AUR" -eq 0 ]]; then
             step aur    aur_step
         else

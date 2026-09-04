@@ -303,10 +303,28 @@ int SessionManager::run_session() {
     }
 
     // 12. Auto-tune compositor effects for software rasterizer / VM (KDE Plasma approach)
+    //
+    // glxinfo lives in mesa-utils and used to be missing, so this check quietly
+    // did nothing and left blur and shadows enabled on a software rasterizer —
+    // which is what made scrolling cost most of a core inside a VM. When the
+    // tool is unavailable, fall back to looking for a DRM render node: no node
+    // means no hardware renderer.
     const std::string glx_info = run_capture({"glxinfo"});
-    if (glx_info.find("llvmpipe") != std::string::npos ||
-        glx_info.find("softpipe") != std::string::npos ||
-        glx_info.find("swrast") != std::string::npos) {
+    bool software_render = glx_info.find("llvmpipe") != std::string::npos ||
+                           glx_info.find("softpipe") != std::string::npos ||
+                           glx_info.find("swrast")   != std::string::npos;
+    if (glx_info.empty()) {
+        // A virtual GPU still publishes a render node, so its presence proves
+        // nothing; the DRM driver name is what distinguishes one.
+        char drv[256] = {0};
+        const ssize_t n = readlink("/sys/class/drm/card0/device/driver", drv, sizeof(drv) - 1);
+        const std::string driver = n > 0 ? std::string(drv) : std::string();
+        for (const char* virt : {"virtio", "vmwgfx", "qxl", "bochs", "vboxvideo"}) {
+            if (driver.find(virt) != std::string::npos) { software_render = true; break; }
+        }
+        if (driver.empty()) software_render = true;  // no DRM device at all
+    }
+    if (software_render) {
         run_status({"swaymsg", "blur disable; shadows disable; default_dim_inactive 0.0"});
     }
 
