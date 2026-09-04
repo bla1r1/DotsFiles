@@ -207,7 +207,7 @@ ColumnLayout {
                 icon: "\u{f0c7}"
                 label: "Create Pre-Update Restore Point"
                 tone: Design.teal
-                onActivated: Quickshell.execDetached(["b1air-daemon", "snapshot", "create", "Manual user snapshot"])
+                onActivated: Cmd.run(["b1air-daemon", "snapshot", "create", "Manual user snapshot"], "Create snapshot")
             }
         }
     }

@@ -595,7 +595,7 @@ PopupShell {
             ActionButton {
                 icon: "\u{f04b2}"
                 label: "Sleep"
-                onActivated: Quickshell.execDetached(["b1air-daemon", "power", "suspend"])
+                onActivated: Cmd.run(["b1air-daemon", "power", "suspend"], "Suspend")
             }
 
             ActionButton {
@@ -604,7 +604,7 @@ PopupShell {
                 iconTone: Design.peach
                 tone: Design.peach
                 destructive: true
-                onActivated: Quickshell.execDetached(["b1air-daemon", "power", "reboot"])
+                onActivated: Cmd.run(["b1air-daemon", "power", "reboot"], "Reboot")
             }
 
             ActionButton {
@@ -613,7 +613,7 @@ PopupShell {
                 iconTone: Design.danger
                 tone: Design.danger
                 destructive: true
-                onActivated: Quickshell.execDetached(["b1air-daemon", "power", "shutdown"])
+                onActivated: Cmd.run(["b1air-daemon", "power", "shutdown"], "Shut down")
             }
         }
     }

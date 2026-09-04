@@ -1,7 +1,7 @@
 #include "system_control.hpp"
 #include "sway_ipc.hpp"
 #include "settings_manager.hpp"
-#include "json.hpp"
+#include <nlohmann/json.hpp>
 #include "secret_store.hpp"
 
 #include <iostream>
@@ -504,9 +504,8 @@ std::string SystemControl::get_game_mode_status_json() {
 
 // ── Session Control ──────────────────────────────────────────────────────────
 bool SystemControl::run_quickshell_lock() {
-    const char* home = std::getenv("HOME");
-    std::string qs_lock = std::string(home ? home : "") + "/.config/quickshell/Lock.qml";
-    if (access(qs_lock.c_str(), R_OK) != 0) {
+    const std::string qs_lock = b1air::qml_entry("Lock.qml");
+    if (qs_lock.empty()) {
         return false;
     }
     ddc_dim();
@@ -1858,7 +1857,8 @@ std::string SystemControl::weather_get_json(bool force) {
         }
     }
 
-    std::string env_file = home_str + "/.config/quickshell/calendar/.env";
+    std::string env_file = home_str + "/.config/b1air-shell/calendar/.env";
+    if (access(env_file.c_str(), R_OK) != 0) env_file = home_str + "/.config/quickshell/calendar/.env";
     std::string api_key;
     SecretStore secrets;
     (void)secrets.get("weather-api-key", api_key);
@@ -2305,9 +2305,10 @@ bool SystemControl::reload_desktop() {
         (void)run_argv_status({"swaymsg", "reload"});
     }
 
-    const char* home = std::getenv("HOME");
-    const std::string main_qml = std::string(home ? home : "") + "/.config/quickshell/Main.qml";
-    (void)run_argv_status({"qs", "-p", main_qml, "ipc", "call", "main", "forceReload"});
+    const std::string main_qml = b1air::qml_entry("Main.qml");
+    if (!main_qml.empty()) {
+        (void)run_argv_status({"qs", "-p", main_qml, "ipc", "call", "main", "forceReload"});
+    }
     return true;
 }
 

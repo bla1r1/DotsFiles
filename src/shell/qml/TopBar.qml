@@ -60,6 +60,16 @@ PanelWindow {
         runningAppsProcess.running = true;
     }
 
+    function refreshWorkspaces() {
+        workspacesProcess.running = false;
+        workspacesProcess.running = true;
+    }
+
+    Component.onCompleted: {
+        refreshRunningApps();
+        refreshWorkspaces();
+    }
+
     function collectSwayNodes(nodes, result, workspaceName) {
         for (let node of (nodes || [])) {
             let currentWorkspace = node.type === "workspace" ? (node.name || workspaceName) : workspaceName;
@@ -141,9 +151,6 @@ PanelWindow {
             "  LOAD=$(cut -d' ' -f1 /proc/loadavg); " +
             "  KBD=$(b1air-daemon layout 2>/dev/null || echo US); " +
             "  echo \"STATS|${cpu}%|${LOAD}|${KBD}\"; " +
-            "  SWAYSOCK=$(ls -t /run/user/1000/sway-ipc.*.sock 2>/dev/null | head -n1); " +
-            "  WS=$(swaymsg -t get_workspaces 2>/dev/null || echo '[]'); " +
-            "  echo \"WS|${WS}\"; " +
             "  sleep 2; " +
             "done"
         ]
@@ -157,15 +164,20 @@ PanelWindow {
                         topBar.loadAvg = parts[2];
                         topBar.kbdLayout = parts[3].toUpperCase();
                     }
-                } else if (str.startsWith("WS|")) {
-                    let jsonStr = str.substring(3);
-                    try {
-                        let ws = JSON.parse(jsonStr);
-                        if (Array.isArray(ws) && ws.length > 0) {
-                            topBar.workspacesList = ws;
-                        }
-                    } catch(e) {}
                 }
+            }
+        }
+    }
+
+    Process {
+        id: workspacesProcess
+        command: ["bash", "-c", "SWAYSOCK=$(ls -t /run/user/$(id -u)/sway-ipc.*.sock 2>/dev/null | head -n1); export SWAYSOCK; swaymsg -t get_workspaces"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    let ws = JSON.parse(this.text);
+                    if (Array.isArray(ws) && ws.length > 0) topBar.workspacesList = ws;
+                } catch (e) {}
             }
         }
     }
@@ -189,12 +201,47 @@ PanelWindow {
         }
     }
 
-    Timer {
-        interval: 1000
+    // Sway pushes window/workspace events, so there is nothing to poll for:
+    // one long-lived subscription replaces a get_tree spawn every second.
+    Process {
+        id: swayEvents
         running: true
-        repeat: true
-        triggeredOnStart: true
-        onTriggered: topBar.refreshRunningApps()
+        command: [
+            "bash", "-c",
+            "SWAYSOCK=$(ls -t /run/user/$(id -u)/sway-ipc.*.sock 2>/dev/null | head -n1); export SWAYSOCK; " +
+            // swaymsg blocks on the sway socket and never notices its stdout closing,
+            // so it outlives the shell instead of dying with it. Reap the previous
+            // one here: at most one stale subscription can ever exist.
+            "for p in $(pgrep -f 'swaymsg -t subscribe -m' 2>/dev/null); do " +
+            "  [ \"$p\" != \"$$\" ] && kill \"$p\" 2>/dev/null; done; " +
+            "exec swaymsg -t subscribe -m '[\"window\",\"workspace\"]'"
+        ]
+        stdout: SplitParser {
+            // Coalesce bursts: dragging a window emits a stream of events, and one
+            // refresh per event would spawn more processes than the old polling did.
+            onRead: (line) => { if (("" + line).trim()) swayCoalesce.restart(); }
+        }
+        // Sway restarts hand out a new socket; reconnect instead of going stale.
+        onExited: swayResubscribe.restart()
+    }
+
+    Timer {
+        id: swayCoalesce
+        interval: 120
+        onTriggered: {
+            topBar.refreshRunningApps();
+            topBar.refreshWorkspaces();
+        }
+    }
+
+    Timer {
+        id: swayResubscribe
+        interval: 2000
+        onTriggered: {
+            topBar.refreshRunningApps();
+            topBar.refreshWorkspaces();
+            swayEvents.running = true;
+        }
     }
 
     // ── Bar Content Layout ──────────────────────────────────────────────────
@@ -472,7 +519,7 @@ PanelWindow {
                 font.family: topBar.fontMain
                 font.pixelSize: 13
                 font.bold: true
-                color: "#ffffff"
+                color: topBar.colFg
             }
 
             MouseArea {

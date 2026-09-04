@@ -53,15 +53,11 @@ shell: shell-target
 
 install: daemon-target polkit-target secret-target shell-target
 	mkdir -p $(PREFIX)
+	# ponytail: install whatever cmake built, so new apps need no edit here
+	for f in shell/build/b1air-*; do test -x "$$f" && install -m 755 "$$f" $(PREFIX)/ || true; done
 	install -m 755 $(TARGET_DAEMON) $(PREFIX)/$(TARGET_DAEMON)
 	install -m 755 $(TARGET_POLKIT) $(PREFIX)/$(TARGET_POLKIT)
 	install -m 755 $(TARGET_SECRET) $(PREFIX)/$(TARGET_SECRET)
-	install -m 755 $(TARGET_SHELL) $(PREFIX)/b1air-shell
-	install -m 755 shell/build/b1air-files $(PREFIX)/b1air-files 2>/dev/null || install -m 755 ../tools/b1air-files $(PREFIX)/b1air-files
-	install -m 755 shell/build/b1air-settings $(PREFIX)/b1air-settings 2>/dev/null || install -m 755 ../tools/b1air-settings $(PREFIX)/b1air-settings
-	install -m 755 shell/build/b1air-monitor $(PREFIX)/b1air-monitor 2>/dev/null || install -m 755 ../tools/b1air-monitor $(PREFIX)/b1air-monitor
-	install -m 755 shell/build/b1air-text $(PREFIX)/b1air-text 2>/dev/null || install -m 755 ../tools/b1air-text $(PREFIX)/b1air-text
-	install -m 755 shell/build/b1air-term $(PREFIX)/b1air-term 2>/dev/null || install -m 755 ../tools/b1air-term $(PREFIX)/b1air-term
 	mkdir -p $(HOME)/.config/b1air-shell
 	rsync -a shell/qml/ $(HOME)/.config/b1air-shell/
 

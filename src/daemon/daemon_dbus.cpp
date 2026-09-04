@@ -1,6 +1,7 @@
 #include "daemon_dbus.hpp"
 #include "system_control.hpp"
 #include "focustime_db.hpp"
+#include "runtime.hpp"
 #include <iostream>
 #include <cstring>
 #include <cstdlib>
@@ -225,8 +226,8 @@ static int method_shell_toggle(sd_bus_message *m, void *userdata, sd_bus_error *
     sd_bus_message_read(m, "s", &panel);
     std::string p = (panel && strlen(panel) > 0) ? panel : "launcher";
     if (!valid_panel(p)) return sd_bus_error_set_const(ret_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid panel");
-    const char* home = std::getenv("HOME");
-    const std::string qml = std::string(home ? home : "/home/dev") + "/.config/quickshell/Main.qml";
+    const std::string qml = b1air::qml_entry("Main.qml");
+    if (qml.empty()) return sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FILE_NOT_FOUND, "Shell QML not installed");
     spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "toggle", p, ""}, get_wayland_display().c_str());
     return sd_bus_reply_method_return(m, "");
 }
@@ -242,8 +243,8 @@ static int method_shell_open(sd_bus_message *m, void *userdata, sd_bus_error *re
     if (!valid_panel(p) || !safe_shell_arg(a)) {
         return sd_bus_error_set_const(ret_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid shell argument");
     }
-    const char* home = std::getenv("HOME");
-    const std::string qml = std::string(home ? home : "/home/dev") + "/.config/quickshell/Main.qml";
+    const std::string qml = b1air::qml_entry("Main.qml");
+    if (qml.empty()) return sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FILE_NOT_FOUND, "Shell QML not installed");
     spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "open", p, a}, get_wayland_display().c_str());
     return sd_bus_reply_method_return(m, "");
 }
@@ -251,8 +252,8 @@ static int method_shell_open(sd_bus_message *m, void *userdata, sd_bus_error *re
 static int method_shell_close(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
     REQUIRE_SESSION_USER();
-    const char* home = std::getenv("HOME");
-    const std::string qml = std::string(home ? home : "/home/dev") + "/.config/quickshell/Main.qml";
+    const std::string qml = b1air::qml_entry("Main.qml");
+    if (qml.empty()) return sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FILE_NOT_FOUND, "Shell QML not installed");
     spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "close"}, get_wayland_display().c_str());
     return sd_bus_reply_method_return(m, "");
 }
@@ -260,8 +261,8 @@ static int method_shell_close(sd_bus_message *m, void *userdata, sd_bus_error *r
 static int method_shell_reload(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
     REQUIRE_SESSION_USER();
-    const char* home = std::getenv("HOME");
-    const std::string qml = std::string(home ? home : "/home/dev") + "/.config/quickshell/Main.qml";
+    const std::string qml = b1air::qml_entry("Main.qml");
+    if (qml.empty()) return sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FILE_NOT_FOUND, "Shell QML not installed");
     spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "forceReload"}, get_wayland_display().c_str());
     return sd_bus_reply_method_return(m, "");
 }

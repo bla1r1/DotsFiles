@@ -302,7 +302,7 @@ ApplicationWindow {
                                 font.family: "Fira Sans SemiBold, sans-serif"
                                 font.pixelSize: 13
                                 font.bold: true
-                                color: "#ffffff"
+                                color: window.colFg
                             }
                             Text {
                                 text: "Explorer & Gallery"
@@ -460,7 +460,7 @@ ApplicationWindow {
                                 Layout.fillWidth: true
                                 height: 4
                                 radius: 2
-                                color: "#1f2335"
+                                color: window.colBorderSubtle
 
                                 Rectangle {
                                     width: parent.width * 0.42
@@ -639,7 +639,7 @@ ApplicationWindow {
                                     Layout.fillWidth: true
                                     font.family: "Fira Sans, sans-serif"
                                     font.pixelSize: 11
-                                    color: "#ffffff"
+                                    color: window.colFg
                                     clip: true
                                     selectByMouse: true
                                     onTextChanged: window.filterQuery = text.trim()
@@ -721,6 +721,7 @@ ApplicationWindow {
                     // 1. GRID VIEW (Default, Smooth Fast Scrolling)
                     GridView {
                         id: grid
+                        reuseItems: true
                         anchors.fill: parent
                         anchors.margins: 14
                         cellWidth: 114
@@ -809,6 +810,7 @@ ApplicationWindow {
                     // 2. LIST VIEW
                     ListView {
                         id: listView
+                        reuseItems: true
                         anchors.fill: parent
                         anchors.margins: 10
                         clip: true
@@ -883,6 +885,7 @@ ApplicationWindow {
                     // 3. GALLERY VIEW
                     GridView {
                         id: galView
+                        reuseItems: true
                         anchors.fill: parent
                         anchors.margins: 14
                         cellWidth: 180
@@ -912,7 +915,7 @@ ApplicationWindow {
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
                                     radius: 6
-                                    color: "#0a0b10"
+                                    color: window.colSunken
                                     clip: true
 
                                     Image {

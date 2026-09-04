@@ -634,7 +634,7 @@ PopupShell {
                             RowLayout {
                                 spacing: Design.s(10)
                                 Rectangle {
-                                    color: "#1AFFFFFF"
+                                    color: Design.raised
                                     radius: Design.s(4)
                                     Layout.preferredHeight: Design.s(24)
                                     Layout.preferredWidth: pillContent.width + Design.s(20)
@@ -875,7 +875,7 @@ PopupShell {
                     Layout.preferredHeight: Design.s(2)
                     Layout.topMargin: Design.s(20)
                     Layout.bottomMargin: Design.s(20)
-                    color: "#1AFFFFFF"
+                    color: Design.line
                     radius: Design.s(1)
 
                     opacity: root.introSeparator
@@ -1084,14 +1084,18 @@ PopupShell {
                                                 Rectangle {
                                                     z: -1
                                                     anchors.centerIn: parent
-                                                    width: parent.width + Design.s(20) + sliderDelegate.ringPulse * Design.s(40)
-                                                    height: parent.height + Design.s(20) + sliderDelegate.ringPulse * Design.s(60)
-                                                    radius: parent.radius + Design.s(10) + sliderDelegate.ringPulse * Design.s(20)
+                                                    // Geometry is fixed at the pulse peak and the pulse drives
+                                                    // scale instead: resizing a blurred layer re-renders and
+                                                    // re-blurs its FBO every frame, scaling one does not.
+                                                    width: parent.width + Design.s(60)
+                                                    height: parent.height + Design.s(80)
+                                                    radius: parent.radius + Design.s(30)
                                                     color: "transparent"
                                                     border.color: Design.accentAlt
-                                                    border.width: Design.s(2) + sliderDelegate.ringPulse * Design.s(4)
+                                                    border.width: Design.s(6)
                                                     opacity: sliderDelegate.ringPulse * 0.8 * (1.0 - root.eqLightningFade)
-                                                    
+                                                    scale: 0.7 + sliderDelegate.ringPulse * 0.3
+
                                                     layer.enabled: true
                                                     layer.effect: MultiEffect { blurEnabled: true; blurMax: 32; blur: 1.0 }
                                                 }
@@ -1170,11 +1174,13 @@ PopupShell {
                                                 // Core glow flare that cleanly fades out matching the canvas
                                                 Rectangle {
                                                     anchors.centerIn: parent
-                                                    width: parent.width + Design.s(36) * sliderDelegate.hitPulse // Bigger bloom
+                                                    // Fixed size + scale: see the shockwave ring above.
+                                                    width: parent.width + Design.s(36)
                                                     height: width
                                                     radius: width / 2
                                                     color: parent.catColors[index % parent.catColors.length]
                                                     opacity: sliderDelegate.hitPulse * (1.0 - root.eqLightningFade)
+                                                    scale: 0.5 + sliderDelegate.hitPulse * 0.5
                                                     layer.enabled: true
                                                     layer.effect: MultiEffect { blurEnabled: true; blurMax: 32; blur: 1.0 }
                                                 }

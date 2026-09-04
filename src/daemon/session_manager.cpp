@@ -297,12 +297,9 @@ int SessionManager::run_session() {
     }
 
     // 10. Launch Native Desktop Shell & TopBar (integrated Layer-Shell)
-    const char* home = std::getenv("HOME");
     if (!is_process_running("quickshell")) {
-        std::string qs_main = std::string(home ? home : "") + "/.config/quickshell/Main.qml";
-        if (access(qs_main.c_str(), R_OK) == 0) {
-            spawn_argv_detached({"quickshell", "-p", qs_main});
-        }
+        const std::string qs_main = qml_entry("Main.qml");
+        if (!qs_main.empty()) spawn_argv_detached({"quickshell", "-p", qs_main});
     }
 
     // 12. Auto-tune compositor effects for software rasterizer / VM (KDE Plasma approach)

@@ -149,6 +149,10 @@ PopupShell {
                 fillMode: Image.PreserveAspectFit
                 asynchronous: true
                 smooth: true
+                // Decode to preview size: a full-res photo would otherwise cost
+                // hundreds of MB of pixel data for a thumbnail-sized view.
+                sourceSize.width: Math.max(1, Math.round(width))
+                sourceSize.height: Math.max(1, Math.round(height))
             }
 
             // 2. Text / Code / Archive / PDF Metadata Preview

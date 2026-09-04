@@ -9,6 +9,7 @@ import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Services.Pam
 import "./Ui"
+import "WindowRegistry.js" as LayoutMath
 
 ShellRoot {
     id: root
@@ -102,7 +103,9 @@ ShellRoot {
                 // --- Responsive Scaling Logic ---
                 // We use a property binding instead of a function to ensure 
                 // continuous updates even if surface width starts at 0.
-                readonly property real sc: scaler.baseScale
+                // `scaler` never existed, so this binding resolved to undefined and every
+                // one of the 110 sizes derived from sc collapsed. Same scale maths as Design.
+                readonly property real sc: LayoutMath.getScale(surface.width, 1.0)
                 // --------------------------------
 
                 property string staticWallpaperPath: "file://" + (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/b1air/lock_bg.png"
@@ -124,6 +127,7 @@ ShellRoot {
                 
                 Component.onCompleted: {
                     introSequence.start();
+                    kbPoller.running = true;   // seed the layout; updates arrive by event
                 }
 
                 property real globalOrbitAngle: 0
@@ -187,7 +191,31 @@ ShellRoot {
                         }
                     }
                 }
-                Timer { interval: 150; running: true; repeat: true; triggeredOnStart: true; onTriggered: kbPoller.running = true }
+                // Sway emits an `input` event when the layout changes, so the
+                // layout is read on change instead of six times a second. The
+                // old 150ms poll ran a five-process pipeline every tick, which
+                // is the last thing a locked, idle machine should be doing.
+                Process {
+                    id: kbEvents
+                    running: true
+                    // Reap a previous lock's subscription: swaymsg blocks on the
+                    // sway socket and never notices its stdout closing, so it
+                    // outlives the instance that spawned it.
+                    command: ["bash", "-c",
+                        "for p in $(pgrep -f 'swaymsg -t subscribe -m .\\[.input' 2>/dev/null); do " +
+                        "  [ \"$p\" != \"$$\" ] && kill \"$p\" 2>/dev/null; done; " +
+                        "exec swaymsg -t subscribe -m '[\"input\"]'"]
+                    stdout: SplitParser {
+                        onRead: (line) => { if (("" + line).trim()) kbPoller.running = true; }
+                    }
+                    onExited: kbResubscribe.restart()
+                }
+
+                Timer {
+                    id: kbResubscribe
+                    interval: 2000
+                    onTriggered: { kbPoller.running = true; kbEvents.running = true; }
+                }
 
                 Process {
                     id: batPoller

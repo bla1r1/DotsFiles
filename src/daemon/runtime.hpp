@@ -2,10 +2,37 @@
 
 #include <sys/stat.h>
 #include <unistd.h>
+#include <pwd.h>
 #include <cstdlib>
 #include <string>
 
 namespace b1air {
+
+// $HOME, falling back to the passwd entry rather than to a guess: the old
+// "/home/dev" default came from the development VM and silently pointed a
+// real user's daemon at a path that does not exist on their machine.
+inline std::string home_dir() {
+    const char* home = std::getenv("HOME");
+    if (home && *home) return home;
+    if (const struct passwd* pw = getpwuid(getuid()); pw && pw->pw_dir) return pw->pw_dir;
+    return {};
+}
+
+// Resolve a QML entry point by name ("Main.qml", "Lock.qml").
+//
+// `make install` deploys the QML to ~/.config/b1air-shell, while older setups
+// kept it in ~/.config/quickshell. Checking only the latter meant a fresh
+// install had no lock screen and four dead IPC entry points, all failing
+// silently. Returns an empty string when neither location has the file.
+inline std::string qml_entry(const char* name) {
+    const std::string home = home_dir();
+    if (home.empty()) return {};
+    for (const char* dir : {"/.config/b1air-shell/", "/.config/quickshell/"}) {
+        std::string path = home + dir + name;
+        if (access(path.c_str(), R_OK) == 0) return path;
+    }
+    return {};
+}
 
 inline std::string runtime_dir() {
     const char* configured = std::getenv("XDG_RUNTIME_DIR");

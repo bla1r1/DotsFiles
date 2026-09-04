@@ -332,6 +332,11 @@ main() {
     printf "\n${BOLD}${CYAN}=== DotsFiles Smart Environment Updater ===${RESET}\n\n"
     pull_upstream
     check_packages
+    # ponytail: configs without binaries = stale suite after a source change
+    if [[ "$CONFIGS_ONLY" -eq 0 && "$DRY_RUN" -eq 0 ]]; then
+        log "Rebuilding b1air suite..."
+        make -C "$REPO_DIR/src" install || { err "Suite rebuild failed."; exit 1; }
+    fi
     sync_configs
     reload_environment
     printf "\n${GREEN}${BOLD}✓ Update completed successfully!${RESET}\n\n"

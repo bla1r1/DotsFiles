@@ -13,6 +13,7 @@ SKIP_DOTFILES=0
 SKIP_SERVICES=0
 NO_AUR=0
 DRY_RUN=0
+RESTART=0
 
 # Colors
 RESET="\e[0m"
@@ -23,10 +24,35 @@ CYAN="\e[36m"
 RED="\e[31m"
 MAGENTA="\e[35m"
 
-log()  { printf "\n${CYAN}[INFO]${RESET} %s\n" "$*"; }
-ok()   { printf "${GREEN}[OK]${RESET}   %s\n" "$*"; }
+# ponytail: all chatter goes to stderr so $(...) captures only real return values
+log()  { printf "\n${CYAN}[INFO]${RESET} %s\n" "$*" >&2; }
+ok()   { printf "${GREEN}[OK]${RESET}   %s\n" "$*" >&2; }
 warn() { printf "\n${YELLOW}[WARN]${RESET} %s\n" "$*" >&2; }
 err()  { printf "\n${RED}[ERR]${RESET}  %s\n" "$*" >&2; }
+
+# ponytail: flat list of finished step names; deleted on a fully successful run
+STATE_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles-install.state"
+
+init_state() {
+    if [[ "$RESTART" -eq 1 ]]; then
+        rm -f "$STATE_FILE"
+    elif [[ -s "$STATE_FILE" ]]; then
+        log "Resuming: $(grep -c . "$STATE_FILE") step(s) already done. Use --restart to redo everything."
+    fi
+    mkdir -p "$(dirname "$STATE_FILE")"
+}
+
+# step <name> <command...> — runs the command unless it already succeeded before
+step() {
+    local name="$1"; shift
+    if [[ -f "$STATE_FILE" ]] && grep -qxF "$name" "$STATE_FILE"; then
+        ok "Skipping '${name}' (done in a previous run)."
+        return 0
+    fi
+    [[ "$DRY_RUN" -eq 1 ]] && { log "Would run step: $name"; return 0; }
+    "$@"
+    printf '%s\n' "$name" >> "$STATE_FILE"
+}
 
 usage() {
     cat <<EOF
@@ -40,6 +66,7 @@ Options:
   --skip-services   Skip enabling system services (NetworkManager, bluetooth, SDDM)
   --no-aur          Skip AUR packages (use standard sway/swaylock)
   --dry-run         Simulate installation without making system changes
+  --restart         Ignore saved progress and run every step from scratch
   -h, --help        Show this help message and exit
 EOF
 }
@@ -54,6 +81,7 @@ parse_args() {
             --skip-services) SKIP_SERVICES=1; shift ;;
             --no-aur)        NO_AUR=1; shift ;;
             --dry-run)       DRY_RUN=1; shift ;;
+            --restart)       RESTART=1; shift ;;
             -h|--help)       usage; exit 0 ;;
             *) err "Unknown option: $1"; usage; exit 1 ;;
         esac
@@ -87,18 +115,21 @@ pkg_install() {
         if [[ "$DRY_RUN" -eq 1 ]]; then
             log "Would install: ${to_install[*]}"
         else
-            sudo pacman -S --needed --noconfirm "${to_install[@]}" || warn "Some packages failed to install."
+            # ponytail: a swallowed failure here means a "successful" install with nothing installed
+            sudo pacman -Sy --needed --noconfirm "${to_install[@]}" || {
+                err "Package installation failed — fix the error above and re-run (progress is saved)."
+                exit 1; }
         fi
     fi
 }
 
 enable_multilib_repo() {
+    # ponytail: 32-bit repo, needed later for steam/wine; it only exists on x86_64
+    [[ "$(uname -m)" == "x86_64" ]] || { log "Skipping [multilib]: not available on $(uname -m)."; return 0; }
+
     local conf="/etc/pacman.conf"
     [[ -f "$conf" ]] || return 0
-
-    if grep -Eq '^[[:space:]]*\[multilib\]' "$conf"; then
-        return 0
-    fi
+    grep -Eq '^[[:space:]]*\[multilib\]' "$conf" && return 0
 
     log "Enabling pacman [multilib] repository..."
     if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -112,16 +143,18 @@ enable_multilib_repo() {
     else
         printf '\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n' | sudo tee -a "$conf" >/dev/null
     fi
-    sudo pacman -Sy --noconfirm
+    # ponytail: no -Sy here; the packages step syncs databases anyway
 }
 
 arch_packages() {
     local pkgs=(
         # Core & Build
-        base-devel git rsync curl unzip jq cmake ccache openssl polkit
+        base-devel git rsync curl unzip jq cmake ccache openssl polkit nlohmann-json
         # Wayland Compositor & Shell
         swaybg swayidle swaylock xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk xorg-xwayland
         layer-shell-qt wayvnc
+        # Every QML file imports Quickshell; without it b1air-shell starts and dies.
+        quickshell
         # Modern CLI & Shell
         fish starship eza bat fzf zoxide fastfetch btop
         # Native b1air-term uses libvterm for terminal emulation.
@@ -168,18 +201,23 @@ ensure_aur_helper() {
         return
     fi
 
-    log "Installing yay (AUR helper)..."
     local build_user="${SUDO_USER:-$USER}"
+    if [[ "$build_user" == "root" ]]; then
+        err "makepkg refuses to run as root. Run the installer as a normal user, or pass --no-aur."
+        exit 1
+    fi
+
+    log "Installing yay (AUR helper)..."
     local tmpdir
     tmpdir="$(mktemp -d)"
     chown "$build_user" "$tmpdir"
-    git clone https://aur.archlinux.org/yay.git "$tmpdir/yay"
+    git clone https://aur.archlinux.org/yay.git "$tmpdir/yay" >&2
     chown -R "$build_user" "$tmpdir/yay"
 
     if [[ "$EUID" -eq 0 ]]; then
-        sudo -u "$build_user" bash -c "cd '$tmpdir/yay' && makepkg -si --noconfirm"
+        sudo -u "$build_user" bash -c "cd '$tmpdir/yay' && makepkg -si --noconfirm" >&2
     else
-        (cd "$tmpdir/yay" && makepkg -si --noconfirm)
+        (cd "$tmpdir/yay" && makepkg -si --noconfirm) >&2
     fi
     rm -rf "$tmpdir"
 
@@ -199,7 +237,10 @@ install_aur_packages() {
         if [[ "$DRY_RUN" -eq 1 ]]; then
             log "Would install AUR: $pkg"
         else
-            "$aur_helper" -S --needed --noconfirm "$pkg" || warn "Failed AUR: $pkg"
+            # ponytail: no fallback to upstream sway — a different compositor is not a fix
+            "$aur_helper" -S --needed --noconfirm "$pkg" || {
+                err "Failed to install AUR package '$pkg'. Fix the error above and re-run."
+                exit 1; }
         fi
     done
 }
@@ -383,7 +424,8 @@ enable_services() {
 
     sudo systemctl enable NetworkManager || warn "Failed to enable NetworkManager"
     sudo systemctl enable bluetooth || warn "Failed to enable Bluetooth"
-    sudo systemctl enable sddm || warn "Failed to enable SDDM"
+    # ponytail: SDDM last and strict — enabling it early boots the user into a broken session
+    sudo systemctl enable sddm || { err "Failed to enable SDDM."; exit 1; }
 }
 
 build_b1air_suite() {
@@ -395,7 +437,8 @@ build_b1air_suite() {
 
         # 1. Daemon
         make -C "$REPO_DIR/src" clean >/dev/null 2>&1 || true
-        make -C "$REPO_DIR/src" PREFIX="${HOME}/.local/bin" install || warn "Failed to build b1air-daemon"
+        make -C "$REPO_DIR/src" PREFIX="${HOME}/.local/bin" install || {
+            err "Failed to build b1air-daemon — see the compiler output above."; exit 1; }
         if sudo install -m 755 "$REPO_DIR/src/b1air-daemon" /usr/local/bin/b1air-daemon 2>/dev/null; then
             ok "b1air-daemon installed to /usr/local/bin/b1air-daemon"
         else
@@ -404,8 +447,11 @@ build_b1air_suite() {
 
         # 2. Native b1air-shell
         if [[ -d "$REPO_DIR/src/shell" ]]; then
-            cmake -B "$REPO_DIR/src/shell/build" "$REPO_DIR/src/shell" >/dev/null 2>&1 || true
-            cmake --build "$REPO_DIR/src/shell/build" -j"$(nproc 2>/dev/null || echo 4)" || warn "Failed to build b1air-shell"
+            # ponytail: never silence configure — a missing Qt6 module dies here, not later
+            cmake -B "$REPO_DIR/src/shell/build" "$REPO_DIR/src/shell" || {
+                err "cmake configure failed — a build dependency is missing."; exit 1; }
+            cmake --build "$REPO_DIR/src/shell/build" -j"$(nproc 2>/dev/null || echo 4)" || {
+                err "Failed to build b1air-shell — see the compiler output above."; exit 1; }
             if sudo install -m 755 "$REPO_DIR/src/shell/build/b1air-shell" /usr/local/bin/b1air-shell 2>/dev/null; then
                 ok "b1air-shell installed to /usr/local/bin/b1air-shell"
             elif [[ -f "$REPO_DIR/src/shell/build/b1air-shell" ]]; then
@@ -426,7 +472,11 @@ configure_remote_desktop_permissions() {
 
 post_install_checks() {
     log "Running environment verification..."
-    local commands=(sway swaylock fish starship eza bat fzf sddm b1air-daemon b1air-shell b1air-term b1air-files b1air-secret-service)
+    # ponytail: every app must be present — this gate is what keeps SDDM off a broken system
+    local commands=(sway swaylock fish starship eza bat fzf sddm
+        b1air-daemon b1air-polkit-agent b1air-secret-service b1air-shell
+        b1air-files b1air-settings b1air-monitor b1air-term b1air-text
+        b1air-view b1air-notes b1air-git)
     local missing=()
 
     for cmd in "${commands[@]}"; do
@@ -435,46 +485,62 @@ post_install_checks() {
         fi
     done
 
+    # ponytail: an existing binary proves nothing if its QML module is absent
+    [[ -d /usr/lib/qt6/qml/Quickshell ]] || missing+=("Quickshell QML module")
+
     if [[ ${#missing[@]} -eq 0 ]]; then
         ok "All essential commands verified."
     else
-        warn "Missing commands: ${missing[*]}"
+        err "Missing commands: ${missing[*]}"
+        exit 1
     fi
+}
+
+aur_step() {
+    local aur_helper
+    aur_helper="$(ensure_aur_helper)"
+    install_aur_packages "$aur_helper"
 }
 
 main() {
     parse_args "$@"
     log "Operating as distro: ${DISTRO}"
     ensure_sudo
+    init_state
 
     if [[ "$SKIP_PACKAGES" -eq 0 ]]; then
-        enable_multilib_repo
-        pkg_install $(arch_packages)
-
+        step multilib   enable_multilib_repo
+        step packages   pkg_install $(arch_packages)
         if [[ "$NO_AUR" -eq 0 ]]; then
-            local aur_helper
-            aur_helper="$(ensure_aur_helper)"
-            install_aur_packages "$aur_helper"
+            step aur    aur_step
         else
             warn "Skipping AUR packages (--no-aur)."
         fi
-
-        detect_and_install_vm_guest_tools
+        step vm-tools   detect_and_install_vm_guest_tools
     else
         warn "Skipping packages installation (--skip-packages)."
     fi
 
     if [[ "$SKIP_DOTFILES" -eq 0 ]]; then
-        deploy_dotfiles
-        build_b1air_suite
-        configure_remote_desktop_permissions
+        step dotfiles   deploy_dotfiles
+        step suite      build_b1air_suite
+        step remote-perms configure_remote_desktop_permissions
     else
         warn "Skipping dotfiles deployment."
     fi
-    configure_default_shell
-    [[ "$SKIP_SERVICES" -eq 0 ]] && enable_services || warn "Skipping services configuration."
+    step default-shell  configure_default_shell
 
+    # ponytail: verify BEFORE enabling the display manager — a graphical login on a
+    # half-installed system locks the user out of the desktop they cannot yet run
     post_install_checks
+
+    if [[ "$SKIP_SERVICES" -eq 0 ]]; then
+        step services   enable_services
+    else
+        warn "Skipping services configuration."
+    fi
+
+    rm -f "$STATE_FILE"
 
     printf "\n${GREEN}${BOLD}✓ Installation finished successfully!${RESET}\n"
     echo "Log in to Sway session to enjoy your environment."

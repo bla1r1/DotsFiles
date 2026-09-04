@@ -61,11 +61,12 @@ ColumnLayout {
 
     function applyWallpaper(path) {
         section.activeWallpaper = path;
-        Quickshell.execDetached(["b1air-daemon", "wallpaper", "set", path]);
+        Cmd.run(["b1air-daemon", "wallpaper", "set", path], "Set wallpaper");
     }
 
     function setRandom() {
-        Quickshell.execDetached(["b1air-daemon", "wallpaper", "random", section.wallpaperDir.replace(/^~/, Quickshell.env("HOME"))]);
+        Cmd.run(["b1air-daemon", "wallpaper", "random", section.wallpaperDir.replace(/^~/, Quickshell.env("HOME"))],
+                "Shuffle wallpaper");
     }
 
     // ── 1. Wallpaper Gallery Card ────────────────────────────────────────────
