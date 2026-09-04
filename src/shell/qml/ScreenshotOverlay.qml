@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Window
-import QtQuick.Controls
+import QtQuick.Controls as QQC
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Wayland
@@ -404,7 +404,12 @@ PanelWindow {
                 }
             }
 
-            Slider {
+            // Explicitly QtQuick.Controls.Slider: bare "Slider" resolves to
+            // Ui/Slider.qml (a completely different, icon+label capsule
+            // component with no from/to/value/handle), which crashed this
+            // file on load with "Cannot assign to non-existent property
+            // 'handle'" — the reason it never actually worked.
+            QQC.Slider {
                 Layout.preferredWidth: Design.s(60)
                 from: 0.0; to: 1.0; value: parent.volumeValue
                 onValueChanged: parent.volumeUpdate(value)

@@ -2,6 +2,7 @@
 #include "system_control.hpp"
 #include "focustime_db.hpp"
 #include "runtime.hpp"
+#include "version.hpp"
 #include <iostream>
 #include <cstring>
 #include <cstdlib>
@@ -208,6 +209,12 @@ static int method_sidecar_remove(sd_bus_message *m, void *userdata, sd_bus_error
 }
 
 // ── Dotfiles & maintenance ───────────────────────────────────────────────────
+static int method_dotfiles_status(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
+    return sd_bus_reply_method_return(m, "s", SystemControl::dotfiles_status_json().c_str());
+}
+
 static int method_dotfiles_sys(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
     REQUIRE_SESSION_USER();
@@ -325,6 +332,11 @@ static int method_scan_qr(sd_bus_message *m, void *userdata, sd_bus_error *ret_e
     return sd_bus_reply_method_return(m, "s", SystemControl::scan_qr(geom ? geom : "").c_str());
 }
 
+static int method_get_version(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    (void)userdata; (void)ret_error;
+    return sd_bus_reply_method_return(m, "s", b1air::kVersion);
+}
+
 static int method_get_stats(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
     REQUIRE_SESSION_USER();
@@ -352,12 +364,14 @@ static const sd_bus_vtable daemon_vtable[] = {
     SD_BUS_METHOD("Capture", "s", "", method_capture, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("CaptureGeom", "ssb", "", method_capture_geom, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("Power", "s", "", method_power, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("GetVersion", "", "s", method_get_version, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("GetStats", "s", "s", method_get_stats, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("RemoteStatus", "", "s", method_remote_status, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("RemoteStop", "", "", method_remote_stop, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("RemotePromptFree", "b", "", method_remote_prompt_free, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("SidecarCreate", "ii", "", method_sidecar_create, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("SidecarRemove", "", "", method_sidecar_remove, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("DotfilesStatus", "", "s", method_dotfiles_status, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("DotfilesSys", "", "", method_dotfiles_sys, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("DotfilesSync", "", "", method_dotfiles_sync, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("SweeperClean", "", "", method_sweeper_clean, SD_BUS_VTABLE_UNPRIVILEGED),
@@ -394,10 +408,19 @@ static std::string get_wayland_display() {
     return wdisp;
 }
 
+// Panel names are QML object keys, not user text: an enum here duplicates
+// WindowRegistry.js and silently drifts out of sync with it — "zones",
+// "battery", "shelf" and half the other real panels were never in this list,
+// so their keybinds fell straight through to method_shell's error path
+// (or the equally broken bash fallback below). An unrecognised name is
+// harmless: WindowRegistry.getLayout() just returns null and the shell
+// no-ops. What actually needs blocking is shell metacharacters.
 static bool valid_panel(const std::string& panel) {
-    return panel == "launcher" || panel == "launchpad" || panel == "spotlight" ||
-           panel == "settings" || panel == "control" || panel == "clipboard" ||
-           panel == "calendar" || panel == "music" || panel == "menu";
+    if (panel.empty() || panel.size() > 64) return false;
+    for (unsigned char c : panel) {
+        if (!(std::isalnum(c) || c == '-' || c == '_')) return false;
+    }
+    return true;
 }
 
 static bool safe_shell_arg(const std::string& value, size_t max_len = 4096) {
@@ -457,12 +480,35 @@ static int method_shell_reload(sd_bus_message *m, void *userdata, sd_bus_error *
     return sd_bus_reply_method_return(m, "");
 }
 
+// Alt+Tab needs press-to-advance / release-to-confirm, not a single toggle:
+// toggling would close the popup on every second Tab press instead of
+// cycling. Bound in sway to Mod1+Tab and --release Mod1 respectively.
+static int method_shell_switcher_advance(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
+    const std::string qml = b1air::qml_entry("Main.qml");
+    if (qml.empty()) return sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FILE_NOT_FOUND, "Shell QML not installed");
+    spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "switcherAdvance"}, get_wayland_display().c_str());
+    return sd_bus_reply_method_return(m, "");
+}
+
+static int method_shell_switcher_confirm(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
+    const std::string qml = b1air::qml_entry("Main.qml");
+    if (qml.empty()) return sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FILE_NOT_FOUND, "Shell QML not installed");
+    spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "switcherConfirm"}, get_wayland_display().c_str());
+    return sd_bus_reply_method_return(m, "");
+}
+
 static const sd_bus_vtable shell_vtable[] = {
     SD_BUS_VTABLE_START(0),
     SD_BUS_METHOD("Toggle", "s", "", method_shell_toggle, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("Open", "ss", "", method_shell_open, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("Close", "s", "", method_shell_close, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("ForceReload", "", "", method_shell_reload, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("SwitcherAdvance", "", "", method_shell_switcher_advance, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("SwitcherConfirm", "", "", method_shell_switcher_confirm, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_SIGNAL("PanelStateChanged", "sb", 0),
     SD_BUS_VTABLE_END
 };

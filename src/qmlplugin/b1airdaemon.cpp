@@ -154,6 +154,19 @@ void B1airDaemon::sidecarRemove() {
     call(kDaemonService, kDaemonPath, kDaemonIface, "SidecarRemove");
 }
 
+void B1airDaemon::requestDotfilesStatus(const QString& tag) {
+    QDBusMessage msg = QDBusMessage::createMethodCall(kDaemonService, kDaemonPath,
+                                                     kDaemonIface, "DotfilesStatus");
+    auto* watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(msg), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this,
+            [this, tag](QDBusPendingCallWatcher* w) {
+        QDBusPendingReply<QString> reply = *w;
+        if (reply.isError()) emit failed(QStringLiteral("DotfilesStatus"), reply.error().message());
+        else emit dotfilesStatusReady(tag, reply.value());
+        w->deleteLater();
+    });
+}
+
 void B1airDaemon::dotfilesSys() {
     call(kDaemonService, kDaemonPath, kDaemonIface, "DotfilesSys");
 }
@@ -212,6 +225,19 @@ void B1airDaemon::requestScanQr(const QString& geometry, const QString& tag) {
     });
 }
 
+void B1airDaemon::requestVersion(const QString& tag) {
+    QDBusMessage msg = QDBusMessage::createMethodCall(kDaemonService, kDaemonPath,
+                                                     kDaemonIface, "GetVersion");
+    auto* watcher = new QDBusPendingCallWatcher(m_bus.asyncCall(msg), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this,
+            [this, tag](QDBusPendingCallWatcher* w) {
+        QDBusPendingReply<QString> reply = *w;
+        if (reply.isError()) emit failed(QStringLiteral("GetVersion"), reply.error().message());
+        else emit versionReady(tag, reply.value());
+        w->deleteLater();
+    });
+}
+
 // ── org.b1air.Shell ─────────────────────────────────────────────────────────
 void B1airDaemon::togglePanel(const QString& panel) {
     call(kShellService, kShellPath, kShellIface, "Toggle", {panel});
@@ -224,4 +250,10 @@ void B1airDaemon::closePanel(const QString& panel) {
 }
 void B1airDaemon::forceReload() {
     call(kShellService, kShellPath, kShellIface, "ForceReload");
+}
+void B1airDaemon::switcherAdvance() {
+    call(kShellService, kShellPath, kShellIface, "SwitcherAdvance");
+}
+void B1airDaemon::switcherConfirm() {
+    call(kShellService, kShellPath, kShellIface, "SwitcherConfirm");
 }

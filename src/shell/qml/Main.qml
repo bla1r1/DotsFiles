@@ -74,6 +74,27 @@ Scope {
         function toggleMenu() { masterWindow.handleIpcCommand("toggle:menu:", true) }
         function openSwitcher() { masterWindow.handleIpcCommand("open:switcher:", true) }
         function toggleSwitcher() { masterWindow.handleIpcCommand("toggle:switcher:", true) }
+
+        // Real Alt+Tab needs two distinct actions, not one toggle: each Tab
+        // press while Alt is held must advance the selection, and toggling
+        // would instead close the popup on every second press. Release of
+        // Alt (bound separately in sway) confirms. "switcher" was never in
+        // WindowRegistry until now, so toggleSwitcher above has always been
+        // a silent no-op — that's why Alt+Tab had no binding at all.
+        function switcherAdvance() {
+            if (masterWindow.currentActive === "switcher" && widgetStack.currentItem
+                    && widgetStack.currentItem.nextWindow) {
+                widgetStack.currentItem.nextWindow();
+            } else {
+                masterWindow.handleIpcCommand("open:switcher:", true);
+            }
+        }
+        function switcherConfirm() {
+            if (masterWindow.currentActive === "switcher" && widgetStack.currentItem
+                    && widgetStack.currentItem.activateCurrent) {
+                widgetStack.currentItem.activateCurrent();
+            }
+        }
         function openEmoji() { masterWindow.handleIpcCommand("open:emoji:", true) }
         function toggleEmoji() { masterWindow.handleIpcCommand("toggle:emoji:", true) }
         function openZones() { masterWindow.handleIpcCommand("open:zones:", true) }

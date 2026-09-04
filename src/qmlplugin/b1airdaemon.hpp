@@ -53,6 +53,10 @@ public:
     // several queries in flight can tell them apart.
     Q_INVOKABLE void requestStats(const QString& query, const QString& tag = QString());
 
+    // One version for the whole suite (daemon, shell, every b1air-* app) —
+    // -> versionReady.
+    Q_INVOKABLE void requestVersion(const QString& tag = QString());
+
     // Remote desktop / sidecar
     Q_INVOKABLE void requestRemoteStatus(const QString& tag = QString());  // -> remoteStatusReady
     Q_INVOKABLE void remoteStop();
@@ -61,6 +65,7 @@ public:
     Q_INVOKABLE void sidecarRemove();
 
     // Dotfiles & maintenance
+    Q_INVOKABLE void requestDotfilesStatus(const QString& tag = QString());  // -> dotfilesStatusReady
     Q_INVOKABLE void dotfilesSys();
     Q_INVOKABLE void dotfilesSync();
     Q_INVOKABLE void sweeperClean();
@@ -88,6 +93,8 @@ public:
     Q_INVOKABLE void openPanel(const QString& panel, const QString& arg = QString());
     Q_INVOKABLE void closePanel(const QString& panel = QString());
     Q_INVOKABLE void forceReload();
+    Q_INVOKABLE void switcherAdvance();
+    Q_INVOKABLE void switcherConfirm();
 
 signals:
     void availableChanged();
@@ -95,6 +102,8 @@ signals:
     void statsReady(const QString& tag, const QString& json);
     void remoteStatusReady(const QString& tag, const QString& json);
     void scanQrReady(const QString& tag, const QString& text);
+    void dotfilesStatusReady(const QString& tag, const QString& json);
+    void versionReady(const QString& tag, const QString& version);
 
     // Relayed from the daemon.
     void volumeChanged(int value, bool muted);

@@ -2214,7 +2214,11 @@ std::string SystemControl::get_updates_json(bool /*force*/) {
 }
 
 bool SystemControl::launch_system_upgrade() {
-    return run_argv_detached({"b1air-term", "-e", "fish", "-lc", "yay -Syu"});
+    // Used to hardcode "yay -Syu", which fails outright on a --no-aur install
+    // with no AUR helper. dotfiles_sys() already has the yay/paru/pacman
+    // fallback chain for exactly this upgrade; reuse it instead of a second,
+    // narrower copy that only some install profiles could actually run.
+    return dotfiles_sys();
 }
 
 // ── Terminal Themes ──────────────────────────────────────────────────────────
@@ -2676,6 +2680,22 @@ std::string SystemControl::schedule_get_json() {
 static std::string find_dotfiles_repo() {
     const char* home = std::getenv("HOME");
     std::string home_str = home ? home : "";
+
+    // install.sh records the real clone path here, so a repo cloned anywhere
+    // at all is found — not just one that happens to sit in one of a handful
+    // of guessed locations (one of which was a specific developer's own
+    // ~/Documents/GitHub path).
+    std::string state_file = home_str + "/.local/state/b1air/dotfiles-repo";
+    std::ifstream in(state_file);
+    if (in) {
+        std::string recorded;
+        std::getline(in, recorded);
+        if (!recorded.empty() && access((recorded + "/.git").c_str(), F_OK) == 0) {
+            return recorded;
+        }
+    }
+
+    // Fallback for a repo that predates install.sh recording its path.
     std::vector<std::string> candidates = {
         home_str + "/Documents/GitHub/DotsFiles",
         home_str + "/GitHub/DotsFiles",
@@ -2696,7 +2716,10 @@ std::string SystemControl::dotfiles_status_json() {
         return "{\"ok\":false,\"error\":\"repo_not_found\"}";
     }
 
-    (void)run_argv_detached({"git", "-C", repo, "fetch", "--quiet", "origin"});
+    // Was run_argv_detached — fire-and-forget, so the reads just below could
+    // (and often would) run before the fetch actually landed, showing a
+    // stale remote_hash right after opening the updater. Block on it.
+    (void)exec_cmd("git -C " + shell_quote(repo) + " fetch --quiet origin 2>&1");
 
     std::string branch = exec_cmd("git -C " + shell_quote(repo) + " rev-parse --abbrev-ref HEAD 2>/dev/null");
     if (branch.empty()) branch = "main";
@@ -2705,9 +2728,18 @@ std::string SystemControl::dotfiles_status_json() {
     if (remote_ref.empty()) remote_ref = "origin/main";
     std::string remote_hash = exec_cmd("git -C " + shell_quote(repo) + " rev-parse --short " + shell_quote(remote_ref) + " 2>/dev/null");
 
+    // The changelog line used to come from a hardcoded
+    // api.github.com/repos/bla1r1/DotsFiles call — dead weight (a second
+    // network round-trip for something `git fetch` above already retrieved)
+    // and it would silently go stale the moment the repo moved or was
+    // renamed. `git log` already has the answer locally, for whatever
+    // remote `origin` actually points at right now.
+    std::string remote_message = exec_cmd("git -C " + shell_quote(repo) + " log -1 --pretty=%s " +
+                                          shell_quote(remote_ref) + " 2>/dev/null");
+
     bool update_available = (!remote_hash.empty() && local_hash != remote_hash);
 
-    return "{\"ok\":true,\"repo_dir\":\"" + json_escape(repo) + "\",\"branch\":\"" + json_escape(branch) + "\",\"local_hash\":\"" + local_hash + "\",\"remote_hash\":\"" + remote_hash + "\",\"remote_ref\":\"" + json_escape(remote_ref) + "\",\"update_available\":" + (update_available ? "true" : "false") + "}";
+    return "{\"ok\":true,\"repo_dir\":\"" + json_escape(repo) + "\",\"branch\":\"" + json_escape(branch) + "\",\"local_hash\":\"" + local_hash + "\",\"remote_hash\":\"" + remote_hash + "\",\"remote_ref\":\"" + json_escape(remote_ref) + "\",\"remote_message\":\"" + json_escape(remote_message) + "\",\"update_available\":" + (update_available ? "true" : "false") + "}";
 }
 
 bool SystemControl::dotfiles_sync() {
@@ -2725,6 +2757,20 @@ bool SystemControl::dotfiles_sys() {
 }
 
 // ── Screen Capture, Recording & QR Scanner ───────────────────────────────────
+
+// ScreenshotOverlay.qml is a full interactive selection/edit/record UI — its
+// own capture button already shells out to `b1air-daemon capture --geometry
+// ...`, the same function below. Nothing pointed a keybind at the overlay
+// itself, though, so the whole file sat unreachable; Print instead called
+// capture() directly with a blind, non-interactive slurp selection.
+bool SystemControl::run_screenshot_overlay(bool edit_mode) {
+    const std::string qml = b1air::qml_entry("ScreenshotOverlay.qml");
+    if (qml.empty()) return false;
+    std::vector<std::string> argv = {"quickshell", "-p", qml};
+    if (edit_mode) argv = {"env", "QS_SCREENSHOT_EDIT=true", "quickshell", "-p", qml};
+    return run_argv_detached(argv);
+}
+
 bool SystemControl::capture(const std::string& mode, const std::string& geom, bool edit) {
     if (!geom.empty() && !valid_geometry(geom)) return false;
     const char* home = std::getenv("HOME");

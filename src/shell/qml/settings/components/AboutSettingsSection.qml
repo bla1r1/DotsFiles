@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
+import B1air.Daemon
 import "../../Ui"
 import "../../Services"
 
@@ -23,6 +24,13 @@ ColumnLayout {
     property string memInfo: "Loading..."
     property string uptimeStr: ""
     property string swayVer: "Sway"
+    property string suiteVersion: "…"
+
+    Connections {
+        target: Daemon
+        function onVersionReady(tag, version) { section.suiteVersion = version; }
+    }
+    Component.onCompleted: Daemon.requestVersion()
 
     Process {
         running: true
@@ -79,6 +87,12 @@ ColumnLayout {
                 Layout.fillWidth: true
                 Label { text: "Shell Environment"; role: "caption"; dim: true; Layout.preferredWidth: Design.s(160) }
                 Label { text: "Quickshell (Wayland Native)"; weight: Design.weight.semibold; color: Design.accent; Layout.fillWidth: true }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Label { text: "b1air Suite Version"; role: "caption"; dim: true; Layout.preferredWidth: Design.s(160) }
+                Label { text: "v" + section.suiteVersion; isMono: true; weight: Design.weight.semibold; Layout.fillWidth: true }
             }
 
             RowLayout {

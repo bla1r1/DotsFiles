@@ -2,13 +2,11 @@ import QtQuick
 import QtQuick.Effects
 import QtQuick.Layouts
 import Quickshell
-import Quickshell.Io
 import "../Ui"
+import B1air.Daemon
 
 PopupShell {
     id: window
-
-    readonly property string updaterScriptPath: window.scriptDir + "/system/dotfiles-update.sh"
 
     property string currentTab: "dotfiles" // "dotfiles" | "system"
     property string localVersion: "..."
@@ -24,54 +22,41 @@ PopupShell {
     readonly property int wavePeriod: 1000
     readonly property int typeInterval: 12
 
-    Process {
-        id: updateStatus
-        command: ["bash", window.updaterScriptPath, "status"]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    let out = this.text ? this.text.trim() : "";
-                    if (!out) return;
-                    let data = JSON.parse(out);
-                    if (!data.ok) {
-                        window.localVersion = "local";
-                        window.remoteVersion = "unavailable";
-                        window.updateAvailable = false;
-                        window.displayedCommitMessage = "Repository not found.";
-                        return;
-                    }
-                    window.localVersion = data.branch + "@" + data.local_hash;
-                    window.remoteVersion = data.remote_hash ? (data.branch + "@" + data.remote_hash) : "up to date";
-                    window.updateAvailable = !!data.update_available;
-                } catch (e) {
+    // The status check and both update buttons used to run
+    // ~/.config/sway/scripts/system/dotfiles-update.sh, which does not exist
+    // anywhere in this repository or the installer. This popup has never
+    // actually worked — every action here was a silent no-op ("bash: no such
+    // file"). Wired to the daemon's real dotfiles_status_json()/dotfiles_sync()/
+    // dotfiles_sys(), which already return and do exactly what this UI expects.
+    Connections {
+        target: Daemon
+        function onDotfilesStatusReady(tag, json) {
+            try {
+                let data = JSON.parse(json);
+                if (!data.ok) {
                     window.localVersion = "local";
                     window.remoteVersion = "unavailable";
                     window.updateAvailable = false;
-                    window.displayedCommitMessage = "Failed to parse update status.";
+                    window.displayedCommitMessage = "Repository not found.";
+                    return;
                 }
-            }
-        }
-    }
+                window.localVersion = data.branch + "@" + data.local_hash;
+                window.remoteVersion = data.remote_hash ? (data.branch + "@" + data.remote_hash) : "up to date";
+                window.updateAvailable = !!data.update_available;
 
-    Process {
-        id: changelogFetcher
-        command: ["bash", "-c", "curl -m 5 -sL \"https://api.github.com/repos/bla1r1/DotsFiles/commits/main\" | grep -m1 '\"message\":' | cut -d'\"' -f4 || echo 'No changelog available'"]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: {
-                let out = this.text ? this.text.trim() : "";
-                if (out !== "") {
-                    window.fullCommitMessage = out;
-                    window.displayedCommitMessage = "";
-                    window.typeIndex = 0;
-                    commitTypeTimer.start();
-                } else {
-                    window.displayedCommitMessage = "No changelog available.";
-                }
+                window.fullCommitMessage = data.remote_message || "No changelog available.";
+                window.displayedCommitMessage = "";
+                window.typeIndex = 0;
+                commitTypeTimer.start();
+            } catch (e) {
+                window.localVersion = "local";
+                window.remoteVersion = "unavailable";
+                window.updateAvailable = false;
+                window.displayedCommitMessage = "Failed to parse update status.";
             }
         }
     }
+    Component.onCompleted: Daemon.requestDotfilesStatus()
 
     Timer {
         id: commitTypeTimer
@@ -344,7 +329,7 @@ PopupShell {
                     easing.type: Easing.InSine
                     onFinished: {
                         updateBtn.triggered = true;
-                        Quickshell.execDetached(["bash", window.updaterScriptPath, "env"]);
+                        Daemon.dotfilesSync();
                         window.close();
                     }
                 }
@@ -416,7 +401,7 @@ PopupShell {
                 label: "RUN SYSTEM UPGRADE (YAY / PACMAN)"
                 icon: "󰓦"
                 onActivated: {
-                    Quickshell.execDetached(["bash", window.updaterScriptPath, "sys"]);
+                    Daemon.dotfilesSys();
                     window.close();
                 }
             }

@@ -129,6 +129,7 @@ public:
 
     // Advanced Screen Capture, Recording, OCR & QR Scanner
     static bool capture(const std::string& mode = "full", const std::string& geom = "", bool edit = false);
+    static bool run_screenshot_overlay(bool edit_mode = false);
     static bool record_toggle(const std::string& geom = "", double desk_vol = 1.0, double mic_vol = 1.0, bool desk_mute = false, bool mic_mute = false, const std::string& mic_dev = "");
     static bool record_stop();
     static std::string scan_qr(const std::string& geom = "");

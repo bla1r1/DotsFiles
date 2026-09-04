@@ -5,6 +5,11 @@
 set -euo pipefail
 
 REPO_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# The daemon's dotfiles_sync/status/sys look for the repo by guessing among a
+# few hardcoded paths, so a clone anywhere else silently made those features
+# "repo not found" forever. Record the real path once, here, where the
+# installer already knows it — no more guessing needed downstream.
+REPO_PATH_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/b1air/dotfiles-repo"
 BACKUP_DIR="$HOME/.dotfiles-backup-$(date +%Y%m%d-%H%M%S)"
 
 DISTRO=""
@@ -598,11 +603,37 @@ aur_step() {
     install_aur_packages "$aur_helper"
 }
 
+# xdg-user-dirs is in the package list, but the package alone does nothing:
+# it ships its own XDG-autostart entry that would run xdg-user-dirs-update on
+# first login, and sway (unlike GNOME/KDE/XFCE) never runs XDG autostart
+# entries at all — nothing in this repo's autostart.conf does either. Every
+# other DE creates ~/Downloads, ~/Documents etc. on first login; here that
+# needs a direct, one-time call instead of a login hook that can never fire.
+create_user_dirs() {
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        log "Would run xdg-user-dirs-update to create ~/Downloads, ~/Documents, etc."
+        return 0
+    fi
+    command -v xdg-user-dirs-update >/dev/null 2>&1 || return 0
+    xdg-user-dirs-update
+}
+
+record_repo_path() {
+    [[ -d "$REPO_DIR/.git" ]] || return 0
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        log "Would record dotfiles repo path: $REPO_DIR"
+        return 0
+    fi
+    mkdir -p "$(dirname "$REPO_PATH_FILE")"
+    printf '%s\n' "$REPO_DIR" > "$REPO_PATH_FILE"
+}
+
 main() {
     parse_args "$@"
     log "Operating as distro: ${DISTRO}"
     ensure_sudo
     init_state
+    record_repo_path
 
     if [[ "$SKIP_PACKAGES" -eq 0 ]]; then
         step multilib   enable_multilib_repo
@@ -619,7 +650,11 @@ main() {
     fi
 
     if [[ "$SKIP_DOTFILES" -eq 0 ]]; then
+        # After deploy_dotfiles, not before: its rsync --delete on ~/.config
+        # would otherwise wipe user-dirs.dirs right back out, since it is not
+        # part of this repo's tracked .config tree.
         step dotfiles   deploy_dotfiles
+        step user-dirs  create_user_dirs
         step suite      build_b1air_suite
         step remote-perms configure_remote_desktop_permissions
     else

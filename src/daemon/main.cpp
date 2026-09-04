@@ -6,6 +6,7 @@
 #include "session_manager.hpp"
 #include "daemon_dbus.hpp"
 #include "runtime.hpp"
+#include "version.hpp"
 
 #include <iostream>
 #include <string>
@@ -677,8 +678,12 @@ int main(int argc, char* argv[]) {
             } else if (arg == "--full" || arg == "full") mode = "full";
             else if (arg == "--area" || arg == "area") mode = "area";
             else if (arg == "--window" || arg == "window") mode = "window";
+            else if (arg == "--select" || arg == "select") mode = "select";
             else if (arg.front() != '-') mode = arg;
         }
+        // "select" opens ScreenshotOverlay.qml — drag-to-select, annotate,
+        // QR-scan and GIF recording — instead of an immediate blind capture.
+        if (mode == "select") return SystemControl::run_screenshot_overlay(edit) ? 0 : 1;
         return SystemControl::capture(mode, geom, edit) ? 0 : 1;
     } else if (cmd == "record") {
         std::string sub = (argc >= 3) ? argv[2] : "toggle";
@@ -813,7 +818,10 @@ int main(int argc, char* argv[]) {
         std::string response((std::istreambuf_iterator<char>(std::cin)), std::istreambuf_iterator<char>());
         return SystemControl::polkit_write_response(argv[2], response) ? 0 : 1;
     } else if (cmd == "version" || cmd == "-v" || cmd == "--version") {
-        std::cout << "b1air-daemon v2.5.0 (C++20, Session Manager, Inotify, Sway-IPC, Tokyo Night)\n";
+        // Was a hardcoded "v2.5.0 ... Tokyo Night" — stale (the shell moved
+        // to Catppuccin) and disconnected from anything real. version.hpp is
+        // the one place this now gets bumped.
+        std::cout << "b1air-daemon v" << b1air::kVersion << "\n";
         return 0;
     } else if (cmd == "help" || cmd == "-h" || cmd == "--help") {
         print_usage(argv[0]);
