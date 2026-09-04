@@ -4,11 +4,15 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
+import "./Ui"
 import "./Services"
 import "WindowRegistry.js" as Registry
 
 Scope {
     id: rootScope
+
+    // Turns B1air.Daemon call failures into notifications.
+    DaemonErrors {}
 
     TopBar {
         id: mainTopBar
@@ -135,6 +139,10 @@ Scope {
     // Was fed by its own jq subprocess reading settings.json; now one typed
     // read from the store, which is watching the file anyway.
     readonly property real globalUiScale: Settings.uiScale
+
+    // Without this the Interface scale setting moved window geometry while every
+    // size inside the window ignored it until some popup happened to be open.
+    Binding { target: Design; property: "uiScale"; value: Settings.uiScale }
     property string lastIpcCommand: ""
     property string loadedWidget: ""
 

@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
 import Quickshell
+import B1air.Daemon
 import "../Ui"
 
 // =============================================================================
@@ -14,7 +15,7 @@ PopupShell {
     padding: Design.s(Design.space.lg)
 
     function snapToZone(id) {
-        Quickshell.execDetached(["b1air-daemon", "zones", id.toString()]);
+        Daemon.zonesApply(id);
         root.close();
     }
 

@@ -5,6 +5,8 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Widgets
+import "./Ui"
+import B1air.Daemon
 import "./Services"
 
 PanelWindow {
@@ -15,28 +17,32 @@ PanelWindow {
     // Wayland Layer-Shell configuration
     WlrLayershell.namespace: "b1air-topbar"
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.exclusiveZone: 40
+    WlrLayershell.exclusiveZone: Design.s(40)
     
     anchors.top: true
     anchors.left: true
     anchors.right: true
-    implicitHeight: 38
+    implicitHeight: Design.s(38)
     color: "transparent"
 
     // ── Design Tokens ───────────────────────────────────────────────────────
-    readonly property color colBg: Qt.rgba(26/255, 27/255, 38/255, 0.88)
-    readonly property color colBorder: Qt.rgba(122/255, 162/255, 247/255, 0.22)
-    readonly property color colBlue: "#7aa2f7"
-    readonly property color colPurple: "#bb9af7"
-    readonly property color colCyan: "#7dcfff"
-    readonly property color colGreen: "#73daca"
-    readonly property color colOrange: "#ff9e64"
-    readonly property color colRed: "#f7768e"
-    readonly property color colFg: "#c0caf5"
-    readonly property color colFgDim: "#a9b1d6"
-    readonly property color colWrkBg: Qt.rgba(36/255, 40/255, 59/255, 0.60)
-    readonly property color colWrkBorder: Qt.rgba(65/255, 72/255, 104/255, 0.40)
-    readonly property string fontMain: "Fira Sans SemiBold, JetBrainsMono Nerd Font, sans-serif"
+    // These were a second, hand-rolled Tokyo Night palette living alongside the
+    // Catppuccin one in Ui/Design.qml, so the bar never followed the theme. The
+    // names stay — they are used throughout this file — but each now resolves
+    // to a design-system role.
+    readonly property color colBg: Design.glassBg
+    readonly property color colBorder: Design.glassBorder
+    readonly property color colBlue: Design.accent
+    readonly property color colPurple: Design.mauve
+    readonly property color colCyan: Design.sapphire
+    readonly property color colGreen: Design.ok
+    readonly property color colOrange: Design.warn
+    readonly property color colRed: Design.danger
+    readonly property color colFg: Design.text
+    readonly property color colFgDim: Design.textDim
+    readonly property color colWrkBg: Design.glassTile
+    readonly property color colWrkBorder: Design.line
+    readonly property string fontMain: Design.font.sans
 
     function safePinnedCommand(cmd) {
         const value = (cmd || "").trim();
@@ -279,15 +285,15 @@ PanelWindow {
                     spacing: 6
                     Text {
                         text: "󰍜"
-                        font.family: "JetBrainsMono Nerd Font"
-                        font.pixelSize: 13
+                        font.family: Design.font.mono
+                        font.pixelSize: Design.s(13)
                         color: topBar.colBlue
                         anchors.verticalCenter: parent.verticalCenter
                     }
                     Text {
                         text: "APPS"
                         font.family: topBar.fontMain
-                        font.pixelSize: 12
+                        font.pixelSize: Design.s(12)
                         font.bold: true
                         color: appMenuArea.containsMouse ? "#ffffff" : topBar.colBlue
                         anchors.verticalCenter: parent.verticalCenter
@@ -378,8 +384,8 @@ PanelWindow {
                         Text {
                             anchors.centerIn: parent
                             text: "󰐕"
-                            font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: 11
+                            font.family: Design.font.mono
+                            font.pixelSize: Design.s(11)
                             color: addPinArea.containsMouse ? topBar.colBlue : topBar.colFgDim
                         }
 
@@ -425,7 +431,7 @@ PanelWindow {
                                 anchors.centerIn: parent
                                 text: modelData.name || (index + 1)
                                 font.family: topBar.fontMain
-                                font.pixelSize: 11
+                                font.pixelSize: Design.s(11)
                                 font.bold: true
                                 color: modelData.focused ? "#101014" : (wsMouseArea.containsMouse ? topBar.colBlue : topBar.colFgDim)
                             }
@@ -450,9 +456,9 @@ PanelWindow {
                     z: -1
                     onWheel: (wheel) => {
                         if (wheel.angleDelta.y > 0) {
-                            Quickshell.execDetached(["bash", "-c", "SWAYSOCK=$(ls -t /run/user/1000/sway-ipc.*.sock 2>/dev/null | head -n1) swaymsg workspace prev"]);
+                            Quickshell.execDetached(["bash", "-c", "SWAYSOCK=$(ls -t /run/user/$(id -u)/sway-ipc.*.sock 2>/dev/null | head -n1) swaymsg workspace prev"]);
                         } else if (wheel.angleDelta.y < 0) {
-                            Quickshell.execDetached(["bash", "-c", "SWAYSOCK=$(ls -t /run/user/1000/sway-ipc.*.sock 2>/dev/null | head -n1) swaymsg workspace next"]);
+                            Quickshell.execDetached(["bash", "-c", "SWAYSOCK=$(ls -t /run/user/$(id -u)/sway-ipc.*.sock 2>/dev/null | head -n1) swaymsg workspace next"]);
                         }
                     }
                 }
@@ -517,7 +523,7 @@ PanelWindow {
                 anchors.centerIn: parent
                 text: topBar.clockTime
                 font.family: topBar.fontMain
-                font.pixelSize: 13
+                font.pixelSize: Design.s(13)
                 font.bold: true
                 color: topBar.colFg
             }
@@ -564,14 +570,14 @@ PanelWindow {
 
                     Row {
                         spacing: 4
-                        Text { text: ""; font.family: topBar.fontMain; font.pixelSize: 12; color: topBar.colCyan }
-                        Text { text: topBar.cpuUsage; font.family: topBar.fontMain; font.pixelSize: 11; font.bold: true; color: topBar.colFg }
+                        Text { text: ""; font.family: topBar.fontMain; font.pixelSize: Design.s(12); color: topBar.colCyan }
+                        Text { text: topBar.cpuUsage; font.family: topBar.fontMain; font.pixelSize: Design.s(11); font.bold: true; color: topBar.colFg }
                     }
 
                     Row {
                         spacing: 4
-                        Text { text: "󰍛"; font.family: topBar.fontMain; font.pixelSize: 12; color: topBar.colPurple }
-                        Text { text: topBar.loadAvg; font.family: topBar.fontMain; font.pixelSize: 11; font.bold: true; color: topBar.colFg }
+                        Text { text: "󰍛"; font.family: topBar.fontMain; font.pixelSize: Design.s(12); color: topBar.colPurple }
+                        Text { text: topBar.loadAvg; font.family: topBar.fontMain; font.pixelSize: Design.s(11); font.bold: true; color: topBar.colFg }
                     }
                 }
 
@@ -609,14 +615,14 @@ PanelWindow {
                             anchors.centerIn: parent
                             text: topBar.kbdLayout
                             font.family: topBar.fontMain
-                            font.pixelSize: 11
+                            font.pixelSize: Design.s(11)
                             font.bold: true
                             color: topBar.colFg
                         }
                         MouseArea {
                             id: kbdArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                             onClicked: {
-                                Quickshell.execDetached(["bash", "-c", "SWAYSOCK=$(ls -t /run/user/1000/sway-ipc.*.sock 2>/dev/null | head -n1) swaymsg input type:keyboard xkb_switch_layout next && b1air-daemon layout"]);
+                                Quickshell.execDetached(["bash", "-c", "SWAYSOCK=$(ls -t /run/user/$(id -u)/sway-ipc.*.sock 2>/dev/null | head -n1) swaymsg input type:keyboard xkb_switch_layout next && b1air-daemon layout"]);
                             }
                         }
                     }
@@ -633,13 +639,13 @@ PanelWindow {
                             Text {
                                 text: (Audio.defaultSink && Audio.defaultSink.audio && Audio.defaultSink.audio.muted) ? "󰖁" : "󰕾"
                                 font.family: topBar.fontMain
-                                font.pixelSize: 13
+                                font.pixelSize: Design.s(13)
                                 color: (Audio.defaultSink && Audio.defaultSink.audio && Audio.defaultSink.audio.muted) ? topBar.colRed : topBar.colFgDim
                             }
                             Text {
                                 text: (Audio.defaultSink && Audio.defaultSink.audio) ? Math.round(Audio.defaultSink.audio.volume * 100) + "%" : "65%"
                                 font.family: topBar.fontMain
-                                font.pixelSize: 11
+                                font.pixelSize: Design.s(11)
                                 font.bold: true
                                 color: topBar.colFg
                             }
@@ -651,9 +657,9 @@ PanelWindow {
                             onClicked: topBar.requestCommand("toggle:control:", true)
                             onWheel: (wheel) => {
                                 if (wheel.angleDelta.y > 0) {
-                                    Quickshell.execDetached(["b1air-daemon", "volume", "up", "5"]);
+                                    Daemon.volumeUp(5);
                                 } else if (wheel.angleDelta.y < 0) {
-                                    Quickshell.execDetached(["b1air-daemon", "volume", "down", "5"]);
+                                    Daemon.volumeDown(5);
                                 }
                             }
                         }
@@ -672,13 +678,13 @@ PanelWindow {
                             Text {
                                 text: Power.charging ? "󰂄" : "󰁹"
                                 font.family: topBar.fontMain
-                                font.pixelSize: 13
+                                font.pixelSize: Design.s(13)
                                 color: Power.charging ? "#a6e3a1" : topBar.colFgDim
                             }
                             Text {
                                 text: Power.capacity + "%"
                                 font.family: topBar.fontMain
-                                font.pixelSize: 11
+                                font.pixelSize: Design.s(11)
                                 font.bold: true
                                 color: topBar.colFg
                             }
@@ -693,7 +699,7 @@ PanelWindow {
                             anchors.centerIn: parent
                             text: "󰂚"
                             font.family: topBar.fontMain
-                            font.pixelSize: 13
+                            font.pixelSize: Design.s(13)
                             color: topBar.colFgDim
                         }
                         MouseArea {
@@ -712,7 +718,7 @@ PanelWindow {
                             anchors.centerIn: parent
                             text: "⏻"
                             font.family: topBar.fontMain
-                            font.pixelSize: 13
+                            font.pixelSize: Design.s(13)
                             font.bold: true
                             color: topBar.colRed
                         }

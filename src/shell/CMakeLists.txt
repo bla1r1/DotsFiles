@@ -256,3 +256,50 @@ target_link_libraries(b1air-git PRIVATE
 
 install(TARGETS b1air-shell b1air-polkit-agent b1air-secret-service b1air-files b1air-monitor b1air-text b1air-settings b1air-term b1air-view b1air-notes b1air-git DESTINATION /usr/local/bin)
 install(DIRECTORY qml/ DESTINATION /usr/local/share/b1air-shell/qml)
+
+# ── B1air.Daemon QML module ──────────────────────────────────────────────────
+# Exposes the running daemon's D-Bus interface to QML, so the shell can call it
+# without spawning `b1air-daemon <verb>` and discarding the exit code.
+#
+# A hand-written extension plugin rather than qt_add_qml_module: that produces
+# a module meant to be linked into the consuming executable, which is exactly
+# why quickshell cannot lend its own types to other programs. quickshell hosts
+# our QML, so this has to be loadable from disk by an engine we do not build.
+add_library(b1air-daemon-qml MODULE
+    ../qmlplugin/plugin.cpp
+    ../qmlplugin/b1airdaemon.cpp
+    ../qmlplugin/b1airdaemon.hpp
+)
+
+set_target_properties(b1air-daemon-qml PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/qml/B1air/Daemon
+    PREFIX "lib"
+)
+
+target_include_directories(b1air-daemon-qml PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../qmlplugin)
+target_link_libraries(b1air-daemon-qml PRIVATE Qt6::Core Qt6::Qml Qt6::DBus)
+
+add_custom_command(TARGET b1air-daemon-qml POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/../qmlplugin/qmldir
+            ${CMAKE_CURRENT_BINARY_DIR}/qml/B1air/Daemon/qmldir)
+
+# Into the system QML path so quickshell finds it with no environment changes.
+# Ask Qt where that is rather than guessing: /usr/local is not on the default
+# import path, so installing there would build a module nothing can import.
+if(NOT B1AIR_QML_INSTALL_DIR)
+    get_target_property(_b1air_qmake Qt6::qmake IMPORTED_LOCATION)
+    if(_b1air_qmake)
+        execute_process(COMMAND "${_b1air_qmake}" -query QT_INSTALL_QML
+                        OUTPUT_VARIABLE B1AIR_QML_INSTALL_DIR
+                        OUTPUT_STRIP_TRAILING_WHITESPACE
+                        ERROR_QUIET)
+    endif()
+endif()
+if(NOT B1AIR_QML_INSTALL_DIR)
+    set(B1AIR_QML_INSTALL_DIR "/usr/lib/qt6/qml")
+endif()
+message(STATUS "B1air.Daemon QML module -> ${B1AIR_QML_INSTALL_DIR}")
+
+install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/qml/B1air
+        DESTINATION "${B1AIR_QML_INSTALL_DIR}")

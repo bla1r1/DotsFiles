@@ -39,15 +39,10 @@ Item {
     readonly property string configDir: Quickshell.env("QS_CONFIG_DIR")
         || (Quickshell.env("HOME") + "/.config/quickshell")
 
-    // Design carries a global scale and cannot read the screen itself — it is a
-    // singleton with no visual parent. Every popup lives inside one of these,
-    // so this is the one place that always knows.
-    Component.onCompleted: Design.screenWidth = Screen.width
+    // Design cannot read Settings itself: the standalone apps load these tokens
+    // without Quickshell. The shell root binds this too, so the scale is right
+    // from startup and not only once a popup has been opened.
     Binding { target: Design; property: "uiScale"; value: Settings.uiScale }
-    Connections {
-        target: Screen
-        function onWidthChanged() { Design.screenWidth = Screen.width }
-    }
 
     // Every popup rebuilt this call with its own path juggling.
     function close() {

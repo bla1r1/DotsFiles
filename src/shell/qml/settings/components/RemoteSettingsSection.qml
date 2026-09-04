@@ -4,6 +4,7 @@ import QtQuick.Controls
 import Quickshell
 import "../../Ui"
 import "../../Services"
+import B1air.Daemon
 
 // =============================================================================
 // Remote Desktop & Screen Sharing Settings Section
@@ -37,18 +38,26 @@ ColumnLayout {
         }
     }
 
+    // Daemon.requestRemoteStatus's second argument was never a real Quickshell
+    // API — execDetached takes no JS callback, so this silently never ran and
+    // vncRunning/localIp never updated after the first paint.
     function refreshStatus() {
-        Quickshell.execDetached(["b1air-daemon", "remote", "status"], (data) => {
+        Daemon.requestRemoteStatus();
+    }
+
+    Connections {
+        target: Daemon
+        function onRemoteStatusReady(tag, json) {
             try {
-                if (data && data.trim().startsWith("{")) {
-                    let parsed = JSON.parse(data.trim());
+                if (json && json.trim().startsWith("{")) {
+                    let parsed = JSON.parse(json.trim());
                     section.vncRunning = parsed.running || false;
                     section.localIp = parsed.ip || "127.0.0.1";
                     section.promptFree = section.devMode && parsed.promptFreeScreencast === true;
                     section.uinputReady = parsed.uinputReady !== undefined ? parsed.uinputReady : true;
                 }
             } catch (e) {}
-        });
+        }
     }
 
     Component.onCompleted: {
@@ -89,7 +98,7 @@ ColumnLayout {
                         vncStarter.running = true;
                         section.vncRunning = true;
                     } else {
-                        Quickshell.execDetached(["b1air-daemon", "remote", "stop"]);
+                        Daemon.remoteStop();
                         section.vncRunning = false;
                     }
                     statusTimer.restart();
@@ -163,7 +172,7 @@ ColumnLayout {
                 enabled: section.devMode
                 onToggled: {
                     section.promptFree = checked;
-                    Quickshell.execDetached(["b1air-daemon", "remote", "prompt-free", checked ? "on" : "off"]);
+                    Daemon.remotePromptFree(checked);
                 }
             }
         }
@@ -252,7 +261,7 @@ ColumnLayout {
                     label: "Create Display"
                     icon: "\u{f0079}"
                     onActivated: {
-                        Quickshell.execDetached(["b1air-daemon", "sidecar", "create", "1920", "1080"]);
+                        Daemon.sidecarCreate(1920, 1080);
                         SoundEffects.play(SoundEffects.action);
                     }
                 }
@@ -261,7 +270,7 @@ ColumnLayout {
                     label: "Remove"
                     icon: "\u{f00d}"
                     onActivated: {
-                        Quickshell.execDetached(["b1air-daemon", "sidecar", "remove"]);
+                        Daemon.sidecarRemove();
                         SoundEffects.play(SoundEffects.action);
                     }
                 }

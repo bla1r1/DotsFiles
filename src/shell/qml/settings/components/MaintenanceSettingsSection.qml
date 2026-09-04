@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Io
 import "../../Ui"
 import "../../Services"
+import B1air.Daemon
 
 // =============================================================================
 // System Maintenance & Package Updates
@@ -63,11 +64,11 @@ ColumnLayout {
     }
 
     function runSystemUpdate() {
-        Quickshell.execDetached(["b1air-daemon", "dotfiles", "sys"]);
+        Daemon.dotfilesSys();
     }
 
     function runDotfilesUpdate() {
-        Quickshell.execDetached(["b1air-daemon", "dotfiles", "sync"]);
+        Daemon.dotfilesSync();
     }
 
     function viewBackups() {
@@ -180,7 +181,7 @@ ColumnLayout {
                 icon: "\u{f014}"
                 label: "Clean All Caches & Logs"
                 tone: Design.sapphire
-                onActivated: Quickshell.execDetached(["b1air-daemon", "sweeper", "clean"])
+                onActivated: Daemon.sweeperClean()
             }
 
             ActionButton {

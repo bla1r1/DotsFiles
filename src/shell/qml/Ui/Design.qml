@@ -91,7 +91,15 @@ QtObject {
     // =========================================================================
     // SCALE
     // =========================================================================
-    property real screenWidth: 1920
+    // screenWidth used to be pushed in from PopupShell, so the scale was stale
+    // until a popup opened and then belonged to whichever popup opened last.
+    // Read it here instead — Qt.application.screens needs no Quickshell, which
+    // matters because the standalone apps load these tokens too.
+    readonly property real screenWidth: Qt.application.screens.length > 0
+                                        ? Qt.application.screens[0].width : 1920
+
+    // Assigned by the shell root and by each popup; the standalone apps have no
+    // access to Settings and stay at 1.0, exactly as before.
     property real uiScale: 1.0
 
     readonly property real scale: LayoutMath.getScale(screenWidth, uiScale)

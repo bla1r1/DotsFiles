@@ -4,6 +4,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.UPower
+import B1air.Daemon
 
 // =============================================================================
 // Owner of battery, power profile, uptime and laptop backlight.
@@ -119,7 +120,7 @@ Singleton {
 
     function setProfile(name) {
         root.profile = name;                       // optimistic, poller confirms
-        Quickshell.execDetached(["b1air-daemon", "power-profile", "set", name]);
+        Daemon.powerProfileSet(name);
     }
 
     function setBrightness(pct) {

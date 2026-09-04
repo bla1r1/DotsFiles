@@ -8,6 +8,7 @@ import Quickshell
 import Quickshell.Io
 import "../Ui"
 import "../Services"
+import B1air.Daemon
 
 PopupShell {
     id: root
@@ -937,7 +938,7 @@ PopupShell {
                                         root.lastEqUpdate = Date.now(); 
                                         
                                         root.triggerEqLightning();
-                                        Quickshell.execDetached(["b1air-daemon", "eq", "apply"]);
+                                        Daemon.eqApply();
                                     }
                                 }
                             }
@@ -1054,7 +1055,7 @@ PopupShell {
                                                     // Set lock here too to protect individual slider tweaks
                                                     root.lastEqUpdate = Date.now();
                                                     
-                                                    Quickshell.execDetached(["b1air-daemon", "eq", "set_band", String(modelData.idx), String(Math.round(value))]);
+                                                    Daemon.eqSetBand(modelData.idx, Math.round(value));
                                                 }
                                             }
 

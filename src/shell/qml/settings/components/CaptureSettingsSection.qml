@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import "../../Ui"
 import "../../Services"
+import B1air.Daemon
 
 // =============================================================================
 // Screenshots & Screen Capture Settings
@@ -21,7 +22,7 @@ ColumnLayout {
     property int screenshotDelay: Settings.screenshotDelay !== undefined ? Settings.screenshotDelay : 0
 
     function takeScreenshot(mode) {
-        Quickshell.execDetached(["b1air-daemon", "capture", "--" + mode]);
+        Daemon.captureWithGeometry(mode);
     }
 
     // ── 1. Storage & Output ──────────────────────────────────────────────────

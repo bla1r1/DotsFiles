@@ -3,6 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import B1air.Daemon
 
 // =============================================================================
 // Owner of display layout and external-monitor brightness.
@@ -131,7 +132,7 @@ Singleton {
     function apply(layout) {
         if (!layout || layout.length === 0)
             return;
-        Quickshell.execDetached(["b1air-daemon", "monitors", "apply", JSON.stringify(layout)]);
+        Daemon.monitorsApply(JSON.stringify(layout));
         applyRecheck.restart();
     }
 
@@ -159,7 +160,7 @@ Singleton {
         const v = Math.max(1, Math.min(100, Math.round(pct)));
         // Optimistic: ddcutil takes the better part of a second to answer.
         root.brightness = root.brightness.map(d => d.id === id ? Object.assign({}, d, { brightness: v }) : d);
-        Quickshell.execDetached(["b1air-daemon", "ddc", "set", id, String(v)]);
+        Daemon.ddcSet(id, v);
     }
 
     function redetect() {

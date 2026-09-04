@@ -140,6 +140,20 @@ static int method_capture(sd_bus_message *m, void *userdata, sd_bus_error *ret_e
     return sd_bus_reply_method_return(m, "");
 }
 
+// Distinct from method_capture: SystemControl::capture() is the richer,
+// geometry/editor-aware implementation the CLI `capture` verb uses, separate
+// from capture_screenshot() behind the older Capture method above.
+static int method_capture_geom(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
+    const char *mode = "full";
+    const char *geom = "";
+    int edit = 0;
+    sd_bus_message_read(m, "ssb", &mode, &geom, &edit);
+    SystemControl::capture(mode ? mode : "full", geom ? geom : "", edit);
+    return sd_bus_reply_method_return(m, "");
+}
+
 static int method_power(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
     REQUIRE_SESSION_USER();
@@ -152,6 +166,163 @@ static int method_power(sd_bus_message *m, void *userdata, sd_bus_error *ret_err
     else if (act == "reboot") SystemControl::reboot_system();
     else if (act == "shutdown") SystemControl::shutdown_system();
     return sd_bus_reply_method_return(m, "");
+}
+
+// ── Remote desktop ───────────────────────────────────────────────────────────
+static int method_remote_status(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
+    return sd_bus_reply_method_return(m, "s", SystemControl::remote_desktop_status_json().c_str());
+}
+
+static int method_remote_stop(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
+    SystemControl::remote_desktop_stop();
+    return sd_bus_reply_method_return(m, "");
+}
+
+static int method_remote_prompt_free(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
+    int enabled = 0;
+    sd_bus_message_read(m, "b", &enabled);
+    SystemControl::set_screencast_prompt_free(enabled);
+    return sd_bus_reply_method_return(m, "");
+}
+
+static int method_sidecar_create(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
+    int width = 1920, height = 1080;
+    sd_bus_message_read(m, "ii", &width, &height);
+    SystemControl::sidecar_create_virtual_display(width, height);
+    return sd_bus_reply_method_return(m, "");
+}
+
+static int method_sidecar_remove(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
+    SystemControl::sidecar_remove_virtual_display();
+    return sd_bus_reply_method_return(m, "");
+}
+
+// ── Dotfiles & maintenance ───────────────────────────────────────────────────
+static int method_dotfiles_sys(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
+    SystemControl::dotfiles_sys();
+    return sd_bus_reply_method_return(m, "");
+}
+
+static int method_dotfiles_sync(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
+    SystemControl::dotfiles_sync();
+    return sd_bus_reply_method_return(m, "");
+}
+
+static int method_sweeper_clean(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
+    SystemControl::disk_sweeper_clean();
+    return sd_bus_reply_method_return(m, "");
+}
+
+// ── Zones, mic, power profile ────────────────────────────────────────────────
+static int method_zones_apply(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
+    int zone_id = 0;
+    sd_bus_message_read(m, "i", &zone_id);
+    SystemControl::zones_apply(zone_id);
+    return sd_bus_reply_method_return(m, "");
+}
+
+static int method_mic_rnnoise_toggle(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
+    SystemControl::mic_rnnoise_toggle();
+    return sd_bus_reply_method_return(m, "");
+}
+
+static int method_power_profile_set(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
+    const char *name = "balanced";
+    sd_bus_message_read(m, "s", &name);
+    SystemControl::power_profile_set(name ? name : "balanced");
+    return sd_bus_reply_method_return(m, "");
+}
+
+// ── Monitors & DDC ────────────────────────────────────────────────────────────
+static int method_monitors_apply(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
+    const char *layout_json = "";
+    sd_bus_message_read(m, "s", &layout_json);
+    SystemControl::monitors_apply(layout_json ? layout_json : "");
+    return sd_bus_reply_method_return(m, "");
+}
+
+static int method_ddc_set(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
+    const char *id = "";
+    int percent = 50;
+    sd_bus_message_read(m, "si", &id, &percent);
+    SystemControl::ddc_set(id ? id : "", percent);
+    return sd_bus_reply_method_return(m, "");
+}
+
+// ── Equalizer ─────────────────────────────────────────────────────────────────
+static int method_eq_apply(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
+    SystemControl::eq_apply();
+    return sd_bus_reply_method_return(m, "");
+}
+
+static int method_eq_set_band(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
+    int band = 0, value = 0;
+    sd_bus_message_read(m, "ii", &band, &value);
+    SystemControl::eq_set_band(band, value);
+    return sd_bus_reply_method_return(m, "");
+}
+
+static int method_eq_set_preset(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
+    const char *name = "Flat";
+    sd_bus_message_read(m, "s", &name);
+    SystemControl::eq_set_preset(name ? name : "Flat");
+    return sd_bus_reply_method_return(m, "");
+}
+
+static int method_eq_set_all(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
+    std::vector<int> bands;
+    int r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "i");
+    if (r < 0) return r;
+    int32_t band_val = 0;
+    while ((r = sd_bus_message_read_basic(m, SD_BUS_TYPE_INT32, &band_val)) > 0) {
+        bands.push_back(band_val);
+    }
+    sd_bus_message_exit_container(m);
+    SystemControl::eq_set_all(bands);
+    return sd_bus_reply_method_return(m, "");
+}
+
+// ── Screenshot QR scan ────────────────────────────────────────────────────────
+static int method_scan_qr(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+    (void)userdata; (void)ret_error;
+    REQUIRE_SESSION_USER();
+    const char *geom = "";
+    sd_bus_message_read(m, "s", &geom);
+    return sd_bus_reply_method_return(m, "s", SystemControl::scan_qr(geom ? geom : "").c_str());
 }
 
 static int method_get_stats(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
@@ -179,8 +350,27 @@ static const sd_bus_vtable daemon_vtable[] = {
     SD_BUS_METHOD("BrightnessSet", "i", "", method_brightness_set, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("SetGameMode", "b", "", method_gamemode, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("Capture", "s", "", method_capture, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("CaptureGeom", "ssb", "", method_capture_geom, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("Power", "s", "", method_power, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("GetStats", "s", "s", method_get_stats, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("RemoteStatus", "", "s", method_remote_status, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("RemoteStop", "", "", method_remote_stop, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("RemotePromptFree", "b", "", method_remote_prompt_free, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("SidecarCreate", "ii", "", method_sidecar_create, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("SidecarRemove", "", "", method_sidecar_remove, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("DotfilesSys", "", "", method_dotfiles_sys, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("DotfilesSync", "", "", method_dotfiles_sync, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("SweeperClean", "", "", method_sweeper_clean, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("ZonesApply", "i", "", method_zones_apply, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("MicRnnoiseToggle", "", "", method_mic_rnnoise_toggle, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("PowerProfileSet", "s", "", method_power_profile_set, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("MonitorsApply", "s", "", method_monitors_apply, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("DdcSet", "si", "", method_ddc_set, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("EqApply", "", "", method_eq_apply, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("EqSetBand", "ii", "", method_eq_set_band, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("EqSetPreset", "s", "", method_eq_set_preset, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("EqSetAll", "ai", "", method_eq_set_all, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_METHOD("ScanQr", "s", "s", method_scan_qr, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_SIGNAL("VolumeChanged", "ib", 0),
     SD_BUS_SIGNAL("BrightnessChanged", "i", 0),
     SD_BUS_SIGNAL("WallpaperChanged", "s", 0),

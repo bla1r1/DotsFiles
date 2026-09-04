@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import "../Ui"
 import "../Services"
+import B1air.Daemon
 import "."
 
 // =============================================================================
@@ -179,7 +180,7 @@ MiniView {
             ActionButton {
                 icon: "\u{f021}"
                 label: "Toggle Filter"
-                onActivated: Quickshell.execDetached(["b1air-daemon", "mic-rnnoise", "toggle"])
+                onActivated: Daemon.micRnnoiseToggle()
             }
         }
 

@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import B1air.Daemon
 import Quickshell.Io
 import "../Ui"
 import "../Services"
@@ -589,13 +590,13 @@ PopupShell {
             ActionButton {
                 icon: "\u{f033e}"
                 label: "Lock"
-                onActivated: Quickshell.execDetached(["b1air-daemon", "power", "lock"])
+                onActivated: Daemon.lock()
             }
 
             ActionButton {
                 icon: "\u{f04b2}"
                 label: "Sleep"
-                onActivated: Cmd.run(["b1air-daemon", "power", "suspend"], "Suspend")
+                onActivated: Daemon.power("suspend")
             }
 
             ActionButton {
@@ -604,7 +605,7 @@ PopupShell {
                 iconTone: Design.peach
                 tone: Design.peach
                 destructive: true
-                onActivated: Cmd.run(["b1air-daemon", "power", "reboot"], "Reboot")
+                onActivated: Daemon.power("reboot")
             }
 
             ActionButton {
@@ -613,7 +614,7 @@ PopupShell {
                 iconTone: Design.danger
                 tone: Design.danger
                 destructive: true
-                onActivated: Cmd.run(["b1air-daemon", "power", "shutdown"], "Shut down")
+                onActivated: Daemon.power("shutdown")
             }
         }
     }

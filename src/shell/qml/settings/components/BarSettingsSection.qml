@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import "../../Ui"
 import "../../Services"
+import B1air.Daemon
 
 // =============================================================================
 // Native Quickshell Top Bar Settings
@@ -22,7 +23,7 @@ ColumnLayout {
     property bool barClock24h: Settings.barClock24h !== undefined ? Settings.barClock24h : true
 
     function reloadTopBar() {
-        Quickshell.execDetached(["b1air-daemon", "reload"]);
+        Daemon.reload();
     }
 
     // ── 1. Position & Layout ─────────────────────────────────────────────────

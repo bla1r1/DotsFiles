@@ -1,0 +1,3 @@
+module B1air.Daemon
+plugin b1air-daemon-qml
+classname B1airDaemonPlugin

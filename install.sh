@@ -538,6 +538,16 @@ build_b1air_suite() {
                 err "cmake configure failed — a build dependency is missing."; exit 1; }
             cmake --build "$REPO_DIR/src/shell/build" -j"$(nproc 2>/dev/null || echo 4)" || {
                 err "Failed to build b1air-shell — see the compiler output above."; exit 1; }
+            # The QML plugin has to sit on Qt's import path for quickshell to
+            # find it; ~/.local is not on that path, so this one needs root.
+            local qml_dest
+            qml_dest="$(qmake6 -query QT_INSTALL_QML 2>/dev/null || echo /usr/lib/qt6/qml)"
+            if [[ -d "$REPO_DIR/src/shell/build/qml/B1air" ]]; then
+                sudo cp -r "$REPO_DIR/src/shell/build/qml/B1air" "$qml_dest/" \
+                    && ok "B1air.Daemon QML module installed to $qml_dest" \
+                    || { err "Failed to install the B1air.Daemon QML module."; exit 1; }
+            fi
+
             if sudo install -m 755 "$REPO_DIR/src/shell/build/b1air-shell" /usr/local/bin/b1air-shell 2>/dev/null; then
                 ok "b1air-shell installed to /usr/local/bin/b1air-shell"
             elif [[ -f "$REPO_DIR/src/shell/build/b1air-shell" ]]; then

@@ -4,6 +4,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Mpris
+import B1air.Daemon
 
 // =============================================================================
 // Owner of the player state, on MPRIS directly.
@@ -68,13 +69,13 @@ Singleton {
     function setEqBands(bands) {
         root.eq = Object.assign({}, root.eq, { bands: bands });
         root._lastEqWrite = Date.now();
-        Quickshell.execDetached(["b1air-daemon", "eq", "set"].concat(bands.map(String)));
+        Daemon.eqSetAll(bands);
     }
 
     function setEqPreset(name, bands) {
         root.eq = Object.assign({}, root.eq, { preset: name, bands: bands });
         root._lastEqWrite = Date.now();
-        Quickshell.execDetached(["b1air-daemon", "eq", "preset", name]);
+        Daemon.eqSetPreset(name);
     }
 
     function refresh() { infoProc.running = true; }

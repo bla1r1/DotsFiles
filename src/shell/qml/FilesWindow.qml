@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Window
 import QtQuick.Layouts
 import QtQuick.Controls
+import "Ui"
 import Qt.labs.folderlistmodel
 
 ApplicationWindow {
@@ -36,24 +37,27 @@ ApplicationWindow {
         { name: "DotsFiles", path: homeDir + "/DotsFiles", icon: "󰊢" }
     ]
 
-    // Premium Tokyo Night Palette & Design Tokens
-    readonly property color colBg: "#161722"
-    readonly property color colDark: "#13141e"
-    readonly property color colSidebar: "#101119"
-    readonly property color colSunken: "#0d0e14"
-    readonly property color colCard: "#1a1b2a"
-    readonly property color colCardHover: Qt.rgba(255/255, 255/255, 255/255, 0.05)
-    readonly property color colBorder: Qt.rgba(122/255, 162/255, 247/255, 0.16)
-    readonly property color colBorderSubtle: "#1b1c2b"
-    readonly property color colBlue: "#7aa2f7"
-    readonly property color colPurple: "#bb9af7"
-    readonly property color colCyan: "#7dcfff"
-    readonly property color colGreen: "#73daca"
-    readonly property color colOrange: "#ff9e64"
-    readonly property color colYellow: "#e0af68"
-    readonly property color colRed: "#f7768e"
-    readonly property color colFg: "#c0caf5"
-    readonly property color colDim: "#6b739b"
+    // A second, hand-rolled Tokyo Night palette used to live here alongside the
+    // Catppuccin one in Ui/Design.qml, so this window never followed the theme.
+    // The names stay — they are used throughout the file — but each now resolves
+    // to a design-system role.
+    readonly property color colBg: Design.surface
+    readonly property color colDark: Design.ground
+    readonly property color colSidebar: Design.sunken
+    readonly property color colSunken: Design.sunken
+    readonly property color colCard: Design.raised
+    readonly property color colCardHover: Design.hover
+    readonly property color colBorder: Design.glassBorder
+    readonly property color colBorderSubtle: Design.line
+    readonly property color colBlue: Design.accent
+    readonly property color colPurple: Design.mauve
+    readonly property color colCyan: Design.sapphire
+    readonly property color colGreen: Design.ok
+    readonly property color colOrange: Design.warn
+    readonly property color colYellow: Design.yellow
+    readonly property color colRed: Design.danger
+    readonly property color colFg: Design.text
+    readonly property color colDim: Design.textDim
 
     function formatSize(bytes) {
         if (!bytes || bytes <= 0) return "0 B";
@@ -289,8 +293,8 @@ ApplicationWindow {
                             Text {
                                 anchors.centerIn: parent
                                 text: "󰉋"
-                                font.family: "JetBrainsMono Nerd Font"
-                                font.pixelSize: 15
+                                font.family: Design.font.mono
+                                font.pixelSize: Design.s(15)
                                 color: window.colBlue
                             }
                         }
@@ -299,15 +303,15 @@ ApplicationWindow {
                             Layout.fillWidth: true
                             Text {
                                 text: "Files"
-                                font.family: "Fira Sans SemiBold, sans-serif"
-                                font.pixelSize: 13
+                                font.family: Design.font.sans
+                                font.pixelSize: Design.s(13)
                                 font.bold: true
                                 color: window.colFg
                             }
                             Text {
                                 text: "Explorer & Gallery"
-                                font.family: "Fira Sans, sans-serif"
-                                font.pixelSize: 10
+                                font.family: Design.font.sans
+                                font.pixelSize: Design.s(10)
                                 color: window.colDim
                             }
                         }
@@ -316,8 +320,8 @@ ApplicationWindow {
                     // 1. QUICK JUMP (Root, Home, DotsFiles)
                     Text {
                         text: "QUICK JUMP"
-                        font.family: "JetBrainsMono Nerd Font, monospace"
-                        font.pixelSize: 9
+                        font.family: Design.font.mono
+                        font.pixelSize: Design.s(9)
                         font.bold: true
                         color: window.colDim
                         Layout.topMargin: 4
@@ -335,8 +339,8 @@ ApplicationWindow {
                     // 2. PLACES
                     Text {
                         text: "PLACES"
-                        font.family: "JetBrainsMono Nerd Font, monospace"
-                        font.pixelSize: 9
+                        font.family: Design.font.mono
+                        font.pixelSize: Design.s(9)
                         font.bold: true
                         color: window.colDim
                         Layout.topMargin: 4
@@ -360,8 +364,8 @@ ApplicationWindow {
 
                         Text {
                             text: "BOOKMARKS"
-                            font.family: "JetBrainsMono Nerd Font, monospace"
-                            font.pixelSize: 9
+                            font.family: Design.font.mono
+                            font.pixelSize: Design.s(9)
                             font.bold: true
                             color: window.colDim
                         }
@@ -372,8 +376,8 @@ ApplicationWindow {
                             Text {
                                 anchors.centerIn: parent
                                 text: "󰐕"
-                                font.family: "JetBrainsMono Nerd Font"
-                                font.pixelSize: 11
+                                font.family: Design.font.mono
+                                font.pixelSize: Design.s(11)
                                 color: addBmArea.containsMouse ? window.colBlue : window.colDim
                             }
                             MouseArea {
@@ -408,11 +412,11 @@ ApplicationWindow {
                                 anchors.rightMargin: 6
                                 spacing: 6
 
-                                Text { text: modelData.icon || "󰉋"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; color: window.colBlue }
-                                Text { text: modelData.name; font.family: "Fira Sans SemiBold, sans-serif"; font.pixelSize: 11; color: window.colFg; Layout.fillWidth: true; elide: Text.ElideRight }
+                                Text { text: modelData.icon || "󰉋"; font.family: Design.font.mono; font.pixelSize: Design.s(12); color: window.colBlue }
+                                Text { text: modelData.name; font.family: Design.font.sans; font.pixelSize: Design.s(11); color: window.colFg; Layout.fillWidth: true; elide: Text.ElideRight }
                                 Text {
                                     text: "×"
-                                    font.pixelSize: 13
+                                    font.pixelSize: Design.s(13)
                                     color: delBmArea.containsMouse ? window.colRed : window.colDim
                                     visible: bmArea.containsMouse
                                     MouseArea {
@@ -451,9 +455,9 @@ ApplicationWindow {
 
                             RowLayout {
                                 Layout.fillWidth: true
-                                Text { text: "󰋊 System Drive"; font.family: "Fira Sans SemiBold, JetBrainsMono Nerd Font, sans-serif"; font.pixelSize: 10; font.bold: true; color: window.colFg }
+                                Text { text: "󰋊 System Drive"; font.family: Design.font.sans; font.pixelSize: Design.s(10); font.bold: true; color: window.colFg }
                                 Item { Layout.fillWidth: true }
-                                Text { text: isNative ? FilesBackend.diskFreeSpace : "12.8 GB free"; font.family: "Fira Sans, sans-serif"; font.pixelSize: 9; color: window.colDim }
+                                Text { text: isNative ? FilesBackend.diskFreeSpace : "12.8 GB free"; font.family: Design.font.sans; font.pixelSize: Design.s(9); color: window.colDim }
                             }
 
                             Rectangle {
@@ -495,8 +499,8 @@ ApplicationWindow {
                         anchors.rightMargin: 8
                         spacing: 8
 
-                        Text { text: pill.icon; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; color: pill.isActive ? window.colBlue : pill.iconCol }
-                        Text { text: pill.label; font.family: "Fira Sans SemiBold, sans-serif"; font.pixelSize: 11; color: pill.isActive ? "#ffffff" : window.colFg; Layout.fillWidth: true; elide: Text.ElideRight }
+                        Text { text: pill.icon; font.family: Design.font.mono; font.pixelSize: Design.s(12); color: pill.isActive ? window.colBlue : pill.iconCol }
+                        Text { text: pill.label; font.family: Design.font.sans; font.pixelSize: Design.s(11); color: pill.isActive ? "#ffffff" : window.colFg; Layout.fillWidth: true; elide: Text.ElideRight }
                     }
 
                     MouseArea {
@@ -582,10 +586,15 @@ ApplicationWindow {
                                     anchors.verticalCenter: parent.verticalCenter
 
                                     Rectangle {
+                                        // The child Text referenced isLast unqualified, which does not
+                                        // resolve from its scope, so the current folder was never
+                                        // highlighted. Naming the chip fixes both uses.
+                                        id: crumbChip
                                         implicitWidth: crumbText.implicitWidth + 12
                                         height: 22
                                         radius: 4
-                                        color: isLast ? Qt.rgba(122/255, 162/255, 247/255, 0.20) : (crumbHover.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.08) : "transparent")
+                                        color: crumbChip.isLast ? Design.accentSoft
+                                             : (crumbHover.containsMouse ? Design.hover : "transparent")
 
                                         readonly property bool isLast: index === (breadcrumbsList.count - 1)
 
@@ -593,10 +602,11 @@ ApplicationWindow {
                                             id: crumbText
                                             anchors.centerIn: parent
                                             text: modelData.name
-                                            font.family: "Fira Sans SemiBold, JetBrainsMono Nerd Font, sans-serif"
-                                            font.pixelSize: 11
-                                            font.bold: isLast
-                                            color: isLast ? window.colBlue : (crumbHover.containsMouse ? "#ffffff" : window.colFg)
+                                            font.family: Design.font.sans
+                                            font.pixelSize: Design.s(11)
+                                            font.bold: crumbChip.isLast
+                                            color: crumbChip.isLast ? window.colBlue
+                                                 : (crumbHover.containsMouse ? Design.text : window.colFg)
                                         }
 
                                         HoverHandler { id: crumbHover }
@@ -609,9 +619,9 @@ ApplicationWindow {
 
                                     Text {
                                         text: "󰅂"
-                                        font.family: "JetBrainsMono Nerd Font"
+                                        font.family: Design.font.mono
                                         color: window.colDim
-                                        font.pixelSize: 9
+                                        font.pixelSize: Design.s(9)
                                         visible: index < (breadcrumbsList.count - 1)
                                     }
                                 }
@@ -633,12 +643,12 @@ ApplicationWindow {
                                 anchors.rightMargin: 8
                                 spacing: 6
 
-                                Text { text: "󰍉"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: searchField.activeFocus ? window.colBlue : window.colDim }
+                                Text { text: "󰍉"; font.family: Design.font.mono; font.pixelSize: Design.s(11); color: searchField.activeFocus ? window.colBlue : window.colDim }
                                 TextInput {
                                     id: searchField
                                     Layout.fillWidth: true
-                                    font.family: "Fira Sans, sans-serif"
-                                    font.pixelSize: 11
+                                    font.family: Design.font.sans
+                                    font.pixelSize: Design.s(11)
                                     color: window.colFg
                                     clip: true
                                     selectByMouse: true
@@ -646,8 +656,8 @@ ApplicationWindow {
 
                                     Text {
                                         text: "Search files..."
-                                        font.family: "Fira Sans, sans-serif"
-                                        font.pixelSize: 11
+                                        font.family: Design.font.sans
+                                        font.pixelSize: Design.s(11)
                                         color: window.colDim
                                         visible: !searchField.text && !searchField.activeFocus
                                         anchors.verticalCenter: parent.verticalCenter
@@ -655,8 +665,8 @@ ApplicationWindow {
                                 }
                                 Text {
                                     text: "󰅖"
-                                    font.family: "JetBrainsMono Nerd Font"
-                                    font.pixelSize: 10
+                                    font.family: Design.font.mono
+                                    font.pixelSize: Design.s(10)
                                     color: window.colDim
                                     visible: searchField.text.length > 0
                                     MouseArea {
@@ -697,7 +707,7 @@ ApplicationWindow {
                                 color: window.showHidden ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : (hidArea.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.08) : window.colSunken)
                                 border.color: window.showHidden ? window.colBlue : window.colBorderSubtle
                                 border.width: 1
-                                Text { anchors.centerIn: parent; text: "󰈉"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13; color: window.showHidden ? window.colBlue : window.colDim }
+                                Text { anchors.centerIn: parent; text: "󰈉"; font.family: Design.font.mono; font.pixelSize: Design.s(13); color: window.showHidden ? window.colBlue : window.colDim }
                                 MouseArea { id: hidArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: window.showHidden = !window.showHidden }
                             }
 
@@ -706,7 +716,7 @@ ApplicationWindow {
                                 color: termArea.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.08) : window.colSunken
                                 border.color: window.colBorderSubtle
                                 border.width: 1
-                                Text { anchors.centerIn: parent; text: "󰞷"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13; color: window.colFg }
+                                Text { anchors.centerIn: parent; text: "󰞷"; font.family: Design.font.mono; font.pixelSize: Design.s(13); color: window.colFg }
                                 MouseArea { id: termArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: window.openTerminalHere() }
                             }
                         }
@@ -724,8 +734,8 @@ ApplicationWindow {
                         reuseItems: true
                         anchors.fill: parent
                         anchors.margins: 14
-                        cellWidth: 114
-                        cellHeight: 114
+                        cellWidth: Design.s(114)
+                        cellHeight: Design.s(114)
                         clip: true
                         visible: window.viewMode === "grid"
                         model: folderModel
@@ -767,8 +777,8 @@ ApplicationWindow {
                                     Text {
                                         anchors.centerIn: parent
                                         text: window.getIconGlyph(model.fileName, model.fileIsDir)
-                                        font.family: "JetBrainsMono Nerd Font"
-                                        font.pixelSize: 34
+                                        font.family: Design.font.mono
+                                        font.pixelSize: Design.s(34)
                                         color: window.getIconColor(model.fileName, model.fileIsDir)
                                         visible: !window.isImageFile(model.fileName)
                                     }
@@ -777,8 +787,8 @@ ApplicationWindow {
                                 Text {
                                     Layout.fillWidth: true
                                     text: model.fileName || ""
-                                    font.family: "Fira Sans SemiBold, sans-serif"
-                                    font.pixelSize: 11
+                                    font.family: Design.font.sans
+                                    font.pixelSize: Design.s(11)
                                     font.bold: gridCard.isSelected
                                     color: gridCard.isSelected ? "#ffffff" : window.colFg
                                     horizontalAlignment: Text.AlignHCenter
@@ -788,8 +798,8 @@ ApplicationWindow {
                                 Text {
                                     Layout.fillWidth: true
                                     text: model.fileIsDir ? "Folder" : window.formatSize(model.fileSize)
-                                    font.family: "Fira Sans, sans-serif"
-                                    font.pixelSize: 9
+                                    font.family: Design.font.sans
+                                    font.pixelSize: Design.s(9)
                                     color: window.colDim
                                     horizontalAlignment: Text.AlignHCenter
                                 }
@@ -837,16 +847,16 @@ ApplicationWindow {
 
                                 Text {
                                     text: window.getIconGlyph(model.fileName, model.fileIsDir)
-                                    font.family: "JetBrainsMono Nerd Font"
-                                    font.pixelSize: 15
+                                    font.family: Design.font.mono
+                                    font.pixelSize: Design.s(15)
                                     color: window.getIconColor(model.fileName, model.fileIsDir)
                                 }
 
                                 Text {
                                     Layout.fillWidth: true
                                     text: model.fileName || ""
-                                    font.family: "Fira Sans SemiBold, sans-serif"
-                                    font.pixelSize: 11
+                                    font.family: Design.font.sans
+                                    font.pixelSize: Design.s(11)
                                     color: listCard.isSelected ? "#ffffff" : window.colFg
                                     elide: Text.ElideMiddle
                                 }
@@ -854,8 +864,8 @@ ApplicationWindow {
                                 Text {
                                     width: 80
                                     text: model.fileIsDir ? "Folder" : window.formatSize(model.fileSize)
-                                    font.family: "JetBrainsMono Nerd Font, monospace"
-                                    font.pixelSize: 10
+                                    font.family: Design.font.mono
+                                    font.pixelSize: Design.s(10)
                                     color: window.colDim
                                     horizontalAlignment: Text.AlignRight
                                 }
@@ -863,8 +873,8 @@ ApplicationWindow {
                                 Text {
                                     width: 140
                                     text: window.formatDate(model.fileModified)
-                                    font.family: "Fira Sans, sans-serif"
-                                    font.pixelSize: 10
+                                    font.family: Design.font.sans
+                                    font.pixelSize: Design.s(10)
                                     color: window.colDim
                                     horizontalAlignment: Text.AlignRight
                                 }
@@ -888,8 +898,8 @@ ApplicationWindow {
                         reuseItems: true
                         anchors.fill: parent
                         anchors.margins: 14
-                        cellWidth: 180
-                        cellHeight: 160
+                        cellWidth: Design.s(180)
+                        cellHeight: Design.s(160)
                         clip: true
                         visible: window.viewMode === "gallery"
                         model: folderModel
@@ -932,8 +942,8 @@ ApplicationWindow {
                                     Text {
                                         anchors.centerIn: parent
                                         text: window.getIconGlyph(model.fileName, model.fileIsDir)
-                                        font.family: "JetBrainsMono Nerd Font"
-                                        font.pixelSize: 38
+                                        font.family: Design.font.mono
+                                        font.pixelSize: Design.s(38)
                                         color: window.getIconColor(model.fileName, model.fileIsDir)
                                         visible: !window.isImageFile(model.fileName)
                                     }
@@ -942,8 +952,8 @@ ApplicationWindow {
                                 Text {
                                     Layout.fillWidth: true
                                     text: model.fileName || ""
-                                    font.family: "Fira Sans SemiBold, sans-serif"
-                                    font.pixelSize: 11
+                                    font.family: Design.font.sans
+                                    font.pixelSize: Design.s(11)
                                     font.bold: galCard.isSelected
                                     color: galCard.isSelected ? "#ffffff" : window.colFg
                                     horizontalAlignment: Text.AlignHCenter
@@ -986,19 +996,19 @@ ApplicationWindow {
 
                         Text {
                             text: folderModel.count + " items" + (window.selectedPath ? ("  •  Selected: " + window.selectedPath.split('/').pop()) : "")
-                            font.family: "Fira Sans SemiBold, sans-serif"
-                            font.pixelSize: 10
+                            font.family: Design.font.sans
+                            font.pixelSize: Design.s(10)
                             color: window.colDim
                             Layout.fillWidth: true
                         }
 
                         Row {
                             spacing: 8
-                            Text { text: "Space QuickLook"; font.family: "JetBrainsMono Nerd Font, monospace"; font.pixelSize: 9; color: window.colDim }
-                            Text { text: "•"; font.pixelSize: 8; color: window.colBorderSubtle }
-                            Text { text: "Ctrl+T Terminal"; font.family: "JetBrainsMono Nerd Font, monospace"; font.pixelSize: 9; color: window.colDim }
-                            Text { text: "•"; font.pixelSize: 8; color: window.colBorderSubtle }
-                            Text { text: "Ctrl+H Hidden"; font.family: "JetBrainsMono Nerd Font, monospace"; font.pixelSize: 9; color: window.colDim }
+                            Text { text: "Space QuickLook"; font.family: Design.font.mono; font.pixelSize: Design.s(9); color: window.colDim }
+                            Text { text: "•"; font.pixelSize: Design.s(8); color: window.colBorderSubtle }
+                            Text { text: "Ctrl+T Terminal"; font.family: Design.font.mono; font.pixelSize: Design.s(9); color: window.colDim }
+                            Text { text: "•"; font.pixelSize: Design.s(8); color: window.colBorderSubtle }
+                            Text { text: "Ctrl+H Hidden"; font.family: Design.font.mono; font.pixelSize: Design.s(9); color: window.colDim }
                         }
                     }
                 }
@@ -1019,8 +1029,8 @@ ApplicationWindow {
         Text {
             anchors.centerIn: parent
             text: nb.icon
-            font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 11
+            font.family: Design.font.mono
+            font.pixelSize: Design.s(11)
             color: window.colFg
         }
 
@@ -1046,8 +1056,8 @@ ApplicationWindow {
         Text {
             anchors.centerIn: parent
             text: vsb.icon
-            font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 11
+            font.family: Design.font.mono
+            font.pixelSize: Design.s(11)
             color: vsb.active ? "#101119" : (vsbArea.containsMouse ? "#ffffff" : window.colDim)
         }
 
