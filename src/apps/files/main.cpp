@@ -7,6 +7,8 @@
 #include <QQmlContext>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
+#include <QUrl>
 #include <iostream>
 #include "backend.hpp"
 
@@ -38,9 +40,18 @@ int main(int argc, char* argv[]) {
 
     b1air::FileManagerBackend backend;
     if (argc > 1) {
-        QString targetPath = QString::fromUtf8(argv[1]);
-        if (QDir(targetPath).exists()) {
-            backend.setCurrentPath(targetPath);
+        // Desktop entries use %U, so callers (Firefox "Open Containing
+        // Folder", xdg-open, etc.) pass a file:// URI, not a bare path.
+        QUrl url(QString::fromUtf8(argv[1]));
+        QString targetPath = url.isLocalFile() ? url.toLocalFile() : url.toString();
+
+        QFileInfo fi(targetPath);
+        if (fi.isDir()) {
+            backend.setCurrentPath(fi.absoluteFilePath());
+        } else if (fi.exists()) {
+            // A specific file (e.g. a just-downloaded file) was passed:
+            // land in its containing folder instead of doing nothing.
+            backend.setCurrentPath(fi.absolutePath());
         }
     }
     engine.rootContext()->setContextProperty("FilesBackend", &backend);

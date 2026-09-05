@@ -192,8 +192,11 @@ arch_packages() {
         # command does not, and the action fails for no visible reason.
         power-profiles-daemon pamixer poppler gocryptfs easyeffects
         wlsunset snapper
-        # Storage & archives: removable media, phones, NTFS volumes, 7z.
-        udisks2 gvfs ntfs-3g 7zip
+        # Storage & archives: removable media, phones, NTFS volumes.
+        # libarchive (pulled in by base-devel/pacman itself) powers extraction
+        # built into b1air-files; 7zip is the CLI fallback for formats/broken
+        # links libarchive can't handle.
+        udisks2 gvfs ntfs-3g 7zip libarchive
         # Desktop plumbing every DE ships: XDG user directories, Qt platform
         # theming (this repo already ships qt5ct/qt6ct configs), printing.
         xdg-user-dirs qt5ct qt6ct cups
@@ -500,6 +503,10 @@ detect_and_install_vm_guest_tools() {
                     pkg_install qemu-guest-agent spice-vdagent
                     if [[ "$DRY_RUN" -eq 0 ]]; then
                         sudo systemctl enable --now qemu-guest-agent 2>/dev/null || true
+                        # spice-vdagentd is the system side of clipboard/resolution
+                        # sync; without it, spice-vdagent in the session has nothing
+                        # to talk to and host<->guest copy-paste silently never works.
+                        sudo systemctl enable --now spice-vdagentd 2>/dev/null || true
                     fi
                     ;;
                 oracle)

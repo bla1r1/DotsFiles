@@ -37,11 +37,15 @@ video/mkv=mpv.desktop;
 video/webm=mpv.desktop;
 video/x-matroska=mpv.desktop;
 
-# Archives
-application/zip=xarchiver.desktop;org.gnome.FileRoller.desktop;
-application/x-tar=xarchiver.desktop;org.gnome.FileRoller.desktop;
-application/x-7z-compressed=xarchiver.desktop;org.gnome.FileRoller.desktop;
-application/x-rar=xarchiver.desktop;org.gnome.FileRoller.desktop;
+# Archives — extraction is built into b1air-files itself (libarchive), no
+# separate archive-manager app needed.
+application/zip=b1air-files.desktop;
+application/x-tar=b1air-files.desktop;
+application/x-7z-compressed=b1air-files.desktop;
+application/x-rar=b1air-files.desktop;
+application/gzip=b1air-files.desktop;
+application/x-xz=b1air-files.desktop;
+application/x-zstd-compressed-tar=b1air-files.desktop;
 
 # PDF & Documents
 application/pdf=zathura.desktop;org.gnome.Evince.desktop;firefox.desktop;

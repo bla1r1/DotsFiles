@@ -6,6 +6,8 @@
 #include <QWheelEvent>
 #include <QClipboard>
 #include <QGuiApplication>
+#include <QDateTime>
+#include <QStyleHints>
 #include <pty.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -495,12 +497,66 @@ void TerminalItem::mousePressEvent(QMouseEvent *event) {
     if (event->button() == Qt::LeftButton) {
         int col = (int)(event->pos().x() / m_cellWidth);
         int row = (int)(event->pos().y() / m_cellHeight);
+
+        qint64 now = QDateTime::currentMSecsSinceEpoch();
+        bool samePos = (row == m_lastClickPos.row && col == m_lastClickPos.col);
+        if (samePos && (now - m_lastClickMs) <= QGuiApplication::styleHints()->mouseDoubleClickInterval()) {
+            m_clickCount = (m_clickCount % 3) + 1;
+        } else {
+            m_clickCount = 1;
+        }
+        m_lastClickMs = now;
+        m_lastClickPos = { row, col };
+
+        if (m_clickCount == 2) {
+            selectWordAt({ row, col });
+            m_selecting = false;
+            return;
+        }
+        if (m_clickCount == 3) {
+            selectLineAt(row);
+            m_selecting = false;
+            return;
+        }
+
         m_selStart = { row, col };
         m_selEnd = m_selStart;
         m_selecting = true;
         m_hasSelection = false;
         update();
     }
+}
+
+void TerminalItem::selectWordAt(VTermPos pos) {
+    if (!m_vts || pos.row < 0 || pos.row >= m_rows) return;
+
+    auto isWordChar = [this](int row, int col) {
+        VTermScreenCell cell;
+        vterm_screen_get_cell(m_vts, { row, col }, &cell);
+        if (!cell.chars[0]) return false;
+        char32_t cp = static_cast<char32_t>(cell.chars[0]);
+        return cp != ' ' && cp != '\t';
+    };
+
+    if (!isWordChar(pos.row, pos.col)) return;
+
+    int left = pos.col;
+    while (left > 0 && isWordChar(pos.row, left - 1)) left--;
+    int right = pos.col;
+    while (right < m_cols - 1 && isWordChar(pos.row, right + 1)) right++;
+
+    m_selStart = { pos.row, left };
+    m_selEnd = { pos.row, right };
+    m_hasSelection = true;
+    update();
+}
+
+void TerminalItem::selectLineAt(int row) {
+    if (row < 0 || row >= m_rows) return;
+    m_selStart = { row, 0 };
+    m_selEnd = { row, m_cols - 1 };
+    m_hasSelection = true;
+    update();
 }
 
 void TerminalItem::mouseMoveEvent(QMouseEvent *event) {

@@ -9,6 +9,7 @@
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <QDBusReply>
+#include <QDBusMessage>
 #include <QProcess>
 #include <QDir>
 #include <QStandardPaths>
@@ -30,32 +31,51 @@ int main(int argc, char* argv[]) {
         if (bus.isConnected()) {
             QDBusInterface iface("org.b1air.Shell", "/org/b1air/Shell", "org.b1air.Shell", bus);
             if (iface.isValid()) {
+                QDBusMessage reply;
                 if (action == "toggle") {
-                    iface.call("Toggle", target);
-                    return 0;
+                    reply = iface.call("Toggle", target);
                 } else if (action == "open") {
-                    iface.call("Open", target, arg);
-                    return 0;
+                    reply = iface.call("Open", target, arg);
                 } else if (action == "close") {
-                    iface.call("Close", target);
-                    return 0;
+                    reply = iface.call("Close", target);
                 } else if (action == "forceReload" || action == "reload") {
-                    iface.call("ForceReload");
+                    reply = iface.call("ForceReload");
+                } else if (action == "switcher-advance" || action == "switcherAdvance") {
+                    reply = iface.call("SwitcherAdvance");
+                } else if (action == "switcher-confirm" || action == "switcherConfirm") {
+                    reply = iface.call("SwitcherConfirm");
+                }
+                if (reply.type() == QDBusMessage::ReplyMessage) {
                     return 0;
                 }
+                // Any other reply type (error, or no matching action above)
+                // falls through to the direct Quickshell IPC fallback below.
             }
         }
 
-        // Quickshell fallback if a legacy Quickshell process is running.
-        QStringList qsArgs = {"-p", QDir::homePath() + "/.config/quickshell/Main.qml", "ipc", "call", "main"};
-        if (action == "close") {
-            qsArgs << "close";
-        } else if (!target.isEmpty()) {
-            qsArgs << action << target << arg;
-        } else {
-            qsArgs << action << "" << "";
+        // Quickshell IPC fallback if the daemon's D-Bus service is down.
+        // ~/.config/b1air-shell is where `make install` deploys the QML;
+        // ~/.config/quickshell is the older location, kept for compat.
+        QString qsMain;
+        for (const QString& dir : {QDir::homePath() + "/.config/b1air-shell",
+                                    QDir::homePath() + "/.config/quickshell"}) {
+            if (QFile::exists(dir + "/Main.qml")) { qsMain = dir + "/Main.qml"; break; }
         }
-        return QProcess::execute("qs", qsArgs) == 0 ? 0 : 1;
+        if (qsMain.isEmpty()) return 1;
+
+        // The IpcHandler functions use camelCase, not the CLI's hyphenated
+        // spelling, and close()/switcherAdvance()/switcherConfirm() take no
+        // arguments at all — passing target/arg to those is itself an error.
+        QString ipcAction = action;
+        if (action == "switcher-advance") ipcAction = "switcherAdvance";
+        else if (action == "switcher-confirm") ipcAction = "switcherConfirm";
+
+        QStringList qsArgs = {"-p", qsMain, "ipc", "call", "main", ipcAction};
+        if (ipcAction != "close" && ipcAction != "forceReload" && ipcAction != "reload" &&
+            ipcAction != "switcherAdvance" && ipcAction != "switcherConfirm") {
+            qsArgs << target << arg;
+        }
+        return QProcess::execute("quickshell", qsArgs) == 0 ? 0 : 1;
     }
 
     // ── Setup Environment & Performance Flags ────────────────────────────────

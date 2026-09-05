@@ -15,7 +15,6 @@ PopupShell {
     id: root
 
     property string searchFilter: ""
-    property string activeTab: "All"
 
     readonly property var permanentTemplates: [
         { text: "Best regards,\nBlair\nSent from b1air desktop", title: "Email Signature", type: "text", pinned: true },
@@ -27,24 +26,15 @@ PopupShell {
     ]
 
     readonly property var allItems: {
-        if (root.activeTab === "Templates") {
-            return root.permanentTemplates;
-        }
         const list = [];
         for (let i = 0; i < Clipboard.items.count; i++) {
             list.push(Clipboard.items.get(i));
         }
-        return list;
+        return root.permanentTemplates.concat(list);
     }
 
     readonly property var filteredItems: root.allItems.filter(it => {
-        const matchTab = (root.activeTab === "All")
-            || (root.activeTab === "Pinned" && it.pinned)
-            || (root.activeTab === "Templates")
-            || (root.activeTab === "Code" && it.type === "code")
-            || (root.activeTab === "Links" && it.type === "link");
-        const matchSearch = (!root.searchFilter || it.text.toLowerCase().includes(root.searchFilter.toLowerCase()));
-        return matchTab && matchSearch;
+        return !root.searchFilter || it.text.toLowerCase().includes(root.searchFilter.toLowerCase());
     })
 
     ColumnLayout {
@@ -83,36 +73,14 @@ PopupShell {
             }
         }
 
-        // ── 2. Search Field & Category Filters ───────────────────────────────
-        RowLayout {
+        // ── 2. Search Field ───────────────────────────────────────────────────
+        Field {
+            id: searchInput
             Layout.fillWidth: true
-            spacing: Design.s(Design.space.sm)
-
-            Field {
-                id: searchInput
-                Layout.fillWidth: true
-                placeholder: "Search clipboard history..."
-                text: root.searchFilter
-                onEdited: v => root.searchFilter = v
-                Component.onCompleted: searchInput.forceActiveFocus()
-            }
-
-            RowLayout {
-                spacing: Design.s(Design.space.xs)
-
-                Repeater {
-                    model: ["All", "Pinned", "Templates", "Code", "Links"]
-
-                    Pill {
-                        id: tabPill
-                        required property string modelData
-                        label: tabPill.modelData
-                        active: root.activeTab === tabPill.modelData
-                        activeColor: Design.accent
-                        onClicked: root.activeTab = tabPill.modelData
-                    }
-                }
-            }
+            placeholder: "Search clipboard history..."
+            text: root.searchFilter
+            onEdited: v => root.searchFilter = v
+            Component.onCompleted: searchInput.forceActiveFocus()
         }
 
         // ── 3. Clipboard Items List ──────────────────────────────────────────

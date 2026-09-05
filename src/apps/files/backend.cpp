@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <QUrl>
 #include <QDesktopServices>
+#include <archive.h>
+#include <archive_entry.h>
 
 namespace b1air {
 
@@ -378,9 +380,144 @@ void FileManagerBackend::openItem(const QString& path) {
     QFileInfo fi(path);
     if (fi.isDir()) {
         setCurrentPath(fi.absoluteFilePath());
+    } else if (isArchive(path)) {
+        // Mirrors Finder/Explorer: double-clicking an archive extracts it
+        // next to itself instead of asking what app should open it.
+        extractArchive(path);
     } else {
         QProcess::startDetached("xdg-open", QStringList() << path);
     }
+}
+
+bool FileManagerBackend::isArchive(const QString& path) const {
+    const QString name = QFileInfo(path).fileName().toLower();
+    static const QStringList suffixes = {
+        ".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst", ".tgz", ".txz", ".tbz2",
+        ".zip", ".tar", ".gz", ".xz", ".bz2", ".7z", ".zst", ".rar"
+    };
+    for (const QString& s : suffixes) {
+        if (name.endsWith(s)) return true;
+    }
+    return false;
+}
+
+// Strips one of the recognized archive suffixes so "project.tar.gz" suggests
+// "project" rather than "project.tar".
+static QString stripArchiveSuffix(const QString& fileName) {
+    static const QStringList suffixes = {
+        ".tar.gz", ".tar.xz", ".tar.bz2", ".tar.zst", ".tgz", ".txz", ".tbz2",
+        ".zip", ".tar", ".gz", ".xz", ".bz2", ".7z", ".zst", ".rar"
+    };
+    for (const QString& s : suffixes) {
+        if (fileName.endsWith(s, Qt::CaseInsensitive)) {
+            return fileName.left(fileName.size() - s.size());
+        }
+    }
+    return fileName;
+}
+
+QString FileManagerBackend::uniqueExtractDir(const QFileInfo& archive) const {
+    QString base = stripArchiveSuffix(archive.fileName());
+    if (base.isEmpty()) base = "Archive";
+
+    QDir parent = archive.absoluteDir();
+    QString candidate = base;
+    int n = 2;
+    while (parent.exists(candidate)) {
+        candidate = QString("%1 (%2)").arg(base).arg(n++);
+    }
+    return parent.absoluteFilePath(candidate);
+}
+
+// Extracts every entry via libarchive, refusing anything that would escape
+// destDir (a "zip slip" path like "../../etc/passwd" inside the archive).
+bool FileManagerBackend::extractWithLibarchive(const QString& archivePath, const QString& destDir, QString* error) {
+    struct archive* a = archive_read_new();
+    archive_read_support_filter_all(a);
+    archive_read_support_format_all(a);
+
+    struct archive* ext = archive_write_disk_new();
+    archive_write_disk_set_options(ext, ARCHIVE_EXTRACT_TIME | ARCHIVE_EXTRACT_PERM |
+                                            ARCHIVE_EXTRACT_ACL | ARCHIVE_EXTRACT_FFLAGS);
+
+    bool ok = true;
+    if (archive_read_open_filename(a, archivePath.toLocal8Bit().constData(), 10240) != ARCHIVE_OK) {
+        if (error) *error = QString::fromUtf8(archive_error_string(a));
+        ok = false;
+    }
+
+    const QString destCanonical = QDir(destDir).canonicalPath() + "/";
+
+    while (ok) {
+        struct archive_entry* entry;
+        int r = archive_read_next_header(a, &entry);
+        if (r == ARCHIVE_EOF) break;
+        if (r != ARCHIVE_OK) {
+            if (error) *error = QString::fromUtf8(archive_error_string(a));
+            ok = false;
+            break;
+        }
+
+        QString entryPath = QString::fromUtf8(archive_entry_pathname(entry));
+        QString cleanFull = QDir::cleanPath(QDir(destDir).filePath(entryPath));
+        if (cleanFull != QDir::cleanPath(destDir) && !(cleanFull + "/").startsWith(destCanonical)) {
+            // Entry tries to write outside destDir (zip-slip) — skip it.
+            continue;
+        }
+        archive_entry_set_pathname(entry, cleanFull.toLocal8Bit().constData());
+
+        r = archive_write_header(ext, entry);
+        if (r < ARCHIVE_OK && error) *error = QString::fromUtf8(archive_error_string(ext));
+        if (r == ARCHIVE_FATAL) { ok = false; break; }
+
+        if (archive_entry_size(entry) > 0) {
+            const void* buf;
+            size_t size;
+            la_int64_t offset;
+            while (true) {
+                r = archive_read_data_block(a, &buf, &size, &offset);
+                if (r == ARCHIVE_EOF) break;
+                if (r != ARCHIVE_OK) { ok = false; break; }
+                if (archive_write_data_block(ext, buf, size, offset) != ARCHIVE_OK) { ok = false; break; }
+            }
+        }
+        archive_write_finish_entry(ext);
+        if (!ok) break;
+    }
+
+    archive_read_close(a);
+    archive_read_free(a);
+    archive_write_close(ext);
+    archive_write_free(ext);
+    return ok;
+}
+
+bool FileManagerBackend::extractArchive(const QString& path) {
+    QFileInfo fi(path);
+    if (!fi.exists() || !fi.isFile()) return false;
+
+    QString destDir = uniqueExtractDir(fi);
+    QDir().mkpath(destDir);
+
+    QString error;
+    bool ok = extractWithLibarchive(path, destDir, &error);
+
+    if (!ok) {
+        // Fallback for whatever libarchive's build doesn't cover (e.g. some
+        // rar variants) — bsdtar ships in the same libarchive package.
+        QProcess proc;
+        proc.start("bsdtar", QStringList() << "-xf" << path << "-C" << destDir);
+        proc.waitForFinished(-1);
+        ok = (proc.exitStatus() == QProcess::NormalExit && proc.exitCode() == 0);
+    }
+
+    if (ok) {
+        refresh();
+    } else {
+        emit errorOccurred(tr("Couldn't extract \"%1\": %2").arg(fi.fileName(), error));
+        QDir(destDir).removeRecursively();
+    }
+    return ok;
 }
 
 void FileManagerBackend::openTerminal(const QString& path) {

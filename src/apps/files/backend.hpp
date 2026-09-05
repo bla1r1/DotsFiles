@@ -75,6 +75,8 @@ public slots:
     void historyForward();
     void goUp();
     void openItem(const QString& path);
+    bool isArchive(const QString& path) const;
+    bool extractArchive(const QString& path);
     void openTerminal(const QString& path = QString());
     void triggerQuickLook(const QString& path);
     void setWallpaper(const QString& path);
@@ -98,6 +100,8 @@ private:
     QString formatSize(qint64 bytes) const;
     QString getIconGlyph(const QFileInfo& fi) const;
     QString getIconColor(const QFileInfo& fi) const;
+    QString uniqueExtractDir(const QFileInfo& archive) const;
+    bool extractWithLibarchive(const QString& archivePath, const QString& destDir, QString* error);
 
     QString m_currentPath;
     QStringList m_history;

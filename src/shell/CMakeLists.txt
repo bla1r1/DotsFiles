@@ -20,6 +20,7 @@ find_package(LayerShellQt REQUIRED)
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(POLKIT_AGENT REQUIRED IMPORTED_TARGET polkit-agent-1)
+pkg_check_modules(LIBARCHIVE REQUIRED IMPORTED_TARGET libarchive)
 
 set(SOURCES
     main.cpp
@@ -98,6 +99,7 @@ target_link_libraries(b1air-files PRIVATE
     Qt6::Quick
     Qt6::WaylandClient
     Threads::Threads
+    PkgConfig::LIBARCHIVE
 )
 
 # ── b1air-monitor (Native Activity Monitor & Task Manager) ───────────────────

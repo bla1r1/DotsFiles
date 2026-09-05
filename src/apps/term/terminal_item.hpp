@@ -107,6 +107,15 @@ private:
     VTermPos m_selEnd = {0, 0};
     bool m_hasSelection = false;
 
+    // Click-count tracking for double-click (word) / triple-click (line)
+    // selection — Qt only auto-delivers one mouseDoubleClickEvent per pair,
+    // so a third click in the same spot is counted here by hand.
+    int m_clickCount = 0;
+    qint64 m_lastClickMs = 0;
+    VTermPos m_lastClickPos = {-1, -1};
+    void selectWordAt(VTermPos pos);
+    void selectLineAt(int row);
+
     std::deque<std::vector<VTermScreenCell>> m_scrollback;
     int m_viewOffset = 0;
 };
