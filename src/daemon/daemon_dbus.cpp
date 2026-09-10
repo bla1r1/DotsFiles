@@ -428,6 +428,32 @@ static bool safe_shell_arg(const std::string& value, size_t max_len = 4096) {
     return true;
 }
 
+/**
+ * Ask the running shell to do something, over the bus it is already on.
+ *
+ * Every one of the six handlers below used to answer by launching a whole
+ * `quickshell` process — a second Qt/QML host, started, connected to the
+ * already-running instance's socket, handed one string, and torn down — for
+ * each Mod+C, each Alt+Tab press, each Alt+Tab release. It cost more than the
+ * two-second polling loop the bar used to run, and it happened on a keystroke
+ * rather than a timer.
+ *
+ * The shell is subscribed to this signal through the B1air.Daemon plugin, on
+ * the session bus it already holds open, so this is a message rather than a
+ * process. Nothing is spawned, and there is nothing to tear down.
+ *
+ * A signal reaches only a shell that is running — which is all the old spawn
+ * could reach either: `quickshell ipc call` connects to an existing instance
+ * and fails when there is none.
+ */
+static int emit_panel_request(sd_bus_message *m, const char *action,
+                              const std::string &panel, const std::string &arg) {
+    sd_bus *bus = sd_bus_message_get_bus(m);
+    if (!bus) return 0;
+    return sd_bus_emit_signal(bus, "/org/b1air/Shell", "org.b1air.Shell",
+                              "PanelRequested", "sss", action, panel.c_str(), arg.c_str());
+}
+
 static int method_shell_toggle(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
     REQUIRE_SESSION_USER();
@@ -435,9 +461,7 @@ static int method_shell_toggle(sd_bus_message *m, void *userdata, sd_bus_error *
     sd_bus_message_read(m, "s", &panel);
     std::string p = (panel && strlen(panel) > 0) ? panel : "launcher";
     if (!valid_panel(p)) return sd_bus_error_set_const(ret_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid panel");
-    const std::string qml = b1air::qml_entry("Main.qml");
-    if (qml.empty()) return sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FILE_NOT_FOUND, "Shell QML not installed");
-    util::spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "toggle", p, ""}, get_wayland_display().c_str());
+    emit_panel_request(m, "toggle", p, "");
     return sd_bus_reply_method_return(m, "");
 }
 
@@ -452,27 +476,21 @@ static int method_shell_open(sd_bus_message *m, void *userdata, sd_bus_error *re
     if (!valid_panel(p) || !safe_shell_arg(a)) {
         return sd_bus_error_set_const(ret_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid shell argument");
     }
-    const std::string qml = b1air::qml_entry("Main.qml");
-    if (qml.empty()) return sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FILE_NOT_FOUND, "Shell QML not installed");
-    util::spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "open", p, a}, get_wayland_display().c_str());
+    emit_panel_request(m, "open", p, a);
     return sd_bus_reply_method_return(m, "");
 }
 
 static int method_shell_close(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
     REQUIRE_SESSION_USER();
-    const std::string qml = b1air::qml_entry("Main.qml");
-    if (qml.empty()) return sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FILE_NOT_FOUND, "Shell QML not installed");
-    util::spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "close"}, get_wayland_display().c_str());
+    emit_panel_request(m, "close", "", "");
     return sd_bus_reply_method_return(m, "");
 }
 
 static int method_shell_reload(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
     REQUIRE_SESSION_USER();
-    const std::string qml = b1air::qml_entry("Main.qml");
-    if (qml.empty()) return sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FILE_NOT_FOUND, "Shell QML not installed");
-    util::spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "forceReload"}, get_wayland_display().c_str());
+    emit_panel_request(m, "forceReload", "", "");
     return sd_bus_reply_method_return(m, "");
 }
 
@@ -482,18 +500,14 @@ static int method_shell_reload(sd_bus_message *m, void *userdata, sd_bus_error *
 static int method_shell_switcher_advance(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
     REQUIRE_SESSION_USER();
-    const std::string qml = b1air::qml_entry("Main.qml");
-    if (qml.empty()) return sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FILE_NOT_FOUND, "Shell QML not installed");
-    util::spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "switcherAdvance"}, get_wayland_display().c_str());
+    emit_panel_request(m, "switcherAdvance", "", "");
     return sd_bus_reply_method_return(m, "");
 }
 
 static int method_shell_switcher_confirm(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
     REQUIRE_SESSION_USER();
-    const std::string qml = b1air::qml_entry("Main.qml");
-    if (qml.empty()) return sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FILE_NOT_FOUND, "Shell QML not installed");
-    util::spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "switcherConfirm"}, get_wayland_display().c_str());
+    emit_panel_request(m, "switcherConfirm", "", "");
     return sd_bus_reply_method_return(m, "");
 }
 
@@ -506,6 +520,7 @@ static const sd_bus_vtable shell_vtable[] = {
     SD_BUS_METHOD("SwitcherAdvance", "", "", method_shell_switcher_advance, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_METHOD("SwitcherConfirm", "", "", method_shell_switcher_confirm, SD_BUS_VTABLE_UNPRIVILEGED),
     SD_BUS_SIGNAL("PanelStateChanged", "sb", 0),
+    SD_BUS_SIGNAL("PanelRequested", "sss", 0),
     SD_BUS_VTABLE_END
 };
 

@@ -16,6 +16,8 @@
 #include <csignal>
 #include <cstdlib>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 using namespace b1air;
 
@@ -121,6 +123,21 @@ int main(int argc, char* argv[]) {
             return SettingsManager::apply_from_file() ? 0 : 1;
         }
     } else if (cmd == "focus" || cmd == "focus-tracker") {
+        // `focus away` / `focus back` are swayidle's, not a person's: they mark
+        // the start and end of an idle stretch so the break reminder can tell
+        // ten hours at the screen from ten hours asleep. A mark is a file whose
+        // mtime is the whole message, which is why this touches rather than
+        // writes — the tracker runs in another process and only ever stats it.
+        const std::string mark = (argc >= 3) ? argv[2] : "";
+        if (mark == "away" || mark == "back") {
+            const std::string path = b1air::runtime_path(
+                mark == "away" ? "focus-away" : "focus-back");
+            const int fd = ::open(path.c_str(), O_WRONLY | O_CREAT, 0600);
+            if (fd < 0) return 1;
+            ::futimens(fd, nullptr);
+            ::close(fd);
+            return 0;
+        }
         return run_focus_tracker();
     } else if (cmd == "gamepad-inhibit" || cmd == "joystick-inhibit") {
         return SystemControl::run_gamepad_inhibit();

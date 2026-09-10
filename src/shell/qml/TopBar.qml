@@ -174,6 +174,9 @@ PanelWindow {
     Component.onCompleted: {
         refreshRunningApps();
         refreshWorkspaces();
+        // Once, at startup. After this the layout is only re-read when sway
+        // reports an input change.
+        refreshLayout();
     }
 
     function collectSwayNodes(nodes, result, workspaceName) {
@@ -246,45 +249,107 @@ PanelWindow {
         }
     }
 
-    // ── Continuous Background State Poller (Realtime Delta CPU, Load, Kbd, Workspaces) ──
-    Process {
-        id: statePoller
+    // ── CPU, load average and keyboard layout ────────────────────────────────
+    //
+    // This was one `bash -c` loop running for the life of the session, and
+    // every two seconds it did three things: read /proc/stat, run `cut` over
+    // /proc/loadavg, and launch `b1air-daemon layout`. That last one is a
+    // 2.3 MB binary linking SQLite, systemd and OpenSSL, started thirty times
+    // a minute — forty-three thousand times a day — to print the two letters
+    // "US", which change about as often as the user changes keyboard.
+    //
+    // The two files are read here directly, so the CPU and load figures cost
+    // one file read each and no process at all. The layout comes from sway's
+    // own input events, which is the only moment it can possibly have changed.
+    //
+    // This is the same trade Services/Audio and Services/Power already made:
+    // "60 process spawns a minute became none", "40 became 4".
+
+    property real _prevIdle: 0
+    property real _prevTotal: 0
+
+    FileView {
+        id: procStat
+        path: "/proc/stat"
+        printErrors: false
+        onLoaded: {
+            // The first line is the aggregate: cpu user nice system idle
+            // iowait irq softirq steal …
+            const first = text().split("\n")[0];
+            const f = first.trim().split(/\s+/);
+            if (f.length < 9 || f[0] !== "cpu")
+                return;
+
+            const n = f.slice(1, 9).map(Number);
+            const idleAll = n[3] + n[4];
+            const total = n.reduce((a, b) => a + b, 0);
+
+            const dIdle = idleAll - topBar._prevIdle;
+            const dTotal = total - topBar._prevTotal;
+            // The first sample has nothing to subtract from, and a counter
+            // that has not moved would divide by zero.
+            if (topBar._prevTotal > 0 && dTotal > 0)
+                topBar.cpuUsage = Math.round(100 * (dTotal - dIdle) / dTotal) + "%";
+
+            topBar._prevIdle = idleAll;
+            topBar._prevTotal = total;
+        }
+    }
+
+    FileView {
+        id: procLoad
+        path: "/proc/loadavg"
+        printErrors: false
+        onLoaded: {
+            const first = text().trim().split(/\s+/)[0];
+            if (first)
+                topBar.loadAvg = first;
+        }
+    }
+
+    Timer {
+        interval: 2000
+        repeat: true
         running: true
-        command: [
-            "bash", "-c",
-            "prev_idle=0; prev_total=0; " +
-            "while true; do " +
-            "  read -r _ u n s idle iowait irq softirq steal _ < /proc/stat; " +
-            "  idle_all=$((idle + iowait)); " +
-            "  total=$((u + n + s + idle + iowait + irq + softirq + steal)); " +
-            "  diff_idle=$((idle_all - prev_idle)); " +
-            "  diff_total=$((total - prev_total)); " +
-            "  if [ $prev_total -gt 0 ] && [ $diff_total -gt 0 ]; then " +
-            "    cpu=$(( 100 * (diff_total - diff_idle) / diff_total )); " +
-            "  else " +
-            "    cpu=0; " +
-            "  fi; " +
-            "  prev_idle=$idle_all; " +
-            "  prev_total=$total; " +
-            "  LOAD=$(cut -d' ' -f1 /proc/loadavg); " +
-            "  KBD=$(b1air-daemon layout 2>/dev/null || echo US); " +
-            "  echo \"STATS|${cpu}%|${LOAD}|${KBD}\"; " +
-            "  sleep 2; " +
-            "done"
-        ]
-        stdout: SplitParser {
-            onRead: (line) => {
-                let str = ("" + line).trim();
-                if (str.startsWith("STATS|")) {
-                    let parts = str.split("|");
-                    if (parts.length >= 4) {
-                        topBar.cpuUsage = parts[1];
-                        topBar.loadAvg = parts[2];
-                        topBar.kbdLayout = parts[3].toUpperCase();
+        triggeredOnStart: true
+        onTriggered: {
+            procStat.reload();
+            procLoad.reload();
+        }
+    }
+
+    // Read once at startup and then only when sway says the layout changed.
+    Process {
+        id: layoutProbe
+        command: ["swaymsg", "-t", "get_inputs"]
+        environment: topBar.swayEnv
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const inputs = JSON.parse(this.text);
+                    for (const dev of inputs) {
+                        const name = dev.xkb_active_layout_name;
+                        if (!name)
+                            continue;
+                        // "English (US)" -> "US", "Ukrainian" -> "UA".
+                        const paren = name.match(/\(([^)]+)\)/);
+                        topBar.kbdLayout = (paren ? paren[1] : name).slice(0, 2).toUpperCase();
+                        return;
                     }
-                }
+                } catch (e) {}
             }
         }
+    }
+
+    function refreshLayout() {
+        layoutProbe.running = false;
+        layoutProbe.running = true;
+    }
+
+    Timer {
+        id: layoutCoalesce
+        interval: 200
+        onTriggered: topBar.refreshLayout()
     }
 
     Process {
@@ -335,13 +400,27 @@ PanelWindow {
             // one here: at most one stale subscription can ever exist.
             "for p in $(pgrep -f 'swaymsg -t subscribe -m' 2>/dev/null); do " +
             "  [ \"$p\" != \"$$\" ] && kill \"$p\" 2>/dev/null; done; " +
-            "exec swaymsg -t subscribe -m '[\"window\",\"workspace\"]'"
+            "exec swaymsg -t subscribe -m '[\"window\",\"workspace\",\"input\"]'"
         ]
         environment: topBar.swayEnv
         stdout: SplitParser {
             // Coalesce bursts: dragging a window emits a stream of events, and one
             // refresh per event would spawn more processes than the old polling did.
-            onRead: (line) => { if (("" + line).trim()) swayCoalesce.restart(); }
+            //
+            // sway pretty-prints its replies, so an input event arrives as many
+            // lines and one of them is `"change": "xkb_layout"`. Matching that
+            // line is safe in a way that matching a substring of the whole
+            // document is not — which is the trap six features in this project
+            // fell into.
+            onRead: (line) => {
+                const text = ("" + line).trim();
+                if (!text)
+                    return;
+                if (text.includes("xkb_layout"))
+                    layoutCoalesce.restart();
+                else
+                    swayCoalesce.restart();
+            }
         }
         // Sway restarts hand out a new socket; reconnect instead of going stale.
         onExited: swayResubscribe.restart()
@@ -362,6 +441,7 @@ PanelWindow {
         onTriggered: {
             topBar.refreshRunningApps();
             topBar.refreshWorkspaces();
+            topBar.refreshLayout();
             swayEvents.running = true;
         }
     }

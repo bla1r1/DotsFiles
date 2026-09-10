@@ -151,7 +151,13 @@ std::string build_swayidle_command(const DesktopSettings& settings) {
 
     std::string cmd = "swayidle -w "
         "lock 'b1air-daemon lock' "
-        "timeout " + std::to_string(settings.dimTimeout) + " 'b1air-daemon ddc dim' resume 'b1air-daemon ddc undim' "
+        // The dim timeout is already the desktop's "nobody is here" signal, so
+        // the break reminder rides on it rather than running a second idle
+        // watch. Without this, continuous screen time was only ever reset by
+        // locking, and a machine that never locks reported "600 minutes at the
+        // screen without a break" to someone who had been asleep for nine
+        // hours.
+        "timeout " + std::to_string(settings.dimTimeout) + " 'b1air-daemon ddc dim; b1air-daemon focus away' resume 'b1air-daemon ddc undim; b1air-daemon focus back' "
         "timeout " + std::to_string(settings.lockTimeout) + " 'b1air-daemon power lock' resume 'b1air-daemon ddc undim' "
         "timeout " + std::to_string(settings.dpmsTimeout) + " 'swaymsg \"output * dpms off\"' resume 'swaymsg \"output * dpms on\"; b1air-daemon ddc undim' ";
 
@@ -274,14 +280,36 @@ void SessionManager::run_focus_tracker() {
             bool locked;
             int64_t minutes;
             int64_t reminded;
+            std::chrono::system_clock::time_point since_tp;
             {
                 std::lock_guard<std::mutex> lock(watch.m);
                 locked = watch.locked;
+                since_tp = watch.since;
                 minutes = std::chrono::duration_cast<std::chrono::minutes>(
-                    std::chrono::system_clock::now() - watch.since).count();
+                    std::chrono::system_clock::now() - since_tp).count();
                 reminded = watch.reminded_at_minutes;
             }
             if (locked) continue;
+
+            // Away and back, as swayidle saw them. Being idle is not screen
+            // time, and coming back from it starts a fresh stretch — the same
+            // meaning locking has, arrived at without needing a lock screen.
+            const auto mark = [](const char* name) -> std::chrono::system_clock::time_point {
+                struct stat st {};
+                if (::stat(b1air::runtime_path(name).c_str(), &st) != 0)
+                    return std::chrono::system_clock::time_point::min();
+                return std::chrono::system_clock::from_time_t(st.st_mtime);
+            };
+            const auto away = mark("focus-away");
+            const auto back = mark("focus-back");
+
+            if (away > back) continue;      // still idle; nobody to remind
+            if (back > since_tp) {
+                std::lock_guard<std::mutex> lock(watch.m);
+                watch.since = back;
+                watch.reminded_at_minutes = 0;
+                continue;                   // re-measure on the next pass
+            }
 
             // The settings page says "when continuous screen time reaches 60
             // minutes", so 60 it is — named rather than repeated, since the
@@ -558,6 +586,17 @@ int SessionManager::run_session() {
 
             int failures = 0;
             auto window_start = std::chrono::steady_clock::now();
+
+            // A shell that is already up is not ours to supervise. The daemon
+            // is restarted more often than the session is — every reinstall
+            // does it — and spawning unconditionally gave the desktop two
+            // bars, two launchers and two processes fighting over
+            // org.freedesktop.Notifications. Wait it out instead: when the
+            // one on screen exits, this thread takes over from a clean start
+            // and owns every shell after it.
+            while (g_session_running && is_process_running("quickshell")) {
+                std::this_thread::sleep_for(std::chrono::seconds(2));
+            }
 
             while (g_session_running) {
                 // Everything the child needs, prepared before the spawn.

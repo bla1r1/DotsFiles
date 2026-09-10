@@ -110,6 +110,15 @@ signals:
     void wallpaperChanged(const QString& path);
     void panelStateChanged(const QString& panel, bool open);
 
+    /**
+     * The daemon asking this shell to open, close or cycle something.
+     *
+     * It used to ask by launching a whole `quickshell` process per keystroke,
+     * purely to hand one string to the instance already running. This arrives
+     * on the bus the shell is already connected to.
+     */
+    void panelRequested(const QString& action, const QString& panel, const QString& arg);
+
 private slots:
     void onNameOwnerChanged(const QString& name, const QString& oldOwner, const QString& newOwner);
 

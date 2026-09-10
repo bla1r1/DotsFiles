@@ -32,6 +32,8 @@ B1airDaemon::B1airDaemon(QObject* parent)
                   this, SIGNAL(wallpaperChanged(QString)));
     m_bus.connect(kShellService, kShellPath, kShellIface, "PanelStateChanged",
                   this, SIGNAL(panelStateChanged(QString, bool)));
+    m_bus.connect(kShellService, kShellPath, kShellIface, "PanelRequested",
+                  this, SIGNAL(panelRequested(QString, QString, QString)));
 
     // The daemon may start after the shell, or be restarted under it.
     if (auto* iface = m_bus.interface()) {

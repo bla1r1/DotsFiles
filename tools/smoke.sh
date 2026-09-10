@@ -118,6 +118,90 @@ PY
     else fail "Services/qmldir is out of step with the files"; fi
 }
 
+# ── imports ──────────────────────────────────────────────────────────────────
+#
+# qmllint parses QML without resolving types, so a file that uses a type it
+# never imported passes every syntax check and then fails at runtime — as a
+# whole shell, because one unresolvable type takes the root component down.
+# This has happened twice: Notifications.qml using Process without
+# `import Quickshell.Io`, and Main.qml using Daemon without `import
+# B1air.Daemon`. Both times the shell was deployed before anyone noticed.
+#
+# The check is deliberately narrow: only names that can come from exactly one
+# module, matched only where they are used as a type or a singleton, so it
+# reports something real or nothing at all.
+check_imports() {
+    head_ "imports"
+    python3 - "$REPO" <<'PY_IMPORTS'
+import os, re, sys
+repo = sys.argv[1]
+
+# name -> the one module that provides it
+PROVIDERS = {
+    "Process": "Quickshell.Io",
+    "FileView": "Quickshell.Io",
+    "StdioCollector": "Quickshell.Io",
+    "SplitParser": "Quickshell.Io",
+    "JsonAdapter": "Quickshell.Io",
+    "IpcHandler": "Quickshell.Io",
+    "Socket": "Quickshell.Io",
+    "Daemon": "B1air.Daemon",
+    "PanelWindow": "Quickshell",
+    "Variants": "Quickshell",
+    "Quickshell": "Quickshell",
+    "WlrLayershell": "Quickshell.Wayland",
+    "WlrLayer": "Quickshell.Wayland",
+    "UPower": "Quickshell.Services.UPower",
+    "UPowerDeviceState": "Quickshell.Services.UPower",
+    "Pipewire": "Quickshell.Services.Pipewire",
+    "PwObjectTracker": "Quickshell.Services.Pipewire",
+    "Mpris": "Quickshell.Services.Mpris",
+    "NotificationServer": "Quickshell.Services.Notifications",
+    "Bluetooth": "Quickshell.Bluetooth",
+    "Networking": "Quickshell.Networking",
+}
+
+roots = [os.path.join(repo, "src/shell/qml"), os.path.join(repo, "src/apps")]
+problems = []
+
+for root in roots:
+    for dirpath, _, files in os.walk(root):
+        for name in files:
+            if not name.endswith(".qml"):
+                continue
+            path = os.path.join(dirpath, name)
+            text = open(path, encoding="utf-8").read()
+
+            imported = set(re.findall(r"^\s*import\s+([\w.]+)", text, re.M))
+            body = re.sub(r"^\s*import\s+.*$", "", text, flags=re.M)
+            # Comments and string literals are not uses.
+            body = re.sub(r"/\*.*?\*/", "", body, flags=re.S)
+            body = re.sub(r"//.*$", "", body, flags=re.M)
+            body = re.sub(r'"[^"\n]*"', '""', body)
+            body = re.sub(r"'[^'\n]*'", "''", body)
+
+            for sym, module in PROVIDERS.items():
+                # `Foo {` declares one; `Foo.bar` reads a singleton.
+                if not re.search(r"(?<![\w.])" + sym + r"\s*\{", body) and \
+                   not re.search(r"(?<![\w.])" + sym + r"\.", body):
+                    continue
+                if module in imported:
+                    continue
+                # A local file of that name is its own provider.
+                if os.path.exists(os.path.join(dirpath, sym + ".qml")):
+                    continue
+                rel = os.path.relpath(path, repo)
+                problems.append(f"{rel}: uses {sym} without `import {module}`")
+
+for p in sorted(set(problems)):
+    print("      " + p)
+sys.exit(1 if problems else 0)
+PY_IMPORTS
+    # shellcheck disable=SC2181
+    if [[ $? -eq 0 ]]; then pass "every QML file imports what it uses"
+    else fail "a QML file uses a type it never imported"; fi
+}
+
 # ── settings-schema ──────────────────────────────────────────────────────────
 check_settings_schema() {
     head_ "settings-schema"
@@ -304,7 +388,7 @@ check_shell_boot() {
 }
 
 # ── driver ───────────────────────────────────────────────────────────────────
-ALL=(qml_syntax singletons settings_schema window_copies ipc_targets daemon_cli shell_boot)
+ALL=(qml_syntax singletons imports settings_schema window_copies ipc_targets daemon_cli shell_boot)
 
 to_run=()
 if (( $# == 0 )); then

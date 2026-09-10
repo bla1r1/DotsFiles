@@ -4,6 +4,7 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
+import B1air.Daemon
 import "./Ui"
 import "./Services"
 import "WindowRegistry.js" as Registry
@@ -83,6 +84,40 @@ Scope {
         }
     }
 
+    // The daemon asking for a panel, over the bus.
+    //
+    // `b1air-shell toggle control` calls org.b1air.Shell.Toggle on the daemon,
+    // and the daemon used to answer by launching a whole `quickshell` process
+    // — a second QML host, started and torn down for each keystroke — to hand
+    // one string to this instance. It emits a signal now, and this is what
+    // catches it. Same commands, same handler, no process.
+    Connections {
+        target: Daemon
+
+        function onPanelRequested(action, panel, arg) {
+            switch (action) {
+            case "toggle":
+                masterWindow.handleIpcCommand("toggle:" + panel + ":" + (arg || ""), true);
+                break;
+            case "open":
+                masterWindow.handleIpcCommand("open:" + panel + ":" + (arg || ""), true);
+                break;
+            case "close":
+                masterWindow.handleIpcCommand("close", true);
+                break;
+            case "forceReload":
+                Quickshell.reload(true);
+                break;
+            case "switcherAdvance":
+                shellIpc.switcherAdvance();
+                break;
+            case "switcherConfirm":
+                shellIpc.switcherConfirm();
+                break;
+            }
+        }
+    }
+
     // Turns B1air.Daemon call failures into notifications.
     DaemonErrors {}
 
@@ -111,6 +146,9 @@ Scope {
         color: "transparent"
     
     IpcHandler {
+        // Named so the D-Bus handler above can reuse these, rather than a
+        // second copy of the switcher's advance/confirm logic.
+        id: shellIpc
         target: "main"
     
         function forceReload() {
