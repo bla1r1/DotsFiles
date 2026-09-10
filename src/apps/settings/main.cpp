@@ -1,77 +1,42 @@
 // =============================================================================
-// b1air-settings — Native C++20 / Qt6 Desktop Settings Application
-// Zero JSON • Direct C++ Engine • Wayland Native
+// b1air-settings — launcher for the shell's settings window.
+//
+// This used to build its own QQmlApplicationEngine and load
+// shell/qml/SettingsWindow.qml directly. That could never work: the settings
+// UI imports Quickshell (and Services, which needs Quickshell.Io), and
+// Quickshell's qmldir declares
+//
+//     linktarget quickshell-coreplugin
+//     optional plugin quickshell-coreplugin
+//
+// meaning the plugin is expected to be linked into the host binary. The
+// `quickshell` binary links it; a plain Qt application does not. So every
+// launch died with
+//
+//     module "Quickshell" plugin "quickshell-coreplugin" not found
+//     Error: Failed to load SettingsWindow.qml
+//
+// while the Launchpad entry, the b1air-settings.desktop file and the mimeapps
+// default all pointed here. The same window opens correctly from the shell
+// (Mod+Shift+S is `b1air-shell toggle settings`), so this now forwards there
+// instead of re-implementing a host it cannot be.
 // =============================================================================
 
-#include <QGuiApplication>
-#include <QQmlApplicationEngine>
-#include <QQmlContext>
-#include <QDir>
-#include <QFile>
+#include <cstring>
 #include <iostream>
+#include <unistd.h>
 
 int main(int argc, char* argv[]) {
-    qputenv("QT_QPA_PLATFORM", "wayland;xcb");
-    qputenv("QT_QUICK_CONTROLS_STYLE", "Basic");
-    qputenv("QSG_RENDER_LOOP", "basic");
-    qputenv("QML_DISABLE_DISK_CACHE", "0");
-
-    QGuiApplication app(argc, argv);
-    app.setApplicationName("b1air-settings");
-    app.setApplicationDisplayName("System Settings");
-    app.setDesktopFileName("b1air-settings");
-    app.setOrganizationName("bla1r1");
-
-    QQmlApplicationEngine engine;
-    engine.addImportPath("/usr/lib/qt6/qml");
-
-    QString home = QDir::homePath();
-    engine.addImportPath(home + "/DotsFiles/src/shell/qml");
-    engine.addImportPath(home + "/.config/quickshell");
-    engine.addImportPath(home + "/.config/b1air-shell");
-
-    QString initialPage = "";
-    if (argc > 1) {
-        initialPage = QString::fromUtf8(argv[1]);
-    }
-    engine.rootContext()->setContextProperty("InitialSettingsPage", initialPage);
-
-    QObject::connect(&engine, &QQmlApplicationEngine::warnings, [](const QList<QQmlError>& warnings) {
-        for (const auto& w : warnings) {
-            std::cerr << "[b1air-settings QML] " << w.toString().toStdString() << "\n";
-        }
-    });
-
-    QStringList searchPaths = {
-        // shell/qml is the actively maintained copy; apps/settings's is a
-        // stale fork that has no sibling Ui/ directory, so its relative
-        // `import "Ui"` crashes the moment it's actually the one loaded —
-        // which it always was, since it used to be tried first.
-        home + "/DotsFiles/src/shell/qml/SettingsWindow.qml",
-        home + "/DotsFiles/src/apps/settings/SettingsWindow.qml",
-        home + "/.config/quickshell/SettingsWindow.qml",
-        home + "/.config/b1air-shell/SettingsWindow.qml",
-        "/usr/share/b1air-shell/qml/SettingsWindow.qml"
-    };
-
-    QString qmlPath;
-    for (const auto& p : searchPaths) {
-        if (QFile::exists(p)) {
-            qmlPath = p;
-            break;
-        }
+    // b1air-settings [page] → b1air-shell open settings <page>
+    //                       → b1air-shell toggle settings   (no page given)
+    if (argc > 1 && std::strlen(argv[1]) > 0) {
+        execlp("b1air-shell", "b1air-shell", "open", "settings", argv[1], (char*)nullptr);
+    } else {
+        execlp("b1air-shell", "b1air-shell", "toggle", "settings", (char*)nullptr);
     }
 
-    if (qmlPath.isEmpty()) {
-        std::cerr << "[b1air-settings] Error: SettingsWindow.qml not found!\n";
-        return 1;
-    }
-
-    engine.load(QUrl::fromLocalFile(qmlPath));
-    if (engine.rootObjects().isEmpty()) {
-        std::cerr << "[b1air-settings] Error: Failed to load SettingsWindow.qml\n";
-        return 1;
-    }
-
-    return app.exec();
+    // execlp only returns on failure.
+    std::cerr << "[b1air-settings] Error: could not run b1air-shell — "
+                 "is the b1air session running and ~/.local/bin on PATH?\n";
+    return 1;
 }

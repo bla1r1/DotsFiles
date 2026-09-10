@@ -1,2 +1,13 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Vendored SQLite amalgamation — upstream's file, not this project's code.
+# linguist-vendored keeps it out of the language stats; -diff keeps a 9.5 MB
+# generated file out of diffs.
+src/third_party/sqlite/* linguist-vendored
+src/third_party/sqlite/sqlite3.c -diff
+src/third_party/sqlite/sqlite3.h -diff
+
+# Same for the vendored nlohmann/json single header.
+src/third_party/nlohmann/* linguist-vendored
+src/third_party/nlohmann/json.hpp -diff

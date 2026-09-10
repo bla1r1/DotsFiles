@@ -9,11 +9,15 @@
 #include <QDir>
 #include <QFile>
 #include <iostream>
+#include "../qml_search.hpp"
 #include "terminal_item.hpp"
 
 int main(int argc, char* argv[]) {
     qputenv("QT_QPA_PLATFORM", "wayland;xcb");
     qputenv("QT_QUICK_CONTROLS_STYLE", "Basic");
+    // Ui/Design loads ~/.config/b1air/theme.json over XMLHttpRequest;
+    // Qt 6 blocks file:// reads for it unless this is set.
+    qputenv("QML_XHR_ALLOW_FILE_READ", "1");
     qputenv("QSG_RENDER_LOOP", "basic");
     qputenv("QML_DISABLE_DISK_CACHE", "0");
 
@@ -26,12 +30,7 @@ int main(int argc, char* argv[]) {
     qmlRegisterType<b1air::TerminalItem>("B1Air.Term", 1, 0, "TerminalView");
 
     QQmlApplicationEngine engine;
-    engine.addImportPath("/usr/lib/qt6/qml");
-
-    QString home = QDir::homePath();
-    engine.addImportPath(home + "/DotsFiles/src/shell/qml");
-    engine.addImportPath(home + "/.config/quickshell");
-    engine.addImportPath(home + "/.config/b1air-shell");
+    b1air::app::add_import_paths(engine, "term");
 
     QString initialCommand = "";
     QString initialDir = "";
@@ -59,23 +58,7 @@ int main(int argc, char* argv[]) {
         }
     });
 
-    QStringList searchPaths = {
-        // shell/qml is the actively maintained copy; apps/term's has quietly
-        // diverged from it (missed every fix made against the shell copy).
-        home + "/DotsFiles/src/shell/qml/TermWindow.qml",
-        home + "/DotsFiles/src/apps/term/TermWindow.qml",
-        home + "/.config/quickshell/TermWindow.qml",
-        home + "/.config/b1air-shell/TermWindow.qml",
-        "/usr/share/b1air-shell/qml/TermWindow.qml"
-    };
-
-    QString qmlPath;
-    for (const auto& p : searchPaths) {
-        if (QFile::exists(p)) {
-            qmlPath = p;
-            break;
-        }
-    }
+    QString qmlPath = b1air::app::find_window_qml("TermWindow.qml", "term");
 
     if (qmlPath.isEmpty()) {
         std::cerr << "[b1air-term] Error: TermWindow.qml not found!\n";

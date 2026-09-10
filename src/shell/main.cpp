@@ -5,6 +5,7 @@
 
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
+#include "../apps/qml_search.hpp"
 #include <QQmlContext>
 #include <QDBusConnection>
 #include <QDBusInterface>
@@ -108,32 +109,20 @@ int main(int argc, char* argv[]) {
     engine.rootContext()->setContextProperty("b1air", &bridge);
     engine.rootContext()->setContextProperty("Bridge", &bridge);
 
+    // Same policy as the apps, from the same header: a checkout in $HOME is
+    // consulted only under B1AIR_DEV_MODE=1, so a stale clone cannot quietly
+    // outrank the installed QML.
     QString homePath = QDir::homePath();
-    engine.addImportPath("/usr/lib/qt6/qml");
-    engine.addImportPath(homePath + "/DotsFiles/src/shell/qml");
-    engine.addImportPath(homePath + "/.config/quickshell");
-    engine.addImportPath(homePath + "/.config/b1air-shell");
+    b1air::app::add_import_paths(engine, QString());
 
     QObject::connect(&engine, &QQmlApplicationEngine::warnings, [](const QList<QQmlError>& warnings) {
         for (const auto& w : warnings) {
             std::cerr << "[b1air-shell QML] " << w.toString().toStdString() << "\n";
         }
     });
-    QStringList searchPaths = {
-        homePath + "/.config/b1air-shell/Main.qml",
-        "/usr/share/b1air-shell/qml/Main.qml",
-        homePath + "/DotsFiles/src/shell/qml/Main.qml",
-        homePath + "/.config/quickshell/Main.qml",
-        homePath + "/DotsFiles/.config/quickshell/Main.qml"
-    };
-
-    QString mainQml;
-    for (const QString& path : searchPaths) {
-        if (QFile::exists(path)) {
-            mainQml = path;
-            break;
-        }
-    }
+    QString mainQml = b1air::app::find_window_qml("Main.qml", QString());
+    if (mainQml.isEmpty() && QFile::exists(homePath + "/DotsFiles/.config/quickshell/Main.qml"))
+        mainQml = homePath + "/DotsFiles/.config/quickshell/Main.qml";
 
     if (mainQml.isEmpty()) {
         std::cerr << "[b1air-shell] Error: Main.qml not found in any search path!\n";

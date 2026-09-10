@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QFile>
 #include <iostream>
+#include "../qml_search.hpp"
 #include "notes_backend.hpp"
 
 int main(int argc, char* argv[]) {
@@ -12,6 +13,13 @@ int main(int argc, char* argv[]) {
     setenv("QSG_RHI_BACKEND", "opengl", 1);
     setenv("QSG_RENDER_LOOP", "basic", 1);
     setenv("QT_WAYLAND_DISABLE_WINDOWDECORATION", "1", 1);
+
+    // Ui/Design loads ~/.config/b1air/theme.json over XMLHttpRequest;
+
+    // Qt 6 blocks file:// reads for it unless this is set.
+
+    qputenv("QML_XHR_ALLOW_FILE_READ", "1");
+
 
     QGuiApplication app(argc, argv);
     app.setApplicationName("b1air-notes");
@@ -28,14 +36,12 @@ int main(int argc, char* argv[]) {
 
     engine.rootContext()->setContextProperty("NotesBackend", &notesBackend);
 
-    QString home = QDir::homePath();
-    engine.addImportPath(home + "/DotsFiles/src/shell/qml");
-    engine.addImportPath(home + "/.config/quickshell");
-    engine.addImportPath("/usr/lib/qt6/qml");
+    b1air::app::add_import_paths(engine, "notes");
 
-    QString qmlPath = home + "/DotsFiles/src/apps/notes/NotesWindow.qml";
-    if (!QFile::exists(qmlPath)) {
-        qmlPath = "/usr/share/b1air-notes/NotesWindow.qml";
+    QString qmlPath = b1air::app::find_window_qml("NotesWindow.qml", "notes");
+    if (qmlPath.isEmpty()) {
+        std::cerr << "[b1air-notes] Error: NotesWindow.qml not found!\n";
+        return 1;
     }
 
     engine.load(QUrl::fromLocalFile(qmlPath));

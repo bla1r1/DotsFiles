@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 # Kept in sync by hand with src/daemon/version.hpp's kVersion — that header is
 # the single source of truth the running binaries actually report; this is
 # just so packaging/build metadata (cmake --version output, etc.) agrees.
-project(b1air-shell VERSION 0.1.0 LANGUAGES CXX)
+project(b1air-shell VERSION 0.1.0 LANGUAGES CXX C)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -36,12 +36,34 @@ set(SOURCES
     ../daemon/secret_store.cpp
 )
 
-add_executable(b1air-shell ${SOURCES})
+# SQLite compiled in from third_party rather than linked against the system
+# libsqlite3, so the binaries carry their own copy. Built once as an OBJECT
+# library and reused: the amalgamation is 9.5 MB of C and two targets need it.
+#
+# Its own flags on purpose — the amalgamation is not warning-clean under the
+# -Wall -Wextra this project holds its own code to, and upstream's warnings are
+# not ours to audit on every build.
+add_library(b1air-sqlite OBJECT ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/sqlite/sqlite3.c)
+target_include_directories(b1air-sqlite PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../third_party
+    ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/sqlite)
+target_compile_options(b1air-sqlite PRIVATE -w)
+target_compile_definitions(b1air-sqlite PRIVATE
+    SQLITE_THREADSAFE=1
+    SQLITE_OMIT_LOAD_EXTENSION=1
+    SQLITE_DQS=0
+    SQLITE_DEFAULT_MEMSTATUS=0
+    SQLITE_LIKE_DOESNT_MATCH_BLOBS
+    SQLITE_MAX_EXPR_DEPTH=0
+)
+
+add_executable(b1air-shell ${SOURCES} $<TARGET_OBJECTS:b1air-sqlite>)
 
 target_include_directories(b1air-shell PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/..
     ${CMAKE_CURRENT_SOURCE_DIR}/../daemon
+    ${CMAKE_CURRENT_SOURCE_DIR}/../third_party
+    ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/sqlite
 )
 
 target_link_libraries(b1air-shell PRIVATE
@@ -53,7 +75,6 @@ target_link_libraries(b1air-shell PRIVATE
     Qt6::DBus
     LayerShellQt::Interface
     Threads::Threads
-    sqlite3
     systemd
     crypto
 )
@@ -68,9 +89,14 @@ add_executable(b1air-polkit-agent
     ../daemon/user_manager.cpp
     ../daemon/settings_manager.cpp
     ../daemon/secret_store.cpp
+    $<TARGET_OBJECTS:b1air-sqlite>
 )
-target_include_directories(b1air-polkit-agent PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../daemon)
-target_link_libraries(b1air-polkit-agent PRIVATE Threads::Threads sqlite3 systemd crypto PkgConfig::POLKIT_AGENT)
+target_include_directories(b1air-polkit-agent PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../daemon
+    ${CMAKE_CURRENT_SOURCE_DIR}/../third_party
+    ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/sqlite
+)
+target_link_libraries(b1air-polkit-agent PRIVATE Threads::Threads systemd crypto PkgConfig::POLKIT_AGENT)
 
 add_executable(b1air-secret-service
     ../daemon/secret_service_main.cpp

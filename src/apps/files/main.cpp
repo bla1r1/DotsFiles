@@ -10,11 +10,15 @@
 #include <QFileInfo>
 #include <QUrl>
 #include <iostream>
+#include "../qml_search.hpp"
 #include "backend.hpp"
 
 int main(int argc, char* argv[]) {
     qputenv("QT_QPA_PLATFORM", "wayland;xcb");
     qputenv("QT_QUICK_CONTROLS_STYLE", "Basic");
+    // Ui/Design loads ~/.config/b1air/theme.json over XMLHttpRequest;
+    // Qt 6 blocks file:// reads for it unless this is set.
+    qputenv("QML_XHR_ALLOW_FILE_READ", "1");
     qputenv("QSG_RENDER_LOOP", "basic");
     qputenv("QML_DISABLE_DISK_CACHE", "0");
 
@@ -25,12 +29,7 @@ int main(int argc, char* argv[]) {
     app.setOrganizationName("bla1r1");
 
     QQmlApplicationEngine engine;
-    engine.addImportPath("/usr/lib/qt6/qml");
-
-    QString home = QDir::homePath();
-    engine.addImportPath(home + "/DotsFiles/src/shell/qml");
-    engine.addImportPath(home + "/.config/quickshell");
-    engine.addImportPath(home + "/.config/b1air-shell");
+    b1air::app::add_import_paths(engine, "files");
 
     QObject::connect(&engine, &QQmlApplicationEngine::warnings, [](const QList<QQmlError>& warnings) {
         for (const auto& w : warnings) {
@@ -56,23 +55,7 @@ int main(int argc, char* argv[]) {
     }
     engine.rootContext()->setContextProperty("FilesBackend", &backend);
 
-    QStringList searchPaths = {
-        // shell/qml is the actively maintained copy; apps/files's has quietly
-        // diverged from it (missed every fix made against the shell copy).
-        home + "/DotsFiles/src/shell/qml/FilesWindow.qml",
-        home + "/DotsFiles/src/apps/files/FilesWindow.qml",
-        home + "/.config/quickshell/FilesWindow.qml",
-        home + "/.config/b1air-shell/FilesWindow.qml",
-        "/usr/share/b1air-shell/qml/FilesWindow.qml"
-    };
-
-    QString qmlPath;
-    for (const auto& p : searchPaths) {
-        if (QFile::exists(p)) {
-            qmlPath = p;
-            break;
-        }
-    }
+    QString qmlPath = b1air::app::find_window_qml("FilesWindow.qml", "files");
 
     if (qmlPath.isEmpty()) {
         std::cerr << "[b1air-files] Error: FilesWindow.qml not found!\n";

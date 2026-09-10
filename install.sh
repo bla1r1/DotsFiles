@@ -67,7 +67,7 @@ Usage: $0 [options]
 
 Options:
   --skip-packages   Skip pacman package installation
-  --skip-dotfiles   Skip deploying ~/.config, wallpapers, and SDDM theme
+  --skip-dotfiles   Skip deploying ~/.config, desktop entries, wallpapers, SDDM theme
   --skip-services   Skip enabling system services (NetworkManager, bluetooth, SDDM)
   --no-aur          Skip AUR packages (use standard sway/swaylock)
   --dry-run         Simulate installation without making system changes
@@ -154,7 +154,7 @@ enable_multilib_repo() {
 arch_packages() {
     local pkgs=(
         # Core & Build
-        base-devel git rsync curl unzip jq cmake ccache openssl polkit nlohmann-json
+        base-devel git rsync curl unzip jq cmake ccache openssl polkit
         # Wayland Compositor & Shell
         swaybg swayidle swaylock xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk xorg-xwayland
         layer-shell-qt wayvnc
@@ -182,12 +182,21 @@ arch_packages() {
         # Display Manager (SDDM) & Qt6 Components
         sddm qt6-declarative qt6-wayland qt6-svg qt6-virtualkeyboard
         # Theming & Fonts
-        kvantum
+        # adw-gtk-theme provides adw-gtk3-dark, which .config/gtk-{2,3,4}
+        # have always asked for and nothing installed — GTK apps silently fell
+        # back to stock Adwaita.
+        kvantum adw-gtk-theme
         noto-fonts noto-fonts-emoji noto-fonts-cjk ttf-jetbrains-mono-nerd ttf-fira-sans
         ttf-liberation
         papirus-icon-theme
         # Utilities & Tools
-        imagemagick sqlite tesseract tesseract-data-eng zbar qrencode
+        # sqlite is no longer here: SQLite is compiled into the binaries from
+        # src/third_party/sqlite, so the desktop no longer depends on whichever
+        # libsqlite3 the distribution ships. Nothing in the project calls the
+        # sqlite3 CLI either. nlohmann-json went the same way — it was a
+        # package requirement for one header file, now carried in
+        # src/third_party/nlohmann.
+        imagemagick tesseract tesseract-data-eng zbar qrencode
         # Tools the shell shells out to. Without these the button exists, the
         # command does not, and the action fails for no visible reason.
         power-profiles-daemon pamixer poppler gocryptfs easyeffects
@@ -278,6 +287,10 @@ aur_packages() {
         swayfx
         # Screen recording: the daemon calls wl-screenrec; AUR-only.
         wl-screenrec
+        # .config/gtk-{2,3,4} have always named catppuccin-cursors-mocha as the
+        # cursor theme and nothing installed it, so every pointer in the session
+        # fell back to the stock one. AUR-only.
+        catppuccin-cursors-mocha
     )
     echo "${pkgs[@]}"
 }
@@ -426,7 +439,7 @@ deploy_session_files() {
 deploy_dotfiles() {
     log "Deploying user dotfiles..."
     if [[ "$DRY_RUN" -eq 1 ]]; then
-        log "Would deploy .config and .wallpapers to $HOME"
+        log "Would deploy .config, .local/share/applications and .wallpapers to $HOME"
         deploy_sddm_theme
         deploy_session_files
         return 0
@@ -445,6 +458,37 @@ deploy_dotfiles() {
             fi
         done
         rsync -a --delete "$REPO_DIR/.config/" "$HOME/.config/"
+    fi
+
+    # Where Settings → Appearance → Theme keeps user themes. Created here so
+    # the first Export has somewhere to land.
+    mkdir -p "$HOME/.config/b1air/themes"
+
+    # Desktop entries for the b1air app suite.
+    #
+    # These were never deployed by any version of this script, while
+    # .config/mimeapps.list — which IS deployed — names b1air-text.desktop,
+    # b1air-files.desktop and b1air-view.desktop as the default handlers for
+    # text, directories and images. Every one of those assignments pointed at a
+    # file that did not exist on disk, so xdg-open had no handler to resolve and
+    # the b1air apps were invisible to every launcher except our own Launchpad,
+    # which carries its own hardcoded list and so never noticed.
+    if [[ -d "$REPO_DIR/.local/share/applications" ]]; then
+        mkdir -p "$HOME/.local/share/applications"
+        for item in "$REPO_DIR"/.local/share/applications/*.desktop; do
+            [[ -e "$item" ]] || continue
+            local dbase
+            dbase="$(basename "$item")"
+            if [[ -e "$HOME/.local/share/applications/$dbase" ]]; then
+                mkdir -p "$BACKUP_DIR/applications"
+                mv "$HOME/.local/share/applications/$dbase" "$BACKUP_DIR/applications/$dbase"
+            fi
+            install -m 644 "$item" "$HOME/.local/share/applications/$dbase"
+        done
+        # Without this the new entries exist but nothing has indexed them, so
+        # xdg-open still resolves nothing until the next login.
+        update-desktop-database "$HOME/.local/share/applications" >/dev/null 2>&1 || true
+        ok "Installed $(ls -1 "$REPO_DIR"/.local/share/applications/*.desktop 2>/dev/null | wc -l) desktop entries"
     fi
 
     # Sync wallpapers
@@ -576,6 +620,26 @@ build_b1air_suite() {
                 sudo cp -r "$REPO_DIR/src/shell/build/qml/B1air" "$qml_dest/" \
                     && ok "B1air.Daemon QML module installed to $qml_dest" \
                     || { err "Failed to install the B1air.Daemon QML module."; exit 1; }
+            fi
+
+            # The QML itself, which nothing used to install. Every window
+            # file was found only at $HOME/DotsFiles/src/..., so the desktop
+            # worked exactly when the repository happened to be cloned to that
+            # one path — clone it as ~/dotfiles and b1air-files, -term, -text,
+            # -git, -notes, -view and -monitor all came up with no window and
+            # a "not found" line on a stderr nobody reads.
+            #
+            # /usr/share/b1air-shell/qml is where every app already looked
+            # last; now something puts the files there. The per-app windows
+            # land in the same directory so one search path covers the suite.
+            if sudo install -d -m 755 /usr/share/b1air-shell/qml 2>/dev/null; then
+                if sudo rsync -a --delete "$REPO_DIR/src/shell/qml/" /usr/share/b1air-shell/qml/; then
+                    sudo find "$REPO_DIR/src/apps" -maxdepth 2 -name '*Window.qml' \
+                        -exec cp -n {} /usr/share/b1air-shell/qml/ \; 2>/dev/null || true
+                    ok "shell QML installed to /usr/share/b1air-shell/qml"
+                else
+                    warn "Could not install the shell QML; apps will fall back to a checkout."
+                fi
             fi
 
             if sudo install -m 755 "$REPO_DIR/src/shell/build/b1air-shell" /usr/local/bin/b1air-shell 2>/dev/null; then

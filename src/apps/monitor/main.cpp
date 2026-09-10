@@ -9,11 +9,15 @@
 #include <QDir>
 #include <QFile>
 #include <iostream>
+#include "../qml_search.hpp"
 #include "backend.hpp"
 
 int main(int argc, char* argv[]) {
     qputenv("QT_QPA_PLATFORM", "wayland;xcb");
     qputenv("QT_QUICK_CONTROLS_STYLE", "Basic");
+    // Ui/Design loads ~/.config/b1air/theme.json over XMLHttpRequest;
+    // Qt 6 blocks file:// reads for it unless this is set.
+    qputenv("QML_XHR_ALLOW_FILE_READ", "1");
     qputenv("QSG_RENDER_LOOP", "basic");
     qputenv("QML_DISABLE_DISK_CACHE", "0");
 
@@ -24,12 +28,7 @@ int main(int argc, char* argv[]) {
     app.setOrganizationName("bla1r1");
 
     QQmlApplicationEngine engine;
-    engine.addImportPath("/usr/lib/qt6/qml");
-
-    QString home = QDir::homePath();
-    engine.addImportPath(home + "/DotsFiles/src/shell/qml");
-    engine.addImportPath(home + "/.config/quickshell");
-    engine.addImportPath(home + "/.config/b1air-shell");
+    b1air::app::add_import_paths(engine, "monitor");
 
     QObject::connect(&engine, &QQmlApplicationEngine::warnings, [](const QList<QQmlError>& warnings) {
         for (const auto& w : warnings) {
@@ -40,21 +39,7 @@ int main(int argc, char* argv[]) {
     b1air::MonitorBackend backend;
     engine.rootContext()->setContextProperty("MonitorBackend", &backend);
 
-    QStringList searchPaths = {
-        home + "/DotsFiles/src/apps/monitor/MonitorWindow.qml",
-        home + "/DotsFiles/src/shell/qml/MonitorWindow.qml",
-        home + "/.config/quickshell/MonitorWindow.qml",
-        home + "/.config/b1air-shell/MonitorWindow.qml",
-        "/usr/share/b1air-shell/qml/MonitorWindow.qml"
-    };
-
-    QString qmlPath;
-    for (const auto& p : searchPaths) {
-        if (QFile::exists(p)) {
-            qmlPath = p;
-            break;
-        }
-    }
+    QString qmlPath = b1air::app::find_window_qml("MonitorWindow.qml", "monitor");
 
     if (qmlPath.isEmpty()) {
         std::cerr << "[b1air-monitor] Error: MonitorWindow.qml not found!\n";
