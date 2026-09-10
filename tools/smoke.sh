@@ -69,10 +69,54 @@ check_qml_syntax() {
         printf '%s\n' "$out" | sed 's/^/      /'
         bad=1
     fi
+    # Two declarations of the same property in one object is not a syntax
+    # error to qmllint — it reports nothing and the component fails to build at
+    # runtime instead. It happened while rewriting the Launchpad: an old
+    # `filteredApps` survived beside its replacement, every check here passed,
+    # and the only thing that would have caught it was starting the shell.
+    if ! python3 - "${files[@]}" <<'PY_DUPES'; then bad=1; fi
+import re, sys, os
+
+problems = []
+for path in sys.argv[1:]:
+    text = open(path, encoding="utf-8").read()
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+    text = re.sub(r"//.*$", "", text, flags=re.M)
+
+    # Brace depth, not indentation: two sibling objects at the same depth are
+    # allowed to declare the same name, and Design.qml has several that do —
+    # `sm` is a radius in one scale component and a spacing in the next.
+    # Each `{` opens an object with an identity of its own, and a duplicate is
+    # only a duplicate inside one of them.
+    lines = text.splitlines()
+    stack = [0]
+    next_id = 1
+    seen = {}
+    for line in lines:
+        m = re.match(r"^\s*(?:readonly\s+|default\s+)?property\s+[\w.<>]+\s+(\w+)\b", line)
+        if m:
+            key = (stack[-1], m.group(1))
+            if key in seen:
+                problems.append(f"{os.path.relpath(path)}: `{m.group(1)}` is declared twice in the same object")
+            seen[key] = True
+        # Strings are stripped so a brace inside one cannot move the depth.
+        bare = re.sub(r'"[^"]*"', "", re.sub(r"'[^']*'", "", line))
+        for ch in bare:
+            if ch == "{":
+                stack.append(next_id)
+                next_id += 1
+            elif ch == "}" and len(stack) > 1:
+                stack.pop()
+
+for p in sorted(set(problems)):
+    print("      " + p)
+sys.exit(1 if problems else 0)
+PY_DUPES
+
     if (( bad )); then
-        fail "${#files[@]} QML files, syntax errors above"
+        fail "${#files[@]} QML files, problems above"
     else
-        pass "${#files[@]} QML files parse"
+        pass "${#files[@]} QML files parse, no duplicate properties"
     fi
 }
 

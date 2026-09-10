@@ -343,15 +343,25 @@ Singleton {
     }
 
     function _net(n) {
+        // signalStrength is 0..1, the same convention as the Bluetooth battery
+        // below and as UPower's percentage. Passed straight through, it reached
+        // the network list as "Signal 0.76%" and reached _wifiIcon(), whose
+        // thresholds are 80/60/40/20, as a number that can never clear the
+        // lowest of them — so every network on the panel, however strong, was
+        // drawn with the no-signal glyph.
+        const strength = Math.round(n.signalStrength * 100);
+        // security is WifiSecurityType::Enum, a number. The panel printed it
+        // raw: a WPA2 network read "Signal 76% • 3". The module ships the
+        // spelling, so nothing here keeps a table of its own in step.
         return {
             id: n.name,
             ssid: n.name,
             name: n.name,
-            signal: n.signalStrength,
-            security: n.security,
+            signal: strength,
+            security: WifiSecurityType.toString(n.security),
             connected: n.connected,
             known: n.known,
-            icon: root._wifiIcon(n.signalStrength)
+            icon: root._wifiIcon(strength)
         };
     }
 
@@ -399,16 +409,20 @@ Singleton {
         onTriggered: root._rebuild()
     }
 
+    // Neither of these watches `devices`, and the pair used to. The property is
+    // a constant pointer to a model whose *contents* change, so the pointer it
+    // returns never does and the handler never ran — measured: with Bluetooth's
+    // `ignoreUnknownSignals` taken off, both warned "no signal of the target
+    // matches the name" the moment the service was first instantiated. The
+    // Bluetooth block carried that flag, which is what kept its half quiet.
+    // Content changes are what the two-second sweep above is for.
     Connections {
         target: Networking
         function onWifiEnabledChanged() { root._rebuild(); }
-        function onDevicesChanged() { root._rebuild(); }
     }
 
     Connections {
         target: Bluetooth
-        ignoreUnknownSignals: true
-        function onDevicesChanged() { root._rebuild(); }
         function onDefaultAdapterChanged() { root._rebuild(); }
     }
 
