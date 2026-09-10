@@ -110,12 +110,14 @@ QtObject {
     // matters because the standalone apps load these tokens too.
     readonly property real screenWidth: Qt.application.screens.length > 0
                                         ? Qt.application.screens[0].width : 1920
+    readonly property real screenHeight: Qt.application.screens.length > 0
+                                         ? Qt.application.screens[0].height : 1080
 
     // Assigned by the shell root and by each popup; the standalone apps have no
     // access to Settings and stay at 1.0, exactly as before.
     property real uiScale: 1.0
 
-    readonly property real scale: LayoutMath.getScale(screenWidth, uiScale)
+    readonly property real scale: LayoutMath.getScale(screenWidth, uiScale, screenHeight)
 
     function s(val) {
         return LayoutMath.s(val, root.scale);

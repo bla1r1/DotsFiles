@@ -91,6 +91,20 @@ PanelWindow {
     // Wayland Layer-Shell configuration
     WlrLayershell.namespace: "b1air-topbar"
     WlrLayershell.layer: WlrLayer.Overlay
+    // The bar reserves its own height and no more.
+    //
+    // This briefly reserved height + Design.space.sm, to guarantee a gap under
+    // the bar. It was the wrong fix for a problem that was not there: the
+    // windows in the screenshots that prompted it were flush against the bar
+    // because the session had `smart_gaps on` left over from a settings test,
+    // not because the bar reserved too little. sway's own `gaps outer` — 20 in
+    // conf.d/look-and-feel.conf — is what puts space under the bar, and it
+    // already did.
+    //
+    // The extra reservation also looked wrong on its own terms. This bar draws
+    // floating islands on a transparent surface: the islands end at 25 of a
+    // 27-pixel surface, so reserving beyond the surface exposes a band of bare
+    // desktop under them and the bar reads as cut off rather than as floating.
     WlrLayershell.exclusiveZone: Design.s(40)
     
     // Settings → Native Top Bar has a Top/Bottom control; nothing read it, so
@@ -100,6 +114,15 @@ PanelWindow {
     anchors.left: true
     anchors.right: true
     implicitHeight: Design.s(38)
+
+    // Transparent: the bar is its islands, floating over the desktop.
+    //
+    // A translucent strip was tried here to stop the bar reading as a black
+    // band on a plain background. It was the wrong half of that problem — the
+    // band was the outer gap opening a strip of bare desktop between the bar
+    // and the first window, and `gaps top 0` in conf.d/look-and-feel.conf
+    // closes it. With the window starting immediately below, the islands have
+    // nothing to be mistaken for.
     color: "transparent"
 
     // ── Design Tokens ───────────────────────────────────────────────────────
@@ -346,10 +369,10 @@ PanelWindow {
     // ── Bar Content Layout ──────────────────────────────────────────────────
     Item {
         anchors.fill: parent
-        anchors.leftMargin: 8
-        anchors.rightMargin: 8
-        anchors.topMargin: 4
-        anchors.bottomMargin: 4
+        anchors.leftMargin: Design.s(8)
+        anchors.rightMargin: Design.s(8)
+        anchors.topMargin: Design.s(4)
+        anchors.bottomMargin: Design.s(4)
 
         // ══════════════════════════════════════════════════════════════════════
         // LEFT ISLANDS: APPS, Dynamic Pinned Apps, Workspaces
@@ -357,14 +380,14 @@ PanelWindow {
         Row {
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 6
+            spacing: Design.s(6)
 
             // 1. APPS Island (Launchpad on Left Click, Spotlight on Right Click)
             Rectangle {
                 id: appMenuBtn
-                width: appRow.implicitWidth + 20
-                height: 30
-                radius: 10
+                width: appRow.implicitWidth + Design.s(20)
+                height: Design.s(30)
+                radius: Design.s(10)
                 color: appMenuArea.containsMouse ? Design.tint(Design.accent, 0.25) : topBar.colBg
                 border.color: appMenuArea.containsMouse ? topBar.colBlue : topBar.colBorder
                 border.width: 1
@@ -375,7 +398,7 @@ PanelWindow {
                 Row {
                     id: appRow
                     anchors.centerIn: parent
-                    spacing: 6
+                    spacing: Design.s(6)
                     Text {
                         text: "󰍜"
                         font.family: Design.font.mono
@@ -411,9 +434,9 @@ PanelWindow {
 
             // 2. User-Configured Pinned Apps Island
             Rectangle {
-                height: 30
-                width: pinnedRow.implicitWidth + 14
-                radius: 10
+                height: Design.s(30)
+                width: pinnedRow.implicitWidth + Design.s(14)
+                radius: Design.s(10)
                 color: topBar.colBg
                 border.color: topBar.colBorder
                 border.width: 1
@@ -422,21 +445,21 @@ PanelWindow {
                 Row {
                     id: pinnedRow
                     anchors.centerIn: parent
-                    spacing: 4
+                    spacing: Design.s(4)
 
                     Repeater {
                         model: PinnedApps.pinnedList
                         delegate: Rectangle {
                             id: pinPill
-                            width: 24
-                            height: 24
-                            radius: 6
+                            width: Design.s(24)
+                            height: Design.s(24)
+                            radius: Design.s(6)
                             color: pinArea.containsMouse ? Design.tint(Design.accent, 0.22) : "transparent"
 
                             IconImage {
                                 anchors.centerIn: parent
-                                width: 17
-                                height: 17
+                                width: Design.s(17)
+                                height: Design.s(17)
                                 source: topBar.iconSource(modelData.icon)
                                 mipmap: true
                             }
@@ -468,9 +491,9 @@ PanelWindow {
 
                     // Add Pinned App '+' Button
                     Rectangle {
-                        width: 20
-                        height: 20
-                        radius: 5
+                        width: Design.s(20)
+                        height: Design.s(20)
+                        radius: Design.s(5)
                         color: addPinArea.containsMouse ? Design.tint(Design.accent, 0.25) : "transparent"
                         anchors.verticalCenter: parent.verticalCenter
 
@@ -496,9 +519,9 @@ PanelWindow {
             // 3. Workspaces Island
             Rectangle {
                 id: workspacesIsland
-                height: 30
-                width: workspacesRow.implicitWidth + 12
-                radius: 10
+                height: Design.s(30)
+                width: workspacesRow.implicitWidth + Design.s(12)
+                radius: Design.s(10)
                 color: topBar.colBg
                 border.color: topBar.colBorder
                 border.width: 1
@@ -506,7 +529,7 @@ PanelWindow {
                 Row {
                     id: workspacesRow
                     anchors.centerIn: parent
-                    spacing: 4
+                    spacing: Design.s(4)
 
                     Repeater {
                         model: topBar.workspaceSlots
@@ -514,9 +537,9 @@ PanelWindow {
                             id: wsPill
                             required property var modelData
 
-                            width: wsText.implicitWidth + 14
-                            height: 22
-                            radius: 6
+                            width: wsText.implicitWidth + Design.s(14)
+                            height: Design.s(22)
+                            radius: Design.s(6)
                             color: wsPill.modelData.focused ? topBar.colBlue
                                  : (wsMouseArea.containsMouse ? Design.tint(Design.accent, 0.20) : topBar.colWrkBg)
                             border.color: wsPill.modelData.focused ? "transparent" : topBar.colWrkBorder
@@ -571,23 +594,23 @@ PanelWindow {
             Row {
                 id: runningAppsRow
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 3
+                spacing: Design.s(3)
                 visible: topBar.runningApps.length > 0
 
                 Repeater {
                     model: topBar.runningApps
                     delegate: Rectangle {
-                        width: 28
-                        height: 28
-                        radius: 7
+                        width: Design.s(28)
+                        height: Design.s(28)
+                        radius: Design.s(7)
                         color: modelData.focused ? Design.tint(Design.accent, 0.22) : topBar.colBg
                         border.color: modelData.focused ? topBar.colBlue : topBar.colBorder
                         border.width: 1
 
                         IconImage {
                             anchors.centerIn: parent
-                            width: 18
-                            height: 18
+                            width: Design.s(18)
+                            height: Design.s(18)
                             source: topBar.iconSource(topBar.appIcon(modelData.appId))
                             mipmap: true
                         }
@@ -616,8 +639,8 @@ PanelWindow {
         Rectangle {
             id: clockPill
             anchors.centerIn: parent
-            width: clockText.implicitWidth + 36
-            height: 28
+            width: clockText.implicitWidth + Design.s(36)
+            height: Design.s(28)
             radius: 999
             color: clockArea.containsMouse ? Qt.lighter(topBar.colBlue, 1.25) : topBar.colBlue
 
@@ -663,10 +686,10 @@ PanelWindow {
             id: focusPill
             visible: Focus.active
             anchors.right: clockPill.left
-            anchors.rightMargin: 6
+            anchors.rightMargin: Design.s(6)
             anchors.verticalCenter: parent.verticalCenter
-            width: focusRow.implicitWidth + 22
-            height: 28
+            width: focusRow.implicitWidth + Design.s(22)
+            height: Design.s(28)
             radius: 999
 
             readonly property color tone: Focus.onBreak ? Design.green : Design.sapphire
@@ -679,7 +702,7 @@ PanelWindow {
             Row {
                 id: focusRow
                 anchors.centerIn: parent
-                spacing: 6
+                spacing: Design.s(6)
 
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
@@ -722,7 +745,7 @@ PanelWindow {
         Row {
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
-            spacing: 6
+            spacing: Design.s(6)
 
             // 0. Media title and weather.
             //
@@ -734,9 +757,9 @@ PanelWindow {
             // used by the Control Center, so this is wiring, not new plumbing.
 
             Rectangle {
-                height: 30
-                width: mediaRow.implicitWidth + 20
-                radius: 10
+                height: Design.s(30)
+                width: mediaRow.implicitWidth + Design.s(20)
+                radius: Design.s(10)
                 color: mediaArea.containsMouse ? Design.tint(Design.mauve, 0.15) : topBar.colBg
                 border.color: mediaArea.containsMouse ? Design.tint(Design.mauve, 0.35) : topBar.colBorder
                 border.width: 1
@@ -749,7 +772,7 @@ PanelWindow {
                 Row {
                     id: mediaRow
                     anchors.centerIn: parent
-                    spacing: 6
+                    spacing: Design.s(6)
 
                     Text {
                         text: Media.playing ? "\u{f040a}" : "\u{f03e4}"
@@ -783,9 +806,9 @@ PanelWindow {
             }
 
             Rectangle {
-                height: 30
-                width: weatherRow.implicitWidth + 20
-                radius: 10
+                height: Design.s(30)
+                width: weatherRow.implicitWidth + Design.s(20)
+                radius: Design.s(10)
                 color: weatherArea.containsMouse ? Design.tint(Design.sapphire, 0.15) : topBar.colBg
                 border.color: weatherArea.containsMouse ? Design.tint(Design.sapphire, 0.35) : topBar.colBorder
                 border.width: 1
@@ -796,7 +819,7 @@ PanelWindow {
                 Row {
                     id: weatherRow
                     anchors.centerIn: parent
-                    spacing: 6
+                    spacing: Design.s(6)
 
                     Text {
                         text: Weather.icon
@@ -832,9 +855,9 @@ PanelWindow {
             // so background applets — Telegram, Steam, the ones the setting
             // names — had nowhere to appear on this desktop at all.
             Rectangle {
-                height: 30
-                width: trayRow.implicitWidth + 20
-                radius: 10
+                height: Design.s(30)
+                width: trayRow.implicitWidth + Design.s(20)
+                radius: Design.s(10)
                 color: topBar.colBg
                 border.color: topBar.colBorder
                 border.width: 1
@@ -846,15 +869,15 @@ PanelWindow {
                 Row {
                     id: trayRow
                     anchors.centerIn: parent
-                    spacing: 8
+                    spacing: Design.s(8)
 
                     Repeater {
                         model: SystemTray.items
 
                         delegate: Item {
                             required property var modelData
-                            width: 16
-                            height: 16
+                            width: Design.s(16)
+                            height: Design.s(16)
                             anchors.verticalCenter: parent.verticalCenter
 
                             IconImage {
@@ -887,9 +910,9 @@ PanelWindow {
 
             // 1. Stats Island (CPU + Load/RAM)
             Rectangle {
-                height: 30
-                width: statsRow.implicitWidth + 20
-                radius: 10
+                height: Design.s(30)
+                width: statsRow.implicitWidth + Design.s(20)
+                radius: Design.s(10)
                 color: statsArea.containsMouse ? Design.tint(Design.accent, 0.15) : topBar.colBg
                 border.color: statsArea.containsMouse ? Design.tint(Design.accent, 0.35) : topBar.colBorder
                 border.width: 1
@@ -897,16 +920,16 @@ PanelWindow {
                 Row {
                     id: statsRow
                     anchors.centerIn: parent
-                    spacing: 10
+                    spacing: Design.s(10)
 
                     Row {
-                        spacing: 4
+                        spacing: Design.s(4)
                         Text { text: ""; font.family: topBar.fontMain; font.pixelSize: Design.s(12); color: topBar.colCyan }
                         Text { text: topBar.cpuUsage; font.family: topBar.fontMain; font.pixelSize: Design.s(11); font.bold: true; color: topBar.colFg }
                     }
 
                     Row {
-                        spacing: 4
+                        spacing: Design.s(4)
                         Text { text: "󰍛"; font.family: topBar.fontMain; font.pixelSize: Design.s(12); color: topBar.colPurple }
                         Text { text: topBar.loadAvg; font.family: topBar.fontMain; font.pixelSize: Design.s(11); font.bold: true; color: topBar.colFg }
                     }
@@ -923,9 +946,9 @@ PanelWindow {
 
             // 2. System Status Island (Layout, Volume, Battery, Bell, Power)
             Rectangle {
-                height: 30
-                width: systemRow.implicitWidth + 20
-                radius: 10
+                height: Design.s(30)
+                width: systemRow.implicitWidth + Design.s(20)
+                radius: Design.s(10)
                 color: topBar.colBg
                 border.color: topBar.colBorder
                 border.width: 1
@@ -933,13 +956,13 @@ PanelWindow {
                 Row {
                     id: systemRow
                     anchors.centerIn: parent
-                    spacing: 10
+                    spacing: Design.s(10)
 
                     // Keyboard Layout Pill
                     Rectangle {
-                        width: kbdText.implicitWidth + 10
-                        height: 20
-                        radius: 5
+                        width: kbdText.implicitWidth + Design.s(10)
+                        height: Design.s(20)
+                        radius: Design.s(5)
                         color: kbdArea.containsMouse ? Design.tint(Design.accent, 0.20) : "transparent"
                         Text {
                             id: kbdText
@@ -965,12 +988,12 @@ PanelWindow {
                     // Volume Pill
                     Item {
                         width: volRow.implicitWidth
-                        height: 20
+                        height: Design.s(20)
                         anchors.verticalCenter: parent.verticalCenter
                         Row {
                             id: volRow
                             anchors.verticalCenter: parent.verticalCenter
-                            spacing: 4
+                            spacing: Design.s(4)
                             Text {
                                 text: (Audio.defaultSink && Audio.defaultSink.audio && Audio.defaultSink.audio.muted) ? "󰖁" : "󰕾"
                                 font.family: topBar.fontMain
@@ -1004,12 +1027,12 @@ PanelWindow {
                     Item {
                         visible: Power.hasBattery
                         width: batRow.implicitWidth
-                        height: 20
+                        height: Design.s(20)
                         anchors.verticalCenter: parent.verticalCenter
                         Row {
                             id: batRow
                             anchors.verticalCenter: parent.verticalCenter
-                            spacing: 4
+                            spacing: Design.s(4)
                             Text {
                                 text: Power.charging ? "󰂄" : "󰁹"
                                 font.family: topBar.fontMain
@@ -1034,7 +1057,7 @@ PanelWindow {
 
                     // Notification Bell (opens Control Center)
                     Rectangle {
-                        width: 20; height: 20; radius: 5
+                        width: Design.s(20); height: Design.s(20); radius: Design.s(5)
                         color: bellArea.containsMouse ? Design.tint(Design.accent, 0.20) : "transparent"
                         Text {
                             anchors.centerIn: parent
@@ -1052,7 +1075,7 @@ PanelWindow {
                     // Power Button (opens Session Menu)
                     Rectangle {
                         id: powerBtn
-                        width: 22; height: 22; radius: 6
+                        width: Design.s(22); height: Design.s(22); radius: Design.s(6)
                         color: powerArea.containsMouse ? Design.tint(Design.danger, 0.25) : "transparent"
 
                         Text {

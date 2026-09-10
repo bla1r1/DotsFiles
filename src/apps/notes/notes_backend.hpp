@@ -55,7 +55,8 @@ public:
     Q_INVOKABLE void setNotionCredentials(const QString& token, const QString& dbId);
     Q_INVOKABLE void syncWithNotion();
     Q_INVOKABLE void syncWithObsidian();
-    Q_INVOKABLE QString renderMarkdownToHtml(const QString& markdown);
+    Q_INVOKABLE QString renderMarkdownToHtml(const QString& markdown,
+                                            const QVariantMap& palette = {});
 
 signals:
     void notesChanged();

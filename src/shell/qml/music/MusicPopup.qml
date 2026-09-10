@@ -24,8 +24,14 @@ PopupShell {
 
 
 
-    readonly property color lavender: Design.lavender
-    readonly property color mauve: Design.mauve
+    // The window used to paint itself in lavender and mauve, which are roles
+    // no other surface in the shell uses as its primary. Opened next to the
+    // Control Center or the Clipboard it read as a different application that
+    // happened to be running inside this one. These names stay — the file is
+    // full of them — but the two that carried the identity now resolve to the
+    // accent everything else follows.
+    readonly property color lavender: Design.accent
+    readonly property color mauve: Design.accent
     readonly property color pink: Design.pink
     readonly property color red: Design.red
     readonly property color yellow: Design.yellow
@@ -480,7 +486,7 @@ PopupShell {
                     anchors.centerIn: parent
                     
                     opacity: root.musicData.status === "Playing" ? 0.08 : (root.musicData.status === "Paused" ? 0.04 : 0.0)
-                    color: root.musicData.status === "Playing" ? Design.accentAlt : Design.active
+                    color: root.musicData.status === "Playing" ? Design.accent : Design.active
                     Behavior on color { ColorAnimation { duration: root.tintDuration } }
                     Behavior on opacity { NumberAnimation { duration: root.introDuration } }
                 }
@@ -529,7 +535,7 @@ PopupShell {
                             radius: Design.s(110)
                             color: Design.hover
                             border.width: Design.s(4)
-                            border.color: root.musicData.status === "Playing" ? Design.accentAlt : Design.textFaint
+                            border.color: root.musicData.status === "Playing" ? Design.accent : Design.textFaint
                             Behavior on border.color { ColorAnimation { duration: Design.duration.slow } }
 
                             // Glow Effect surrounding the thumbnail
@@ -539,7 +545,7 @@ PopupShell {
                                 width: parent.width + Design.s(20)
                                 height: parent.height + Design.s(20)
                                 radius: width / 2
-                                color: Design.accentAlt
+                                color: Design.accent
                                 opacity: root.musicData.status === "Playing" ? 0.5 : 0.0
                                 Behavior on opacity { NumberAnimation { duration: Design.duration.slow } }
                                 layer.enabled: root.canShade
@@ -580,7 +586,7 @@ PopupShell {
                                 Rectangle {
                                     anchors.fill: parent
                                     radius: width / 2
-                                    color: Qt.rgba(Design.accentAlt.r, Design.accentAlt.g, Design.accentAlt.b, 0.2)
+                                    color: Qt.rgba(Design.accent.r, Design.accent.g, Design.accent.b, 0.2)
                                     opacity: artImg.status === Image.Ready ? 1.0 : 0.0
                                     Behavior on opacity { NumberAnimation { duration: root.introDuration } }
                                 }
@@ -632,7 +638,7 @@ PopupShell {
                                             id: titleTextMain
                                             text: root.musicData.title
                                             color: root.dynamicTextColor
-                                            font.family: Design.font.mono
+                                            font.family: Design.font.sans
                                             font.pixelSize: Design.s(20)
                                             font.bold: true
                                             Behavior on color { ColorAnimation { duration: root.tintDuration } }
@@ -652,7 +658,7 @@ PopupShell {
                                             id: titleTextClone
                                             text: root.musicData.title
                                             color: root.dynamicTextColor
-                                            font.family: Design.font.mono
+                                            font.family: Design.font.sans
                                             font.pixelSize: Design.s(20)
                                             font.bold: true
                                             visible: titleTextMain.implicitWidth > titleClipRect.width
@@ -684,7 +690,7 @@ PopupShell {
                             Text {
                                 text: root.musicData.artist ? "BY " + root.musicData.artist : ""
                                 color: Design.textDim // Better matugen match
-                                font.family: Design.font.mono
+                                font.family: Design.font.sans
                                 font.pixelSize: Design.s(14)
                                 font.bold: true
                                 elide: Text.ElideRight
@@ -703,8 +709,8 @@ PopupShell {
                                         id: pillContent
                                         anchors.centerIn: parent
                                         spacing: Design.s(6)
-                                        Icon { role: "body"; text: root.musicData.deviceIcon || "󰓃"; color: Design.accentAlt }
-                                        Text { text: root.musicData.deviceName || "Speaker"; color: Design.textFaint; font.family: Design.font.mono; font.pixelSize: Design.s(12); font.bold: true }
+                                        Icon { role: "body"; text: root.musicData.deviceIcon || "󰓃"; color: Design.accent }
+                                        Text { text: root.musicData.deviceName || "Speaker"; color: Design.textFaint; font.family: Design.font.sans; font.pixelSize: Design.s(12); font.bold: true }
                                     }
                                 }
                                 Text {
@@ -841,7 +847,15 @@ PopupShell {
                                     implicitWidth: Design.s(18) 
                                     implicitHeight: Design.s(18)
                                     width: Design.s(18); height: Design.s(18)
-                                    radius: Design.s(9); color: Design.text
+                                    // A knob on an accent track, not a cream
+                                    // dot: the handles were Design.text, the
+                                    // near-white used for prose, which is the
+                                    // one colour in the palette that says
+                                    // "this is a letter, not a control".
+                                    radius: Design.s(9)
+                                    color: Design.raised
+                                    border.width: Math.max(1, Design.s(2))
+                                    border.color: Design.accent
                                     scale: progBar.pressed ? 1.3 : 1.0
                                     Behavior on scale { NumberAnimation { duration: Design.duration.fast; easing.type: Easing.OutBack } }
                                 }
@@ -888,7 +902,7 @@ PopupShell {
                                     width: parent.width
                                     height: parent.height
                                     radius: width / 2
-                                    color: Design.accentAlt
+                                    color: Design.accent
                                     opacity: 0
                                     scale: 1
 
@@ -918,7 +932,7 @@ PopupShell {
                                 Text { 
                                     anchors.centerIn: parent
                                     text: root.musicData.status === "Playing" ? "" : ""
-                                    color: parent.pressed ? Design.accentAlt : Design.accentAlt
+                                    color: parent.pressed ? Design.accent : Design.accent
                                     font.family: Design.font.icon
                                     font.pixelSize: Design.s(42) 
                                     scale: parent.pressed ? 0.8 : 1.0
@@ -964,54 +978,40 @@ PopupShell {
                         opacity: root.introEqHeader
                         transform: Translate { y: Design.s(15) * (1 - root.introEqHeader) }
 
-                        Text { text: "Equalizer"; color: Design.accentAlt; font.family: Design.font.mono; font.pixelSize: Design.s(16); font.bold: true; Layout.fillWidth: true }
+                        Text { text: "Equalizer"; color: Design.accent; font.family: Design.font.sans; font.pixelSize: Design.s(16); font.bold: true; Layout.fillWidth: true }
                         
-                        // Redesigned Apply Button
-                        Rectangle {
-                            Layout.preferredHeight: Design.s(28)
-                            Layout.preferredWidth: applyTxt.width + Design.s(30)
-                            radius: Design.s(10)
-                            color: root.eqData.pending ? Design.accentAlt : Design.hover
-                            border.color: root.eqData.pending ? Design.accentAlt : Design.active
-                            border.width: 1
-                            
-                            Behavior on color { ColorAnimation { duration: Design.duration.base; easing.type: Easing.OutCubic } }
-                            Behavior on border.color { ColorAnimation { duration: Design.duration.base; easing.type: Easing.OutCubic } }
+                        // Ui/ActionButton, like every other button in the
+                        // shell. This was a bespoke rectangle with its own
+                        // radius, a mauve fill and a drop shadow, sitting
+                        // beside a bare word for the current preset — so the
+                        // row read as the two-word phrase "Saved Flat" rather
+                        // than a button and a value.
+                        Label {
+                            text: "Preset: " + (root.eqData.preset || "Flat")
+                            role: "caption"
+                            dim: true
+                            Layout.rightMargin: Design.s(Design.space.sm)
+                        }
 
-                            layer.enabled: root.eqData.pending
-                            layer.effect: MultiEffect {
-                                shadowEnabled: true; shadowColor: Design.accentAlt; shadowOpacity: 0.4; shadowBlur: 0.6
-                            }
+                        ActionButton {
+                            Layout.fillWidth: false
+                            enabled: root.eqData.pending
+                            icon: "\u{f012c}"
+                            label: root.eqData.pending ? "Apply" : "Saved"
+                            onActivated: {
+                                if (!root.eqData.pending)
+                                    return;
+                                var temp = Object.assign({}, root.eqData);
+                                temp.pending = false;
+                                root.eqData = temp;
 
-                            Text {
-                                id: applyTxt
-                                anchors.centerIn: parent
-                                text: root.eqData.pending ? "Apply" : "Saved"
-                                color: root.eqData.pending ? Design.surface : Design.textDim
-                                font.family: Design.font.mono
-                                font.pixelSize: Design.s(12)
-                                font.bold: true
-                                Behavior on color { ColorAnimation { duration: Design.duration.base } }
-                            }
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: root.eqData.pending ? Qt.PointingHandCursor : Qt.ArrowCursor
-                                onClicked: {
-                                    if (root.eqData.pending) {
-                                        var temp = Object.assign({}, root.eqData);
-                                        temp.pending = false;
-                                        root.eqData = temp;
-                                        
-                                        // Blind the polling process to stop it from fetching old data
-                                        root.lastEqUpdate = Date.now(); 
-                                        
-                                        root.triggerEqLightning();
-                                        Daemon.eqApply();
-                                    }
-                                }
+                                // Blind the polling process to stop it from fetching old data
+                                root.lastEqUpdate = Date.now();
+
+                                root.triggerEqLightning();
+                                Daemon.eqApply();
                             }
                         }
-                        Text { text: root.eqData.preset || "Flat"; color: Design.textDim; font.family: Design.font.mono; font.pixelSize: Design.s(14); font.bold: true; Layout.leftMargin: Design.s(15) }
                     }
 
                     // Eq Sliders Container with Canvas Lightning Overlay
@@ -1160,7 +1160,7 @@ PopupShell {
                                                     height: parent.height + Design.s(80)
                                                     radius: parent.radius + Design.s(30)
                                                     color: "transparent"
-                                                    border.color: Design.accentAlt
+                                                    border.color: Design.accent
                                                     border.width: Design.s(6)
                                                     opacity: sliderDelegate.ringPulse * 0.8 * (1.0 - root.eqLightningFade)
                                                     scale: 0.7 + sliderDelegate.ringPulse * 0.3
@@ -1241,9 +1241,12 @@ PopupShell {
                                                 implicitWidth: Design.s(18)
                                                 implicitHeight: Design.s(18)
                                                 width: Design.s(18); height: Design.s(18)
-                                                radius: Design.s(9); color: Design.text
+                                                radius: Design.s(9)
+                                                color: Design.raised
+                                                border.width: Math.max(1, Design.s(2))
+                                                border.color: Design.accent
 
-                                                property var catColors: [Design.accentAlt, Design.accentAlt, root.lavender, Design.accentAlt, Design.accent]
+                                                property var catColors: [Design.accent, Design.accent, root.lavender, Design.accent, Design.accent]
 
                                                 // Core glow flare that cleanly fades out matching the canvas
                                                 Rectangle {
@@ -1290,7 +1293,7 @@ PopupShell {
                             layer.enabled: root.canShade
                             layer.effect: MultiEffect {
                                 shadowEnabled: true
-                                shadowColor: Design.accentAlt
+                                shadowColor: Design.accent
                                 shadowBlur: 1.0 // 1.0 is max blur in MultiEffect
                                 shadowOpacity: 0.6
                                 shadowVerticalOffset: 0
@@ -1382,11 +1385,11 @@ PopupShell {
                                     // Step 3: Theme and render each distinct strand
                                     if (s === 0) { // Massive Sweeping Outer Glow (Mauve)
                                         ctx.lineWidth = Design.s(20);
-                                        ctx.strokeStyle = Design.accentAlt;
+                                        ctx.strokeStyle = Design.accent;
                                         ctx.globalAlpha = 0.2;
                                     } else if (s === 1) { // Medium Sweeping Wave (Pink)
                                         ctx.lineWidth = Design.s(8);
-                                        ctx.strokeStyle = Design.accentAlt;
+                                        ctx.strokeStyle = Design.accent;
                                         ctx.globalAlpha = 0.45;
                                     } else if (s === 2) { // Tight erratic core (Lavender)
                                         ctx.lineWidth = Design.s(3.5);
@@ -1435,31 +1438,16 @@ PopupShell {
     }
 
     // --- HELPER COMPONENT FOR PRESETS ---
-    component PresetButton : Rectangle {
+    //
+    // Ui/Pill, which is what every other exclusive option group in the shell
+    // is made of. This was a hand-built rectangle with its own radius, its own
+    // mono type, its own 1.05 hover pop and Design.accent for the selected
+    // state — eight buttons that matched nothing else on screen.
+    component PresetButton : Pill {
         property string name: ""
         Layout.fillWidth: true
-        Layout.preferredHeight: Design.s(32)
-        radius: Design.s(8)
-        
-        property bool isActivePreset: root.eqData && root.eqData.preset === name
-        property bool isHovered: hoverMa.containsMouse
-
-        color: isActivePreset ? Design.accentAlt : (isHovered ? Design.hover : Design.tint(Design.ground, 0.75))
-        scale: isHovered && !isActivePreset ? 1.05 : 1.0
-
-        Behavior on color { ColorAnimation { duration: Design.duration.base } }
-        Behavior on scale { NumberAnimation { duration: Design.duration.base; easing.type: Easing.OutBack } }
-
-        Text {
-            anchors.centerIn: parent
-            text: parent.name
-            color: parent.isActivePreset ? Design.surface : (parent.isHovered ? Design.text : Design.textDim)
-            font.family: Design.font.mono
-            font.pixelSize: Design.s(12)
-            font.bold: true
-            Behavior on color { ColorAnimation { duration: Design.duration.base } }
-        }
-
-        MouseArea { id: hoverMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.applyPresetOptimistically(parent.name) }
+        label: name
+        active: root.eqData && root.eqData.preset === name
+        onClicked: root.applyPresetOptimistically(name)
     }
 }

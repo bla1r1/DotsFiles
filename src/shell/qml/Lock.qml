@@ -135,7 +135,7 @@ ShellRoot {
                 // continuous updates even if surface width starts at 0.
                 // `scaler` never existed, so this binding resolved to undefined and every
                 // one of the 110 sizes derived from sc collapsed. Same scale maths as Design.
-                readonly property real sc: LayoutMath.getScale(surface.width, 1.0)
+                readonly property real sc: LayoutMath.getScale(surface.width, 1.0, surface.height)
                 // --------------------------------
 
                 property string staticWallpaperPath: "file://" + (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/b1air/lock_bg.png"

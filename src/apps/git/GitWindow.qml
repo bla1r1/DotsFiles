@@ -7,8 +7,8 @@ import Ui
 ApplicationWindow {
     id: window
     title: GitBackend.repoName ? "Git — " + GitBackend.repoName : "Git"
-    width: 1040
-    height: 680
+    width: Design.s(1040)
+    height: Design.s(680)
     minimumWidth: 700
     minimumHeight: 450
     visible: true
@@ -84,7 +84,7 @@ ApplicationWindow {
             // ══════════════════════════════════════════════════════════════════
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 42
+                Layout.preferredHeight: Design.s(42)
                 color: window.colHeader
                 border.color: window.colBorder
                 border.width: 1
@@ -92,16 +92,16 @@ ApplicationWindow {
 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.leftMargin: 12
-                    anchors.rightMargin: 12
-                    spacing: 8
+                    anchors.leftMargin: Design.s(12)
+                    anchors.rightMargin: Design.s(12)
+                    spacing: Design.s(8)
 
                     // 1. Current Repository Selector
                     Rectangle {
                         id: repoBtn
-                        width: repoRow.implicitWidth + 20
-                        height: 28
-                        radius: 6
+                        width: repoRow.implicitWidth + Design.s(20)
+                        height: Design.s(28)
+                        radius: Design.s(6)
                         color: repoArea.containsMouse || window.repoDropdownOpen ? Design.tint(Design.accent, 0.18) : Design.tint(Design.raised, 0.60)
                         border.color: window.repoDropdownOpen ? window.colBlue : window.colBorder
                         border.width: 1
@@ -109,7 +109,7 @@ ApplicationWindow {
                         Row {
                             id: repoRow
                             anchors.centerIn: parent
-                            spacing: 6
+                            spacing: Design.s(6)
                             Text {
                                 text: "󰊢"
                                 font.family: Design.font.mono
@@ -156,9 +156,9 @@ ApplicationWindow {
                     // 2. Current Branch Selector
                     Rectangle {
                         id: branchBtn
-                        width: branchRow.implicitWidth + 20
-                        height: 28
-                        radius: 6
+                        width: branchRow.implicitWidth + Design.s(20)
+                        height: Design.s(28)
+                        radius: Design.s(6)
                         color: branchArea.containsMouse || window.branchDropdownOpen ? Design.tint(Design.ok, 0.18) : Design.tint(Design.raised, 0.60)
                         border.color: window.branchDropdownOpen ? window.colGreen : window.colBorder
                         border.width: 1
@@ -166,7 +166,7 @@ ApplicationWindow {
                         Row {
                             id: branchRow
                             anchors.centerIn: parent
-                            spacing: 6
+                            spacing: Design.s(6)
                             Text {
                                 text: ""
                                 font.family: Design.font.mono
@@ -213,9 +213,9 @@ ApplicationWindow {
                     // 3. Fetch / Push / Pull Action Pill
                     Rectangle {
                         id: syncBtn
-                        width: syncRow.implicitWidth + 20
-                        height: 28
-                        radius: 6
+                        width: syncRow.implicitWidth + Design.s(20)
+                        height: Design.s(28)
+                        radius: Design.s(6)
                         color: syncArea.containsMouse ? Design.tint(Design.accent, 0.22) : Design.tint(Design.raised, 0.60)
                         border.color: window.colBorder
                         border.width: 1
@@ -223,7 +223,7 @@ ApplicationWindow {
                         Row {
                             id: syncRow
                             anchors.centerIn: parent
-                            spacing: 6
+                            spacing: Design.s(6)
                             Text {
                                 text: "󰑐"
                                 font.family: Design.font.mono
@@ -255,11 +255,11 @@ ApplicationWindow {
 
                     // Push / Pull Quick Actions
                     Row {
-                        spacing: 4
+                        spacing: Design.s(4)
                         Layout.alignment: Qt.AlignVCenter
 
                         Rectangle {
-                            width: 28; height: 28; radius: 6
+                            width: Design.s(28); height: Design.s(28); radius: Design.s(6)
                             color: pushArea.containsMouse ? Design.tint(Design.mauve, 0.25) : "transparent"
                             border.color: pushArea.containsMouse ? window.colPurple : window.colBorder
                             border.width: 1
@@ -270,7 +270,7 @@ ApplicationWindow {
                         }
 
                         Rectangle {
-                            width: 28; height: 28; radius: 6
+                            width: Design.s(28); height: Design.s(28); radius: Design.s(6)
                             opacity: window.hasRepo ? 1.0 : 0.45
                             enabled: window.hasRepo
                             color: pullArea.containsMouse ? Design.tint(Design.sapphire, 0.25) : "transparent"
@@ -285,13 +285,13 @@ ApplicationWindow {
 
                     // Quick External Tools
                     Row {
-                        spacing: 4
+                        spacing: Design.s(4)
                         Layout.alignment: Qt.AlignVCenter
 
                         Rectangle {
-                            width: termRow.implicitWidth + 14
-                            height: 26
-                            radius: 6
+                            width: termRow.implicitWidth + Design.s(14)
+                            height: Design.s(26)
+                            radius: Design.s(6)
                             color: termArea.containsMouse ? Design.tint(Design.text, 0.12) : "transparent"
                             border.color: window.colBorder
                             border.width: 1
@@ -299,7 +299,7 @@ ApplicationWindow {
                             Row {
                                 id: termRow
                                 anchors.centerIn: parent
-                                spacing: 5
+                                spacing: Design.s(5)
                                 Text { text: "󰞷"; font.family: Design.font.mono; font.pixelSize: Design.s(12); color: window.colFg }
                                 Text { text: "Terminal"; font.family: Design.font.sans; font.pixelSize: Design.s(11); color: window.colFg }
                             }
@@ -307,9 +307,9 @@ ApplicationWindow {
                         }
 
                         Rectangle {
-                            width: filesRow.implicitWidth + 14
-                            height: 26
-                            radius: 6
+                            width: filesRow.implicitWidth + Design.s(14)
+                            height: Design.s(26)
+                            radius: Design.s(6)
                             color: filesArea.containsMouse ? Design.tint(Design.text, 0.12) : "transparent"
                             border.color: window.colBorder
                             border.width: 1
@@ -317,7 +317,7 @@ ApplicationWindow {
                             Row {
                                 id: filesRow
                                 anchors.centerIn: parent
-                                spacing: 5
+                                spacing: Design.s(5)
                                 Text { text: "󰉋"; font.family: Design.font.mono; font.pixelSize: Design.s(12); color: window.colFg }
                                 Text { text: "Files"; font.family: Design.font.sans; font.pixelSize: Design.s(11); color: window.colFg }
                             }
@@ -340,7 +340,7 @@ ApplicationWindow {
 
                     // ── LEFT SIDEBAR (Changes & History) ──────────────────────
                     Rectangle {
-                        Layout.preferredWidth: 320
+                        Layout.preferredWidth: Design.s(320)
                         Layout.fillHeight: true
                         color: window.colDark
                         border.color: window.colBorder
@@ -353,7 +353,7 @@ ApplicationWindow {
                             // Top Sidebar Tab Switcher: [ Changes (N) ] [ History ]
                             Rectangle {
                                 Layout.fillWidth: true
-                                height: 36
+                                height: Design.s(36)
                                 color: Design.tint(Design.ground, 0.8)
                                 border.color: window.colBorder
                                 border.width: 1
@@ -423,15 +423,15 @@ ApplicationWindow {
                                     // Stage All / Unstage All Bar
                                     Rectangle {
                                         Layout.fillWidth: true
-                                        height: 28
+                                        height: Design.s(28)
                                         color: Design.tint(Design.ground, 0.40)
                                         border.color: window.colBorder
                                         border.width: 1
 
                                         RowLayout {
                                             anchors.fill: parent
-                                            anchors.leftMargin: 10
-                                            anchors.rightMargin: 10
+                                            anchors.leftMargin: Design.s(10)
+                                            anchors.rightMargin: Design.s(10)
 
                                             Text {
                                                 text: "Changed Files"
@@ -484,22 +484,22 @@ ApplicationWindow {
                                         delegate: Rectangle {
                                             id: fileCard
                                             width: changedList.width
-                                            height: 32
+                                            height: Design.s(32)
                                             color: isSelected ? Design.tint(Design.accent, 0.18) : (fArea.containsMouse ? Design.tint(Design.text, 0.05) : "transparent")
 
                                             readonly property bool isSelected: GitBackend.selectedFile === modelData.path
 
                                             RowLayout {
                                                 anchors.fill: parent
-                                                anchors.leftMargin: 8
-                                                anchors.rightMargin: 8
-                                                spacing: 8
+                                                anchors.leftMargin: Design.s(8)
+                                                anchors.rightMargin: Design.s(8)
+                                                spacing: Design.s(8)
 
                                                 // Staged Checkbox
                                                 Rectangle {
-                                                    width: 16
-                                                    height: 16
-                                                    radius: 3
+                                                    width: Design.s(16)
+                                                    height: Design.s(16)
+                                                    radius: Design.s(3)
                                                     color: modelData.isStaged ? window.colGreen : "transparent"
                                                     border.color: modelData.isStaged ? window.colGreen : window.colDim
                                                     border.width: 1
@@ -556,21 +556,21 @@ ApplicationWindow {
                                     // Bottom GitHub Desktop Commit Box
                                     Rectangle {
                                         Layout.fillWidth: true
-                                        height: 130
+                                        height: Design.s(130)
                                         color: Design.tint(Design.ground, 0.90)
                                         border.color: window.colBorder
                                         border.width: 1
 
                                         ColumnLayout {
                                             anchors.fill: parent
-                                            anchors.margins: 10
-                                            spacing: 6
+                                            anchors.margins: Design.s(10)
+                                            spacing: Design.s(6)
 
                                             // Summary (Required)
                                             Rectangle {
                                                 Layout.fillWidth: true
-                                                height: 28
-                                                radius: 4
+                                                height: Design.s(28)
+                                                radius: Design.s(4)
                                                 color: window.colBg
                                                 border.color: sumInput.activeFocus ? window.colBlue : window.colBorder
                                                 border.width: 1
@@ -578,7 +578,7 @@ ApplicationWindow {
                                                 TextInput {
                                                     id: sumInput
                                                     anchors.fill: parent
-                                                    anchors.margins: 6
+                                                    anchors.margins: Design.s(6)
                                                     font.family: Design.font.sans
                                                     font.pixelSize: Design.s(11)
                                                     color: window.colFg
@@ -600,7 +600,7 @@ ApplicationWindow {
                                             Rectangle {
                                                 Layout.fillWidth: true
                                                 Layout.fillHeight: true
-                                                radius: 4
+                                                radius: Design.s(4)
                                                 color: window.colBg
                                                 border.color: descInput.activeFocus ? window.colBlue : window.colBorder
                                                 border.width: 1
@@ -608,7 +608,7 @@ ApplicationWindow {
                                                 TextArea {
                                                     id: descInput
                                                     anchors.fill: parent
-                                                    anchors.margins: 4
+                                                    anchors.margins: Design.s(4)
                                                     font.family: Design.font.sans
                                                     font.pixelSize: Design.s(11)
                                                     color: window.colFg
@@ -629,8 +629,8 @@ ApplicationWindow {
                                             // Commit Action Button
                                             Rectangle {
                                                 Layout.fillWidth: true
-                                                height: 28
-                                                radius: 5
+                                                height: Design.s(28)
+                                                radius: Design.s(5)
                                                 readonly property bool ready: window.hasRepo && sumInput.text.trim().length > 0
                                                 color: ready ? (commitArea.containsMouse ? Qt.lighter(window.colBlue, 1.1) : window.colBlue) : Design.tint(Design.accent, 0.20)
                                                 enabled: ready
@@ -679,15 +679,15 @@ ApplicationWindow {
 
                                     delegate: Rectangle {
                                         width: historyList.width
-                                        height: 52
+                                        height: Design.s(52)
                                         color: hArea.containsMouse ? Design.tint(Design.text, 0.05) : "transparent"
                                         border.color: Design.tint(Design.accent, 0.08)
                                         border.width: 1
 
                                         ColumnLayout {
                                             anchors.fill: parent
-                                            anchors.margins: 8
-                                            spacing: 3
+                                            anchors.margins: Design.s(8)
+                                            spacing: Design.s(3)
 
                                             RowLayout {
                                                 Layout.fillWidth: true
@@ -701,7 +701,7 @@ ApplicationWindow {
                                                     elide: Text.ElideRight
                                                 }
                                                 Rectangle {
-                                                    width: 54; height: 18; radius: 3
+                                                    width: Design.s(54); height: Design.s(18); radius: Design.s(3)
                                                     color: Design.tint(Design.accent, 0.15)
                                                     Text { anchors.centerIn: parent; text: modelData.hash || ""; font.family: Design.font.mono; font.pixelSize: Design.s(9); color: window.colBlue }
                                                 }
@@ -739,16 +739,16 @@ ApplicationWindow {
                             // Diff File Header Bar
                             Rectangle {
                                 Layout.fillWidth: true
-                                height: 36
+                                height: Design.s(36)
                                 color: window.colDark
                                 border.color: window.colBorder
                                 border.width: 1
 
                                 RowLayout {
                                     anchors.fill: parent
-                                    anchors.leftMargin: 14
-                                    anchors.rightMargin: 14
-                                    spacing: 8
+                                    anchors.leftMargin: Design.s(14)
+                                    anchors.rightMargin: Design.s(14)
+                                    spacing: Design.s(8)
 
                                     Text {
                                         text: "󰈙"
@@ -801,7 +801,7 @@ ApplicationWindow {
 
                                         // Old Line Num
                                         Text {
-                                            width: 42
+                                            width: Design.s(42)
                                             text: modelData.oldLine || ""
                                             horizontalAlignment: Text.AlignRight
                                             font.family: Design.font.mono
@@ -812,7 +812,7 @@ ApplicationWindow {
 
                                         // New Line Num
                                         Text {
-                                            width: 42
+                                            width: Design.s(42)
                                             text: modelData.newLine || ""
                                             horizontalAlignment: Text.AlignRight
                                             font.family: Design.font.mono
@@ -841,7 +841,7 @@ ApplicationWindow {
                                 // Empty State when clean
                                 ColumnLayout {
                                     anchors.centerIn: parent
-                                    spacing: 12
+                                    spacing: Design.s(12)
                                     visible: GitBackend.currentDiff.length === 0
 
                                     Text {
@@ -878,10 +878,10 @@ ApplicationWindow {
                 Rectangle {
                     anchors.top: parent.top
                     anchors.left: parent.left
-                    anchors.leftMargin: 12
-                    width: 380
-                    height: 280
-                    radius: 8
+                    anchors.leftMargin: Design.s(12)
+                    width: Design.s(380)
+                    height: Design.s(280)
+                    radius: Design.s(8)
                     color: window.colHeader
                     border.color: window.colBlue
                     border.width: 1
@@ -890,8 +890,8 @@ ApplicationWindow {
 
                     ColumnLayout {
                         anchors.fill: parent
-                        anchors.margins: 10
-                        spacing: 8
+                        anchors.margins: Design.s(10)
+                        spacing: Design.s(8)
 
                         Text {
                             text: "Switch Local Repository"
@@ -904,16 +904,16 @@ ApplicationWindow {
                         // Path Input Field
                         Rectangle {
                             Layout.fillWidth: true
-                            height: 30
-                            radius: 5
+                            height: Design.s(30)
+                            radius: Design.s(5)
                             color: window.colBg
                             border.color: window.colBorder
                             border.width: 1
 
                             RowLayout {
                                 anchors.fill: parent
-                                anchors.margins: 6
-                                spacing: 6
+                                anchors.margins: Design.s(6)
+                                spacing: Design.s(6)
 
                                 TextInput {
                                     id: customPathInput
@@ -930,7 +930,7 @@ ApplicationWindow {
                                 }
 
                                 Rectangle {
-                                    width: 44; height: 20; radius: 3
+                                    width: Design.s(44); height: Design.s(20); radius: Design.s(3)
                                     color: window.colBlue
                                     Text { anchors.centerIn: parent; text: "Open"; font.bold: true; font.pixelSize: Design.s(10); color: "#101014" }
                                     MouseArea {
@@ -962,14 +962,14 @@ ApplicationWindow {
 
                             delegate: Rectangle {
                                 width: discoveredList.width
-                                height: 32
-                                radius: 4
+                                height: Design.s(32)
+                                radius: Design.s(4)
                                 color: discArea.containsMouse ? Design.tint(Design.accent, 0.20) : "transparent"
 
                                 RowLayout {
                                     anchors.fill: parent
-                                    anchors.margins: 6
-                                    spacing: 8
+                                    anchors.margins: Design.s(6)
+                                    spacing: Design.s(8)
 
                                     Text { text: "󰊢"; font.family: Design.font.mono; font.pixelSize: Design.s(12); color: window.colBlue }
                                     Text { text: modelData.name; font.family: Design.font.sans; font.pixelSize: Design.s(11); font.bold: true; color: window.colFg }
@@ -997,10 +997,10 @@ ApplicationWindow {
                 Rectangle {
                     anchors.top: parent.top
                     anchors.left: parent.left
-                    anchors.leftMargin: 180
-                    width: 260
-                    height: 220
-                    radius: 8
+                    anchors.leftMargin: Design.s(180)
+                    width: Design.s(260)
+                    height: Design.s(220)
+                    radius: Design.s(8)
                     color: window.colHeader
                     border.color: window.colGreen
                     border.width: 1
@@ -1009,8 +1009,8 @@ ApplicationWindow {
 
                     ColumnLayout {
                         anchors.fill: parent
-                        anchors.margins: 10
-                        spacing: 8
+                        anchors.margins: Design.s(10)
+                        spacing: Design.s(8)
 
                         Text {
                             text: "Switch Branch"
@@ -1029,14 +1029,14 @@ ApplicationWindow {
 
                             delegate: Rectangle {
                                 width: branchList.width
-                                height: 28
-                                radius: 4
+                                height: Design.s(28)
+                                radius: Design.s(4)
                                 color: modelData === GitBackend.branchName ? Design.tint(Design.ok, 0.25) : (bArea.containsMouse ? Design.tint(Design.text, 0.08) : "transparent")
 
                                 RowLayout {
                                     anchors.fill: parent
-                                    anchors.margins: 6
-                                    spacing: 6
+                                    anchors.margins: Design.s(6)
+                                    spacing: Design.s(6)
 
                                     Text { text: ""; font.family: Design.font.mono; font.pixelSize: Design.s(11); color: window.colGreen }
                                     Text { text: modelData; font.family: Design.font.mono; font.pixelSize: Design.s(11); font.bold: modelData === GitBackend.branchName; color: window.colFg; Layout.fillWidth: true }

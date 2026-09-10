@@ -253,6 +253,14 @@ Window {
                             anchors.margins: Design.s(6)
                             focus: window.currentTabIndex === index
 
+                            // Follow the desktop theme. The terminal painted
+                            // itself Catppuccin from two hardcoded constants,
+                            // so the one window that fills its whole area with
+                            // a single colour was the one that ignored the
+                            // theme picker.
+                            backgroundColor: Design.ground
+                            foregroundColor: Design.text
+
                             Component.onCompleted: {
                                 var cmd = model.initialCmd || ((typeof InitialCommand !== "undefined" && index === 0) ? InitialCommand : "");
                                 var dir = model.initialDir || ((typeof InitialDir !== "undefined" && index === 0) ? InitialDir : "");

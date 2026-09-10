@@ -1,16 +1,35 @@
 .pragma library
 
-function getScale(mw, userScale) {
+// The scale everything on this desktop is measured in.
+//
+// It used to look at the width alone, against a 1920 reference. That reads a
+// 2560x1080 ultrawide as a third larger than 1080p and sizes the bar, the
+// popups and every panel accordingly — but the screen is exactly as tall as a
+// 1080p one, so the desktop got taller chrome and less room for windows on the
+// display that has the least of it. Any wide-and-short screen had the same
+// problem: 3440x1440 came out at 1.34 when its height says 1.33.
+//
+// Both dimensions now, against 1920x1080, and the smaller of the two wins —
+// the limiting dimension is the one that decides how much fits. On a screen
+// with 16:9 proportions this changes nothing at all, which is most of them;
+// the numbers only move where the aspect ratio is unusual, which is exactly
+// where the old answer was wrong.
+function getScale(mw, userScale, mh) {
     if (mw <= 0) return 1.0;
+
     let r = mw / 1920.0;
+    // `mh` is optional so the older two-argument callers keep working; without
+    // it the ratio is the width's, as before.
+    if (mh !== undefined && mh > 0)
+        r = Math.min(r, mh / 1080.0);
+
     let baseScale = 1.0;
-    
     if (r <= 1.0) {
         baseScale = Math.max(0.35, Math.pow(r, 0.85));
     } else {
         baseScale = Math.pow(r, 0.5);
     }
-    
+
     return baseScale * (userScale !== undefined ? userScale : 1.0);
 }
 
@@ -19,7 +38,7 @@ function s(val, scale) {
 }
 
 function getLayout(name, mx, my, mw, mh, userScale, barAtBottom) {
-    let scale = getScale(mw, userScale);
+    let scale = getScale(mw, userScale, mh);
 
     // Popups that hang off the bar have to hang off whichever edge it is on.
     // Every one of them hard-coded 58px from the top, so moving the bar to the
@@ -50,7 +69,10 @@ function getLayout(name, mx, my, mw, mh, userScale, barAtBottom) {
         // 760: the cover block, the transport row, the ten EQ bands and the preset
         // buttons need about 730px, and at 620 the preset row was sliced in half
         // against the bottom edge with nothing on screen offering to scroll.
-        "music":     { w: s(700, scale), h: s(760, scale), rx: s(12, scale), ry: barEdge, comp: "music/MusicPopup.qml" },
+        // Centred like every other popup. It was pinned to the left edge at
+        // x = 12, so the one window in the shell that opens in the corner was
+        // the music player, with no reason for it.
+        "music":     { w: s(700, scale), h: s(760, scale), rx: Math.floor((mw/2)-(s(700, scale)/2)), ry: barEdge, comp: "music/MusicPopup.qml" },
         "audioFull":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: barAtBottom ? s(24, scale) : s(70, scale), comp: "settings/SettingsApp.qml" },
         "powerFull":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: barAtBottom ? s(24, scale) : s(70, scale), comp: "settings/SettingsApp.qml" },
         "netFull":    { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: barAtBottom ? s(24, scale) : s(70, scale), comp: "settings/SettingsApp.qml" },
@@ -90,8 +112,11 @@ function getLayout(name, mx, my, mw, mh, userScale, barAtBottom) {
     return t;
 }
 
-function getPopupLayout(mw, userScale) {
-    let scale = getScale(mw, userScale);
+// Nothing calls this any more — the toasts size themselves from Design — but
+// it takes the height for the same reason getLayout does, so that reviving it
+// cannot quietly reintroduce the width-only scale.
+function getPopupLayout(mw, userScale, mh) {
+    let scale = getScale(mw, userScale, mh);
     return {
         w: s(350, scale),
         marginTop: s(70, scale),

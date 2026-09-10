@@ -21,7 +21,6 @@ PopupShell {
     cornerRadius: Design.radius.panel
 
     property var currentTime: new Date()
-    property var weatherData: null
 
     // Calendar state
     property int currentYear: currentTime.getFullYear()
@@ -37,22 +36,12 @@ PopupShell {
         onTriggered: window.currentTime = new Date()
     }
 
-    // Weather Poller via native b1air-daemon
-    Process {
-        id: weatherPoller
-        command: ["b1air-daemon", "weather", "json"]
-        running: true
-        stdout: StdioCollector {
-            onStreamFinished: {
-                let txt = this.text.trim();
-                if (txt.length > 10) {
-                    try {
-                        window.weatherData = JSON.parse(txt);
-                    } catch (e) {}
-                }
-            }
-        }
-    }
+    // The forecast comes from Services/Weather, which is the one thing in the
+    // shell that fetches it. This window used to run its own
+    // `b1air-daemon weather json` while the bar ran its own curl against
+    // wttr.in — two fetches, two caches, two refresh schedules, and two
+    // different temperatures on screen at the same moment.
+    property var weatherData: Weather.forecast.length > 0 ? ({ forecast: Weather.forecast }) : null
 
     readonly property var monthNames: [
         "January", "February", "March", "April", "May", "June",
@@ -409,8 +398,21 @@ PopupShell {
                                 spacing: 0
                                 RowLayout {
                                     spacing: Design.s(Design.space.xs)
+                                    // The temperature now, not today's high.
+                                    //
+                                    // This read `todayForecast.max` and set it
+                                    // in 20px bold beside the clock, where it
+                                    // is plainly meant as the current reading.
+                                    // So the panel said 21°C while the bar,
+                                    // fetching separately, said +18°C — two
+                                    // numbers for the same thing, both on
+                                    // screen at once. The daily range is still
+                                    // shown below, under "Range", which is
+                                    // where a high belongs.
                                     Label {
-                                        text: window.todayForecast ? (window.todayForecast.max + "°C") : "--°C"
+                                        text: window.selectedDayOffset === 0 && Weather.loaded
+                                              ? Weather.temp
+                                              : (window.todayForecast ? (window.todayForecast.max + "°C") : "--°C")
                                         font.pixelSize: Design.s(20)
                                         font.family: Design.font.mono
                                         font.weight: Design.weight.bold

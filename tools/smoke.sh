@@ -16,6 +16,10 @@
 #   settings-schema Settings.set() with a key the schema does not declare warns
 #                   once on stderr and does nothing. Half the settings pages had
 #                   controls like that.
+#   window-copies   Five window files exist twice — once under src/apps for the
+#                   standalone binary, once under src/shell/qml for the shell.
+#                   Editing one and not the other is how a fix lands in the
+#                   copy nobody runs; it happened while writing this suite.
 #   ipc-targets     A toggle: command naming a widget WindowRegistry does not
 #                   know opens nothing at all.
 #   daemon-cli      The read-only verbs still answer.
@@ -170,6 +174,31 @@ PY
     else fail "settings schema and its callers disagree"; fi
 }
 
+# ── window-copies ────────────────────────────────────────────────────────────
+check_window_copies() {
+    head_ "window-copies"
+    python3 - "$REPO" <<'PY'
+import filecmp, glob, os, sys
+repo = sys.argv[1]
+problems = []
+checked = 0
+for path in sorted(glob.glob(os.path.join(repo, "src/apps/*/*.qml"))):
+    twin = os.path.join(repo, "src/shell/qml", os.path.basename(path))
+    if not os.path.exists(twin):
+        continue
+    checked += 1
+    if not filecmp.cmp(path, twin, shallow=False):
+        problems.append(f"{os.path.basename(path)} differs between src/apps and src/shell/qml")
+
+for p in problems:
+    print("      " + p)
+print(f"      {checked} window files exist in both trees")
+sys.exit(1 if problems else 0)
+PY
+    if [[ $? -eq 0 ]]; then pass "the duplicated window files are identical"
+    else fail "a window file has drifted between its two copies"; fi
+}
+
 # ── ipc-targets ──────────────────────────────────────────────────────────────
 check_ipc_targets() {
     head_ "ipc-targets"
@@ -267,7 +296,7 @@ check_shell_boot() {
 }
 
 # ── driver ───────────────────────────────────────────────────────────────────
-ALL=(qml_syntax singletons settings_schema ipc_targets daemon_cli shell_boot)
+ALL=(qml_syntax singletons settings_schema window_copies ipc_targets daemon_cli shell_boot)
 
 to_run=()
 if (( $# == 0 )); then

@@ -8,8 +8,8 @@ import Qt.labs.folderlistmodel
 ApplicationWindow {
     id: window
     title: "Files — " + currentPathDisplay
-    width: 1060
-    height: 680
+    width: Design.s(1060)
+    height: Design.s(680)
     minimumWidth: 740
     minimumHeight: 480
     visible: true
@@ -283,7 +283,7 @@ ApplicationWindow {
             // ═════════════════════════════════════════════════════════════════
             Rectangle {
                 Layout.fillHeight: true
-                Layout.preferredWidth: 210
+                Layout.preferredWidth: Design.s(210)
                 color: window.colSidebar
 
                 // Subtle right divider line
@@ -298,19 +298,19 @@ ApplicationWindow {
 
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: 14
-                    spacing: 10
+                    anchors.margins: Design.s(14)
+                    spacing: Design.s(10)
 
                     // App Header Branding Card
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: 10
+                        spacing: Design.s(10)
                         Layout.bottomMargin: 2
 
                         Rectangle {
-                            width: 28
-                            height: 28
-                            radius: 8
+                            width: Design.s(28)
+                            height: Design.s(28)
+                            radius: Design.s(8)
                             color: Design.tint(Design.accent, 0.18)
                             border.color: Design.tint(Design.accent, 0.35)
                             border.width: 1
@@ -354,7 +354,7 @@ ApplicationWindow {
 
                     ColumnLayout {
                         Layout.fillWidth: true
-                        spacing: 2
+                        spacing: Design.s(2)
 
                         SidebarPill { label: "Root (/)"; path: "/"; icon: "󰋜"; iconCol: window.colRed }
                         SidebarPill { label: "Home (~)"; path: window.homeDir; icon: "󰋜"; iconCol: window.colBlue }
@@ -373,7 +373,7 @@ ApplicationWindow {
 
                     ColumnLayout {
                         Layout.fillWidth: true
-                        spacing: 2
+                        spacing: Design.s(2)
 
                         SidebarPill { label: "Documents"; path: window.homeDir + "/Documents"; icon: "󰈙"; iconCol: window.colPurple }
                         SidebarPill { label: "Downloads"; path: window.homeDir + "/Downloads"; icon: "󰁝"; iconCol: window.colGreen }
@@ -396,7 +396,7 @@ ApplicationWindow {
                         }
                         Item { Layout.fillWidth: true }
                         Rectangle {
-                            width: 18; height: 18; radius: 4
+                            width: Design.s(18); height: Design.s(18); radius: Design.s(4)
                             color: addBmArea.containsMouse ? Design.tint(Design.accent, 0.25) : "transparent"
                             Text {
                                 anchors.centerIn: parent
@@ -420,22 +420,22 @@ ApplicationWindow {
                         Layout.fillWidth: true
                         Layout.fillHeight: true
                         clip: true
-                        spacing: 2
+                        spacing: Design.s(2)
                         model: window.customBookmarks
 
                         delegate: Rectangle {
                             width: bookmarksList.width
-                            height: 28
-                            radius: 6
+                            height: Design.s(28)
+                            radius: Design.s(6)
                             color: window.currentPath === modelData.path ? Design.tint(Design.accent, 0.20) : (bmArea.containsMouse ? Design.tint(Design.text, 0.05) : "transparent")
                             border.color: window.currentPath === modelData.path ? Design.tint(Design.accent, 0.40) : "transparent"
                             border.width: 1
 
                             RowLayout {
                                 anchors.fill: parent
-                                anchors.leftMargin: 8
-                                anchors.rightMargin: 6
-                                spacing: 6
+                                anchors.leftMargin: Design.s(8)
+                                anchors.rightMargin: Design.s(6)
+                                spacing: Design.s(6)
 
                                 Text { text: modelData.icon || "󰉋"; font.family: Design.font.mono; font.pixelSize: Design.s(12); color: window.colBlue }
                                 Text { text: modelData.name; font.family: Design.font.sans; font.pixelSize: Design.s(11); color: window.colFg; Layout.fillWidth: true; elide: Text.ElideRight }
@@ -467,16 +467,16 @@ ApplicationWindow {
                     // Storage Device Card with Progress Bar
                     Rectangle {
                         Layout.fillWidth: true
-                        height: 44
-                        radius: 8
+                        height: Design.s(44)
+                        radius: Design.s(8)
                         color: window.colSunken
                         border.color: window.colBorderSubtle
                         border.width: 1
 
                         ColumnLayout {
                             anchors.fill: parent
-                            anchors.margins: 8
-                            spacing: 4
+                            anchors.margins: Design.s(8)
+                            spacing: Design.s(4)
 
                             RowLayout {
                                 Layout.fillWidth: true
@@ -487,14 +487,14 @@ ApplicationWindow {
 
                             Rectangle {
                                 Layout.fillWidth: true
-                                height: 4
-                                radius: 2
+                                height: Design.s(4)
+                                radius: Design.s(2)
                                 color: window.colBorderSubtle
 
                                 Rectangle {
                                     width: parent.width * 0.42
                                     height: parent.height
-                                    radius: 2
+                                    radius: Design.s(2)
                                     color: window.colBlue
                                 }
                             }
@@ -512,17 +512,17 @@ ApplicationWindow {
                     readonly property bool isActive: window.currentPath === pill.path
 
                     Layout.fillWidth: true
-                    height: 28
-                    radius: 6
+                    height: Design.s(28)
+                    radius: Design.s(6)
                     color: isActive ? Design.tint(Design.accent, 0.20) : (pillArea.containsMouse ? Design.tint(Design.text, 0.05) : "transparent")
                     border.color: isActive ? Design.tint(Design.accent, 0.45) : "transparent"
                     border.width: 1
 
                     RowLayout {
                         anchors.fill: parent
-                        anchors.leftMargin: 8
-                        anchors.rightMargin: 8
-                        spacing: 8
+                        anchors.leftMargin: Design.s(8)
+                        anchors.rightMargin: Design.s(8)
+                        spacing: Design.s(8)
 
                         Text { text: pill.icon; font.family: Design.font.mono; font.pixelSize: Design.s(12); color: pill.isActive ? window.colBlue : pill.iconCol }
                         Text { text: pill.label; font.family: Design.font.sans; font.pixelSize: Design.s(11); color: pill.isActive ? "#ffffff" : window.colFg; Layout.fillWidth: true; elide: Text.ElideRight }
@@ -549,7 +549,7 @@ ApplicationWindow {
                 // ── Top Navigation Bar (46px) ────────────────────────────────
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 46
+                    Layout.preferredHeight: Design.s(46)
                     color: window.colDark
 
                     // Subtle bottom divider
@@ -563,21 +563,21 @@ ApplicationWindow {
 
                     RowLayout {
                         anchors.fill: parent
-                        anchors.leftMargin: 12
-                        anchors.rightMargin: 12
-                        spacing: 8
+                        anchors.leftMargin: Design.s(12)
+                        anchors.rightMargin: Design.s(12)
+                        spacing: Design.s(8)
 
                         // History Navigation Cluster
                         Rectangle {
-                            height: 30
-                            radius: 6
+                            height: Design.s(30)
+                            radius: Design.s(6)
                             color: window.colSunken
                             border.color: window.colBorderSubtle
                             border.width: 1
 
                             Row {
                                 anchors.centerIn: parent
-                                spacing: 2
+                                spacing: Design.s(2)
 
                                 NavIconBtn { icon: "󰁍"; enabled: window.historyIndex > 0; onClicked: window.historyBack() }
                                 NavIconBtn { icon: "󰁔"; enabled: window.historyIndex < window.history.length - 1; onClicked: window.historyForward() }
@@ -586,28 +586,36 @@ ApplicationWindow {
                             }
                         }
 
-                        // Breadcrumbs Path Bar (Capsule)
+                        // Breadcrumbs, not a capsule.
+                        //
+                        // These sat inside a sunken, bordered, full-width
+                        // field. In the home directory that drew a 900-pixel
+                        // inset box around a single "~" chip — and an empty
+                        // inset field is the shape of a text input waiting to
+                        // be filled, which this is not. Without the box the
+                        // crumbs are just a path on the toolbar, which is what
+                        // they are and what every other file manager shows.
+                        // The width still fills, so a long path has room and
+                        // still scrolls.
                         Rectangle {
                             Layout.fillWidth: true
-                            height: 30
-                            radius: 6
-                            color: window.colSunken
-                            border.color: window.colBorderSubtle
-                            border.width: 1
+                            height: Design.s(30)
+                            radius: Design.s(6)
+                            color: "transparent"
                             clip: true
 
                             ListView {
                                 id: breadcrumbsList
                                 anchors.fill: parent
-                                anchors.leftMargin: 8
-                                anchors.rightMargin: 8
+                                anchors.leftMargin: Design.s(8)
+                                anchors.rightMargin: Design.s(8)
                                 orientation: ListView.Horizontal
-                                spacing: 4
+                                spacing: Design.s(4)
                                 clip: true
                                 model: window.getBreadcrumbs()
 
                                 delegate: RowLayout {
-                                    spacing: 4
+                                    spacing: Design.s(4)
                                     anchors.verticalCenter: parent.verticalCenter
 
                                     Rectangle {
@@ -615,9 +623,9 @@ ApplicationWindow {
                                         // resolve from its scope, so the current folder was never
                                         // highlighted. Naming the chip fixes both uses.
                                         id: crumbChip
-                                        implicitWidth: crumbText.implicitWidth + 12
-                                        height: 22
-                                        radius: 4
+                                        implicitWidth: crumbText.implicitWidth + Design.s(12)
+                                        height: Design.s(22)
+                                        radius: Design.s(4)
                                         color: crumbChip.isLast ? Design.accentSoft
                                              : (crumbHover.containsMouse ? Design.hover : "transparent")
 
@@ -656,17 +664,17 @@ ApplicationWindow {
                         // Search Filter Bar
                         Rectangle {
                             Layout.preferredWidth: Math.min(180, Math.max(120, window.width * 0.18))
-                            height: 30
-                            radius: 6
+                            height: Design.s(30)
+                            radius: Design.s(6)
                             color: window.colSunken
                             border.color: searchField.activeFocus ? window.colBlue : window.colBorderSubtle
                             border.width: 1
 
                             RowLayout {
                                 anchors.fill: parent
-                                anchors.leftMargin: 8
-                                anchors.rightMargin: 8
-                                spacing: 6
+                                anchors.leftMargin: Design.s(8)
+                                anchors.rightMargin: Design.s(8)
+                                spacing: Design.s(6)
 
                                 Text { text: "󰍉"; font.family: Design.font.mono; font.pixelSize: Design.s(11); color: searchField.activeFocus ? window.colBlue : window.colDim }
                                 TextInput {
@@ -705,16 +713,16 @@ ApplicationWindow {
 
                         // Segmented View Mode Capsule [ Grid | List | Gallery ]
                         Rectangle {
-                            height: 30
-                            width: 90
-                            radius: 6
+                            height: Design.s(30)
+                            width: Design.s(90)
+                            radius: Design.s(6)
                             color: window.colSunken
                             border.color: window.colBorderSubtle
                             border.width: 1
 
                             Row {
                                 anchors.centerIn: parent
-                                spacing: 2
+                                spacing: Design.s(2)
 
                                 ViewSegmentBtn { icon: "󰕰"; active: window.viewMode === "grid"; onClicked: window.viewMode = "grid" }
                                 ViewSegmentBtn { icon: "󰕱"; active: window.viewMode === "list"; onClicked: window.viewMode = "list" }
@@ -724,11 +732,11 @@ ApplicationWindow {
 
                         // Quick Action Buttons (Hidden Toggle & Terminal)
                         Row {
-                            spacing: 4
+                            spacing: Design.s(4)
                             Layout.alignment: Qt.AlignVCenter
 
                             Rectangle {
-                                width: 30; height: 30; radius: 6
+                                width: Design.s(30); height: Design.s(30); radius: Design.s(6)
                                 color: window.showHidden ? Design.tint(Design.accent, 0.25) : (hidArea.containsMouse ? Design.tint(Design.text, 0.08) : window.colSunken)
                                 border.color: window.showHidden ? window.colBlue : window.colBorderSubtle
                                 border.width: 1
@@ -737,7 +745,7 @@ ApplicationWindow {
                             }
 
                             Rectangle {
-                                width: 30; height: 30; radius: 6
+                                width: Design.s(30); height: Design.s(30); radius: Design.s(6)
                                 color: termArea.containsMouse ? Design.tint(Design.text, 0.08) : window.colSunken
                                 border.color: window.colBorderSubtle
                                 border.width: 1
@@ -758,7 +766,7 @@ ApplicationWindow {
                         id: grid
                         reuseItems: true
                         anchors.fill: parent
-                        anchors.margins: 14
+                        anchors.margins: Design.s(14)
                         cellWidth: Design.s(114)
                         cellHeight: Design.s(114)
                         clip: true
@@ -768,9 +776,9 @@ ApplicationWindow {
 
                         delegate: Rectangle {
                             id: gridCard
-                            width: 104
-                            height: 104
-                            radius: 8
+                            width: Design.s(104)
+                            height: Design.s(104)
+                            radius: Design.s(8)
                             color: isSelected ? Design.tint(Design.accent, 0.22) : (cardHover.containsMouse ? window.colCardHover : "transparent")
                             border.color: isSelected ? window.colBlue : (cardHover.containsMouse ? Design.tint(Design.text, 0.08) : "transparent")
                             border.width: 1
@@ -779,8 +787,8 @@ ApplicationWindow {
 
                             ColumnLayout {
                                 anchors.fill: parent
-                                anchors.margins: 6
-                                spacing: 4
+                                anchors.margins: Design.s(6)
+                                spacing: Design.s(4)
 
                                 // Low-res fast thumbnail or vector icon
                                 Item {
@@ -790,7 +798,7 @@ ApplicationWindow {
                                     Image {
                                         id: gridThumb
                                         anchors.centerIn: parent
-                                        width: 44; height: 44
+                                        width: Design.s(44); height: Design.s(44)
                                         source: window.isImageFile(model.fileName) ? model.filePath : ""
                                         fillMode: Image.PreserveAspectFit
 
@@ -856,17 +864,17 @@ ApplicationWindow {
                         id: listView
                         reuseItems: true
                         anchors.fill: parent
-                        anchors.margins: 10
+                        anchors.margins: Design.s(10)
                         clip: true
                         visible: window.viewMode === "list"
                         model: folderModel
-                        spacing: 2
+                        spacing: Design.s(2)
 
                         delegate: Rectangle {
                             id: listCard
                             width: listView.width
-                            height: 32
-                            radius: 6
+                            height: Design.s(32)
+                            radius: Design.s(6)
                             color: isSelected ? Design.tint(Design.accent, 0.22) : (lHover.containsMouse ? window.colCardHover : "transparent")
                             border.color: isSelected ? window.colBlue : "transparent"
                             border.width: 1
@@ -875,9 +883,9 @@ ApplicationWindow {
 
                             RowLayout {
                                 anchors.fill: parent
-                                anchors.leftMargin: 10
-                                anchors.rightMargin: 10
-                                spacing: 8
+                                anchors.leftMargin: Design.s(10)
+                                anchors.rightMargin: Design.s(10)
+                                spacing: Design.s(8)
 
                                 Text {
                                     text: window.getIconGlyph(model.fileName, model.fileIsDir)
@@ -896,7 +904,7 @@ ApplicationWindow {
                                 }
 
                                 Text {
-                                    width: 80
+                                    width: Design.s(80)
                                     text: model.fileIsDir ? "Folder" : window.formatSize(model.fileSize)
                                     font.family: Design.font.mono
                                     font.pixelSize: Design.s(10)
@@ -905,7 +913,7 @@ ApplicationWindow {
                                 }
 
                                 Text {
-                                    width: 140
+                                    width: Design.s(140)
                                     text: window.formatDate(model.fileModified)
                                     font.family: Design.font.sans
                                     font.pixelSize: Design.s(10)
@@ -931,7 +939,7 @@ ApplicationWindow {
                         id: galView
                         reuseItems: true
                         anchors.fill: parent
-                        anchors.margins: 14
+                        anchors.margins: Design.s(14)
                         cellWidth: Design.s(180)
                         cellHeight: Design.s(160)
                         clip: true
@@ -941,9 +949,9 @@ ApplicationWindow {
 
                         delegate: Rectangle {
                             id: galCard
-                            width: 170
-                            height: 150
-                            radius: 8
+                            width: Design.s(170)
+                            height: Design.s(150)
+                            radius: Design.s(8)
                             color: isSelected ? Design.tint(Design.accent, 0.22) : (gHover.containsMouse ? window.colCardHover : window.colSunken)
                             border.color: isSelected ? window.colBlue : window.colBorderSubtle
                             border.width: 1
@@ -952,13 +960,13 @@ ApplicationWindow {
 
                             ColumnLayout {
                                 anchors.fill: parent
-                                anchors.margins: 8
-                                spacing: 6
+                                anchors.margins: Design.s(8)
+                                spacing: Design.s(6)
 
                                 Rectangle {
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
-                                    radius: 6
+                                    radius: Design.s(6)
                                     color: window.colSunken
                                     clip: true
 
@@ -1012,7 +1020,7 @@ ApplicationWindow {
                 // ── Bottom Status Bar (30px) ─────────────────────────────────
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 30
+                    Layout.preferredHeight: Design.s(30)
                     color: window.colDark
 
                     // Subtle top divider
@@ -1026,8 +1034,8 @@ ApplicationWindow {
 
                     RowLayout {
                         anchors.fill: parent
-                        anchors.leftMargin: 12
-                        anchors.rightMargin: 12
+                        anchors.leftMargin: Design.s(12)
+                        anchors.rightMargin: Design.s(12)
 
                         Text {
                             text: folderModel.count + " items" + (window.selectedPath ? ("  •  Selected: " + window.selectedPath.split('/').pop()) : "")
@@ -1038,7 +1046,7 @@ ApplicationWindow {
                         }
 
                         Row {
-                            spacing: 8
+                            spacing: Design.s(8)
                             Text { text: "Space QuickLook"; font.family: Design.font.mono; font.pixelSize: Design.s(9); color: window.colDim }
                             Text { text: "•"; font.pixelSize: Design.s(8); color: window.colBorderSubtle }
                             Text { text: "Ctrl+T Terminal"; font.family: Design.font.mono; font.pixelSize: Design.s(9); color: window.colDim }
@@ -1057,7 +1065,7 @@ ApplicationWindow {
         property bool enabled: true
         signal clicked()
 
-        width: 24; height: 24; radius: 4
+        width: Design.s(24); height: Design.s(24); radius: Design.s(4)
         color: nbArea.containsMouse && nb.enabled ? Design.tint(Design.text, 0.10) : "transparent"
         opacity: nb.enabled ? 1.0 : 0.35
 
@@ -1085,7 +1093,7 @@ ApplicationWindow {
         property bool active: false
         signal clicked()
 
-        width: 26; height: 24; radius: 4
+        width: Design.s(26); height: Design.s(24); radius: Design.s(4)
         color: vsb.active ? window.colBlue : (vsbArea.containsMouse ? Design.tint(Design.text, 0.08) : "transparent")
 
         Text {

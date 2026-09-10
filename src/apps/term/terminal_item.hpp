@@ -20,6 +20,17 @@ class TerminalItem : public QQuickPaintedItem {
     Q_PROPERTY(int cols READ cols NOTIFY sizeChanged)
     Q_PROPERTY(int rows READ rows NOTIFY sizeChanged)
 
+    // The terminal's own two colours, so it can follow the desktop theme.
+    //
+    // They were file-scope constants named MochaBase and MochaText —
+    // Catppuccin, hardcoded — while the shipped desktop is Tokyo Night and
+    // Settings has offered themes, import and export since this suite gained
+    // them. So the one window that fills its whole area with a single colour
+    // was the one window that ignored the palette. TermWindow binds these to
+    // Ui/Design, which reads the active theme in every process.
+    Q_PROPERTY(QColor backgroundColor READ backgroundColor WRITE setBackgroundColor NOTIFY paletteChanged)
+    Q_PROPERTY(QColor foregroundColor READ foregroundColor WRITE setForegroundColor NOTIFY paletteChanged)
+
 public:
     explicit TerminalItem(QQuickItem *parent = nullptr);
     ~TerminalItem() override;
@@ -33,6 +44,11 @@ public:
 
     int cols() const { return m_cols; }
     int rows() const { return m_rows; }
+
+    QColor backgroundColor() const { return m_background; }
+    void setBackgroundColor(const QColor &c);
+    QColor foregroundColor() const { return m_foreground; }
+    void setForegroundColor(const QColor &c);
 
     Q_INVOKABLE void sendText(const QString &text);
     Q_INVOKABLE void copySelection();
@@ -48,6 +64,7 @@ signals:
     void fontSizeChanged();
     void fontFamilyChanged();
     void sizeChanged();
+    void paletteChanged();
     void processFinished(int exitCode);
 
 protected:
@@ -67,6 +84,11 @@ private:
     void updateFontMetrics();
     void updatePtySize();
     QColor toQColor(const VTermColor &color, const QColor &defaultColor) const;
+
+    // Defaults match the constants these replaced, so a build that never binds
+    // them looks exactly as it did.
+    QColor m_background{30, 30, 46};
+    QColor m_foreground{205, 214, 244};
 
     // libvterm callbacks
     static int cbDamage(VTermRect rect, void *user);

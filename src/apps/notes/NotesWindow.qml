@@ -7,8 +7,8 @@ import Ui
 ApplicationWindow {
     id: window
     title: NotesBackend.currentNoteId ? "Notes — " + NotesBackend.currentTitle : "Notes"
-    width: 960
-    height: 620
+    width: Design.s(960)
+    height: Design.s(620)
     minimumWidth: 460
     minimumHeight: 360
     visible: true
@@ -92,7 +92,7 @@ ApplicationWindow {
             // ── Headerbar (40px) ─────────────────────────────────────────────
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 40
+                Layout.preferredHeight: Design.s(40)
                 color: window.colSidebar
                 border.color: window.colBorder
                 border.width: 1
@@ -100,13 +100,13 @@ ApplicationWindow {
 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.leftMargin: 12
-                    anchors.rightMargin: 12
-                    spacing: 8
+                    anchors.leftMargin: Design.s(12)
+                    anchors.rightMargin: Design.s(12)
+                    spacing: Design.s(8)
 
                     // App Icon & Title
                     Row {
-                        spacing: 8
+                        spacing: Design.s(8)
                         Layout.alignment: Qt.AlignVCenter
                         Text {
                             text: "󰈙"
@@ -127,9 +127,9 @@ ApplicationWindow {
 
                     // New Note Button
                     Rectangle {
-                        width: newRow.implicitWidth + 14
-                        height: 26
-                        radius: 6
+                        width: newRow.implicitWidth + Design.s(14)
+                        height: Design.s(26)
+                        radius: Design.s(6)
                         color: newArea.containsMouse ? Design.tint(Design.accent, 0.25) : Design.tint(Design.raised, 0.60)
                         border.color: window.colBorder
                         border.width: 1
@@ -137,7 +137,7 @@ ApplicationWindow {
                         Row {
                             id: newRow
                             anchors.centerIn: parent
-                            spacing: 4
+                            spacing: Design.s(4)
                             Text { text: "󰐕"; font.family: Design.font.mono; font.pixelSize: Design.s(12); color: window.colBlue }
                             Text { text: "New Note"; font.family: Design.font.sans; font.pixelSize: Design.s(11); font.bold: true; color: window.colFg }
                         }
@@ -153,9 +153,9 @@ ApplicationWindow {
 
                     // Obsidian Sync Pill
                     Rectangle {
-                        width: obsRow.implicitWidth + 14
-                        height: 26
-                        radius: 6
+                        width: obsRow.implicitWidth + Design.s(14)
+                        height: Design.s(26)
+                        radius: Design.s(6)
                         color: obsArea.containsMouse ? Design.tint(Design.mauve, 0.25) : Design.tint(Design.raised, 0.40)
                         border.color: window.colBorder
                         border.width: 1
@@ -163,7 +163,7 @@ ApplicationWindow {
                         Row {
                             id: obsRow
                             anchors.centerIn: parent
-                            spacing: 4
+                            spacing: Design.s(4)
                             Text { text: "󰈚"; font.family: Design.font.mono; font.pixelSize: Design.s(12); color: window.colPurple }
                             Text { text: "Obsidian Sync"; font.family: Design.font.sans; font.pixelSize: Design.s(11); font.bold: true; color: window.colPurple }
                         }
@@ -179,9 +179,9 @@ ApplicationWindow {
 
                     // Notion Sync Pill
                     Rectangle {
-                        width: notionRow.implicitWidth + 14
-                        height: 26
-                        radius: 6
+                        width: notionRow.implicitWidth + Design.s(14)
+                        height: Design.s(26)
+                        radius: Design.s(6)
                         color: notionArea.containsMouse ? Design.tint(Design.ok, 0.25) : Design.tint(Design.raised, 0.40)
                         border.color: window.colBorder
                         border.width: 1
@@ -189,7 +189,7 @@ ApplicationWindow {
                         Row {
                             id: notionRow
                             anchors.centerIn: parent
-                            spacing: 4
+                            spacing: Design.s(4)
                             Text { text: "󰍉"; font.family: Design.font.mono; font.pixelSize: Design.s(12); color: window.colGreen }
                             Text { text: "Notion Sync"; font.family: Design.font.sans; font.pixelSize: Design.s(11); font.bold: true; color: window.colGreen }
                         }
@@ -228,16 +228,16 @@ ApplicationWindow {
                     // Search Bar
                     Rectangle {
                         width: Math.min(160, Math.max(100, window.width * 0.18))
-                        height: 26
-                        radius: 6
+                        height: Design.s(26)
+                        radius: Design.s(6)
                         color: window.colBg
                         border.color: searchInput.activeFocus ? window.colBlue : window.colBorder
                         border.width: 1
 
                         RowLayout {
                             anchors.fill: parent
-                            anchors.margins: 4
-                            spacing: 4
+                            anchors.margins: Design.s(4)
+                            spacing: Design.s(4)
 
                             Text { text: "󰍉"; font.family: Design.font.mono; font.pixelSize: Design.s(11); color: window.colDim }
 
@@ -255,7 +255,7 @@ ApplicationWindow {
 
                     // Toggle Preview Button
                     Rectangle {
-                        width: 26; height: 26; radius: 5
+                        width: Design.s(26); height: Design.s(26); radius: Design.s(5)
                         color: prevArea.containsMouse ? Design.tint(Design.accent, 0.25) : "transparent"
                         border.color: window.colBorder
                         border.width: 1
@@ -285,7 +285,7 @@ ApplicationWindow {
 
                     // Left Column: Note List (240px)
                     Rectangle {
-                        Layout.preferredWidth: 240
+                        Layout.preferredWidth: Design.s(240)
                         Layout.fillHeight: true
                         color: window.colSidebar
 
@@ -301,9 +301,9 @@ ApplicationWindow {
                         ListView {
                             id: notesList
                             anchors.fill: parent
-                            anchors.margins: 8
+                            anchors.margins: Design.s(8)
                             clip: true
-                            spacing: 4
+                            spacing: Design.s(4)
                             model: NotesBackend.noteList
 
                             delegate: Rectangle {
@@ -326,8 +326,8 @@ ApplicationWindow {
 
                                 ColumnLayout {
                                     anchors.fill: parent
-                                    anchors.margins: 8
-                                    spacing: 3
+                                    anchors.margins: Design.s(8)
+                                    spacing: Design.s(3)
 
                                     RowLayout {
                                         Layout.fillWidth: true
@@ -383,13 +383,13 @@ ApplicationWindow {
 
                         ColumnLayout {
                             anchors.fill: parent
-                            anchors.margins: 16
-                            spacing: 12
+                            anchors.margins: Design.s(16)
+                            spacing: Design.s(12)
 
                             // Note Title Input & Delete Button
                             RowLayout {
                                 Layout.fillWidth: true
-                                spacing: 10
+                                spacing: Design.s(10)
 
                                 TextInput {
                                     id: titleInput
@@ -404,7 +404,7 @@ ApplicationWindow {
                                 }
 
                                 Rectangle {
-                                    width: 28; height: 28; radius: 6
+                                    width: Design.s(28); height: Design.s(28); radius: Design.s(6)
                                     color: delArea.containsMouse ? Design.tint(Design.danger, 0.25) : "transparent"
                                     border.color: window.colBorder
                                     border.width: 1
@@ -425,7 +425,7 @@ ApplicationWindow {
                             // Tags Bar
                             RowLayout {
                                 Layout.fillWidth: true
-                                spacing: 8
+                                spacing: Design.s(8)
 
                                 Text { text: "󰓹"; font.family: Design.font.mono; font.pixelSize: Design.s(12); color: window.colCyan }
                                 TextInput {
@@ -455,21 +455,28 @@ ApplicationWindow {
                             RowLayout {
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
-                                spacing: 14
+                                spacing: Design.s(14)
 
                                 // Markdown Raw Text Editor
+                                //
+                                // The two panes each carried a full-strength
+                                // border, so a nine-line note sat inside two
+                                // heavy frames taking the whole window. They
+                                // are separated by their fills and a hairline
+                                // now, which is how the cards elsewhere in the
+                                // suite are drawn.
                                 Rectangle {
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
                                     color: window.colDark
-                                    radius: 8
-                                    border.color: window.colBorder
+                                    radius: Design.s(8)
+                                    border.color: Design.tint(Design.line, 0.45)
                                     border.width: 1
 
                                     Flickable {
                                         id: editorFlick
                                         anchors.fill: parent
-                                        anchors.margins: 12
+                                        anchors.margins: Design.s(12)
                                         contentWidth: width
                                         contentHeight: editorArea.implicitHeight + 20
                                         clip: true
@@ -495,14 +502,14 @@ ApplicationWindow {
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
                                     color: Design.tint(Design.surface, 0.60)
-                                    radius: 8
-                                    border.color: window.colBorder
+                                    radius: Design.s(8)
+                                    border.color: Design.tint(Design.line, 0.45)
                                     border.width: 1
                                     visible: window.showPreview
 
                                     Flickable {
                                         anchors.fill: parent
-                                        anchors.margins: 14
+                                        anchors.margins: Design.s(14)
                                         contentWidth: width
                                         contentHeight: previewText.implicitHeight + 20
                                         clip: true
@@ -510,7 +517,26 @@ ApplicationWindow {
                                         Text {
                                             id: previewText
                                             width: parent.width
-                                            text: NotesBackend.renderMarkdownToHtml(editorArea.text)
+                                            // The preview follows the theme.
+                                            // The renderer used to carry
+                                            // fourteen Tokyo Night hex values,
+                                            // so picking any other theme left
+                                            // every note rendered in the old
+                                            // one.
+                                            text: NotesBackend.renderMarkdownToHtml(editorArea.text, {
+                                                "heading1": Design.accent,
+                                                "heading2": Design.mauve,
+                                                "heading3": Design.sapphire,
+                                                "body":     Design.text,
+                                                "dim":      Design.textDim,
+                                                "strong":   Design.text,
+                                                "accent":   Design.accent,
+                                                "done":     Design.ok,
+                                                "codeBg":   Design.sunken,
+                                                "codeFg":   Design.teal,
+                                                "inlineBg": Design.raised,
+                                                "inlineFg": Design.peach
+                                            })
                                             textFormat: Text.RichText
                                             font.family: Design.font.sans
                                             font.pixelSize: Design.s(13)

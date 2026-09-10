@@ -102,6 +102,9 @@ Singleton {
 
         out += "gaps inner " + Number(Settings.gapsInner) + "\n";
         out += "gaps outer " + Number(Settings.gapsOuter) + "\n";
+        // `gaps outer` sets all four edges, so the top has to be put back
+        // after it — see conf.d/look-and-feel.conf for why that edge is zero.
+        out += "gaps top 0\n";
         out += "default_border pixel " + Number(Settings.borderWidth) + "\n";
         out += "smart_gaps " + (Settings.smartGaps ? "on" : "off") + "\n";
         out += "smart_borders " + (Settings.smartBorders ? "on" : "off") + "\n\n";

@@ -126,11 +126,18 @@ MonitorBackend::MonitorBackend(QObject* parent)
         }
     }
 
-    // Initial history
-    for (int i = 0; i < 40; ++i) {
-        m_cpuHistory.append(0.0);
-        m_ramHistory.append(0.0);
-    }
+    // No seeded history.
+    //
+    // This used to push forty zeros in before the first sample, and the chart
+    // draws forty slots across its width — so a freshly opened window showed a
+    // flat line pinned to zero for the first minute and then a vertical cliff
+    // where the real readings began. It looked like a fault, and the ceiling
+    // logic scaled the axis against data that was not measured.
+    //
+    // The chart already right-aligns whatever it is given, so an empty buffer
+    // simply draws a short trace at the right edge that grows leftwards as the
+    // minute fills. That is also the honest picture: nothing is shown for time
+    // the program was not running.
 
     connect(m_timer, &QTimer::timeout, this, &MonitorBackend::poll);
     m_timer->start(1500);

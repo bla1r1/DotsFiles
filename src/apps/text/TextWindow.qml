@@ -269,6 +269,49 @@ Window {
                             }
                         }
                     }
+
+                    // Something to read on an empty document.
+                    //
+                    // Every other app in this suite says what to do when it
+                    // has nothing open — the image viewer names the command,
+                    // the git client says to pick a repository. This one drew
+                    // a black field and the number 1 in the gutter, which is
+                    // the same thing a broken window looks like.
+                    ColumnLayout {
+                        // Positioned against the Flickable's viewport rather
+                        // than anchored to `parent`: assigning TextArea.flickable
+                        // makes this a child of the content item, whose origin
+                        // is the top-left of the *document*, so centring on it
+                        // put the message in the gutter.
+                        x: (editorFlickable.width - implicitWidth) / 2
+                        y: (editorFlickable.height - implicitHeight) / 2
+                        spacing: Design.s(Design.space.sm)
+                        visible: editorArea.text.length === 0
+                                 && !TextBackend.filePath
+                                 && !editorArea.activeFocus
+
+                        Icon {
+                            Layout.alignment: Qt.AlignHCenter
+                            text: "\u{f0219}"
+                            role: "display"
+                            color: Design.textFaint
+                        }
+
+                        Label {
+                            Layout.alignment: Qt.AlignHCenter
+                            text: "Empty document"
+                            weight: Design.weight.semibold
+                            dim: true
+                        }
+
+                        Label {
+                            Layout.alignment: Qt.AlignHCenter
+                            horizontalAlignment: Text.AlignHCenter
+                            text: "Start typing, or open a file: b1air-text notes.md"
+                            role: "caption"
+                            color: Design.textFaint
+                        }
+                    }
                 }
             }
         }

@@ -248,7 +248,7 @@ Singleton {
         weatherCityId: "",
         weatherUnit: "metric",
         gapsInner: 5,
-        gapsOuter: 20,
+        gapsOuter: 10,
         borderWidth: 2,
         smartBorders: true,
         smartGaps: false,
@@ -349,7 +349,7 @@ Singleton {
             property string weatherUnit: "metric"
 
             property int gapsInner: 5
-            property int gapsOuter: 20
+            property int gapsOuter: 10
             property int borderWidth: 2
             property bool smartBorders: true
             property bool smartGaps: false

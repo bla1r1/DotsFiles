@@ -1,3 +1,4 @@
+#include <QColor>
 #include "notes_backend.hpp"
 #include <QDateTime>
 #include <QTextStream>
@@ -303,30 +304,86 @@ void NotesBackend::syncWithNotion() {
     });
 }
 
-QString NotesBackend::renderMarkdownToHtml(const QString& markdown) {
+namespace {
+
+/**
+ * A colour from the palette the caller passed, or the built-in fallback.
+ *
+ * The renderer used to carry fourteen Tokyo Night hex values, so the one part
+ * of the desktop that renders a document ignored the theme picker entirely:
+ * pick Catppuccin and every note stayed Tokyo Night. Settings/Themes has
+ * offered creation, import and export since this suite gained them.
+ *
+ * The fallbacks are exactly the values they replace, so a caller that passes
+ * nothing renders precisely as before.
+ */
+QString paletteColor(const QVariantMap& p, const char* key, const char* fallback) {
+    const QVariant v = p.value(QLatin1String(key));
+    if (v.isValid()) {
+        const QColor c = v.value<QColor>();
+        if (c.isValid())
+            return c.name(QColor::HexRgb);
+    }
+    return QString::fromLatin1(fallback);
+}
+
+/** The same, as a CSS rgba() so a border can be a tint of the accent. */
+QString paletteRgba(const QVariantMap& p, const char* key, const char* fallback, double alpha) {
+    const QColor c(paletteColor(p, key, fallback));
+    return QStringLiteral("rgba(%1,%2,%3,%4)")
+        .arg(c.red()).arg(c.green()).arg(c.blue()).arg(alpha);
+}
+
+} // namespace
+
+QString NotesBackend::renderMarkdownToHtml(const QString& markdown, const QVariantMap& palette) {
+    const QString h1     = paletteColor(palette, "heading1", "#7aa2f7");
+    const QString h2     = paletteColor(palette, "heading2", "#bb9af7");
+    const QString h3     = paletteColor(palette, "heading3", "#7dcfff");
+    const QString body   = paletteColor(palette, "body",     "#c0caf5");
+    const QString dim    = paletteColor(palette, "dim",      "#a9b1d6");
+    const QString strong = paletteColor(palette, "strong",   "#ffffff");
+    const QString accent = paletteColor(palette, "accent",   "#7aa2f7");
+    const QString done   = paletteColor(palette, "done",     "#73daca");
+    const QString codeBg = paletteColor(palette, "codeBg",   "#16161e");
+    const QString codeFg = paletteColor(palette, "codeFg",   "#73daca");
+    const QString inlBg  = paletteColor(palette, "inlineBg", "#24283b");
+    const QString inlFg  = paletteColor(palette, "inlineFg", "#ff9e64");
+    const QString rule   = paletteRgba(palette, "accent",    "#7aa2f7", 0.2);
+
     QString html = markdown;
     // HTML escape
     html.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
 
     // Headers
-    html.replace(QRegularExpression("^### (.*)$", QRegularExpression::MultilineOption), "<h3 style='color:#7dcfff;margin:8px 0;'>\\1</h3>");
-    html.replace(QRegularExpression("^## (.*)$", QRegularExpression::MultilineOption), "<h2 style='color:#bb9af7;margin:10px 0;'>\\1</h2>");
-    html.replace(QRegularExpression("^# (.*)$", QRegularExpression::MultilineOption), "<h1 style='color:#7aa2f7;margin:12px 0;border-bottom:1px solid rgba(122,162,247,0.2);padding-bottom:4px;'>\\1</h1>");
+    html.replace(QRegularExpression("^### (.*)$", QRegularExpression::MultilineOption),
+                 "<h3 style='color:" + h3 + ";margin:8px 0;'>\\1</h3>");
+    html.replace(QRegularExpression("^## (.*)$", QRegularExpression::MultilineOption),
+                 "<h2 style='color:" + h2 + ";margin:10px 0;'>\\1</h2>");
+    html.replace(QRegularExpression("^# (.*)$", QRegularExpression::MultilineOption),
+                 "<h1 style='color:" + h1 + ";margin:12px 0;border-bottom:1px solid " + rule + ";padding-bottom:4px;'>\\1</h1>");
 
     // Checkboxes
-    html.replace(QRegularExpression("^- \\[x\\] (.*)$", QRegularExpression::MultilineOption), "<p style='color:#a9b1d6;margin:4px 0;'><span style='color:#73daca;'>☑</span> <strike>\\1</strike></p>");
-    html.replace(QRegularExpression("^- \\[ \\] (.*)$", QRegularExpression::MultilineOption), "<p style='color:#c0caf5;margin:4px 0;'><span style='color:#7aa2f7;'>☐</span> \\1</p>");
+    html.replace(QRegularExpression("^- \\[x\\] (.*)$", QRegularExpression::MultilineOption),
+                 "<p style='color:" + dim + ";margin:4px 0;'><span style='color:" + done + ";'>&#9745;</span> <strike>\\1</strike></p>");
+    html.replace(QRegularExpression("^- \\[ \\] (.*)$", QRegularExpression::MultilineOption),
+                 "<p style='color:" + body + ";margin:4px 0;'><span style='color:" + accent + ";'>&#9744;</span> \\1</p>");
 
     // Bullets
-    html.replace(QRegularExpression("^- (.*)$", QRegularExpression::MultilineOption), "<li style='color:#c0caf5;margin:2px 0;'>\\1</li>");
+    html.replace(QRegularExpression("^- (.*)$", QRegularExpression::MultilineOption),
+                 "<li style='color:" + body + ";margin:2px 0;'>\\1</li>");
 
     // Bold & Italic
-    html.replace(QRegularExpression("\\*\\*(.*?)\\*\\*"), "<strong style='color:#ffffff;'>\\1</strong>");
-    html.replace(QRegularExpression("\\*(.*?)\\*"), "<em style='color:#bb9af7;'>\\1</em>");
+    html.replace(QRegularExpression("\\*\\*(.*?)\\*\\*"), "<strong style='color:" + strong + ";'>\\1</strong>");
+    html.replace(QRegularExpression("\\*(.*?)\\*"), "<em style='color:" + h2 + ";'>\\1</em>");
 
     // Code blocks
-    html.replace(QRegularExpression("```([a-zA-Z]*)\n([\\s\\S]*?)```"), "<pre style='background:#16161e;padding:8px;border-radius:6px;color:#73daca;font-family:monospace;border:1px solid rgba(122,162,247,0.2);'><code>\\2</code></pre>");
-    html.replace(QRegularExpression("`([^`]+)`"), "<code style='background:#24283b;padding:2px 6px;border-radius:4px;color:#ff9e64;font-family:monospace;'>\\1</code>");
+    html.replace(QRegularExpression("```([a-zA-Z]*)\n([\\s\\S]*?)```"),
+                 "<pre style='background:" + codeBg + ";padding:8px;border-radius:6px;color:" + codeFg
+                     + ";font-family:monospace;border:1px solid " + rule + ";'><code>\\2</code></pre>");
+    html.replace(QRegularExpression("`([^`]+)`"),
+                 "<code style='background:" + inlBg + ";padding:2px 6px;border-radius:4px;color:" + inlFg
+                     + ";font-family:monospace;'>\\1</code>");
 
     // Tags.
     //
@@ -339,11 +396,18 @@ QString NotesBackend::renderMarkdownToHtml(const QString& markdown) {
     //
     // A real tag is always preceded by a line start or a space; a colour in a
     // style attribute never is.
+    //
+    // No background on the span, either. It was styled as a rounded chip —
+    // background, padding, border-radius — and Qt's rich text supports none of
+    // those on an inline span. What it does support is the background colour,
+    // so the chip rendered as a flat rectangular highlight tight around the
+    // text: the exact look of selected text, on a line nobody had selected.
     html.replace(QRegularExpression("(^|\\s)#([a-zA-Z0-9_-]+)", QRegularExpression::MultilineOption),
-                 "\\1<span style='background:rgba(122,162,247,0.15);color:#7aa2f7;padding:2px 6px;border-radius:4px;font-size:11px;'>#\\2</span>");
+                 "\\1<span style='color:" + accent + ";font-weight:600;'>#\\2</span>");
 
     // Newlines to <br>
     html.replace("\n", "<br/>");
 
-    return "<div style='font-family:sans-serif;color:#c0caf5;font-size:13px;line-height:1.6;'>" + html + "</div>";
+    return "<div style='font-family:sans-serif;color:" + body + ";font-size:13px;line-height:1.6;'>"
+           + html + "</div>";
 }

@@ -242,10 +242,16 @@ PopupShell {
                 Layout.fillWidth: true
                 Layout.columnSpan: center.spanOf(dndTile)
                 glyph: Notifications.dnd ? "\u{f009b}" : "\u{f009a}"
-                title: "Focus"
+                // "Focus" meant three things: this tile, the FocusTime
+                // dashboard, and the work phase of the focus timer. It is the
+                // Do Not Disturb switch — its id has said so all along — so it
+                // says so too. And its detail line read "Active" when
+                // notifications were *not* silenced, which is the opposite of
+                // how the word reads next to a tile that is lit when on.
+                title: "Do Not Disturb"
                 on: Notifications.dnd
                 activeColor: Design.peach
-                detail: Notifications.dnd ? "Silenced" : "Active"
+                detail: Notifications.dnd ? "Silenced" : "Off"
                 trailingGlyph: ""
                 onToggled: Notifications.toggleDnd()
                 onActivated: Notifications.toggleDnd()

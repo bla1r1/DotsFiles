@@ -31,7 +31,9 @@
   "soundDeviceFeedback": true,
   "touchpadSwipeWorkspace": true,
   "touchpadNaturalSwipe": true,
-  "autostartApps": ["b1air-shell"],
+  "autostartApps": [
+    "b1air-shell"
+  ],
   "autostartCustom": [],
   "notificationRules": {
     "telegram": true,

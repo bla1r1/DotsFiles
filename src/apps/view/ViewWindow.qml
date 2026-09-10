@@ -13,8 +13,8 @@ ApplicationWindow {
     // rotate and next/previous controls all sat there enabled with nothing to
     // act on. Every other surface in the suite states an empty view.
     readonly property bool hasImage: ViewBackend.currentPath !== ""
-    width: 960
-    height: 640
+    width: Design.s(960)
+    height: Design.s(640)
     minimumWidth: 500
     minimumHeight: 400
     visible: true
@@ -68,7 +68,7 @@ ApplicationWindow {
             // ── Top Header Toolbar (40px) ────────────────────────────────────
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 40
+                Layout.preferredHeight: Design.s(40)
                 color: window.colSidebar
                 border.color: window.colBorder
                 border.width: 1
@@ -76,13 +76,13 @@ ApplicationWindow {
 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.leftMargin: 12
-                    anchors.rightMargin: 12
-                    spacing: 8
+                    anchors.leftMargin: Design.s(12)
+                    anchors.rightMargin: Design.s(12)
+                    spacing: Design.s(8)
 
                     // App Icon & File Name
                     Row {
-                        spacing: 8
+                        spacing: Design.s(8)
                         Layout.alignment: Qt.AlignVCenter
                         Text {
                             text: "󰋩"
@@ -103,9 +103,9 @@ ApplicationWindow {
 
                     // Image Dimensions Badge
                     Rectangle {
-                        width: dimText.implicitWidth + 12
-                        height: 20
-                        radius: 4
+                        width: dimText.implicitWidth + Design.s(12)
+                        height: Design.s(20)
+                        radius: Design.s(4)
                         color: Design.tint(Design.text, 0.08)
                         visible: ViewBackend.imageResolution !== "" && ViewBackend.imageResolution !== "Unknown"
 
@@ -123,12 +123,12 @@ ApplicationWindow {
 
                     // Viewer Controls: Zoom In, Zoom Out, Reset, Rotate, Filmstrip Toggle, Wallpaper
                     Row {
-                        spacing: 4
+                        spacing: Design.s(4)
                         Layout.alignment: Qt.AlignVCenter
 
                         CtrlBtn { icon: "󰅖"; tip: "Zoom Out"; onClicked: window.zoomFactor = Math.max(0.2, window.zoomFactor - 0.25) }
                         Rectangle {
-                            width: zoomText.implicitWidth + 10; height: 26; radius: 4
+                            width: zoomText.implicitWidth + Design.s(10); height: Design.s(26); radius: Design.s(4)
                             color: "transparent"
                             Text { id: zoomText; anchors.centerIn: parent; text: Math.round(window.zoomFactor * 100) + "%"; font.family: Design.font.mono; font.pixelSize: Design.s(10); color: window.colDim }
                         }
@@ -196,9 +196,9 @@ ApplicationWindow {
                 // Left Arrow Overlay (Prev)
                 Rectangle {
                     anchors.left: parent.left
-                    anchors.leftMargin: 16
+                    anchors.leftMargin: Design.s(16)
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 36; height: 36; radius: 18
+                    width: Design.s(36); height: Design.s(36); radius: Design.s(18)
                     color: prevArrArea.containsMouse ? Design.tint(Design.ground, 0.85) : Design.tint(Design.ground, 0.45)
                     border.color: window.colBorder
                     border.width: 1
@@ -210,9 +210,9 @@ ApplicationWindow {
                 // Right Arrow Overlay (Next)
                 Rectangle {
                     anchors.right: parent.right
-                    anchors.rightMargin: 16
+                    anchors.rightMargin: Design.s(16)
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 36; height: 36; radius: 18
+                    width: Design.s(36); height: Design.s(36); radius: Design.s(18)
                     visible: window.hasImage
                     color: nextArrArea.containsMouse ? Design.tint(Design.ground, 0.85) : Design.tint(Design.ground, 0.45)
                     border.color: window.colBorder
@@ -225,7 +225,7 @@ ApplicationWindow {
             // ── Bottom Filmstrip Thumbnail Strip (Optional, 70px) ─────────────
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 70
+                Layout.preferredHeight: Design.s(70)
                 color: window.colSidebar
                 border.color: window.colBorder
                 border.width: 1
@@ -234,14 +234,14 @@ ApplicationWindow {
                 ListView {
                     id: filmstripList
                     anchors.fill: parent
-                    anchors.margins: 6
+                    anchors.margins: Design.s(6)
                     orientation: ListView.Horizontal
-                    spacing: 6
+                    spacing: Design.s(6)
                     clip: true
                     model: ViewBackend.filesInDir
 
                     delegate: Rectangle {
-                        width: 58; height: 58; radius: 6
+                        width: Design.s(58); height: Design.s(58); radius: Design.s(6)
                         color: isCur ? Design.tint(Design.accent, 0.25) : (thumbArea.containsMouse ? Design.tint(Design.text, 0.08) : "transparent")
                         border.color: isCur ? window.colBlue : "transparent"
                         border.width: 1
@@ -250,7 +250,7 @@ ApplicationWindow {
 
                         Image {
                             anchors.fill: parent
-                            anchors.margins: 3
+                            anchors.margins: Design.s(3)
                             source: "file://" + modelData.path
                             fillMode: Image.PreserveAspectCrop
                             asynchronous: true
@@ -277,7 +277,7 @@ ApplicationWindow {
         property bool active: false
         signal clicked()
 
-        width: 26; height: 26; radius: 5
+        width: Design.s(26); height: Design.s(26); radius: Design.s(5)
         color: cb.active ? window.colBlue : (cbArea.containsMouse ? Design.tint(Design.text, 0.12) : "transparent")
         border.color: cb.active ? "transparent" : window.colBorder
         border.width: 1

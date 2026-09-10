@@ -76,6 +76,31 @@ PopupShell {
         anchors.fill: parent
         spacing: Design.s(Design.space.md)
 
+        // ── Header ────────────────────────────────────────────────────────────
+        //
+        // This window was the only surface in the shell that did not say what
+        // it was: it opened straight onto two unlabelled pills. Control Center,
+        // Clipboard History, Launchpad and Power & Session all name themselves
+        // in the same icon-plus-title row, and so does this now.
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: Design.s(Design.space.sm)
+
+            Icon {
+                text: "\u{f06b0}" // download
+                role: "subhead"
+                color: Design.accent
+            }
+
+            Label {
+                text: "Updates"
+                role: "subhead"
+                weight: Design.weight.bold
+            }
+
+            Item { Layout.fillWidth: true }
+        }
+
         // ── Tab Switcher ──────────────────────────────────────────────────────
         RowLayout {
             Layout.alignment: Qt.AlignHCenter
@@ -123,14 +148,20 @@ PopupShell {
                 Label {
                     role: "subhead"
                     id: oldVer
+                    visible: window.updateAvailable
                     text: window.localVersion
                     dim: true
                     anchors.verticalCenter: parent.verticalCenter
                     x: versionContainer.initialOldX
                 }
 
+                // Hidden when there is nothing to move to: with no update
+                // pending both sides of the arrow hold the same commit, and
+                // "main@cc1c7dd → main@cc1c7dd" reads as a transition that is
+                // not happening.
                 Icon {
                     id: arrowIcon
+                    visible: window.updateAvailable
                     text: "󰁕"
                     color: Design.accent
                     anchors.verticalCenter: parent.verticalCenter

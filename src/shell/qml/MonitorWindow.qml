@@ -17,7 +17,14 @@ Window {
     onClosing: Qt.quit()
 
     readonly property bool isNative: typeof MonitorBackend !== "undefined"
-    property string currentTab: "overview" // "overview", "processes"
+    // Opens on Processes.
+    //
+    // It opened on Overview: four cards and a one-minute chart. That is a
+    // glance, not the reason anyone launches a task manager — you open one to
+    // find what is eating the machine, and that was behind a tab. Activity
+    // Monitor, GNOME System Monitor and KSysGuard all open on the process
+    // table; Ctrl+1 is still one keystroke away, and the status bar says so.
+    property string currentTab: "processes" // "overview", "processes"
 
     // ── Metric bindings (Direct C++ in-memory properties when native, 0 JSON) ──
     readonly property real cpuPct: isNative ? MonitorBackend.cpuPercent : 0.0
@@ -37,6 +44,10 @@ Window {
     readonly property real diskTotalGb: isNative ? MonitorBackend.diskTotalGb : 0.0
 
     readonly property string uptimeStr: isNative ? MonitorBackend.uptime : "0h 0m"
+
+    /** The chart holds forty samples at 1.5s each — one minute. */
+    readonly property bool historyFull:
+        isNative && MonitorBackend.cpuHistory && MonitorBackend.cpuHistory.length >= 40
 
     property string procSearchQuery: ""
     property string procSortBy: "cpu" // "cpu", "mem", "name", "pid"
@@ -402,7 +413,12 @@ Window {
                             Layout.fillWidth: true
 
                             Text {
-                                text: "ACTIVITY HISTORY (LAST 60 SECONDS)"
+                                // Says so while the minute is still filling,
+                                // rather than letting a short trace look like
+                                // a machine that was idle and then spiked.
+                                text: window.historyFull
+                                      ? "ACTIVITY HISTORY (LAST 60 SECONDS)"
+                                      : "ACTIVITY HISTORY (COLLECTING…)"
                                 font.family: Design.font.mono
                                 font.weight: Design.weight.bold
                                 font.pixelSize: Design.s(11)

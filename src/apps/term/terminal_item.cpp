@@ -248,6 +248,20 @@ void TerminalItem::geometryChange(const QRectF &newGeometry, const QRectF &oldGe
     updatePtySize();
 }
 
+void TerminalItem::setBackgroundColor(const QColor &c) {
+    if (!c.isValid() || c == m_background) return;
+    m_background = c;
+    emit paletteChanged();
+    update();
+}
+
+void TerminalItem::setForegroundColor(const QColor &c) {
+    if (!c.isValid() || c == m_foreground) return;
+    m_foreground = c;
+    emit paletteChanged();
+    update();
+}
+
 QColor TerminalItem::toQColor(const VTermColor &color, const QColor &defaultColor) const {
     if (VTERM_COLOR_IS_RGB(&color)) {
         return QColor(color.rgb.red, color.rgb.green, color.rgb.blue);
@@ -286,7 +300,7 @@ void TerminalItem::paint(QPainter *painter) {
     painter->setRenderHint(QPainter::TextAntialiasing, true);
 
     // Background fill
-    painter->fillRect(boundingRect(), MochaBase);
+    painter->fillRect(boundingRect(), m_background);
 
     // Draw cells
     for (int row = 0; row < m_rows; ++row) {
@@ -333,8 +347,8 @@ void TerminalItem::paint(QPainter *painter) {
             if (isSelected) {
                 painter->fillRect(cellRect, QColor(137, 180, 250, 80));
             } else if (!VTERM_COLOR_IS_DEFAULT_BG(&cell.bg)) {
-                QColor bg = toQColor(cell.bg, MochaBase);
-                if (bg != MochaBase) {
+                QColor bg = toQColor(cell.bg, m_background);
+                if (bg != m_background) {
                     painter->fillRect(cellRect, bg);
                 }
             }
@@ -347,7 +361,7 @@ void TerminalItem::paint(QPainter *painter) {
                     text += QString::fromUcs4(&cp, 1);
                 }
 
-                QColor fg = toQColor(cell.fg, MochaText);
+                QColor fg = toQColor(cell.fg, m_foreground);
                 if (cell.attrs.bold) {
                     QFont f = m_font;
                     f.setBold(true);
@@ -383,7 +397,7 @@ void TerminalItem::paint(QPainter *painter) {
                 char32_t cp = static_cast<char32_t>(cell.chars[i]);
                 text += QString::fromUcs4(&cp, 1);
             }
-            painter->setPen(MochaBase);
+            painter->setPen(m_background);
             painter->drawText(QPointF(cx, cy + m_fontAscent), text);
         }
     }
