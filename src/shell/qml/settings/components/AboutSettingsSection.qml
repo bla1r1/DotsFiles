@@ -55,7 +55,7 @@ ColumnLayout {
         command: ["b1air-daemon", "version"]
         stdout: StdioCollector {
             onStreamFinished: {
-                // "b1air-daemon v0.2.1" -> "0.2.1"
+                // "b1air-daemon v0.3.0" -> "0.3.0"
                 const m = /v?([0-9][0-9A-Za-z.\-]*)\s*$/.exec((this.text || "").trim());
                 section.suiteVersion = m ? m[1] : "unknown";
             }
