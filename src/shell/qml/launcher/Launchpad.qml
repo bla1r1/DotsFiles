@@ -6,6 +6,7 @@ import Quickshell.Io
 import Quickshell.Widgets
 import "../Ui"
 import "../Services"
+import "../Services" as Services
 
 // =============================================================================
 // macOS-style Launchpad (Dynamic App Discovery, Categorized Grid, Squircle Icons)
@@ -21,51 +22,49 @@ PopupShell {
 
     property string query: ""
     property string activeCategory: "All"
-    property var systemApps: []
+    readonly property var systemApps: window.systemAppsMapped
 
     // ── Dynamic System Applications Scanner ──────────────────────────────────
-    Process {
-        id: appLoader
-        running: true
-        command: ["b1air-daemon", "apps", "all"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    let items = JSON.parse(this.text);
-                    let res = [];
-                    for (let app of items) {
-                        res.push({
-                            name: app.name,
-                            desc: app.comment || "Installed Application",
-                            icon: app.iconPath || app.icon || "application-x-executable",
-                            app_id: app.icon || "application-x-executable",
-                            cmd: app.exec,
-                            cat: window.categoryName(app.category)
-                        });
-                    }
-                    window.systemApps = res;
-                } catch (e) {}
-            }
-        }
-    }
+    // The scan itself lives in Services/Apps, shared with SpotlightLauncher;
+    // only the mapping to this launcher's row shape is here.
+    readonly property var systemAppsMapped: Services.Apps.list.map(app => ({
+        name: app.name,
+        desc: app.comment || "Installed Application",
+        icon: app.iconPath || app.icon || "application-x-executable",
+        app_id: app.icon || "application-x-executable",
+        cmd: app.exec,
+        cat: window.categoryName(app.category),
+        terminal: app.terminal === true
+    }))
+
 
     // ── System Core Essentials ───────────────────────────────────────────────
+    // Names here MUST match .local/share/applications/b1air-*.desktop and the
+    // apps' own window titles. They had drifted into three different sets:
+    // the launcher said "Media Viewer"/"Settings"/"Git", the desktop entries
+    // said "Image Viewer"/"System Settings"/"Git Diff Tool", and the windows
+    // themselves were titled "b1air-view"/"b1air-git" — so the same app went by
+    // a different name in the launcher, the Alt+Tab switcher and the taskbar.
+    // Applications only.
+    //
+    // Seven of the entries that used to live here were not applications at all:
+    // the Control Center, Clipboard, Calendar and Power popups, the colour
+    // dropper and lock-screen one-shots, and Spotlight — the other launcher,
+    // offered as a tile inside this one. A Launchpad is a grid of programs; a
+    // popup that toggles has no place being "launched" from it, and each of
+    // those already has a keybinding and a home in the Control Center.
+    //
+    // They remain in SpotlightLauncher, which is a command palette rather than
+    // an application grid, so searching "clipboard" there still finds it.
     readonly property var baseApps: [
         { name: "Files", desc: "Native File Manager & Gallery", icon: "system-file-manager", app_id: "system-file-manager", cmd: "b1air-files", cat: "Utilities" },
         { name: "Terminal", desc: "Multi-tab Native Terminal", icon: "utilities-terminal", app_id: "utilities-terminal", cmd: "b1air-term", cat: "System" },
-        { name: "Notes", desc: "Markdown Notes with Obsidian & Notion Sync", icon: "text-editor", app_id: "text-editor", cmd: "b1air-notes", cat: "Utilities" },
+        { name: "Notes", desc: "Markdown Notes with Obsidian & Notion Sync", icon: "accessories-text-editor", app_id: "accessories-text-editor", cmd: "b1air-notes", cat: "Office" },
         { name: "Git", desc: "GitHub Desktop Style Git Client", icon: "git", app_id: "git", cmd: "b1air-git", cat: "Development" },
         { name: "System Monitor", desc: "Process & Hardware Monitor", icon: "utilities-system-monitor", app_id: "utilities-system-monitor", cmd: "b1air-monitor", cat: "System" },
-        { name: "Media Viewer", desc: "Lightweight Image & Media Viewer", icon: "image-x-generic", app_id: "image-x-generic", cmd: "b1air-view", cat: "Utilities" },
+        { name: "Image Viewer", desc: "Lightweight Image & Media Viewer", icon: "image-x-generic", app_id: "image-x-generic", cmd: "b1air-view", cat: "Graphics" },
         { name: "Text Editor", desc: "Minimal Text & Config Editor", icon: "text-editor", app_id: "text-editor", cmd: "b1air-text", cat: "Utilities" },
-        { name: "Settings", desc: "Desktop Preferences & Appearance", icon: "preferences-system", app_id: "preferences-system", cmd: "b1air-settings", cat: "System" },
-        { name: "Control Center", desc: "Quick toggles, volume & brightness", icon: "preferences-system", app_id: "preferences-system", cmd: "toggle:control:", cat: "System" },
-        { name: "Clipboard", desc: "Search clipboard history", icon: "edit-paste", app_id: "edit-paste", cmd: "toggle:clipboard:", cat: "Utilities" },
-        { name: "Calendar & Weather", desc: "Calendar, time, forecasts", icon: "x-office-calendar", app_id: "x-office-calendar", cmd: "toggle:calendar:", cat: "Utilities" },
-        { name: "Spotlight", desc: "Quick search & app launcher", icon: "system-search", app_id: "system-search", cmd: "toggle:spotlight:", cat: "Utilities" },
-        { name: "Color Dropper", desc: "Pick screen color hex", icon: "color-picker", app_id: "color-picker", cmd: "b1air-daemon color-picker", cat: "Utilities" },
-        { name: "Lock Screen", desc: "Lock desktop session", icon: "system-lock-screen", app_id: "system-lock-screen", cmd: "b1air-daemon power lock", cat: "Session" },
-        { name: "Power Menu", desc: "Shutdown, reboot, logout", icon: "system-shutdown", app_id: "system-shutdown", cmd: "toggle:session:", cat: "Session" }
+        { name: "System Settings", desc: "Desktop Preferences & Appearance", icon: "preferences-system", app_id: "preferences-system", cmd: "b1air-settings", cat: "System" },
     ]
 
     function categoryName(raw) {
@@ -194,8 +193,16 @@ PopupShell {
     function launchApp(app) {
         window.close();
         if (!app || !app.cmd) return;
-        let cmd = app.cmd.trim();
-        cmd = cleanExec(cmd);
+        let cmd = cleanExec(app.cmd.trim());
+
+        // A desktop entry with Terminal=true is a console program: htop, btop++,
+        // vim. Executed directly it has no terminal to draw in and exits at
+        // once, so clicking those tiles did nothing whatsoever. They open in
+        // b1air-term instead — which is what the entry is asking for.
+        if (app.terminal === true) {
+            Quickshell.execDetached(["b1air-term", "-e", cmd]);
+            return;
+        }
         safeLaunchCommand(cmd);
     }
 
@@ -321,12 +328,20 @@ PopupShell {
                 clip: true
                 reuseItems: true
                 cellWidth: Math.floor(width / 6)
-                cellHeight: Design.s(104)
+
+                // Rows divide the viewport exactly instead of being a fixed
+                // 104px that rarely fits a whole number of times. With the
+                // fixed height the grid ended mid-row: the bottom of the card
+                // showed a strip of half-drawn icons, which reads as a
+                // rendering fault rather than as "there is more below". The
+                // row height flexes by a few pixels instead — the delegate is
+                // a centred icon over one line of text, so it absorbs that
+                // without moving anything visible.
+                readonly property int rowCount: Math.max(1, Math.round(height / Design.s(104)))
+                cellHeight: Math.floor(height / appGrid.rowCount)
                 model: window.filteredApps
 
-                ScrollBar.vertical: ScrollBar {
-                    policy: appGrid.contentHeight > appGrid.height ? ScrollBar.AlwaysOn : ScrollBar.AsNeeded
-                }
+                ScrollBar.vertical: OverflowBar {}
 
                 delegate: Item {
                     id: gridCell

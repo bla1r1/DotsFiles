@@ -35,7 +35,7 @@ Rectangle {
 
     readonly property alias focused: input.activeFocus
 
-    implicitHeight: Design.s(32)
+    implicitHeight: Design.s(Design.size.field)
     implicitWidth: Design.s(120)
 
     radius: Design.s(Design.radius.ctl)

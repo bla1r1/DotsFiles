@@ -1,4 +1,6 @@
 #include "sway_ipc.hpp"
+#include <functional>
+#include <nlohmann/json.hpp>
 
 #include <iostream>
 #include <vector>
@@ -175,97 +177,94 @@ std::string SwayIPC::get_outputs() {
 }
 
 // Quick helper to search for focused window in tree JSON
-static bool parse_focused_node(const std::string& json, WindowInfo& out) {
-    // Find `"focused":true` or `"focused": true`
-    size_t f_pos = json.find("\"focused\":true");
-    if (f_pos == std::string::npos) {
-        f_pos = json.find("\"focused\": true");
-    }
-    if (f_pos == std::string::npos) {
+// Find the focused node in sway's tree and fill `out` from it.
+//
+// This used to slice the JSON by hand: find `"focused":true`, take the nearest
+// `{` before it and the nearest `}` after, and read fields out of a ~300 byte
+// window around that. Both ends were wrong. The nearest `{` going backwards
+// lands inside one of the nested objects sway emits before "focused" — rect,
+// window_rect, deco_rect, geometry — not at the start of the window node; and
+// the window was far too short: measured against a live tree, `app_id` sits
+// 1083 bytes *after* "focused", well outside it.
+//
+// So app_id was never once extracted. The old code papered over that by falling
+// back to the node's `name`, which is why the screen-time database filled up
+// with window titles ("Git — DotsFiles") and workspace names ("1") in the
+// column meant to hold application classes — the single largest "app" in
+// b1air-daemon stats was a workspace number.
+//
+// nlohmann::json is already a dependency of this daemon, so the tree is parsed
+// as the structured document it is.
+static bool parse_focused_node(const std::string& json_text, WindowInfo& out) {
+    nlohmann::json tree;
+    try {
+        tree = nlohmann::json::parse(json_text);
+    } catch (...) {
         return false;
     }
 
-    // Find enclosing node start
-    size_t node_start = json.rfind('{', f_pos);
-    size_t node_end = json.find('}', f_pos);
-    if (node_start == std::string::npos || node_end == std::string::npos) {
-        return false;
-    }
+    const nlohmann::json* found = nullptr;
 
-    std::string chunk = json.substr(node_start, (node_end - node_start) + 300);
-
-    auto extract_field = [](const std::string& s, const std::string& key) -> std::string {
-        size_t kp = s.find("\"" + key + "\":");
-        if (kp == std::string::npos) return "";
-        size_t val_start = s.find_first_not_of(" \t\n\r", kp + key.size() + 3);
-        if (val_start == std::string::npos) return "";
-        if (s[val_start] == 'n') return ""; // null
-        if (s[val_start] == '"') {
-            size_t val_end = s.find('"', val_start + 1);
-            if (val_end != std::string::npos) {
-                return s.substr(val_start + 1, val_end - val_start - 1);
+    // Depth-first for the node carrying focused:true. Only containers can be
+    // application windows; a focused workspace or output means nothing is.
+    std::function<void(const nlohmann::json&)> walk = [&](const nlohmann::json& n) {
+        if (found || !n.is_object()) return;
+        if (n.value("focused", false)) {
+            found = &n;
+            return;
+        }
+        for (const char* key : {"nodes", "floating_nodes"}) {
+            auto it = n.find(key);
+            if (it != n.end() && it->is_array()) {
+                for (const auto& child : *it) {
+                    walk(child);
+                    if (found) return;
+                }
             }
         }
-        return "";
     };
+    walk(tree);
 
-    std::string app_id = extract_field(chunk, "app_id");
-    std::string name = extract_field(chunk, "name");
-    
-    // Check if XWayland class exists
-    if (app_id.empty()) {
-        size_t wp = chunk.find("\"window_properties\":");
-        if (wp != std::string::npos) {
-            std::string wp_chunk = chunk.substr(wp, 150);
-            app_id = extract_field(wp_chunk, "class");
-        }
-    }
+    if (!found) return false;
+    const nlohmann::json& node = *found;
 
-    // Fullscreen check
-    size_t fs_pos = chunk.find("\"fullscreen_mode\":");
-    if (fs_pos != std::string::npos) {
-        size_t num_start = chunk.find_first_of("0123456789", fs_pos + 18);
-        if (num_start != std::string::npos && chunk[num_start] > '0') {
-            out.fullscreen = true;
-        }
-    }
-
-    // Floating check
-    if (chunk.find("\"floating\":\"auto_on\"") != std::string::npos ||
-        chunk.find("\"floating\": \"auto_on\"") != std::string::npos ||
-        chunk.find("\"floating\":\"user_on\"") != std::string::npos ||
-        chunk.find("\"floating\": \"user_on\"") != std::string::npos) {
-        out.floating = true;
-    }
-
-    // Rect dimensions for native autotiling
-    size_t rect_pos = chunk.find("\"rect\":");
-    if (rect_pos != std::string::npos) {
-        size_t w_pos = chunk.find("\"width\":", rect_pos);
-        if (w_pos != std::string::npos && w_pos < rect_pos + 120) {
-            size_t w_start = chunk.find_first_of("0123456789", w_pos + 8);
-            if (w_start != std::string::npos) {
-                out.width = std::atoi(&chunk[w_start]);
-            }
-        }
-        size_t h_pos = chunk.find("\"height\":", rect_pos);
-        if (h_pos != std::string::npos && h_pos < rect_pos + 120) {
-            size_t h_start = chunk.find_first_of("0123456789", h_pos + 9);
-            if (h_start != std::string::npos) {
-                out.height = std::atoi(&chunk[h_start]);
-            }
-        }
-    }
-
-    if (!app_id.empty() || !name.empty()) {
-        out.app_class = app_id.empty() ? name : app_id;
-        out.title = name;
+    const std::string type = node.value("type", "");
+    if (type != "con" && type != "floating_con") {
+        // A workspace or output has focus, so no window does. Reported as
+        // focused with an empty class, which is what the session tracker
+        // records as "Desktop".
         out.focused = true;
+        out.title = node.value("name", "");
         return true;
     }
 
-    return false;
+    out.focused = true;
+    out.id = node.value("id", 0LL);
+    out.title = node.value("name", "");
+
+    // Wayland gives app_id; XWayland gives window_properties.class.
+    out.app_class = node.value("app_id", "");
+    if (out.app_class.empty()) {
+        auto wp = node.find("window_properties");
+        if (wp != node.end() && wp->is_object())
+            out.app_class = wp->value("class", "");
+    }
+
+    out.fullscreen = node.value("fullscreen_mode", 0) > 0;
+
+    const std::string floating = node.value("floating", "");
+    out.floating = (floating == "auto_on" || floating == "user_on")
+                   || type == "floating_con";
+
+    auto rect = node.find("rect");
+    if (rect != node.end() && rect->is_object()) {
+        out.width  = rect->value("width", 0);
+        out.height = rect->value("height", 0);
+    }
+
+    return true;
 }
+
 
 WindowInfo SwayIPC::get_focused_window() {
     WindowInfo info;

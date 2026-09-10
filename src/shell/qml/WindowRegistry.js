@@ -27,17 +27,24 @@ function getLayout(name, mx, my, mw, mh, userScale) {
         // Top-right, under the bar — a Control Center is a corner panel, not a
         // window. 380x560 against the old 1120x780: it holds tiles, and detail
         // opens in the popup that already exists for it.
-        "control":       { w: s(390, scale), h: s(580, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "notifications": { w: s(390, scale), h: s(580, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "wifi":          { w: s(390, scale), h: s(580, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "bluetooth": { w: s(390, scale), h: s(580, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "sound":     { w: s(390, scale), h: s(580, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "power":     { w: s(390, scale), h: s(580, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "battery":   { w: s(390, scale), h: s(580, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "volume":    { w: s(390, scale), h: s(580, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "network":   { w: s(390, scale), h: s(580, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        // 700, not 580: the tile grid, the two sliders, the weather card and
+        // the media card add up to roughly 690px, so at 580 the last card was
+        // always half-cut against the bottom edge. It still scrolls when a
+        // screen cannot spare the height.
+        "control":       { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "notifications": { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "wifi":          { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "bluetooth": { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "sound":     { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "power":     { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "battery":   { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "volume":    { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
+        "network":   { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
         "calendar":  { w: s(860, scale), h: s(480, scale), rx: Math.floor((mw/2)-(s(860, scale)/2)), ry: s(75, scale), comp: "calendar/CalendarPopup.qml" },
-        "music":     { w: s(700, scale), h: s(620, scale), rx: s(12, scale), ry: s(58, scale), comp: "music/MusicPopup.qml" },
+        // 760: the cover block, the transport row, the ten EQ bands and the preset
+        // buttons need about 730px, and at 620 the preset row was sliced in half
+        // against the bottom edge with nothing on screen offering to scroll.
+        "music":     { w: s(700, scale), h: s(760, scale), rx: s(12, scale), ry: s(58, scale), comp: "music/MusicPopup.qml" },
         "audioFull":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
         "powerFull":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
         "netFull":    { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
@@ -46,7 +53,7 @@ function getLayout(name, mx, my, mw, mh, userScale) {
         "input":      { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
         "wallpaper":     { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
         "clipboard":     { w: s(620, scale), h: s(520, scale), rx: Math.floor((mw/2)-(s(620, scale)/2)), ry: Math.floor((mh/2)-(s(520, scale)/2)), comp: "clipboard/ClipboardPopup.qml" },
-        "mediaFull":     { w: s(700, scale), h: s(620, scale), rx: s(12, scale), ry: s(58, scale), comp: "music/MusicPopup.qml" },
+        "mediaFull":     { w: s(700, scale), h: s(760, scale), rx: s(12, scale), ry: s(58, scale), comp: "music/MusicPopup.qml" },
         "stewart":   { w: s(800, scale), h: s(600, scale), rx: Math.floor((mw/2)-(s(800, scale)/2)), ry: Math.floor((mh/2)-(s(600, scale)/2)), comp: "stewart/stewart.qml" },
         "monitors":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
         "focustime": { w: s(900, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(900, scale)/2)), ry: Math.floor((mh/2)-(s(720, scale)/2)), comp: "focustime/FocusTimePopup.qml" },

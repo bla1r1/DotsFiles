@@ -23,8 +23,14 @@ ColumnLayout {
     function applyTemp(enabled, temp) {
         section.nightLightEnabled = enabled;
         section.tempK = temp;
-        Settings.set("nightLightEnabled", enabled);
-        Settings.set("nightLightTemp", temp);
+        // One apply() instead of two set() calls. Two set() calls in a single
+        // handler lose one of the two: each set() writes the file, and a write
+        // started mid-handler clobbers the change that follows it — measured on
+        // a live shell, five sets in one tick kept only the 1st, 3rd and 5th,
+        // in memory as well as on disk. apply() mutates the adapter for every
+        // key first and writes once, which is the shape that survives.
+        // This was the only handler in the shell calling set() more than once.
+        Settings.apply({ nightLightEnabled: enabled, nightLightTemp: temp });
 
         if (!enabled) {
             Quickshell.execDetached(["bash", "-c", "killall wlsunset gammastep 2>/dev/null || true"]);
@@ -44,21 +50,11 @@ ColumnLayout {
         icon: "\u{f0599}"
         accentColor: Design.yellow
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: Design.s(Design.space.md)
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 0
-                Label { text: "Night Light State"; weight: Design.weight.semibold }
-                Label { text: section.nightLightEnabled ? "Enabled" : "Disabled"; role: "caption"; dim: true }
-            }
-
-            Switch {
-                checked: section.nightLightEnabled
-                onToggled: section.applyTemp(checked, section.tempK)
-            }
+        Toggle {
+            label: "Night Light State"
+            subtitle: section.nightLightEnabled ? "Enabled" : "Disabled"
+            checked: section.nightLightEnabled
+            onToggled: section.applyTemp(!section.nightLightEnabled, section.tempK)
         }
     }
 

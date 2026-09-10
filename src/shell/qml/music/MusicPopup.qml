@@ -13,9 +13,6 @@ import B1air.Daemon
 PopupShell {
     id: root
 
-    Component.onCompleted: Media.acquire()
-    Component.onDestruction: Media.release()
-
 
     // Durations that are choreography, not styling: a staged entrance, ambient
     // loops and slow tint crossfades. Deliberately off the motion scale.
@@ -38,7 +35,7 @@ PopupShell {
         "title": "Loading...", "artist": "", "status": "Stopped", "percent": 0,
         "lengthStr": "00:00", "positionStr": "00:00", "timeStr": "--:-- / --:--",
         "source": "Offline", "playerName": "", "blur": "", "grad": "",
-        "textColor": "#cdd6f4", "deviceIcon": "󰓃", "deviceName": "Speaker",
+        "deviceIcon": "󰓃", "deviceName": "Speaker",
         "artUrl": ""
     }
 
@@ -47,6 +44,69 @@ PopupShell {
         "b6": 0, "b7": 0, "b8": 0, "b9": 0, "b10": 0,
         "preset": "Flat", "pending": false
     }
+
+    // MultiEffect needs a shader. Under the software rasterizer — a VM,
+    // llvmpipe, or this session's own "turn effects off on a software
+    // rasterizer" tuning — an item carrying layer.enabled plus a shader effect
+    // renders as nothing at all: not a missing glow, a missing item. That is
+    // how the ten equaliser tracks and the seek bar vanished outright, leaving
+    // bare handles floating in an empty box. Every layer below that decorates
+    // something the user needs to see is gated on this.
+    readonly property bool canShade: GraphicsInfo.api !== GraphicsInfo.Software
+
+    // ── Wiring to Services/Media ─────────────────────────────────────────────
+    //
+    // musicData and eqData above are the shapes this window draws, and nothing
+    // ever wrote to them. Services/Media was built for exactly this window —
+    // its own header says "MusicPopup reads Media.track.*" — but the window
+    // was never moved onto it, so it drew its own defaults forever: the title
+    // stayed "Loading...", the clock stayed 00:00, the source stayed
+    // "Offline", and every EQ band sat at 0 no matter what the daemon held.
+    // The transport buttons were already calling Media.playPause() and friends,
+    // so the window could drive a player it could not show.
+    //
+    // Kept as writes rather than bindings because the seek bar and the play
+    // button still echo their change locally for the moment before MPRIS
+    // reports it back.
+
+    function _syncFromService() {
+        const t = Media.track || {};
+        const merged = Object.assign({}, root.musicData, t);
+
+        merged.status = Media.status || "Stopped";
+        merged.title = t.title && String(t.title).trim() !== ""
+            ? t.title
+            : (Media.hasPlayer ? "Nothing playing" : "No media player");
+        merged.source = t.source || (Media.hasPlayer ? (t.playerName || "") : "Offline");
+        merged.positionStr = t.positionStr || "00:00";
+        merged.lengthStr = t.lengthStr || "00:00";
+        merged.percent = t.percent !== undefined ? t.percent : 0;
+
+        root.musicData = merged;
+    }
+
+    function _syncEqFromService() {
+        const e = Media.eq || {};
+        if (Object.keys(e).length === 0)
+            return;
+        root.eqData = Object.assign({}, root.eqData, e);
+    }
+
+    Connections {
+        target: Media
+        function onTrackChanged()  { root._syncFromService(); }
+        function onStatusChanged() { root._syncFromService(); }
+        function onEqChanged()     { root._syncEqFromService(); }
+    }
+
+    Component.onCompleted: {
+        Media.acquire();
+        root._syncFromService();
+        root._syncEqFromService();
+        Media.refresh();
+    }
+
+    Component.onDestruction: Media.release()
 
     // Accumulators for Process standard output
     property string accumulatedMusicOut: ""
@@ -264,7 +324,7 @@ PopupShell {
                 id: maskRectOuter
                 anchors.fill: parent
                 visible: false // Hidden because MultiEffect will render it as a mask
-                layer.enabled: true
+                layer.enabled: root.canShade
                 preferredRendererType: Shape.GeometryRenderer // Fixes lag by hardware accelerating the stroke
 
                 property real sw: Design.s(6)
@@ -379,7 +439,7 @@ PopupShell {
 
             // FIX: This forces the entire background to render as a single hardware texture,
             // preventing the UI from dragging and causing "shadow boxes" during the StackView transition!
-            layer.enabled: true
+            layer.enabled: root.canShade
 
             // Provide a perfectly rounded mask for the inner content
             Rectangle {
@@ -389,7 +449,7 @@ PopupShell {
                 visible: false
                 
                 // FIX: Masks in MultiEffect strictly require layer.enabled to correctly capture the radius during scaling!
-                layer.enabled: true 
+                layer.enabled: root.canShade 
             }
 
             Item {
@@ -397,7 +457,7 @@ PopupShell {
                 anchors.fill: parent
                 
                 // This correctly clamps the blur and orbit circles to the 10px radius corners
-                layer.enabled: true
+                layer.enabled: root.canShade
                 layer.effect: MultiEffect {
                     maskEnabled: true
                     maskSource: innerBgMask
@@ -482,7 +542,7 @@ PopupShell {
                                 color: Design.accentAlt
                                 opacity: root.musicData.status === "Playing" ? 0.5 : 0.0
                                 Behavior on opacity { NumberAnimation { duration: Design.duration.slow } }
-                                layer.enabled: true
+                                layer.enabled: root.canShade
                                 layer.effect: MultiEffect {
                                     blurEnabled: true
                                     blurMax: 32
@@ -505,7 +565,7 @@ PopupShell {
                                     anchors.fill: parent
                                     radius: width / 2
                                     visible: false
-                                    layer.enabled: true 
+                                    layer.enabled: root.canShade 
                                 }
                                 MultiEffect {
                                     anchors.fill: parent
@@ -717,7 +777,7 @@ PopupShell {
                                         // Dynamic tint: surface0 with 70% opacity for a softer dark look
                                         color: Qt.rgba(Design.raised.r, Design.raised.g, Design.raised.b, 0.7)
 
-                                        layer.enabled: true
+                                        layer.enabled: root.canShade
                                         layer.effect: MultiEffect {
                                             shadowEnabled: true
                                             shadowColor: "#000000"
@@ -731,8 +791,16 @@ PopupShell {
                                     Item {
                                         width: progBar.handle.x - progBar.leftPadding + (progBar.handle.width / 2)
                                         height: parent.height
-                                        
-                                        layer.enabled: true
+
+                                        // The fill inside is a 2000px gradient that slides; the mask
+                                        // was the only thing keeping it inside this Item. With no
+                                        // shader to run the mask, that gradient painted straight
+                                        // across the whole popup, over the cover art and out past
+                                        // the card. clip is what actually bounds it; the mask only
+                                        // rounds the corners.
+                                        clip: true
+
+                                        layer.enabled: root.canShade
                                         layer.effect: MultiEffect {
                                             maskEnabled: true
                                             maskSource: sliderFillMask
@@ -744,7 +812,7 @@ PopupShell {
                                             height: parent.height
                                             radius: Design.s(6)
                                             visible: false
-                                            layer.enabled: true 
+                                            layer.enabled: root.canShade 
                                         }
 
                                         Rectangle {
@@ -1071,7 +1139,7 @@ PopupShell {
                                                 // Dynamic tint: surface0 with 70% opacity for a softer dark look
                                                 color: Qt.rgba(Design.raised.r, Design.raised.g, Design.raised.b, 0.7)
 
-                                                layer.enabled: true
+                                                layer.enabled: root.canShade
                                                 layer.effect: MultiEffect {
                                                     id: trackEffect
                                                     shadowEnabled: true
@@ -1097,7 +1165,7 @@ PopupShell {
                                                     opacity: sliderDelegate.ringPulse * 0.8 * (1.0 - root.eqLightningFade)
                                                     scale: 0.7 + sliderDelegate.ringPulse * 0.3
 
-                                                    layer.enabled: true
+                                                    layer.enabled: root.canShade
                                                     layer.effect: MultiEffect { blurEnabled: true; blurMax: 32; blur: 1.0 }
                                                 }
 
@@ -1106,8 +1174,13 @@ PopupShell {
                                                     width: parent.width
                                                     height: (1 - eqSlider.visualPosition) * parent.height
                                                     y: eqSlider.visualPosition * parent.height
-                                                    
-                                                    layer.enabled: true
+
+                                                    // Same reason as the seek bar: the surge bolt
+                                                    // inside is taller than this Item and rides
+                                                    // past both ends of it.
+                                                    clip: true
+
+                                                    layer.enabled: root.canShade
                                                     layer.effect: MultiEffect {
                                                         maskEnabled: true
                                                         maskSource: eqFillMask
@@ -1118,7 +1191,7 @@ PopupShell {
                                                         anchors.fill: parent
                                                         radius: Design.s(4)
                                                         visible: false
-                                                        layer.enabled: true 
+                                                        layer.enabled: root.canShade 
                                                     }
 
                                                     Rectangle {
@@ -1153,7 +1226,7 @@ PopupShell {
                                                                 GradientStop { position: 1.0; color: "transparent" }
                                                             }
                                                             
-                                                            layer.enabled: true
+                                                            layer.enabled: root.canShade
                                                             layer.effect: MultiEffect {
                                                                 shadowEnabled: true; shadowColor: Design.accent; shadowBlur: 1.0; shadowOpacity: 1.0
                                                             }
@@ -1182,7 +1255,7 @@ PopupShell {
                                                     color: parent.catColors[index % parent.catColors.length]
                                                     opacity: sliderDelegate.hitPulse * (1.0 - root.eqLightningFade)
                                                     scale: 0.5 + sliderDelegate.hitPulse * 0.5
-                                                    layer.enabled: true
+                                                    layer.enabled: root.canShade
                                                     layer.effect: MultiEffect { blurEnabled: true; blurMax: 32; blur: 1.0 }
                                                 }
 
@@ -1214,7 +1287,7 @@ PopupShell {
                             renderTarget: Canvas.FramebufferObject 
 
                             // GPU Layer effect to provide bloom WITHOUT locking up the CPU via ctx.shadowBlur
-                            layer.enabled: true
+                            layer.enabled: root.canShade
                             layer.effect: MultiEffect {
                                 shadowEnabled: true
                                 shadowColor: Design.accentAlt
@@ -1321,7 +1394,7 @@ PopupShell {
                                         ctx.globalAlpha = 0.85;
                                     } else if (s === 3) { // Pure white straight hot core - heavily transparent
                                         ctx.lineWidth = Design.s(1.0);
-                                        ctx.strokeStyle = "#ffffff";
+                                        ctx.strokeStyle = Design.text;
                                         ctx.globalAlpha = 0.1;
                                     }
 
@@ -1371,7 +1444,7 @@ PopupShell {
         property bool isActivePreset: root.eqData && root.eqData.preset === name
         property bool isHovered: hoverMa.containsMouse
 
-        color: isActivePreset ? Design.accentAlt : (isHovered ? Design.hover : "#BF1E1E2E")
+        color: isActivePreset ? Design.accentAlt : (isHovered ? Design.hover : Design.tint(Design.ground, 0.75))
         scale: isHovered && !isActivePreset ? 1.05 : 1.0
 
         Behavior on color { ColorAnimation { duration: Design.duration.base } }

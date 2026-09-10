@@ -26,6 +26,15 @@ Rectangle {
     Layout.fillWidth: true
     Layout.preferredHeight: Design.s(Design.size.action)
 
+    // The icon and label are centred with anchors, and anchored children
+    // contribute nothing to a parent's implicit size — so this button reported
+    // no width of its own and a RowLayout was free to squeeze it below its own
+    // text. That is how "Add Installed App…" ended up sliced off by the edge of
+    // its card. Now the button asks for at least the room its content needs;
+    // fillWidth still lets it grow past that wherever it is used alone.
+    implicitWidth: content.implicitWidth + Design.s(Design.space.lg) * 2
+    Layout.minimumWidth: root.implicitWidth
+
     radius: Design.s(Design.radius.ctl)
     color: root._armed ? Design.tint(root.tone, 0.28)
                        : (ma.containsMouse ? (root.destructive ? Design.tint(root.tone, 0.18) : Design.glassHover)
@@ -39,6 +48,13 @@ Rectangle {
     scale: ma.pressed ? 0.97 : 1.0
     Behavior on scale { NumberAnimation { duration: Design.duration.fast; easing.type: Design.easing } }
 
+    // `enabled` already stops the click — Item.enabled cascades to the
+    // MouseArea below — but nothing showed it, so a button that would do
+    // nothing looked exactly like one that would. QuickLook had two of them
+    // sitting over an empty preview, offering to copy a path that was "".
+    opacity: root.enabled ? 1.0 : 0.45
+    Behavior on opacity { NumberAnimation { duration: Design.duration.fast } }
+
     Timer {
         id: disarm
         interval: 3000
@@ -46,6 +62,7 @@ Rectangle {
     }
 
     RowLayout {
+        id: content
         anchors.centerIn: parent
         spacing: Design.s(Design.space.xs)
 

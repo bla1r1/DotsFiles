@@ -18,6 +18,31 @@ export PATH="$HOME/.local/bin:$PATH"
 # Wayland & Toolkit Defaults
 export MOZ_ENABLE_WAYLAND=1
 export QT_QPA_PLATFORM="wayland;xcb"
+
+# Without this, Qt never loads the qt5ct/qt6ct platform theme, and the whole
+# .config/qt5ct + .config/qt6ct tree this repo ships — Kvantum style, icon
+# theme, fonts — is read by nothing. It was referenced in conf.d/env.conf's
+# `systemctl --user import-environment` list, but nothing anywhere set it.
+export QT_QPA_PLATFORMTHEME="qt6ct"
+
+# The suite draws its own chrome; without pinning a style, Qt Quick Controls
+# resolves whatever the system default is — on a machine that also has Plasma
+# installed that is Breeze, which then fights the app's own painting (it warned
+# "Unable to assign TextArea_QMLTYPE to QQuickTextInput" in b1air-git and
+# b1air-notes). Basic is the unopinionated one that leaves the styling alone.
+export QT_QUICK_CONTROLS_STYLE="Basic"
+
+# Ui/Design reads the active theme from ~/.config/b1air/theme.json with
+# XMLHttpRequest, which Qt 6 refuses on file:// URLs unless this is set. It is
+# how one theme reaches the shell and every standalone app alike, without Ui
+# taking a dependency on Quickshell to read a file.
+export QML_XHR_ALLOW_FILE_READ=1
+
+# Same story: conf.d/env.conf imported XCURSOR_THEME and XCURSOR_SIZE without
+# anything setting them, so only GTK followed .config/gtk-3.0/settings.ini and
+# the compositor and Qt kept the default pointer. Values mirror that file.
+export XCURSOR_THEME="catppuccin-cursors-mocha"
+export XCURSOR_SIZE=24
 export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
 export GDK_BACKEND="wayland,x11,*"
 export CLUTTER_BACKEND="wayland"
@@ -52,6 +77,7 @@ fi
 if command -v dbus-update-activation-environment >/dev/null 2>&1; then
     dbus-update-activation-environment --systemd \
         DBUS_SESSION_BUS_ADDRESS XDG_RUNTIME_DIR PATH HOME USER LANG \
+        QT_QPA_PLATFORMTHEME XCURSOR_THEME XCURSOR_SIZE \
         WAYLAND_DISPLAY SWAYSOCK XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP \
         XDG_SESSION_TYPE QT_QPA_PLATFORM QT_QUICK_BACKEND QSG_RHI_BACKEND \
         QSG_RENDER_LOOP MOZ_ENABLE_WAYLAND GDK_BACKEND WLR_RENDERER \

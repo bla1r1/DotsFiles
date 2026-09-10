@@ -46,23 +46,9 @@ ColumnLayout {
             Layout.fillWidth: true
             spacing: Design.s(Design.space.md)
 
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 0
-
-                Label {
-                    text: "Bluetooth"
-                    weight: Design.weight.semibold
-                }
-
-                Label {
-                    text: Network.bluetooth.power === "on" ? "Enabled" : "Disabled"
-                    role: "caption"
-                    dim: true
-                }
-            }
-
-            Switch {
+            Toggle {
+                label: "Bluetooth"
+                subtitle: Network.bluetooth.power === "on" ? "Enabled" : "Disabled"
                 checked: Network.bluetooth.power === "on"
                 onToggled: Network.toggleBluetooth()
             }
@@ -72,12 +58,20 @@ ColumnLayout {
         Rectangle {
             visible: Network.bluetooth.power === "on"
             Layout.fillWidth: true
+
+            // Its contents are anchored, and anchored children give a parent no
+            // implicit height, so this box measured zero and the "Paired
+            // devices" card below it was drawn straight over the adapter name
+            // and the Scan button. The height has to be stated.
+            Layout.preferredHeight: adapterBody.implicitHeight + Design.s(Design.space.md) * 2
+
             radius: Design.s(Design.radius.ctl)
             color: Design.sunken
             border.color: Design.tint(Design.mauve, 0.3)
             border.width: 1
 
             ColumnLayout {
+                id: adapterBody
                 anchors.fill: parent
                 anchors.margins: Design.s(Design.space.md)
                 spacing: Design.s(Design.space.sm)
@@ -96,15 +90,28 @@ ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 0
 
+                        // fillWidth on the label, not only on the column
+                        // around it — that is what actually pushes the Scan
+                        // button to the end of the row, and it is what the
+                        // network list two files over already does.
                         Label {
                             text: Network.adapter ? (Network.adapter.name || "Bluetooth Controller") : "Bluetooth Controller"
                             weight: Design.weight.semibold
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
                         }
 
                         Label {
-                            text: Network.adapter ? ("Address: " + Network.adapter.address) : ""
+                            // `Network.adapter` can exist without an address,
+                            // and the concatenation printed the literal text
+                            // "Address: undefined" on screen.
+                            text: (Network.adapter && Network.adapter.address)
+                                ? "Address: " + Network.adapter.address : ""
+                            visible: text !== ""
                             role: "caption"
                             dim: true
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
                         }
                     }
 

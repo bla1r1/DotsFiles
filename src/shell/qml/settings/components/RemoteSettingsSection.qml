@@ -74,36 +74,28 @@ ColumnLayout {
         icon: "\u{f0379}"
         accentColor: Design.blue
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: Design.s(Design.space.md)
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 0
-                Label { text: "Remote Desktop Server"; weight: Design.weight.semibold }
-                Label {
-                    text: section.vncRunning ? "Active (Listening on " + (section.devMode ? section.localIp : "127.0.0.1") + ":" + section.vncPort + ")" : "Stopped"
-                    role: "caption"
-                    dim: true
+        // Ui/Toggle rather than a hand-built row around a bare Ui/Switch, for
+        // the same reason as Appearance: the shared row is what ten other
+        // settings pages use, and rolling it by hand produced a smaller switch
+        // pinned to the label instead of one at the end of the row.
+        Toggle {
+            label: "Remote Desktop Server"
+            subtitle: section.vncRunning
+                ? "Active (Listening on " + (section.devMode ? section.localIp : "127.0.0.1") + ":" + section.vncPort + ")"
+                : "Stopped"
+            checked: section.vncRunning
+            onToggled: {
+                if (!section.vncRunning) {
+                    // Never put a VNC password in argv: it is visible through
+                    // process listings. Password-backed/TLS mode is enabled
+                    // by the daemon's secret-store integration.
+                    vncStarter.running = true;
+                    section.vncRunning = true;
+                } else {
+                    Daemon.remoteStop();
+                    section.vncRunning = false;
                 }
-            }
-
-            Switch {
-                checked: section.vncRunning
-                onToggled: {
-                    if (checked) {
-                        // Never put a VNC password in argv: it is visible through
-                        // process listings. Password-backed/TLS mode is enabled
-                        // by the daemon's secret-store integration.
-                        vncStarter.running = true;
-                        section.vncRunning = true;
-                    } else {
-                        Daemon.remoteStop();
-                        section.vncRunning = false;
-                    }
-                    statusTimer.restart();
-                }
+                statusTimer.restart();
             }
         }
 
@@ -153,28 +145,16 @@ ColumnLayout {
         accentColor: Design.teal
 
         // Prompt-Free Screencast Toggle
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: Design.s(Design.space.md)
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 0
-                Label { text: "Silent Screencast Sharing"; weight: Design.weight.semibold }
-                Label {
-                    text: section.devMode ? "Allow trusted remote tools to capture screen without interactive popup confirmation" : "Available only in explicit development mode"
-                    role: "caption"
-                    dim: true
-                }
-            }
-
-            Switch {
-                checked: section.promptFree && section.devMode
-                enabled: section.devMode
-                onToggled: {
-                    section.promptFree = checked;
-                    Daemon.remotePromptFree(checked);
-                }
+        Toggle {
+            label: "Silent Screencast Sharing"
+            subtitle: section.devMode
+                ? "Allow trusted remote tools to capture screen without interactive popup confirmation"
+                : "Available only in explicit development mode"
+            checked: section.promptFree && section.devMode
+            enabled: section.devMode
+            onToggled: {
+                section.promptFree = !section.promptFree;
+                Daemon.remotePromptFree(section.promptFree);
             }
         }
 

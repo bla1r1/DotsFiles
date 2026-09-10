@@ -1,10 +1,12 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Window
 import QtQuick.Layouts
+import Ui
 
 ApplicationWindow {
     id: window
-    title: "b1air-git — " + (GitBackend.repoName || "Git")
+    title: GitBackend.repoName ? "Git — " + GitBackend.repoName : "Git"
     width: 1040
     height: 680
     minimumWidth: 700
@@ -13,21 +15,43 @@ ApplicationWindow {
     color: "transparent"
     flags: Qt.Window
 
-    // Design Tokens
-    readonly property color colBg: "#161722"
-    readonly property color colDark: "#13141e"
-    readonly property color colHeader: "#101119"
-    readonly property color colSunken: "#0d0e14"
-    readonly property color colBorder: Qt.rgba(122/255, 162/255, 247/255, 0.16)
-    readonly property color colBorderSubtle: "#1b1c2b"
-    readonly property color colBlue: "#7aa2f7"
-    readonly property color colPurple: "#bb9af7"
-    readonly property color colCyan: "#7dcfff"
-    readonly property color colGreen: "#73daca"
-    readonly property color colOrange: "#ff9e64"
-    readonly property color colRed: "#f7768e"
-    readonly property color colFg: "#c0caf5"
-    readonly property color colDim: "#6b739b"
+    // A second, hand-rolled Tokyo Night palette used to live here alongside the
+    // Catppuccin one in Ui/Design.qml, so this window never followed the theme.
+    // The names stay — they are used throughout the file — but each now resolves
+    // to a design-system role, exactly as FilesWindow.qml was already migrated.
+    readonly property color colBg: Design.surface
+    readonly property color colDark: Design.ground
+    readonly property color colHeader: Design.sunken
+    readonly property color colSunken: Design.sunken
+    readonly property color colBorder: Design.glassBorder
+    readonly property color colBorderSubtle: Design.line
+    readonly property color colBlue: Design.accent
+    readonly property color colPurple: Design.mauve
+    readonly property color colCyan: Design.sapphire
+    readonly property color colGreen: Design.ok
+    readonly property color colOrange: Design.warn
+    readonly property color colRed: Design.danger
+    readonly property color colFg: Design.text
+    readonly property color colDim: Design.textDim
+
+    // GitBackend::refresh() has been Q_INVOKABLE since the app was written and
+    // was never called from anywhere in the UI, so a repo changed in a terminal
+    // stayed stale on screen until the window was closed and reopened.
+    // b1air-monitor already uses F5 for exactly this.
+    Shortcut {
+        sequence: "Escape"
+        onActivated: window.close()
+    }
+
+    Shortcut {
+        sequence: "F5"
+        onActivated: GitBackend.refresh()
+    }
+
+    Shortcut {
+        sequence: "Ctrl+R"
+        onActivated: GitBackend.refresh()
+    }
 
     property int currentTab: 0 // 0: Changes, 1: History
     property bool repoDropdownOpen: false
@@ -36,9 +60,9 @@ ApplicationWindow {
     Rectangle {
         id: windowFrame
         anchors.fill: parent
-        radius: 14
+        radius: (window.visibility === Window.Maximized) ? 0 : Design.s(14)
         color: window.colBg
-        border.color: window.colBorder
+        border.color: (window.visibility === Window.Maximized) ? "transparent" : window.colBorder
         border.width: 1
         clip: true
 
@@ -69,7 +93,7 @@ ApplicationWindow {
                         width: repoRow.implicitWidth + 20
                         height: 28
                         radius: 6
-                        color: repoArea.containsMouse || window.repoDropdownOpen ? Qt.rgba(122/255, 162/255, 247/255, 0.18) : Qt.rgba(36/255, 40/255, 59/255, 0.60)
+                        color: repoArea.containsMouse || window.repoDropdownOpen ? Design.tint(Design.accent, 0.18) : Design.tint(Design.raised, 0.60)
                         border.color: window.repoDropdownOpen ? window.colBlue : window.colBorder
                         border.width: 1
 
@@ -79,30 +103,30 @@ ApplicationWindow {
                             spacing: 6
                             Text {
                                 text: "󰊢"
-                                font.family: "JetBrainsMono Nerd Font"
-                                font.pixelSize: 13
+                                font.family: Design.font.mono
+                                font.pixelSize: Design.s(13)
                                 color: window.colBlue
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                             Text {
                                 text: "Current Repository:"
-                                font.family: "Fira Sans SemiBold, sans-serif"
-                                font.pixelSize: 10
+                                font.family: Design.font.sans
+                                font.pixelSize: Design.s(10)
                                 color: window.colDim
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                             Text {
                                 text: GitBackend.repoName
-                                font.family: "Fira Sans SemiBold, sans-serif"
-                                font.pixelSize: 12
+                                font.family: Design.font.sans
+                                font.pixelSize: Design.s(12)
                                 font.bold: true
                                 color: window.colFg
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                             Text {
                                 text: window.repoDropdownOpen ? "󰅃" : "󰅀"
-                                font.family: "JetBrainsMono Nerd Font"
-                                font.pixelSize: 11
+                                font.family: Design.font.mono
+                                font.pixelSize: Design.s(11)
                                 color: window.colDim
                                 anchors.verticalCenter: parent.verticalCenter
                             }
@@ -126,7 +150,7 @@ ApplicationWindow {
                         width: branchRow.implicitWidth + 20
                         height: 28
                         radius: 6
-                        color: branchArea.containsMouse || window.branchDropdownOpen ? Qt.rgba(115/255, 218/255, 202/255, 0.18) : Qt.rgba(36/255, 40/255, 59/255, 0.60)
+                        color: branchArea.containsMouse || window.branchDropdownOpen ? Design.tint(Design.ok, 0.18) : Design.tint(Design.raised, 0.60)
                         border.color: window.branchDropdownOpen ? window.colGreen : window.colBorder
                         border.width: 1
 
@@ -136,30 +160,30 @@ ApplicationWindow {
                             spacing: 6
                             Text {
                                 text: ""
-                                font.family: "JetBrainsMono Nerd Font"
-                                font.pixelSize: 13
+                                font.family: Design.font.mono
+                                font.pixelSize: Design.s(13)
                                 color: window.colGreen
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                             Text {
                                 text: "Current Branch:"
-                                font.family: "Fira Sans SemiBold, sans-serif"
-                                font.pixelSize: 10
+                                font.family: Design.font.sans
+                                font.pixelSize: Design.s(10)
                                 color: window.colDim
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                             Text {
                                 text: GitBackend.branchName
-                                font.family: "JetBrainsMono Nerd Font, monospace"
-                                font.pixelSize: 11
+                                font.family: Design.font.mono
+                                font.pixelSize: Design.s(11)
                                 font.bold: true
                                 color: window.colGreen
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                             Text {
                                 text: window.branchDropdownOpen ? "󰅃" : "󰅀"
-                                font.family: "JetBrainsMono Nerd Font"
-                                font.pixelSize: 11
+                                font.family: Design.font.mono
+                                font.pixelSize: Design.s(11)
                                 color: window.colDim
                                 anchors.verticalCenter: parent.verticalCenter
                             }
@@ -183,7 +207,7 @@ ApplicationWindow {
                         width: syncRow.implicitWidth + 20
                         height: 28
                         radius: 6
-                        color: syncArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.22) : Qt.rgba(36/255, 40/255, 59/255, 0.60)
+                        color: syncArea.containsMouse ? Design.tint(Design.accent, 0.22) : Design.tint(Design.raised, 0.60)
                         border.color: window.colBorder
                         border.width: 1
 
@@ -193,15 +217,15 @@ ApplicationWindow {
                             spacing: 6
                             Text {
                                 text: "󰑐"
-                                font.family: "JetBrainsMono Nerd Font"
-                                font.pixelSize: 12
+                                font.family: Design.font.mono
+                                font.pixelSize: Design.s(12)
                                 color: window.colBlue
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                             Text {
                                 text: "Fetch origin"
-                                font.family: "Fira Sans SemiBold, sans-serif"
-                                font.pixelSize: 11
+                                font.family: Design.font.sans
+                                font.pixelSize: Design.s(11)
                                 font.bold: true
                                 color: window.colFg
                                 anchors.verticalCenter: parent.verticalCenter
@@ -224,19 +248,19 @@ ApplicationWindow {
 
                         Rectangle {
                             width: 28; height: 28; radius: 6
-                            color: pushArea.containsMouse ? Qt.rgba(187/255, 154/255, 247/255, 0.25) : "transparent"
+                            color: pushArea.containsMouse ? Design.tint(Design.mauve, 0.25) : "transparent"
                             border.color: pushArea.containsMouse ? window.colPurple : window.colBorder
                             border.width: 1
-                            Text { anchors.centerIn: parent; text: "󰜮"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13; color: window.colPurple }
+                            Text { anchors.centerIn: parent; text: "󰜮"; font.family: Design.font.mono; font.pixelSize: Design.s(13); color: window.colPurple }
                             MouseArea { id: pushArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: GitBackend.push() }
                         }
 
                         Rectangle {
                             width: 28; height: 28; radius: 6
-                            color: pullArea.containsMouse ? Qt.rgba(125/255, 207/255, 255/255, 0.25) : "transparent"
+                            color: pullArea.containsMouse ? Design.tint(Design.sapphire, 0.25) : "transparent"
                             border.color: pullArea.containsMouse ? window.colCyan : window.colBorder
                             border.width: 1
-                            Text { anchors.centerIn: parent; text: "󰜱"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 13; color: window.colCyan }
+                            Text { anchors.centerIn: parent; text: "󰜱"; font.family: Design.font.mono; font.pixelSize: Design.s(13); color: window.colCyan }
                             MouseArea { id: pullArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: GitBackend.pull() }
                         }
                     }
@@ -252,7 +276,7 @@ ApplicationWindow {
                             width: termRow.implicitWidth + 14
                             height: 26
                             radius: 6
-                            color: termArea.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.12) : "transparent"
+                            color: termArea.containsMouse ? Design.tint(Design.text, 0.12) : "transparent"
                             border.color: window.colBorder
                             border.width: 1
 
@@ -260,8 +284,8 @@ ApplicationWindow {
                                 id: termRow
                                 anchors.centerIn: parent
                                 spacing: 5
-                                Text { text: "󰞷"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; color: window.colFg }
-                                Text { text: "Terminal"; font.family: "Fira Sans SemiBold, sans-serif"; font.pixelSize: 11; color: window.colFg }
+                                Text { text: "󰞷"; font.family: Design.font.mono; font.pixelSize: Design.s(12); color: window.colFg }
+                                Text { text: "Terminal"; font.family: Design.font.sans; font.pixelSize: Design.s(11); color: window.colFg }
                             }
                             MouseArea { id: termArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: GitBackend.openTerminal() }
                         }
@@ -270,7 +294,7 @@ ApplicationWindow {
                             width: filesRow.implicitWidth + 14
                             height: 26
                             radius: 6
-                            color: filesArea.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.12) : "transparent"
+                            color: filesArea.containsMouse ? Design.tint(Design.text, 0.12) : "transparent"
                             border.color: window.colBorder
                             border.width: 1
 
@@ -278,8 +302,8 @@ ApplicationWindow {
                                 id: filesRow
                                 anchors.centerIn: parent
                                 spacing: 5
-                                Text { text: "󰉋"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; color: window.colFg }
-                                Text { text: "Files"; font.family: "Fira Sans SemiBold, sans-serif"; font.pixelSize: 11; color: window.colFg }
+                                Text { text: "󰉋"; font.family: Design.font.mono; font.pixelSize: Design.s(12); color: window.colFg }
+                                Text { text: "Files"; font.family: Design.font.sans; font.pixelSize: Design.s(11); color: window.colFg }
                             }
                             MouseArea { id: filesArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: GitBackend.openFileManager() }
                         }
@@ -314,7 +338,7 @@ ApplicationWindow {
                             Rectangle {
                                 Layout.fillWidth: true
                                 height: 36
-                                color: Qt.rgba(19/255, 20/255, 28/255, 0.8)
+                                color: Design.tint(Design.ground, 0.8)
                                 border.color: window.colBorder
                                 border.width: 1
 
@@ -332,8 +356,8 @@ ApplicationWindow {
                                         Text {
                                             anchors.centerIn: parent
                                             text: "Changes (" + GitBackend.changedFiles.length + ")"
-                                            font.family: "Fira Sans SemiBold, sans-serif"
-                                            font.pixelSize: 12
+                                            font.family: Design.font.sans
+                                            font.pixelSize: Design.s(12)
                                             font.bold: true
                                             color: window.currentTab === 0 ? window.colBlue : window.colDim
                                         }
@@ -355,8 +379,8 @@ ApplicationWindow {
                                         Text {
                                             anchors.centerIn: parent
                                             text: "History"
-                                            font.family: "Fira Sans SemiBold, sans-serif"
-                                            font.pixelSize: 12
+                                            font.family: Design.font.sans
+                                            font.pixelSize: Design.s(12)
                                             font.bold: true
                                             color: window.currentTab === 1 ? window.colBlue : window.colDim
                                         }
@@ -384,7 +408,7 @@ ApplicationWindow {
                                     Rectangle {
                                         Layout.fillWidth: true
                                         height: 28
-                                        color: Qt.rgba(26/255, 27/255, 38/255, 0.40)
+                                        color: Design.tint(Design.ground, 0.40)
                                         border.color: window.colBorder
                                         border.width: 1
 
@@ -395,8 +419,8 @@ ApplicationWindow {
 
                                             Text {
                                                 text: "Changed Files"
-                                                font.family: "Fira Sans SemiBold, sans-serif"
-                                                font.pixelSize: 11
+                                                font.family: Design.font.sans
+                                                font.pixelSize: Design.s(11)
                                                 font.bold: true
                                                 color: window.colDim
                                             }
@@ -404,8 +428,8 @@ ApplicationWindow {
 
                                             Text {
                                                 text: "Stage All"
-                                                font.family: "Fira Sans SemiBold, sans-serif"
-                                                font.pixelSize: 10
+                                                font.family: Design.font.sans
+                                                font.pixelSize: Design.s(10)
                                                 color: window.colGreen
                                                 MouseArea {
                                                     anchors.fill: parent
@@ -413,11 +437,11 @@ ApplicationWindow {
                                                     onClicked: GitBackend.stageAll()
                                                 }
                                             }
-                                            Text { text: "•"; font.pixelSize: 8; color: window.colDim }
+                                            Text { text: "•"; font.pixelSize: Design.s(8); color: window.colDim }
                                             Text {
                                                 text: "Unstage All"
-                                                font.family: "Fira Sans SemiBold, sans-serif"
-                                                font.pixelSize: 10
+                                                font.family: Design.font.sans
+                                                font.pixelSize: Design.s(10)
                                                 color: window.colRed
                                                 MouseArea {
                                                     anchors.fill: parent
@@ -441,7 +465,7 @@ ApplicationWindow {
                                             id: fileCard
                                             width: changedList.width
                                             height: 32
-                                            color: isSelected ? Qt.rgba(122/255, 162/255, 247/255, 0.18) : (fArea.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.05) : "transparent")
+                                            color: isSelected ? Design.tint(Design.accent, 0.18) : (fArea.containsMouse ? Design.tint(Design.text, 0.05) : "transparent")
 
                                             readonly property bool isSelected: GitBackend.selectedFile === modelData.path
 
@@ -463,9 +487,9 @@ ApplicationWindow {
                                                     Text {
                                                         anchors.centerIn: parent
                                                         text: "✓"
-                                                        font.pixelSize: 10
+                                                        font.pixelSize: Design.s(10)
                                                         font.bold: true
-                                                        color: "#101014"
+                                                        color: Design.accentText
                                                         visible: modelData.isStaged
                                                     }
 
@@ -482,8 +506,8 @@ ApplicationWindow {
                                                 // File Status Badge (M, A, D)
                                                 Text {
                                                     text: modelData.status === "added" ? "A" : (modelData.status === "deleted" ? "D" : "M")
-                                                    font.family: "JetBrainsMono Nerd Font, monospace"
-                                                    font.pixelSize: 10
+                                                    font.family: Design.font.mono
+                                                    font.pixelSize: Design.s(10)
                                                     font.bold: true
                                                     color: modelData.status === "added" ? window.colGreen : (modelData.status === "deleted" ? window.colRed : window.colOrange)
                                                 }
@@ -492,8 +516,8 @@ ApplicationWindow {
                                                 Text {
                                                     Layout.fillWidth: true
                                                     text: modelData.path
-                                                    font.family: "JetBrainsMono Nerd Font, monospace"
-                                                    font.pixelSize: 11
+                                                    font.family: Design.font.mono
+                                                    font.pixelSize: Design.s(11)
                                                     color: fileCard.isSelected ? "#ffffff" : window.colFg
                                                     elide: Text.ElideMiddle
                                                 }
@@ -513,7 +537,7 @@ ApplicationWindow {
                                     Rectangle {
                                         Layout.fillWidth: true
                                         height: 130
-                                        color: Qt.rgba(19/255, 20/255, 28/255, 0.90)
+                                        color: Design.tint(Design.ground, 0.90)
                                         border.color: window.colBorder
                                         border.width: 1
 
@@ -535,16 +559,16 @@ ApplicationWindow {
                                                     id: sumInput
                                                     anchors.fill: parent
                                                     anchors.margins: 6
-                                                    font.family: "Fira Sans SemiBold, sans-serif"
-                                                    font.pixelSize: 11
+                                                    font.family: Design.font.sans
+                                                    font.pixelSize: Design.s(11)
                                                     color: window.colFg
                                                     selectByMouse: true
                                                     clip: true
 
                                                     Text {
                                                         text: "Summary (required)"
-                                                        font.family: "Fira Sans SemiBold, sans-serif"
-                                                        font.pixelSize: 11
+                                                        font.family: Design.font.sans
+                                                        font.pixelSize: Design.s(11)
                                                         color: window.colDim
                                                         visible: !sumInput.text && !sumInput.activeFocus
                                                         anchors.verticalCenter: parent.verticalCenter
@@ -565,8 +589,8 @@ ApplicationWindow {
                                                     id: descInput
                                                     anchors.fill: parent
                                                     anchors.margins: 4
-                                                    font.family: "Fira Sans, sans-serif"
-                                                    font.pixelSize: 11
+                                                    font.family: Design.font.sans
+                                                    font.pixelSize: Design.s(11)
                                                     color: window.colFg
                                                     selectByMouse: true
                                                     background: null
@@ -574,8 +598,8 @@ ApplicationWindow {
 
                                                     Text {
                                                         text: "Description"
-                                                        font.family: "Fira Sans, sans-serif"
-                                                        font.pixelSize: 11
+                                                        font.family: Design.font.sans
+                                                        font.pixelSize: Design.s(11)
                                                         color: window.colDim
                                                         visible: !descInput.text && !descInput.activeFocus
                                                     }
@@ -587,16 +611,16 @@ ApplicationWindow {
                                                 Layout.fillWidth: true
                                                 height: 28
                                                 radius: 5
-                                                color: sumInput.text.trim() ? (commitArea.containsMouse ? Qt.lighter(window.colBlue, 1.1) : window.colBlue) : Qt.rgba(122/255, 162/255, 247/255, 0.20)
+                                                color: sumInput.text.trim() ? (commitArea.containsMouse ? Qt.lighter(window.colBlue, 1.1) : window.colBlue) : Design.tint(Design.accent, 0.20)
                                                 enabled: sumInput.text.trim().length > 0
 
                                                 Text {
                                                     anchors.centerIn: parent
                                                     text: "Commit to " + GitBackend.branchName
-                                                    font.family: "Fira Sans SemiBold, sans-serif"
-                                                    font.pixelSize: 11
+                                                    font.family: Design.font.sans
+                                                    font.pixelSize: Design.s(11)
                                                     font.bold: true
-                                                    color: sumInput.text.trim() ? "#101014" : window.colDim
+                                                    color: sumInput.text.trim() ? Design.accentText : window.colDim
                                                 }
 
                                                 MouseArea {
@@ -634,8 +658,8 @@ ApplicationWindow {
                                     delegate: Rectangle {
                                         width: historyList.width
                                         height: 52
-                                        color: hArea.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.05) : "transparent"
-                                        border.color: Qt.rgba(122/255, 162/255, 247/255, 0.08)
+                                        color: hArea.containsMouse ? Design.tint(Design.text, 0.05) : "transparent"
+                                        border.color: Design.tint(Design.accent, 0.08)
                                         border.width: 1
 
                                         ColumnLayout {
@@ -648,23 +672,23 @@ ApplicationWindow {
                                                 Text {
                                                     Layout.fillWidth: true
                                                     text: modelData.message || "Commit"
-                                                    font.family: "Fira Sans SemiBold, sans-serif"
-                                                    font.pixelSize: 11
+                                                    font.family: Design.font.sans
+                                                    font.pixelSize: Design.s(11)
                                                     font.bold: true
                                                     color: window.colFg
                                                     elide: Text.ElideRight
                                                 }
                                                 Rectangle {
                                                     width: 54; height: 18; radius: 3
-                                                    color: Qt.rgba(122/255, 162/255, 247/255, 0.15)
-                                                    Text { anchors.centerIn: parent; text: modelData.hash || ""; font.family: "JetBrainsMono Nerd Font, monospace"; font.pixelSize: 9; color: window.colBlue }
+                                                    color: Design.tint(Design.accent, 0.15)
+                                                    Text { anchors.centerIn: parent; text: modelData.hash || ""; font.family: Design.font.mono; font.pixelSize: Design.s(9); color: window.colBlue }
                                                 }
                                             }
 
                                             Text {
                                                 text: (modelData.author || "User") + " • " + (modelData.date || "")
-                                                font.family: "Fira Sans, sans-serif"
-                                                font.pixelSize: 10
+                                                font.family: Design.font.sans
+                                                font.pixelSize: Design.s(10)
                                                 color: window.colDim
                                             }
                                         }
@@ -706,15 +730,15 @@ ApplicationWindow {
 
                                     Text {
                                         text: "󰈙"
-                                        font.family: "JetBrainsMono Nerd Font"
-                                        font.pixelSize: 13
+                                        font.family: Design.font.mono
+                                        font.pixelSize: Design.s(13)
                                         color: window.colBlue
                                     }
 
                                     Text {
                                         text: GitBackend.selectedFile || (GitBackend.isRepo ? "Working tree clean" : "Open a repository")
-                                        font.family: "JetBrainsMono Nerd Font, monospace"
-                                        font.pixelSize: 12
+                                        font.family: Design.font.mono
+                                        font.pixelSize: Design.s(12)
                                         font.bold: true
                                         color: window.colFg
                                         Layout.fillWidth: true
@@ -723,8 +747,8 @@ ApplicationWindow {
 
                                     Text {
                                         text: GitBackend.statusSummary
-                                        font.family: "Fira Sans SemiBold, sans-serif"
-                                        font.pixelSize: 11
+                                        font.family: Design.font.sans
+                                        font.pixelSize: Design.s(11)
                                         color: window.colDim
                                     }
                                 }
@@ -743,9 +767,9 @@ ApplicationWindow {
                                     height: Math.max(20, diffLineText.implicitHeight + 4)
 
                                     color: {
-                                        if (modelData.type === "add") return Qt.rgba(115/255, 218/255, 202/255, 0.14);
-                                        if (modelData.type === "del") return Qt.rgba(247/255, 118/255, 142/255, 0.16);
-                                        if (modelData.type === "header") return Qt.rgba(122/255, 162/255, 247/255, 0.12);
+                                        if (modelData.type === "add") return Design.tint(Design.ok, 0.14);
+                                        if (modelData.type === "del") return Design.tint(Design.danger, 0.16);
+                                        if (modelData.type === "header") return Design.tint(Design.accent, 0.12);
                                         return "transparent";
                                     }
 
@@ -758,8 +782,8 @@ ApplicationWindow {
                                             width: 42
                                             text: modelData.oldLine || ""
                                             horizontalAlignment: Text.AlignRight
-                                            font.family: "JetBrainsMono Nerd Font, monospace"
-                                            font.pixelSize: 11
+                                            font.family: Design.font.mono
+                                            font.pixelSize: Design.s(11)
                                             color: window.colDim
                                             rightPadding: 8
                                         }
@@ -769,8 +793,8 @@ ApplicationWindow {
                                             width: 42
                                             text: modelData.newLine || ""
                                             horizontalAlignment: Text.AlignRight
-                                            font.family: "JetBrainsMono Nerd Font, monospace"
-                                            font.pixelSize: 11
+                                            font.family: Design.font.mono
+                                            font.pixelSize: Design.s(11)
                                             color: window.colDim
                                             rightPadding: 8
                                         }
@@ -780,8 +804,8 @@ ApplicationWindow {
                                             id: diffLineText
                                             Layout.fillWidth: true
                                             text: modelData.text || ""
-                                            font.family: "JetBrainsMono Nerd Font, monospace"
-                                            font.pixelSize: 11
+                                            font.family: Design.font.mono
+                                            font.pixelSize: Design.s(11)
                                             color: {
                                                 if (modelData.type === "add") return window.colGreen;
                                                 if (modelData.type === "del") return window.colRed;
@@ -801,23 +825,23 @@ ApplicationWindow {
                                     Text {
                                         Layout.alignment: Qt.AlignHCenter
                                         text: "󰊢"
-                                        font.family: "JetBrainsMono Nerd Font"
-                                        font.pixelSize: 48
+                                        font.family: Design.font.mono
+                                        font.pixelSize: Design.s(48)
                                         color: window.colDim
                                     }
                                     Text {
                                         Layout.alignment: Qt.AlignHCenter
                                         text: GitBackend.isRepo ? "No changes to display" : "No Git Repository Open"
-                                        font.family: "Fira Sans SemiBold, sans-serif"
-                                        font.pixelSize: 14
+                                        font.family: Design.font.sans
+                                        font.pixelSize: Design.s(14)
                                         font.bold: true
                                         color: window.colFg
                                     }
                                     Text {
                                         Layout.alignment: Qt.AlignHCenter
                                         text: GitBackend.isRepo ? "Working directory is clean" : "Select a repository from the top menu or open a folder."
-                                        font.family: "Fira Sans, sans-serif"
-                                        font.pixelSize: 12
+                                        font.family: Design.font.sans
+                                        font.pixelSize: Design.s(12)
                                         color: window.colDim
                                     }
                                 }
@@ -849,8 +873,8 @@ ApplicationWindow {
 
                         Text {
                             text: "Switch Local Repository"
-                            font.family: "Fira Sans SemiBold, sans-serif"
-                            font.pixelSize: 12
+                            font.family: Design.font.sans
+                            font.pixelSize: Design.s(12)
                             font.bold: true
                             color: window.colBlue
                         }
@@ -872,8 +896,8 @@ ApplicationWindow {
                                 TextInput {
                                     id: customPathInput
                                     Layout.fillWidth: true
-                                    font.family: "JetBrainsMono Nerd Font, monospace"
-                                    font.pixelSize: 11
+                                    font.family: Design.font.mono
+                                    font.pixelSize: Design.s(11)
                                     color: window.colFg
                                     text: GitBackend.repoPath
                                     selectByMouse: true
@@ -886,7 +910,7 @@ ApplicationWindow {
                                 Rectangle {
                                     width: 44; height: 20; radius: 3
                                     color: window.colBlue
-                                    Text { anchors.centerIn: parent; text: "Open"; font.bold: true; font.pixelSize: 10; color: "#101014" }
+                                    Text { anchors.centerIn: parent; text: "Open"; font.bold: true; font.pixelSize: Design.s(10); color: "#101014" }
                                     MouseArea {
                                         anchors.fill: parent
                                         cursorShape: Qt.PointingHandCursor
@@ -901,8 +925,8 @@ ApplicationWindow {
 
                         Text {
                             text: "Discovered Repositories:"
-                            font.family: "Fira Sans SemiBold, sans-serif"
-                            font.pixelSize: 10
+                            font.family: Design.font.sans
+                            font.pixelSize: Design.s(10)
                             color: window.colDim
                         }
 
@@ -918,16 +942,16 @@ ApplicationWindow {
                                 width: discoveredList.width
                                 height: 32
                                 radius: 4
-                                color: discArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.20) : "transparent"
+                                color: discArea.containsMouse ? Design.tint(Design.accent, 0.20) : "transparent"
 
                                 RowLayout {
                                     anchors.fill: parent
                                     anchors.margins: 6
                                     spacing: 8
 
-                                    Text { text: "󰊢"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 12; color: window.colBlue }
-                                    Text { text: modelData.name; font.family: "Fira Sans SemiBold, sans-serif"; font.pixelSize: 11; font.bold: true; color: window.colFg }
-                                    Text { text: modelData.path; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 9; color: window.colDim; Layout.fillWidth: true; elide: Text.ElideMiddle }
+                                    Text { text: "󰊢"; font.family: Design.font.mono; font.pixelSize: Design.s(12); color: window.colBlue }
+                                    Text { text: modelData.name; font.family: Design.font.sans; font.pixelSize: Design.s(11); font.bold: true; color: window.colFg }
+                                    Text { text: modelData.path; font.family: Design.font.mono; font.pixelSize: Design.s(9); color: window.colDim; Layout.fillWidth: true; elide: Text.ElideMiddle }
                                 }
 
                                 MouseArea {
@@ -968,8 +992,8 @@ ApplicationWindow {
 
                         Text {
                             text: "Switch Branch"
-                            font.family: "Fira Sans SemiBold, sans-serif"
-                            font.pixelSize: 12
+                            font.family: Design.font.sans
+                            font.pixelSize: Design.s(12)
                             font.bold: true
                             color: window.colGreen
                         }
@@ -985,16 +1009,16 @@ ApplicationWindow {
                                 width: branchList.width
                                 height: 28
                                 radius: 4
-                                color: modelData === GitBackend.branchName ? Qt.rgba(115/255, 218/255, 202/255, 0.25) : (bArea.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.08) : "transparent")
+                                color: modelData === GitBackend.branchName ? Design.tint(Design.ok, 0.25) : (bArea.containsMouse ? Design.tint(Design.text, 0.08) : "transparent")
 
                                 RowLayout {
                                     anchors.fill: parent
                                     anchors.margins: 6
                                     spacing: 6
 
-                                    Text { text: ""; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 11; color: window.colGreen }
-                                    Text { text: modelData; font.family: "JetBrainsMono Nerd Font, monospace"; font.pixelSize: 11; font.bold: modelData === GitBackend.branchName; color: window.colFg; Layout.fillWidth: true }
-                                    Text { text: "✓"; font.pixelSize: 11; font.bold: true; color: window.colGreen; visible: modelData === GitBackend.branchName }
+                                    Text { text: ""; font.family: Design.font.mono; font.pixelSize: Design.s(11); color: window.colGreen }
+                                    Text { text: modelData; font.family: Design.font.mono; font.pixelSize: Design.s(11); font.bold: modelData === GitBackend.branchName; color: window.colFg; Layout.fillWidth: true }
+                                    Text { text: "✓"; font.pixelSize: Design.s(11); font.bold: true; color: window.colGreen; visible: modelData === GitBackend.branchName }
                                 }
 
                                 MouseArea {

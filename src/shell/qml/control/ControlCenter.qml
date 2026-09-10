@@ -135,17 +135,28 @@ PopupShell {
     // scroll instead; the ColumnLayout keeps its own layout unchanged, it's
     // just no longer forced to exactly the popup's height.
     Flickable {
+        id: mainScroll
         anchors.fill: parent
         visible: center.currentView === "main"
         contentWidth: width
-        contentHeight: mainColumn.implicitHeight
+
+        // The trailing gap is the point: without it the last card ended flush
+        // against the panel's rounded bottom edge, so a card that happened to
+        // land there looked sliced off rather than scrolled past.
+        contentHeight: mainColumn.implicitHeight + Design.s(Design.space.md)
         clip: true
         boundsBehavior: Flickable.StopAtBounds
-        ScrollBar.vertical: ScrollBar {}
+
+        ScrollBar.vertical: OverflowBar {}
 
     ColumnLayout {
         id: mainColumn
-        width: parent.width
+
+        // Step aside for the scrollbar rather than running under it: at full
+        // width the right-hand column of tiles had its edge and its chevron
+        // painted over by the bar.
+        width: parent.width - (mainScroll.ScrollBar.vertical.visible
+            ? mainScroll.ScrollBar.vertical.width + Design.s(Design.space.xs) : 0)
         spacing: Design.s(Design.space.md)
 
         // ── 1. Header ────────────────────────────────────────────────────────
@@ -668,6 +679,8 @@ PopupShell {
         anchors.fill: parent
         visible: center.currentView === "notifications"
         onBackClicked: center.currentView = "main"
+        // Notification rules live on the Screen Time & DND page.
+        onOpenFullSettings: center.openFull("settings", "focus")
     }
 
     Component.onCompleted: {

@@ -92,6 +92,12 @@ PopupShell {
             spacing: Design.s(Design.space.xs)
             model: root.filteredItems
 
+            // The list scrolled with the wheel and said so nowhere: the last
+            // entry sat cut in half against the bottom of the panel. The
+            // margin keeps it off that edge once scrolled to the end.
+            bottomMargin: Design.s(Design.space.sm)
+            ScrollBar.vertical: OverflowBar {}
+
             delegate: Rectangle {
                 id: clipCard
                 required property var modelData
@@ -237,6 +243,22 @@ PopupShell {
         modal: true
         standardButtons: Dialog.Cancel | Dialog.Ok
         onAccepted: Clipboard.clearHistory()
-        contentItem: Label { text: "All unpinned clipboard entries will be removed."; padding: 18; wrapMode: Text.WordWrap }
+        // Third instance of the same shape as b1air-notes' delete dialog and
+        // b1air-text's unsaved-changes one: a wrapping label as contentItem
+        // sizes from the width the Dialog gives it while the Dialog sizes from
+        // the label. Text.implicitWidth is read-only, so the explicit size goes
+        // on a wrapping Item.
+        contentItem: Item {
+            implicitWidth: Design.s(320)
+            implicitHeight: clearMsg.implicitHeight + Design.s(36)
+
+            Label {
+                id: clearMsg
+                anchors.fill: parent
+                anchors.margins: Design.s(18)
+                text: "All unpinned clipboard entries will be removed."
+                wrapMode: Text.WordWrap
+            }
+        }
     }
 }

@@ -193,13 +193,27 @@ ShellRoot {
                 
                 Process {
                     id: kbPoller
-                    command: ["bash", "-c", "swaymsg -t get_inputs | jq -r '[.[] | select(.type == \"keyboard\") | .xkb_active_layout_name? // empty][0] // \"US\"' | cut -c1-2 | tr '[:lower:]' '[:upper:]'"]
+                    // swaymsg speaks JSON and QML parses JSON, so the answer
+                    // needs one process rather than the five this used to
+                    // pipe together — bash, jq, cut, tr and head — on a
+                    // locked, idle machine.
+                    command: ["swaymsg", "-t", "get_inputs"]
                     stdout: StdioCollector {
                         onStreamFinished: {
-                            let layout = this.text.trim();
-                            if (layout !== "" && layout !== "null") {
-                                screenRoot.kbLayout = layout;
+                            let name = "";
+                            try {
+                                for (const dev of JSON.parse(this.text)) {
+                                    if (dev.type === "keyboard" && dev.xkb_active_layout_name) {
+                                        name = String(dev.xkb_active_layout_name);
+                                        break;
+                                    }
+                                }
+                            } catch (e) {
+                                return;   // sway not up yet; keep the last value
                             }
+                            const layout = (name || "US").substring(0, 2).toUpperCase();
+                            if (layout !== "")
+                                screenRoot.kbLayout = layout;
                         }
                     }
                 }

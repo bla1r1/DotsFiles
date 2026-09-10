@@ -1,0 +1,351 @@
+pragma Singleton
+
+import QtQuick
+import Qt.labs.folderlistmodel
+import Quickshell
+import Quickshell.Io
+import "../Ui"
+
+// =============================================================================
+// Themes: pick one, write your own, carry it between machines.
+//
+// A theme is the palette Ui/Design holds — surfaces, text, accents — as a flat
+// JSON object of role -> colour. Design.applyPalette() takes exactly that
+// shape, and any role a theme leaves out keeps its built-in value, so a theme
+// that only restyles the accents is a five-line file.
+//
+// Two themes ship built in. That is deliberate rather than decorative: the
+// shell's palette was Catppuccin Mocha while SwayFX's window borders, the
+// Kvantum widget theme, the SDDM greeter and the README all said Tokyo Night,
+// so the desktop was visibly two themes at once with no way to reconcile them.
+// Now it is a choice.
+//
+// User themes live in ~/.config/b1air/themes/*.json and are listed alongside
+// the built-ins. Import copies a file in; export writes the live palette out.
+// =============================================================================
+
+Singleton {
+    id: root
+
+    readonly property string themesDir: Quickshell.env("HOME") + "/.config/b1air/themes"
+
+    // Design reads this file at startup in every process, so a theme picked in
+    // Settings reaches b1air-monitor, -term, -text and the rest, not just the
+    // shell. Keep the name in step with Design.activeThemePath.
+    readonly property string activeFile: Quickshell.env("HOME") + "/.config/b1air/theme.json"
+
+    function _publish(palette) {
+        activeWriter.path = root.activeFile;
+        activeWriter.setText(JSON.stringify(palette, null, 2));
+
+        // A theme that states its own accent takes it back from whatever the
+        // picker was last set to; picking a swatch afterwards overrides it
+        // again. Without this, a theme's accent was ignored whenever the user
+        // had ever touched the picker — and since the schema shipped with
+        // "blue" preselected, that was always.
+        if (palette && (palette.primary || palette.accent))
+            Settings.set("accentName", "");
+    }
+
+    FileView {
+        id: activeWriter
+        printErrors: false
+        atomicWrites: true
+    }
+
+    // ── Built-in themes ──────────────────────────────────────────────────────
+
+    readonly property var builtins: [
+        {
+            name: "Catppuccin Mocha",
+            id: "catppuccin-mocha",
+            palette: Design.builtinPalette
+        },
+        {
+            // Matches conf.d/look-and-feel.conf, the Kvantum theme and the
+            // SDDM greeter, so the whole desktop can be one palette.
+            name: "Tokyo Night",
+            id: "tokyo-night",
+            palette: {
+                ground: "#1a1b26", lowest: "#16161e", low: "#1f2335",
+                mid: "#24283b", high: "#292e42", highest: "#3b4261",
+                text: "#c0caf5", textDim: "#a9b1d6",
+                outline: "#565f89", outlineVariant: "#414868",
+                primary: "#7aa2f7", primaryText: "#16161e",
+                primaryBox: "#3b4261", tertiary: "#bb9af7",
+                error: "#f7768e", errorText: "#16161e",
+                blue: "#7aa2f7", sapphire: "#7dcfff", mauve: "#bb9af7",
+                pink: "#ff9e64", peach: "#ff9e64", yellow: "#e0af68",
+                green: "#9ece6a", teal: "#73daca", red: "#f7768e",
+                maroon: "#db4b4b", lavender: "#b4f9f8"
+            }
+        }
+    ]
+
+    // ── User themes on disk ──────────────────────────────────────────────────
+
+    // FolderListModel rather than `bash -c ls`: one fewer process per refresh,
+    // and it re-lists by itself when the directory changes.
+    FolderListModel {
+        id: userThemeFiles
+        folder: "file://" + root.themesDir
+        nameFilters: ["*.json"]
+        showDirs: false
+        sortField: FolderListModel.Name
+        onCountChanged: root._rebuild()
+    }
+
+    property var userThemes: []
+
+    /** [{ name, id, builtin, path }] — built-ins first, then user themes. */
+    property var available: []
+
+    function _rebuild() {
+        const users = [];
+        for (let i = 0; i < userThemeFiles.count; ++i) {
+            const file = String(userThemeFiles.get(i, "fileName"));
+            const id = file.replace(/\.json$/i, "");
+            users.push({
+                name: id.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+                id: id,
+                builtin: false,
+                path: root.themesDir + "/" + file
+            });
+        }
+        root.userThemes = users;
+
+        const all = root.builtins.map(t => ({
+            name: t.name, id: t.id, builtin: true, path: ""
+        }));
+        root.available = all.concat(users);
+    }
+
+    Component.onCompleted: root._rebuild()
+
+    // ── Applying ─────────────────────────────────────────────────────────────
+
+    readonly property string current: Settings.themeName
+
+    function _builtinById(id) {
+        for (const t of root.builtins)
+            if (t.id === id) return t;
+        return null;
+    }
+
+    /** Apply by id, persist the choice, and fall back cleanly if it is gone. */
+    function apply(id) {
+        const b = root._builtinById(id);
+        if (b) {
+            Design.applyPalette(b.palette);
+            root._publish(b.palette);
+            Settings.set("themeName", id);
+            return true;
+        }
+        // The path is derived from the id rather than looked up in
+        // `userThemes`, because that list is filled by FolderListModel, which
+        // populates asynchronously. At login the list is still empty when the
+        // saved theme is applied, so the lookup found nothing and fell through
+        // to the reset below — the desktop came up in the built-in palette
+        // every time, no matter what was picked.
+        themeReader.path = root.themesDir + "/" + id + ".json";
+        themeReader.reload();
+        Settings.set("themeName", id);
+        return true;
+    }
+
+    FileView {
+        id: themeReader
+        printErrors: false
+        onLoaded: {
+            try {
+                const obj = JSON.parse(text());
+                Design.applyPalette(obj);
+                root._publish(obj);
+            } catch (e) {
+                root.lastError = "Not a valid theme file: " + e;
+                Design.resetPalette();
+            }
+        }
+        // Reached when the id names no file — a theme deleted behind our
+        // back — so the desktop falls back instead of staying half-styled.
+        onLoadFailed: {
+            root.lastError = "Could not read the theme file.";
+            Design.resetPalette();
+        }
+    }
+
+    property string lastError: ""
+
+    // Applies the saved choice once Settings has actually loaded — reading it
+    // earlier gets the schema default rather than what the user picked.
+    Connections {
+        target: Settings
+        function onLoadedChanged() {
+            if (Settings.loaded && Settings.themeName)
+                root.apply(Settings.themeName);
+        }
+    }
+
+    // ── Creating and editing ─────────────────────────────────────────────────
+
+    /**
+     * Start a new theme from whatever is on screen right now.
+     *
+     * Creation deliberately begins from the live palette rather than a blank
+     * file: every role already has a sensible value, so a new theme is a few
+     * edits rather than 27 required decisions, and a half-finished one still
+     * renders a usable desktop.
+     */
+    function createFrom(displayName) {
+        const name = String(displayName || "").trim();
+        if (name === "") {
+            root.lastError = "Give the theme a name first.";
+            return "";
+        }
+        const id = name.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
+        if (id === "") {
+            root.lastError = "That name has no usable characters.";
+            return "";
+        }
+        if (root._builtinById(id)) {
+            root.lastError = "That name collides with a built-in theme.";
+            return "";
+        }
+
+        const palette = Design.exportPalette();
+        writer.path = root.themesDir + "/" + id + ".json";
+        writer.setText(JSON.stringify(palette, null, 2));
+        root.lastError = "";
+        root._rebuild();
+
+        // Apply the parsed object directly for the same reason import does:
+        // the file listing that apply(id) would search is filled asynchronously.
+        Design.applyPalette(palette);
+        root._publish(palette);
+        Settings.set("themeName", id);
+        return id;
+    }
+
+    /** Path of the current theme's file, or "" for a built-in. */
+    readonly property string currentFile:
+        root._builtinById(Settings.themeName) ? "" : root.themesDir + "/" + Settings.themeName + ".json"
+
+    /**
+     * Open the current theme in the desktop's own text editor.
+     *
+     * A bespoke colour picker would be a second editor to build and maintain,
+     * when a theme is a small JSON file and the suite already ships one. Saving
+     * in b1air-text reloads the theme through the watcher below, so editing is
+     * live.
+     */
+    function editCurrent() {
+        if (root.currentFile === "") {
+            root.lastError = "Built-in themes cannot be edited — duplicate it first.";
+            return false;
+        }
+        Quickshell.execDetached(["b1air-text", root.currentFile]);
+        return true;
+    }
+
+    // Re-applies the current theme when its file changes on disk, so an edit
+    // made in the text editor (or by any other tool) lands without a restart.
+    FileView {
+        id: currentWatcher
+        path: root.currentFile
+        watchChanges: true
+        printErrors: false
+        onFileChanged: reload()
+        onLoaded: {
+            if (root.currentFile === "")
+                return;
+            try {
+                const obj = JSON.parse(text());
+                Design.applyPalette(obj);
+                root._publish(obj);
+                root.lastError = "";
+            } catch (e) {
+                // A half-typed file is normal while editing — say so, but keep
+                // the last good palette rather than resetting the desktop.
+                root.lastError = "Theme file is not valid JSON yet.";
+            }
+        }
+    }
+
+    // ── Import / export ──────────────────────────────────────────────────────
+
+    property string lastExportPath: ""
+
+    /**
+     * Write the live palette to `path` (default: the themes dir).
+     * The result is a plain JSON object, so it is the same thing Import eats.
+     */
+    function exportTo(path) {
+        const target = path && path !== ""
+            ? path
+            : root.themesDir + "/exported-" + Qt.formatDateTime(new Date(), "yyyyMMdd-hhmmss") + ".json";
+        writer.path = target;
+        writer.setText(JSON.stringify(Design.exportPalette(), null, 2));
+        root.lastExportPath = target;
+        return target;
+    }
+
+    FileView {
+        id: writer
+        printErrors: false
+        atomicWrites: true
+    }
+
+    /** Copy an outside .json into the themes dir so it shows up in the list. */
+    function importFrom(path) {
+        if (!path || path === "")
+            return false;
+        const clean = String(path).replace(/^file:\/\//, "");
+        importReader.path = clean;
+        importReader.reload();
+        return true;
+    }
+
+    FileView {
+        id: importReader
+        printErrors: false
+        onLoaded: {
+            let obj;
+            try {
+                obj = JSON.parse(text());
+            } catch (e) {
+                root.lastError = "That file is not JSON.";
+                return;
+            }
+            // Refuse a file with nothing we recognise rather than installing a
+            // theme that would change nothing and look broken.
+            const known = Object.keys(Design.builtinPalette);
+            const hits = Object.keys(obj).filter(k => known.indexOf(k) >= 0
+                || ["crust", "base", "mantle", "surface0", "surface1", "surface2",
+                    "accent", "accentAlt", "accentSoft", "accentText", "danger",
+                    "subtext0", "overlay0", "line", "sunken", "raised", "hover",
+                    "active"].indexOf(k) >= 0);
+            if (hits.length === 0) {
+                root.lastError = "No palette roles in that file.";
+                return;
+            }
+
+            const base = String(importReader.path).split("/").pop().replace(/\.json$/i, "");
+            const id = base.toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
+            writer.path = root.themesDir + "/" + id + ".json";
+            writer.setText(JSON.stringify(obj, null, 2));
+            root.lastError = "";
+            root._rebuild();
+
+            // Apply the object we already parsed rather than calling apply(id):
+            // the list it looks the id up in comes from FolderListModel, which
+            // notices the new file asynchronously. Going through apply() here
+            // found nothing, fell through to the "theme is gone" branch and
+            // reset the desktop to the built-in palette — an import that
+            // silently did the opposite of what it said.
+            Design.applyPalette(obj);
+            root._publish(obj);
+            Settings.set("themeName", id);
+        }
+        onLoadFailed: root.lastError = "Could not read that file."
+    }
+}

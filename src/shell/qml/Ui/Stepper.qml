@@ -34,7 +34,7 @@ RowLayout {
         signal activated()
 
         Layout.preferredWidth: Design.s(30)
-        Layout.preferredHeight: Design.s(30)
+        Layout.preferredHeight: Design.s(Design.size.field)
         radius: Design.s(Design.radius.ctl)
 
         color: stepArea.pressed ? Design.active : Design.raised

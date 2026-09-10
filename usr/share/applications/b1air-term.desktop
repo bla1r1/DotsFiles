@@ -1,11 +1,12 @@
 [Desktop Entry]
 Type=Application
-Name=b1air Terminal
-Comment=Native b1air terminal emulator
-Exec=b1air-term
+Name=Terminal
+GenericName=Terminal Emulator
+Comment=Native Wayland Desktop Terminal Emulator
+Exec=b1air-term %U
 Icon=utilities-terminal
 Terminal=false
 Categories=System;TerminalEmulator;Utility;
-Keywords=terminal;shell;command line;
+Keywords=terminal;shell;prompt;command;commandline;cmd;
+StartupNotify=true
 StartupWMClass=b1air-term
-

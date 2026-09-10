@@ -16,7 +16,7 @@ ColumnLayout {
 
     property bool gameModeEnabled: Settings.gameModeEnabled !== undefined ? Settings.gameModeEnabled : false
     property bool gameModeAdaptiveSync: Settings.gameModeAdaptiveSync !== undefined ? Settings.gameModeAdaptiveSync : false
-    property bool gameModeHideWaybar: Settings.gameModeHideWaybar !== undefined ? Settings.gameModeHideWaybar : true
+    readonly property bool gameModeHideBar: Settings.gameModeHideBar
     property bool gameModeDND: Settings.gameModeDND !== undefined ? Settings.gameModeDND : false
 
     function toggleGameMode(val) {
@@ -90,14 +90,13 @@ ColumnLayout {
                 ColumnLayout {
                     Layout.fillWidth: true
                     spacing: Design.s(2)
-                    Label { text: "Hide Waybar"; weight: Design.weight.medium }
+                    Label { text: "Hide Top Bar"; weight: Design.weight.medium }
                     Label { text: "Automatically hide top status bar during gaming sessions"; role: "caption"; dim: true }
                 }
                 Toggle {
-                    checked: section.gameModeHideWaybar
+                    checked: section.gameModeHideBar
                     onToggled: {
-                        section.gameModeHideWaybar = !section.gameModeHideWaybar;
-                        Settings.set("gameModeHideWaybar", section.gameModeHideWaybar);
+                        Settings.set("gameModeHideBar", !section.gameModeHideBar);
                     }
                 }
             }

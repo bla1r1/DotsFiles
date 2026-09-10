@@ -157,10 +157,18 @@ ColumnLayout {
             Layout.fillWidth: true
             spacing: Design.s(Design.space.sm)
 
+            // The three actions on this page and the next remove packages, wipe
+            // caches or start a full system upgrade, and each was a single
+            // click in a page people scroll through. ActionButton already has
+            // the arm-then-confirm step — "Reset Defaults" in About and the
+            // power row in the Control Center use it — and these deserve it at
+            // least as much.
             ActionButton {
                 icon: "\u{f0187}"
                 label: section.updateCount > 0 ? ("Upgrade " + section.updateCount + " Packages") : "Run Full System Upgrade"
                 tone: section.updateCount > 0 ? Design.peach : Design.green
+                destructive: true
+                confirmLabel: "Start upgrade?"
                 onActivated: section.runSystemUpdate()
             }
         }
@@ -181,6 +189,8 @@ ColumnLayout {
                 icon: "\u{f014}"
                 label: "Clean All Caches & Logs"
                 tone: Design.sapphire
+                destructive: true
+                confirmLabel: "Delete them?"
                 onActivated: Daemon.sweeperClean()
             }
 
@@ -188,6 +198,8 @@ ColumnLayout {
                 icon: "\u{f128}"
                 label: "Remove Orphan Packages"
                 tone: Design.mauve
+                destructive: true
+                confirmLabel: "Uninstall them?"
                 onActivated: section.cleanOrphanPackages()
             }
         }

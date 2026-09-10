@@ -1,10 +1,12 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Window
 import QtQuick.Layouts
+import Ui
 
 ApplicationWindow {
     id: window
-    title: ViewBackend.fileName ? ("b1air-view — " + ViewBackend.fileName) : "b1air-view"
+    title: ViewBackend.fileName ? ("Image Viewer — " + ViewBackend.fileName) : "Image Viewer"
     width: 960
     height: 640
     minimumWidth: 500
@@ -13,20 +15,23 @@ ApplicationWindow {
     color: "transparent"
     flags: Qt.Window
 
-    // Design Tokens
-    readonly property color colBg: "#161722"
-    readonly property color colDark: "#13141e"
-    readonly property color colSidebar: "#101119"
-    readonly property color colSunken: "#0d0e14"
-    readonly property color colBorder: Qt.rgba(122/255, 162/255, 247/255, 0.16)
-    readonly property color colBorderSubtle: "#1b1c2b"
-    readonly property color colBlue: "#7aa2f7"
-    readonly property color colPurple: "#bb9af7"
-    readonly property color colCyan: "#7dcfff"
-    readonly property color colGreen: "#73daca"
-    readonly property color colOrange: "#ff9e64"
-    readonly property color colFg: "#c0caf5"
-    readonly property color colDim: "#6b739b"
+    // A second, hand-rolled Tokyo Night palette used to live here alongside the
+    // Catppuccin one in Ui/Design.qml, so this window never followed the theme.
+    // The names stay — they are used throughout the file — but each now resolves
+    // to a design-system role, exactly as FilesWindow.qml was already migrated.
+    readonly property color colBg: Design.surface
+    readonly property color colDark: Design.ground
+    readonly property color colSidebar: Design.sunken
+    readonly property color colSunken: Design.sunken
+    readonly property color colBorder: Design.glassBorder
+    readonly property color colBorderSubtle: Design.line
+    readonly property color colBlue: Design.accent
+    readonly property color colPurple: Design.mauve
+    readonly property color colCyan: Design.sapphire
+    readonly property color colGreen: Design.ok
+    readonly property color colOrange: Design.warn
+    readonly property color colFg: Design.text
+    readonly property color colDim: Design.textDim
 
     property real zoomFactor: 1.0
     property int rotationAngle: 0
@@ -35,9 +40,9 @@ ApplicationWindow {
     Rectangle {
         id: windowFrame
         anchors.fill: parent
-        radius: 14
-        color: "#101014"
-        border.color: window.colBorder
+        radius: (window.visibility === Window.Maximized) ? 0 : Design.s(14)
+        color: window.colBg
+        border.color: (window.visibility === Window.Maximized) ? "transparent" : window.colBorder
         border.width: 1
         clip: true
 
@@ -75,15 +80,15 @@ ApplicationWindow {
                         Layout.alignment: Qt.AlignVCenter
                         Text {
                             text: "󰋩"
-                            font.family: "JetBrainsMono Nerd Font"
-                            font.pixelSize: 15
+                            font.family: Design.font.mono
+                            font.pixelSize: Design.s(15)
                             color: window.colBlue
                             anchors.verticalCenter: parent.verticalCenter
                         }
                         Text {
                             text: ViewBackend.fileName || "No Image Open"
-                            font.family: "Fira Sans SemiBold, JetBrainsMono Nerd Font, sans-serif"
-                            font.pixelSize: 12
+                            font.family: Design.font.sans
+                            font.pixelSize: Design.s(12)
                             font.bold: true
                             color: window.colFg
                             anchors.verticalCenter: parent.verticalCenter
@@ -95,15 +100,15 @@ ApplicationWindow {
                         width: dimText.implicitWidth + 12
                         height: 20
                         radius: 4
-                        color: Qt.rgba(255/255, 255/255, 255/255, 0.08)
-                        visible: ViewBackend.imageWidth > 0
+                        color: Design.tint(Design.text, 0.08)
+                        visible: ViewBackend.imageResolution !== "" && ViewBackend.imageResolution !== "Unknown"
 
                         Text {
                             id: dimText
                             anchors.centerIn: parent
-                            text: ViewBackend.imageWidth + " × " + ViewBackend.imageHeight + "  •  " + ViewBackend.fileSize
-                            font.family: "JetBrainsMono Nerd Font, monospace"
-                            font.pixelSize: 10
+                            text: ViewBackend.imageResolution + "  •  " + ViewBackend.fileSize
+                            font.family: Design.font.mono
+                            font.pixelSize: Design.s(10)
                             color: window.colDim
                         }
                     }
@@ -119,7 +124,7 @@ ApplicationWindow {
                         Rectangle {
                             width: zoomText.implicitWidth + 10; height: 26; radius: 4
                             color: "transparent"
-                            Text { id: zoomText; anchors.centerIn: parent; text: Math.round(window.zoomFactor * 100) + "%"; font.family: "JetBrainsMono Nerd Font, monospace"; font.pixelSize: 10; color: window.colDim }
+                            Text { id: zoomText; anchors.centerIn: parent; text: Math.round(window.zoomFactor * 100) + "%"; font.family: Design.font.mono; font.pixelSize: Design.s(10); color: window.colDim }
                         }
                         CtrlBtn { icon: "󰐕"; tip: "Zoom In"; onClicked: window.zoomFactor = Math.min(5.0, window.zoomFactor + 0.25) }
                         CtrlBtn { icon: "󰑐"; tip: "Reset View"; onClicked: { window.zoomFactor = 1.0; window.rotationAngle = 0; } }
@@ -150,7 +155,7 @@ ApplicationWindow {
                         Image {
                             id: mainImage
                             anchors.centerIn: parent
-                            source: ViewBackend.filePath ? ("file://" + ViewBackend.filePath) : ""
+                            source: ViewBackend.currentPath ? ("file://" + ViewBackend.currentPath) : ""
                             fillMode: Image.PreserveAspectFit
                             asynchronous: true
                             cache: true
@@ -179,10 +184,10 @@ ApplicationWindow {
                     anchors.leftMargin: 16
                     anchors.verticalCenter: parent.verticalCenter
                     width: 36; height: 36; radius: 18
-                    color: prevArrArea.containsMouse ? Qt.rgba(26/255, 27/255, 38/255, 0.85) : Qt.rgba(26/255, 27/255, 38/255, 0.45)
+                    color: prevArrArea.containsMouse ? Design.tint(Design.ground, 0.85) : Design.tint(Design.ground, 0.45)
                     border.color: window.colBorder
                     border.width: 1
-                    Text { anchors.centerIn: parent; text: "󰁍"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 14; color: window.colFg }
+                    Text { anchors.centerIn: parent; text: "󰁍"; font.family: Design.font.mono; font.pixelSize: Design.s(14); color: window.colFg }
                     MouseArea { id: prevArrArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: ViewBackend.previous() }
                 }
 
@@ -192,10 +197,10 @@ ApplicationWindow {
                     anchors.rightMargin: 16
                     anchors.verticalCenter: parent.verticalCenter
                     width: 36; height: 36; radius: 18
-                    color: nextArrArea.containsMouse ? Qt.rgba(26/255, 27/255, 38/255, 0.85) : Qt.rgba(26/255, 27/255, 38/255, 0.45)
+                    color: nextArrArea.containsMouse ? Design.tint(Design.ground, 0.85) : Design.tint(Design.ground, 0.45)
                     border.color: window.colBorder
                     border.width: 1
-                    Text { anchors.centerIn: parent; text: "󰁔"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: 14; color: window.colFg }
+                    Text { anchors.centerIn: parent; text: "󰁔"; font.family: Design.font.mono; font.pixelSize: Design.s(14); color: window.colFg }
                     MouseArea { id: nextArrArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: ViewBackend.next() }
                 }
             }
@@ -216,15 +221,15 @@ ApplicationWindow {
                     orientation: ListView.Horizontal
                     spacing: 6
                     clip: true
-                    model: ViewBackend.galleryFiles
+                    model: ViewBackend.filesInDir
 
                     delegate: Rectangle {
                         width: 58; height: 58; radius: 6
-                        color: isCur ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : (thumbArea.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.08) : "transparent")
+                        color: isCur ? Design.tint(Design.accent, 0.25) : (thumbArea.containsMouse ? Design.tint(Design.text, 0.08) : "transparent")
                         border.color: isCur ? window.colBlue : "transparent"
                         border.width: 1
 
-                        readonly property bool isCur: modelData.path === ViewBackend.filePath
+                        readonly property bool isCur: modelData.path === ViewBackend.currentPath
 
                         Image {
                             anchors.fill: parent
@@ -256,16 +261,16 @@ ApplicationWindow {
         signal clicked()
 
         width: 26; height: 26; radius: 5
-        color: cb.active ? window.colBlue : (cbArea.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.12) : "transparent")
+        color: cb.active ? window.colBlue : (cbArea.containsMouse ? Design.tint(Design.text, 0.12) : "transparent")
         border.color: cb.active ? "transparent" : window.colBorder
         border.width: 1
 
         Text {
             anchors.centerIn: parent
             text: cb.icon
-            font.family: "JetBrainsMono Nerd Font"
-            font.pixelSize: 12
-            color: cb.active ? "#101014" : (cbArea.containsMouse ? "#ffffff" : window.colFg)
+            font.family: Design.font.mono
+            font.pixelSize: Design.s(12)
+            color: cb.active ? Design.accentText : (cbArea.containsMouse ? "#ffffff" : window.colFg)
         }
 
         MouseArea {

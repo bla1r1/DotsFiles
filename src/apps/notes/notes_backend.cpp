@@ -315,8 +315,19 @@ QString NotesBackend::renderMarkdownToHtml(const QString& markdown) {
     html.replace(QRegularExpression("```([a-zA-Z]*)\n([\\s\\S]*?)```"), "<pre style='background:#16161e;padding:8px;border-radius:6px;color:#73daca;font-family:monospace;border:1px solid rgba(122,162,247,0.2);'><code>\\2</code></pre>");
     html.replace(QRegularExpression("`([^`]+)`"), "<code style='background:#24283b;padding:2px 6px;border-radius:4px;color:#ff9e64;font-family:monospace;'>\\1</code>");
 
-    // Tags
-    html.replace(QRegularExpression("#([a-zA-Z0-9_-]+)"), "<span style='background:rgba(122,162,247,0.15);color:#7aa2f7;padding:2px 6px;border-radius:4px;font-size:11px;'>#\\1</span>");
+    // Tags.
+    //
+    // Anchored to a line start or whitespace on purpose. Unanchored, this rule
+    // runs last and happily matches the hex colours in the style attributes
+    // every rule above just emitted — `color:#7aa2f7;` became a tag span, which
+    // tore the surrounding tag apart and dumped raw CSS into the rendered note:
+    //
+    //     #7aa2f7;margin:12px 0;border-bottom:...'>Getting Started
+    //
+    // A real tag is always preceded by a line start or a space; a colour in a
+    // style attribute never is.
+    html.replace(QRegularExpression("(^|\\s)#([a-zA-Z0-9_-]+)", QRegularExpression::MultilineOption),
+                 "\\1<span style='background:rgba(122,162,247,0.15);color:#7aa2f7;padding:2px 6px;border-radius:4px;font-size:11px;'>#\\2</span>");
 
     // Newlines to <br>
     html.replace("\n", "<br/>");

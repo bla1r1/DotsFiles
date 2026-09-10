@@ -19,7 +19,7 @@ Rectangle {
     signal clicked()
 
     implicitWidth: contentRow.implicitWidth + Design.s(Design.space.lg)
-    implicitHeight: Design.s(32)
+    implicitHeight: Design.s(Design.size.field)
     radius: height / 2
 
     color: button.active ? button.activeColor : (area.containsMouse ? Design.glassHover : Design.glassCard)

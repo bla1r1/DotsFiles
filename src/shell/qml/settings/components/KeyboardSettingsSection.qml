@@ -9,7 +9,76 @@ Card {
     property string language: ""
     property string kbOptions: "grp:alt_shift_toggle"
     property string shortcutLabel: ""
-    property var langSearchModel
+    // langSearchModel and searchChanged were declared here and never connected
+    // by SettingsApp, so the "Search to add…" field typed into nothing: the
+    // dropdown's height binding read .count off an undefined model and stayed
+    // 0, which meant there was no way to add a keyboard layout from Settings at
+    // all — even though onLanguageAdded was already wired and waiting on the
+    // other side. The list is local because the host has nothing to add to it.
+    property string langQuery: ""
+    property var langSearchModel: langResults
+
+    readonly property var knownLayouts: [
+        { code: "us", name: "English (US)" },
+        { code: "gb", name: "English (UK)" },
+        { code: "ua", name: "Ukrainian" },
+        { code: "ru", name: "Russian" },
+        { code: "de", name: "German" },
+        { code: "fr", name: "French" },
+        { code: "es", name: "Spanish" },
+        { code: "it", name: "Italian" },
+        { code: "pt", name: "Portuguese" },
+        { code: "pl", name: "Polish" },
+        { code: "cz", name: "Czech" },
+        { code: "sk", name: "Slovak" },
+        { code: "se", name: "Swedish" },
+        { code: "no", name: "Norwegian" },
+        { code: "fi", name: "Finnish" },
+        { code: "dk", name: "Danish" },
+        { code: "nl", name: "Dutch" },
+        { code: "tr", name: "Turkish" },
+        { code: "gr", name: "Greek" },
+        { code: "il", name: "Hebrew" },
+        { code: "ara", name: "Arabic" },
+        { code: "hu", name: "Hungarian" },
+        { code: "ro", name: "Romanian" },
+        { code: "bg", name: "Bulgarian" },
+        { code: "rs", name: "Serbian" },
+        { code: "hr", name: "Croatian" },
+        { code: "lt", name: "Lithuanian" },
+        { code: "lv", name: "Latvian" },
+        { code: "ee", name: "Estonian" },
+        { code: "jp", name: "Japanese" },
+        { code: "kr", name: "Korean" },
+        { code: "cn", name: "Chinese" },
+        { code: "in", name: "Indian" },
+        { code: "ch", name: "Swiss" },
+        { code: "be", name: "Belgian" },
+        { code: "ca", name: "Canadian" },
+        { code: "br", name: "Portuguese (Brazil)" },
+        { code: "latam", name: "Spanish (Latin America)" }
+    ]
+
+    // A ListModel rather than a plain array: the dropdown below reads .count and
+    // its delegate reads model.code / model.name.
+    ListModel { id: langResults }
+
+    onLangQueryChanged: section.refreshLangResults()
+
+    function refreshLangResults() {
+        langResults.clear();
+        const q = section.langQuery.trim().toLowerCase();
+        if (q === "")
+            return;
+        const already = section.language.split(",").filter(x => x !== "");
+        for (const l of section.knownLayouts) {
+            if (already.includes(l.code))
+                continue;
+            if (l.code.toLowerCase().includes(q) || l.name.toLowerCase().includes(q))
+                langResults.append({ code: l.code, name: l.name });
+        }
+    }
+
     property var toggleOptions: []
     signal languageRemoved(int index)
     signal languageAdded(string code)
@@ -125,7 +194,10 @@ Card {
                     color: Design.text
                     clip: true
                     selectByMouse: true
-                    onTextChanged: section.searchChanged(text)
+                    onTextChanged: {
+                        section.langQuery = text;
+                        section.searchChanged(text);
+                    }
                     onAccepted: section.accepted()
 
                     Text {
@@ -153,7 +225,7 @@ Card {
                     anchors.fill: parent
                     model: section.langSearchModel
                     interactive: true
-                    ScrollBar.vertical: ScrollBar { active: true; policy: ScrollBar.AsNeeded }
+                    ScrollBar.vertical: OverflowBar {}
 
                     delegate: Rectangle {
                         width: parent.width
@@ -330,22 +402,22 @@ Card {
         property string statusMsg: ""
 
         readonly property var allBindings: [
-            { id: "settings", cat: "System", keys: "$mod+shift+s", label: "SUPER + SHIFT + S", desc: "Open Settings App", cmd: "exec qs -p $HOME/.config/quickshell/Main.qml ipc call main toggleSettings" },
-            { id: "control", cat: "System", keys: "$mod+c", label: "SUPER + C", desc: "Toggle Control Center", cmd: "exec qs -p $HOME/.config/quickshell/Main.qml ipc call main toggleControl" },
-            { id: "guide", cat: "System", keys: "$mod+h", label: "SUPER + H", desc: "Toggle User Guide", cmd: "exec qs -p $HOME/.config/quickshell/Main.qml ipc call main toggleGuide" },
-            { id: "wallpaper", cat: "System", keys: "$mod+w", label: "SUPER + W", desc: "Open Wallpaper Gallery", cmd: "exec qs -p $HOME/.config/quickshell/Main.qml ipc call main open settings wallpaper" },
-            { id: "battery", cat: "System", keys: "$mod+b", label: "SUPER + B", desc: "Toggle Battery / Power", cmd: "exec qs -p $HOME/.config/quickshell/Main.qml ipc call main toggleBattery" },
-            { id: "network", cat: "System", keys: "$mod+n", label: "SUPER + N", desc: "Toggle Network Manager", cmd: "exec qs -p $HOME/.config/quickshell/Main.qml ipc call main toggleNetwork" },
-            { id: "monitors", cat: "System", keys: "$mod+m", label: "SUPER + M", desc: "Toggle Displays Manager", cmd: "exec qs -p $HOME/.config/quickshell/Main.qml ipc call main toggleMonitors" },
-            { id: "focustime", cat: "System", keys: "$mod+shift+t", label: "SUPER + SHIFT + T", desc: "Toggle FocusTime Daemon", cmd: "exec qs -p $HOME/.config/quickshell/Main.qml ipc call main toggleFocusTime" },
+            { id: "settings", cat: "System", keys: "$mod+shift+s", label: "SUPER + SHIFT + S", desc: "Open Settings App", cmd: "exec b1air-shell toggle settings" },
+            { id: "control", cat: "System", keys: "$mod+c", label: "SUPER + C", desc: "Toggle Control Center", cmd: "exec b1air-shell toggle control" },
+            { id: "guide", cat: "System", keys: "$mod+h", label: "SUPER + H", desc: "Open About This System", cmd: "exec b1air-shell open settings about" },
+            { id: "wallpaper", cat: "System", keys: "$mod+w", label: "SUPER + W", desc: "Open Wallpaper Gallery", cmd: "exec b1air-shell open settings wallpaper" },
+            { id: "battery", cat: "System", keys: "$mod+b", label: "SUPER + B", desc: "Toggle Battery / Power", cmd: "exec b1air-shell toggle battery" },
+            { id: "network", cat: "System", keys: "$mod+n", label: "SUPER + N", desc: "Toggle Network Manager", cmd: "exec b1air-shell toggle network" },
+            { id: "monitors", cat: "System", keys: "$mod+m", label: "SUPER + M", desc: "Toggle Displays Manager", cmd: "exec b1air-shell toggle monitors" },
+            { id: "focustime", cat: "System", keys: "$mod+shift+t", label: "SUPER + SHIFT + T", desc: "Toggle FocusTime Daemon", cmd: "exec b1air-shell toggle focustime" },
             { id: "terminal", cat: "Apps", keys: "$mod+t", label: "SUPER + T", desc: "Launch Terminal", cmd: "exec $terminal" },
             { id: "menu", cat: "Apps", keys: "$mod+space", label: "SUPER + SPACE", desc: "Application Launcher", cmd: "exec $menu" },
             { id: "files", cat: "Apps", keys: "$mod+e", label: "SUPER + E", desc: "File Manager", cmd: "exec $fileManager" },
             { id: "browser", cat: "Apps", keys: "$mod+f", label: "SUPER + F", desc: "Web Browser (Firefox)", cmd: "exec firefox" },
             { id: "github", cat: "Apps", keys: "$mod+g", label: "SUPER + G", desc: "GitHub Desktop", cmd: "exec github-desktop" },
             { id: "close", cat: "Windows", keys: "$mod+q", label: "SUPER + Q", desc: "Close Focused Window", cmd: "kill" },
-            { id: "floating", cat: "Windows", keys: "$mod+shift+v", label: "SUPER + SHIFT + V", desc: "Toggle Floating Window", cmd: "floating toggle" },
-            { id: "fullscreen", cat: "Windows", keys: "$mod+shift+f", label: "SUPER + SHIFT + F", desc: "Toggle Fullscreen", cmd: "fullscreen toggle" },
+            { id: "floating", cat: "Windows", keys: "$mod+ctrl+space", label: "SUPER + CTRL + SPACE", desc: "Toggle Floating Window", cmd: "floating toggle" },
+            { id: "fullscreen", cat: "Windows", keys: "$mod+shift+f", label: "SUPER + SHIFT + F", desc: "Toggle Fullscreen", cmd: "exec b1air-daemon fullscreen-toggle" },
             { id: "focus_left", cat: "Windows", keys: "$mod+Left", label: "SUPER + Left", desc: "Focus Window Left", cmd: "focus left" },
             { id: "focus_right", cat: "Windows", keys: "$mod+Right", label: "SUPER + Right", desc: "Focus Window Right", cmd: "focus right" },
             { id: "focus_up", cat: "Windows", keys: "$mod+Up", label: "SUPER + Up", desc: "Focus Window Up", cmd: "focus up" },

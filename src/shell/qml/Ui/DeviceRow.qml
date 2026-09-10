@@ -18,7 +18,7 @@ Rectangle {
     property color valueTone: Design.accent
 
     Layout.fillWidth: true
-    Layout.preferredHeight: Design.s(46)
+    Layout.preferredHeight: Design.s(Design.size.rowTall)
 
     radius: Design.s(Design.radius.ctl)
     color: Design.sunken

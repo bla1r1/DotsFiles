@@ -35,6 +35,12 @@ ColumnLayout {
         return section.inRange.some(n => n.ssid === name);
     }
 
+    // Joining a network was only possible from the Control Center popup: this
+    // page listed saved profiles and could toggle, disconnect and forget, but
+    // had no way to connect to anything new — on the page the sidebar calls
+    // "Network & Wi-Fi" and the search sends you to for "wifi".
+    property string askingFor: ""
+
     property bool showEthConfig: false
     property string ethMethod: "auto"
     property string ethIp: Network.ethernet && Network.ethernet.ip ? Network.ethernet.ip : "192.168.1.100"
@@ -281,23 +287,9 @@ ColumnLayout {
             Layout.fillWidth: true
             spacing: Design.s(Design.space.md)
 
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 0
-
-                Label {
-                    text: "Wi-Fi"
-                    weight: Design.weight.semibold
-                }
-
-                Label {
-                    text: Network.wifi.power === "on" ? "Enabled" : "Disabled"
-                    role: "caption"
-                    dim: true
-                }
-            }
-
-            Switch {
+            Toggle {
+                label: "Wi-Fi"
+                subtitle: Network.wifi.power === "on" ? "Enabled" : "Disabled"
                 checked: Network.wifi.power === "on"
                 onToggled: Network.toggleWifi()
             }
@@ -307,12 +299,20 @@ ColumnLayout {
         Rectangle {
             visible: section.connectedWifi !== null && Network.wifi.power === "on"
             Layout.fillWidth: true
+
+            // Same as the Bluetooth adapter box: anchored contents give no
+            // implicit height, so this measured zero and the "Available
+            // networks" heading and the network list were painted over the top
+            // of the connected network and its Disconnect button.
+            Layout.preferredHeight: activeBody.implicitHeight + Design.s(Design.space.md) * 2
+
             radius: Design.s(Design.radius.ctl)
             color: Design.sunken
             border.color: Design.tint(Design.blue, 0.3)
             border.width: 1
 
             ColumnLayout {
+                id: activeBody
                 anchors.fill: parent
                 anchors.margins: Design.s(Design.space.md)
                 spacing: Design.s(Design.space.sm)
@@ -335,6 +335,8 @@ ColumnLayout {
                             text: section.connectedWifi ? section.connectedWifi.ssid : ""
                             weight: Design.weight.semibold
                             color: Design.blue
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
                         }
 
                         Label {
@@ -343,6 +345,8 @@ ColumnLayout {
                                 : ""
                             role: "caption"
                             dim: true
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
                         }
                     }
 
@@ -357,6 +361,103 @@ ColumnLayout {
 
         SectionLabel {
             visible: Network.wifi.power === "on" && Network.savedWifi.length > 0
+            text: "Available networks"
+        }
+
+        Repeater {
+            model: Network.wifi.power === "on" ? section.inRange : []
+
+            ColumnLayout {
+                id: netEntry
+                required property var modelData
+
+                readonly property bool secured: netEntry.modelData.security
+                    && netEntry.modelData.security !== "open"
+                readonly property bool asking: section.askingFor === netEntry.modelData.ssid
+
+                Layout.fillWidth: true
+                spacing: Design.s(Design.space.xs)
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: Design.s(Design.space.sm)
+
+                    Icon {
+                        text: netEntry.modelData.icon || "\u{f0928}"
+                        role: "body"
+                        color: Design.textDim
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 0
+
+                        Label {
+                            text: netEntry.modelData.ssid || "Hidden network"
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
+                        }
+
+                        Label {
+                            // Says why one row joins on a click and another asks
+                            // for a passphrase, the way the mini view does.
+                            text: Network.isBusy(netEntry.modelData.ssid) ? "Connecting…"
+                                : (netEntry.modelData.known ? "Saved"
+                                : (netEntry.secured ? "Password required" : "Open network"))
+                            role: "caption"
+                            dim: true
+                            Layout.fillWidth: true
+                            elide: Text.ElideRight
+                        }
+                    }
+
+                    Icon {
+                        visible: netEntry.secured
+                        text: "\u{f033e}"
+                        role: "caption"
+                        color: Design.textFaint
+                    }
+
+                    Pill {
+                        label: netEntry.asking ? "Cancel" : "Connect"
+                        icon: "\u{f0928}"
+                        activeColor: Design.ok
+                        onClicked: {
+                            if (netEntry.asking) {
+                                section.askingFor = "";
+                                return;
+                            }
+                            if (netEntry.secured && !netEntry.modelData.known) {
+                                section.askingFor = netEntry.modelData.ssid;
+                                return;
+                            }
+                            Network.connectWifi(netEntry.modelData.ssid);
+                        }
+                    }
+                }
+
+                Field {
+                    visible: netEntry.asking
+                    Layout.fillWidth: true
+                    placeholder: "Passphrase for " + (netEntry.modelData.ssid || "")
+                    echoMode: TextInput.Password
+                    onAccepted: psk => {
+                        Network.connectWifi(netEntry.modelData.ssid, psk);
+                        section.askingFor = "";
+                    }
+                }
+            }
+        }
+
+        EmptyState {
+            Layout.fillWidth: true
+            visible: Network.wifi.power === "on" && section.inRange.length === 0
+            icon: "\u{f092e}"
+            title: "No networks in range"
+            hint: "Nothing is broadcasting nearby, or the scan has not finished yet."
+        }
+
+        SectionLabel {
             text: "Saved networks"
         }
 

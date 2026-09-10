@@ -25,10 +25,13 @@ Item {
 
         // ── Personalization & Workspace ───────────────────────────────────────
         { isHeader: true, label: "PERSONALIZATION" },
-        { id: "appearance",  icon: "\u{f0376}", label: "Appearance",       color: Design.mauve,    tags: "theme dark light catppuccin colors font gtk icons cursor style" },
+        { id: "appearance",  icon: "\u{f0376}", label: "Appearance",       color: Design.mauve,    tags: "accent color font gtk icons cursor style blur shadows corners" },
+        { id: "theme",       icon: "\u{f0765}", label: "Themes",           color: Design.mauve,    tags: "theme palette colours colors catppuccin tokyo night import export create custom" },
         { id: "wallpaper",   icon: "\u{f02ca}", label: "Wallpaper",        color: Design.pink,     tags: "background wallpaper pictures desktop image slideshow photos" },
         { id: "bar",         icon: "\u{f07e}",  label: "Native Top Bar", color: Design.blue,     tags: "top bar panel position modules icons style workspaces scale ui dpi" },
-        { id: "windows",     icon: "\u{f0379}", label: "Window & Gaps",    color: Design.sapphire, tags: "gaps border padding tiling sway layout corners blur opacity" },
+        // not "blur"/"corners": those live on Appearance, and listing them here
+        // sent a search for either to a page that has neither.
+        { id: "windows",     icon: "\u{f0379}", label: "Window & Gaps",    color: Design.sapphire, tags: "gaps border padding tiling sway layout inner outer smart borders smart gaps" },
         { id: "nightlight",  icon: "\u{f0599}", label: "Night Light",      color: Design.yellow,   tags: "night light wlsunset blue light temperature schedule eye protect" },
 
         // ── Input & Navigation ────────────────────────────────────────────────
@@ -54,6 +57,10 @@ Item {
         { id: "about",       icon: "\u{f035b}", label: "About System",     color: Design.mauve,    tags: "about system version kernel arch sway quickshell specs hardware cpu ram" }
     ]
 
+    // An empty rail with the previous page still rendered beside it reads as a
+    // broken window, not as "no matches".
+    readonly property bool noResults: app.searchQuery.trim() !== "" && app.filteredPages.length === 0
+
     readonly property var filteredPages: {
         const q = app.searchQuery.trim().toLowerCase();
         if (!q) return app.pages;
@@ -76,6 +83,12 @@ Item {
         if (app.pages.some(p => !p.isHeader && p.id === id))
             app.page = id;
     }
+
+    // All 23 sections live in one ColumnLayout inside one ScrollView and are
+    // toggled with `visible`, so the scroll offset is shared: scrolling to the
+    // bottom of Displays and then opening Weather left you staring at empty
+    // space below a two-line page.
+    onPageChanged: if (pageScroll.contentItem) pageScroll.contentItem.contentY = 0;
 
     // Unlike every other popup this doesn't extend PopupShell (it also has to
     // load inside its own standalone window, which never had one), so it
@@ -199,9 +212,7 @@ Item {
                 model: app.filteredPages
                 clip: true
                 spacing: Design.s(2)
-                ScrollBar.vertical: ScrollBar {
-                    policy: railList.contentHeight > railList.height ? ScrollBar.AlwaysOn : ScrollBar.AsNeeded
-                }
+                ScrollBar.vertical: OverflowBar {}
 
                 delegate: Item {
                     id: railDelegate
@@ -291,13 +302,27 @@ Item {
 
         // ── Page Scroll Container ────────────────────────────────────────────
         // ── Page Scroll Container ────────────────────────────────────────────
+        EmptyState {
+            visible: app.noResults
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            icon: "\u{f002}"
+            title: "No settings match \u201C" + app.searchQuery.trim() + "\u201D"
+            hint: "Try a shorter word, or clear the search to get the full list back."
+        }
+
         ScrollView {
             id: pageScroll
+            visible: !app.noResults
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
             ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-            ScrollBar.vertical.policy: ScrollBar.AsNeeded
+
+            // The rail beside it shows an always-on bar and this pane did not,
+            // so the longer half of the window was the one with no sign that
+            // it scrolled — every page here is taller than the window.
+            ScrollBar.vertical: OverflowBar {}
 
             ColumnLayout {
                 id: pageCol
@@ -317,6 +342,11 @@ Item {
                 Sections.AppearanceSettingsSection {
                     Layout.fillWidth: true
                     visible: app.page === "appearance"
+                }
+
+                Sections.ThemeSettingsSection {
+                    Layout.fillWidth: true
+                    visible: app.page === "theme"
                 }
 
                 Sections.MonitorSettingsSection {
@@ -437,6 +467,7 @@ Item {
                 Sections.AboutSettingsSection {
                     Layout.fillWidth: true
                     visible: app.page === "about"
+                    onNavigate: id => app.open(id)
                 }
 
                 Item { Layout.fillHeight: true }

@@ -7,7 +7,7 @@ import Ui
 
 Window {
     id: window
-    title: "b1air-term"
+    title: "Terminal"
     width: Design.s(840)
     height: Design.s(540)
     minimumWidth: Design.s(450)
@@ -19,7 +19,7 @@ Window {
 
     ListModel {
         id: tabsModel
-    ListElement { tabTitle: "fish"; initialCmd: ""; initialDir: "" }
+        ListElement { tabTitle: "fish"; initialCmd: ""; initialDir: "" }
     }
 
     function createNewTab(cmd, dir) {
@@ -93,7 +93,7 @@ Window {
                                 radius: Design.s(6)
                                 color: window.currentTabIndex === index
                                     ? Qt.rgba(Design.sapphire.r, Design.sapphire.g, Design.sapphire.b, 0.25)
-                                    : (tabArea.containsMouse ? Qt.rgba(1, 1, 1, 0.08) : "transparent")
+                                    : (tabArea.containsMouse ? Design.glassHover : "transparent")
                                 border.color: window.currentTabIndex === index ? Design.sapphire : Design.glassBorder
                                 border.width: 1
 
@@ -119,7 +119,7 @@ Window {
                                         Layout.preferredWidth: Design.s(14)
                                         Layout.preferredHeight: Design.s(14)
                                         radius: Design.s(3)
-                                        color: closeHover.hovered ? Qt.rgba(1, 0, 0, 0.25) : "transparent"
+                                        color: closeHover.hovered ? Design.tint(Design.danger, 0.25) : "transparent"
                                         visible: tabsModel.count > 1
 
                                         Label {
@@ -150,7 +150,7 @@ Window {
                             Layout.preferredWidth: Design.s(22)
                             Layout.preferredHeight: Design.s(22)
                             radius: Design.s(5)
-                            color: addHover.hovered ? Qt.rgba(1, 1, 1, 0.12) : Qt.rgba(1, 1, 1, 0.04)
+                            color: addHover.hovered ? Design.glassHover : Design.tint(Design.text, 0.04)
                             border.color: Design.glassBorder
                             border.width: 1
 
@@ -178,7 +178,7 @@ Window {
                         // Zoom Out
                         Rectangle {
                             width: Design.s(22); height: Design.s(22); radius: Design.s(5)
-                            color: zmOutH.hovered ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                            color: zmOutH.hovered ? Design.glassHover : "transparent"
                             Label { anchors.centerIn: parent; text: "−"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: Design.s(12); color: Design.subtext0 }
                             HoverHandler { id: zmOutH }
                             TapHandler { onTapped: currentTermView().zoomOut() }
@@ -187,19 +187,19 @@ Window {
                         // Zoom In
                         Rectangle {
                             width: Design.s(22); height: Design.s(22); radius: Design.s(5)
-                            color: zmInH.hovered ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                            color: zmInH.hovered ? Design.glassHover : "transparent"
                             Label { anchors.centerIn: parent; text: "+"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: Design.s(12); color: Design.subtext0 }
                             HoverHandler { id: zmInH }
                             TapHandler { onTapped: currentTermView().zoomIn() }
                         }
 
                         // Divider
-                        Rectangle { width: 1; height: Design.s(14); color: Qt.rgba(1, 1, 1, 0.1); anchors.verticalCenter: parent.verticalCenter }
+                        Rectangle { width: 1; height: Design.s(14); color: Design.glassBorder; anchors.verticalCenter: parent.verticalCenter }
 
                         // Copy Selection
                         Rectangle {
                             width: Design.s(22); height: Design.s(22); radius: Design.s(5)
-                            color: cpH.hovered ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                            color: cpH.hovered ? Design.glassHover : "transparent"
                             Label { anchors.centerIn: parent; text: "\u{f0c5}"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: Design.s(11); color: Design.subtext0 }
                             HoverHandler { id: cpH }
                             TapHandler { onTapped: currentTermView().copySelection() }
@@ -208,7 +208,7 @@ Window {
                         // Paste Clipboard
                         Rectangle {
                             width: Design.s(22); height: Design.s(22); radius: Design.s(5)
-                            color: pstH.hovered ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                            color: pstH.hovered ? Design.glassHover : "transparent"
                             Label { anchors.centerIn: parent; text: "\u{f0ea}"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: Design.s(11); color: Design.subtext0 }
                             HoverHandler { id: pstH }
                             TapHandler { onTapped: currentTermView().pasteClipboard() }
@@ -217,7 +217,7 @@ Window {
                         // Clear
                         Rectangle {
                             width: Design.s(22); height: Design.s(22); radius: Design.s(5)
-                            color: clrH.hovered ? Qt.rgba(1, 1, 1, 0.08) : "transparent"
+                            color: clrH.hovered ? Design.glassHover : "transparent"
                             Label { anchors.centerIn: parent; text: "\u{f1f8}"; font.family: "JetBrainsMono Nerd Font"; font.pixelSize: Design.s(11); color: Design.subtext0 }
                             HoverHandler { id: clrH }
                             TapHandler { onTapped: currentTermView().clear() }

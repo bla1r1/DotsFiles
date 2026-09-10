@@ -23,7 +23,7 @@
 b1air is a unified desktop setup for Arch Linux designed around keyboard efficiency, low latency, and a consistent dark theme across all applications.
 
 Key components:
-* **Compositor**: SwayFX with hardware-accelerated rounded corners, soft shadows, and selective blur. The entire environment uses the Tokyo Night color palette (`#1a1b26`), from the login screen to the terminal and system popups.
+* **Compositor**: SwayFX with hardware-accelerated rounded corners, soft shadows, and selective blur. Window chrome, the greeter and the Qt/Kvantum application theme use Tokyo Night (`#1a1b26`); the Qt6/QML shell and the native apps share one design system built on a Catppuccin Mocha palette (`Ui/Design.qml`).
 * **Core Daemon (`b1air-daemon`)**: A single compiled C++20 binary that manages window autotiling, focus tracking (SQLite3), audio and microphone controls (PipeWire via `wpctl`), PAM user profiles, and power management without shell script overhead.
 * **Desktop Shell**: Lightweight Qt6/QML overlays providing an application launcher, clipboard history, control center, emoji picker, and a visual Alt+Tab window switcher.
 * **Remote Access**: Built-in headless WayVNC support and unattended screencasting configuration for AnyDesk, RustDesk, and OBS with persistent uinput permissions.
@@ -37,7 +37,7 @@ Fuzzy application search, clipboard history, and inline math calculations in a s
 
 ### Settings & Control Center (`Super + I` / `Super + C`)
 Graphical desktop configuration:
-* Wallpaper selection with live color palette generation.
+* Wallpaper selection with a live preview grid. (Deriving the shell accent from the wallpaper is not implemented — `Design._applyPalette()` is the seam it will plug into, and nothing calls it yet.)
 * Audio sink selector and per-stream volume controls.
 * Focus time and screen usage analytics stored in SQLite.
 * Toggles for Night Light, Game Mode (disables blur and pins performance governor), and Remote Desktop.
@@ -90,10 +90,11 @@ For an interactive menu:
 
 | Shortcut | Action | Target |
 | :--- | :--- | :--- |
-| `Super + Return` | Open Terminal | b1air-term |
-| `Super + Space` | Application Launcher | Spotlight |
-| `Super + E` | File Manager | Thunar |
-| `Super + I` | Settings Hub | Settings App |
+| `Super + T` | Open Terminal | b1air-term |
+| `Super + Space` | Application Grid | Launchpad |
+| `Super + K` / `Super + /` | Application Launcher | Spotlight |
+| `Super + E` | File Manager | b1air-files |
+| `Super + Shift + S` | Settings Hub | Settings App |
 | `Super + C` | Control Center | Quick Toggles |
 | `Super + V` | Clipboard History | Clipboard Manager |
 | `Super + .` | Emoji Picker | Emoji Popup |
@@ -102,7 +103,7 @@ For an interactive menu:
 | `Super + Shift + T` | Screen Time Analytics | FocusTime |
 | `Super + Shift + G` | Toggle Game Mode | b1air-daemon |
 | `Super + Q` | Close Window | Sway |
-| `Super + Shift + Space` | Toggle Floating | Sway |
+| `Super + Ctrl + Space` | Toggle Floating | Sway |
 | `Super + -` / `Super + Shift + -` | Minimize / Restore Window | b1air-daemon |
 | `Print` | Region Screenshot | grim + slurp |
 | `Super + Print` | Full Screen Screenshot | b1air-daemon |
@@ -147,11 +148,10 @@ b1air-daemon game-mode toggle      # Switch between power-save and low-latency m
 
 ```text
 DotsFiles/
-├── .config/                   # User configurations (SwayFX, Waybar, b1air-term, Fish, Kvantum)
+├── .config/                   # User configurations (SwayFX, b1air-term, Fish, Kvantum)
 │   ├── fish/                  # Fish shell with Tokyo Night theme
 │   ├── sway/                  # SwayFX compositor keybinds, rules, look & feel
 │   ├── systemd/               # Systemd user services for b1air session
-│   ├── waybar/                # Top status bar modules and CSS styling
 │   └── xdg-desktop-portal-wlr # Unattended screencast configuration
 ├── src/                       # Compiled C++20 desktop suite & Qt6 shell
 │   ├── main.cpp               # b1air-daemon CLI dispatcher

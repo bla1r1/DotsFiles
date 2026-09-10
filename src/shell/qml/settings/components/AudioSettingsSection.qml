@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import "../../Ui"
 import "../../Services"
+import B1air.Daemon
 
 // =============================================================================
 // Audio — the parts that did not fit on the Control Center's Sound page.
@@ -205,6 +206,50 @@ ColumnLayout {
                 tone: Design.teal
                 selectable: true
                 isDevice: true
+            }
+        }
+
+        // The Control Center's Sound page has had this since it was written and
+        // the full page never did — the same way brightness lived only in the
+        // battery popup. This file's own header says it holds "the parts that
+        // did not fit" in the mini view, so the popup being strictly more
+        // capable is backwards.
+        RowLayout {
+            visible: Audio.inputs.count > 0
+            Layout.fillWidth: true
+            Layout.topMargin: Design.s(Design.space.sm)
+            spacing: Design.s(Design.space.sm)
+
+            Icon {
+                text: "\u{f05a9}"
+                role: "caption"
+                color: Design.teal
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 0
+
+                Label {
+                    text: "AI noise suppression (RNNoise)"
+                    weight: Design.weight.semibold
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
+                }
+
+                Label {
+                    text: "Filters keyboard clatter and room noise out of the microphone"
+                    role: "caption"
+                    dim: true
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
+                }
+            }
+
+            ActionButton {
+                icon: "\u{f021}"
+                label: "Toggle Filter"
+                onActivated: Daemon.micRnnoiseToggle()
             }
         }
 

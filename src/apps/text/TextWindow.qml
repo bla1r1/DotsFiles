@@ -6,7 +6,7 @@ import Ui
 
 Window {
     id: window
-    title: (TextBackend.isModified ? "● " : "") + TextBackend.fileName + " — b1air-text"
+    title: (TextBackend.isModified ? "● " : "") + "Text Editor — " + TextBackend.fileName
     width: Design.s(900)
     height: Design.s(620)
     minimumWidth: Design.s(680)
@@ -14,6 +14,10 @@ Window {
     visible: true
     color: "transparent"
 
+    // This copy — the one main.cpp actually loads — quit outright, so closing
+    // b1air-text with unsaved changes threw them away without a word. The
+    // confirmation below already existed in src/apps/text/TextWindow.qml, a
+    // copy nothing loads, so the protection was written and then never shipped.
     onClosing: function(close) {
         if (TextBackend.isModified) {
             close.accepted = false;
@@ -24,10 +28,10 @@ Window {
         }
     }
 
+    property bool closeAfterSave: false
     property bool wordWrapEnabled: false
     property int currentLine: 1
     property int currentCol: 1
-    property bool closeAfterSave: false
 
     function newFileWithConfirmation() {
         window.closeAfterSave = false;
@@ -228,7 +232,7 @@ Window {
                     Layout.fillHeight: true
                     clip: true
 
-                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                    ScrollBar.vertical: OverflowBar {}
                     ScrollBar.horizontal: ScrollBar { policy: window.wordWrapEnabled ? ScrollBar.AlwaysOff : ScrollBar.AsNeeded }
 
                     TextArea.flickable: TextArea {
@@ -327,13 +331,13 @@ Window {
             }
         }
     }
-
-    }
+}
 
     Dialog {
         id: unsavedDialog
         title: "Unsaved changes"
         modal: true
+        anchors.centerIn: parent
         standardButtons: Dialog.Cancel | Dialog.Discard | Dialog.Save
         onAccepted: {
             TextBackend.saveFile();
@@ -344,6 +348,21 @@ Window {
             if (window.closeAfterSave) Qt.quit();
             else TextBackend.newFile();
         }
-        contentItem: Label { text: "Save changes before starting a new file or closing the editor?"; padding: 18; wrapMode: Text.WordWrap }
+        // Same shape as b1air-notes' delete dialog: a wrapping label and the
+        // Dialog would each size from the other, and Text.implicitWidth is
+        // read-only, so the explicit size lives on a wrapping Item.
+        contentItem: Item {
+            implicitWidth: Design.s(340)
+            implicitHeight: saveMsg.implicitHeight + Design.s(36)
+
+            Label {
+                id: saveMsg
+                anchors.fill: parent
+                anchors.margins: Design.s(18)
+                text: "Save changes before starting a new file or closing the editor?"
+                wrapMode: Text.WordWrap
+            }
+        }
     }
+
 }

@@ -3,14 +3,20 @@ import QtQuick.Layouts
 import Quickshell
 import "../../Ui"
 import "../../Services"
+import "../../Services" as Services
 
 // =============================================================================
 // Appearance & Window Tweaks
 //
 // Allows live customization of:
 // 1. Accent colors and theme palettes
-// 2. Window inner and outer gaps with instant compositor feedback
-// 3. Window borders, corner radius, blur, shadows, and dimming
+// 2. Corner radius, blur, shadows, and inactive-window dimming
+//
+// Gaps and border width are NOT here. They used to be, in a card duplicated
+// from Window & Gaps that wrote innerGaps/outerGaps while the compositor and
+// the other page read gapsInner/gapsOuter — two pages, two key names, two
+// different values on screen, and only one of them doing anything. One
+// setting belongs to one page.
 // =============================================================================
 
 ColumnLayout {
@@ -19,52 +25,30 @@ ColumnLayout {
     Layout.fillWidth: true
     spacing: Design.s(Design.space.lg)
 
-    property int innerGaps: Settings.innerGaps !== undefined ? Settings.innerGaps : 5
-    property int outerGaps: Settings.outerGaps !== undefined ? Settings.outerGaps : 20
-    property int borderWidth: Settings.borderWidth !== undefined ? Settings.borderWidth : 2
-    property int cornerRadius: Settings.cornerRadius !== undefined ? Settings.cornerRadius : 10
-    property bool blurEnabled: Settings.blurEnabled !== undefined ? Settings.blurEnabled : true
-    property bool shadowsEnabled: Settings.shadowsEnabled !== undefined ? Settings.shadowsEnabled : true
-    property bool dimInactive: Settings.dimInactive !== undefined ? Settings.dimInactive : true
+    readonly property int cornerRadius: Settings.cornerRadius
+    readonly property bool blurEnabled: Settings.blurEnabled
+    readonly property bool shadowsEnabled: Settings.shadowsEnabled
+    readonly property bool dimInactive: Settings.dimInactive
 
-    function setInnerGaps(val) {
-        section.innerGaps = val;
-        Settings.set("innerGaps", val);
-        Quickshell.execDetached(["swaymsg", "gaps", "inner", "current", "set", String(val)]);
-    }
 
-    function setOuterGaps(val) {
-        section.outerGaps = val;
-        Settings.set("outerGaps", val);
-        Quickshell.execDetached(["swaymsg", "gaps", "outer", "current", "set", String(val)]);
-    }
 
-    function setBorderWidth(val) {
-        section.borderWidth = val;
-        Settings.set("borderWidth", val);
-        Quickshell.execDetached(["swaymsg", "default_border", "pixel", String(val)]);
-    }
 
     function setCornerRadius(val) {
-        section.cornerRadius = val;
         Settings.set("cornerRadius", val);
         Quickshell.execDetached(["swaymsg", "corner_radius", String(val)]);
     }
 
     function toggleBlur(enabled) {
-        section.blurEnabled = enabled;
         Settings.set("blurEnabled", enabled);
         Quickshell.execDetached(["swaymsg", "blur", enabled ? "enable" : "disable"]);
     }
 
     function toggleShadows(enabled) {
-        section.shadowsEnabled = enabled;
         Settings.set("shadowsEnabled", enabled);
         Quickshell.execDetached(["swaymsg", "shadows", enabled ? "enable" : "disable"]);
     }
 
     function toggleDimInactive(enabled) {
-        section.dimInactive = enabled;
         Settings.set("dimInactive", enabled);
         Quickshell.execDetached(["swaymsg", "default_dim_inactive", enabled ? "0.20" : "0.0"]);
     }
@@ -87,16 +71,20 @@ ColumnLayout {
                 spacing: Design.s(Design.space.sm)
 
                 Repeater {
+                    // Each swatch previews the palette role the name selects,
+                    // rather than a copy of that role's current hex. The copies
+                    // happened to match today, so a palette edit would have
+                    // shown one colour in the picker and applied another.
                     model: [
-                        { name: "Sapphire", color: "#74c7ec" },
-                        { name: "Mauve", color: "#cba6f7" },
-                        { name: "Teal", color: "#94e2d5" },
-                        { name: "Peach", color: "#fab387" },
-                        { name: "Pink", color: "#f5c2e7" },
-                        { name: "Green", color: "#a6e3a1" },
-                        { name: "Lavender", color: "#b4befe" },
-                        { name: "Yellow", color: "#f9e2af" },
-                        { name: "Red", color: "#f38ba8" }
+                        { name: "Sapphire", color: Design.sapphire },
+                        { name: "Mauve",    color: Design.mauve },
+                        { name: "Teal",     color: Design.teal },
+                        { name: "Peach",    color: Design.peach },
+                        { name: "Pink",     color: Design.pink },
+                        { name: "Green",    color: Design.green },
+                        { name: "Lavender", color: Design.lavender },
+                        { name: "Yellow",   color: Design.yellow },
+                        { name: "Red",      color: Design.red }
                     ]
 
                     Rectangle {
@@ -130,37 +118,11 @@ ColumnLayout {
         }
     }
 
-    // ── 2. Window Gaps ───────────────────────────────────────────────────────
+
+    // ── 2. Compositor Effects ────────────────────────────────────────────────
     Card {
-        title: "Window Spacing (Gaps)"
-        subtitle: "Adjust inner and outer spacing between tiled windows"
-        icon: "\u{f002b}"
-        accentColor: Design.sapphire
-
-        ColumnLayout {
-            Layout.fillWidth: true
-            spacing: Design.s(Design.space.sm)
-
-            Stepper {
-                label: "Inner Gaps (Between Windows)"
-                valueText: section.innerGaps + " px"
-                onDecrement: section.setInnerGaps(Math.max(0, section.innerGaps - 1))
-                onIncrement: section.setInnerGaps(Math.min(30, section.innerGaps + 1))
-            }
-
-            Stepper {
-                label: "Outer Gaps (Screen Edge)"
-                valueText: section.outerGaps + " px"
-                onDecrement: section.setOuterGaps(Math.max(0, section.outerGaps - 2))
-                onIncrement: section.setOuterGaps(Math.min(40, section.outerGaps + 2))
-            }
-        }
-    }
-
-    // ── 3. Borders & Effects ─────────────────────────────────────────────────
-    Card {
-        title: "Borders & Compositor Effects"
-        subtitle: "Window borders, corner rounding, blur, and inactive window dimming"
+        title: "Compositor Effects"
+        subtitle: "Corner rounding, blur, shadows, and inactive window dimming"
         icon: "\u{f02db}"
         accentColor: Design.teal
 
@@ -168,12 +130,6 @@ ColumnLayout {
             Layout.fillWidth: true
             spacing: Design.s(Design.space.md)
 
-            Stepper {
-                label: "Window Border Width"
-                valueText: section.borderWidth + " px"
-                onDecrement: section.setBorderWidth(Math.max(0, section.borderWidth - 1))
-                onIncrement: section.setBorderWidth(Math.min(8, section.borderWidth + 1))
-            }
 
             Stepper {
                 label: "Corner Radius (SwayFX)"
@@ -182,58 +138,31 @@ ColumnLayout {
                 onIncrement: section.setCornerRadius(Math.min(24, section.cornerRadius + 2))
             }
 
-            // Blur Toggle
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Design.s(Design.space.md)
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 0
-                    Label { text: "Window Blur"; weight: Design.weight.semibold }
-                    Label { text: section.blurEnabled ? "Enabled" : "Disabled"; role: "caption"; dim: true }
-                }
-
-                Switch {
-                    checked: section.blurEnabled
-                    onToggled: section.toggleBlur(checked)
-                }
+            // Ui/Toggle, not a hand-built row around a bare Ui/Switch. Ten other
+            // settings pages use the shared row; these three built their own and
+            // came out visibly different — a smaller switch sitting right against
+            // the label instead of at the end of the row, so the same control
+            // looked like two different controls depending on which page you
+            // were on.
+            Toggle {
+                label: "Window Blur"
+                subtitle: section.blurEnabled ? "Enabled" : "Disabled"
+                checked: section.blurEnabled
+                onToggled: section.toggleBlur(!section.blurEnabled)
             }
 
-            // Shadows Toggle
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Design.s(Design.space.md)
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 0
-                    Label { text: "Window Shadows"; weight: Design.weight.semibold }
-                    Label { text: section.shadowsEnabled ? "Enabled" : "Disabled"; role: "caption"; dim: true }
-                }
-
-                Switch {
-                    checked: section.shadowsEnabled
-                    onToggled: section.toggleShadows(checked)
-                }
+            Toggle {
+                label: "Window Shadows"
+                subtitle: section.shadowsEnabled ? "Enabled" : "Disabled"
+                checked: section.shadowsEnabled
+                onToggled: section.toggleShadows(!section.shadowsEnabled)
             }
 
-            // Dim Inactive Windows Toggle
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Design.s(Design.space.md)
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 0
-                    Label { text: "Dim Inactive Windows"; weight: Design.weight.semibold }
-                    Label { text: section.dimInactive ? "Enabled (20% dimming)" : "Disabled"; role: "caption"; dim: true }
-                }
-
-                Switch {
-                    checked: section.dimInactive
-                    onToggled: section.toggleDimInactive(checked)
-                }
+            Toggle {
+                label: "Dim Inactive Windows"
+                subtitle: section.dimInactive ? "Enabled (20% dimming)" : "Disabled"
+                checked: section.dimInactive
+                onToggled: section.toggleDimInactive(!section.dimInactive)
             }
         }
     }

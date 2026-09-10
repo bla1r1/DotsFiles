@@ -1,6 +1,7 @@
 pragma Singleton
 
 import QtQuick
+import QtCore
 import "../WindowRegistry.js" as LayoutMath
 
 // =============================================================================
@@ -39,6 +40,11 @@ QtObject {
     }
 
     component RadiusScale: QtObject {
+        // b1air-monitor and b1air-text (and their two copies under shell/qml)
+        // already referenced Design.radius.sm, which was never declared here:
+        // Design.s(undefined) is NaN, so those four elements were drawn with
+        // radius NaN instead of a small rounded corner.
+        readonly property int sm: 6       // chips, inline badges, inner boxes
         readonly property int ctl: 10     // buttons, fields, list rows, sliders
         readonly property int card: 14    // cards, quick-tiles
         readonly property int panel: 20   // popup panels, main windows
@@ -46,6 +52,7 @@ QtObject {
     }
 
     component SpaceScale: QtObject {
+        readonly property int xxs: 2      // hairline gap inside a chip or stacked labels
         readonly property int xs: 4
         readonly property int sm: 8
         readonly property int md: 12
@@ -58,7 +65,13 @@ QtObject {
     // control was Design.s(34), s(36) and s(38) in three files, so nothing in a
     // row lined up with anything else in it.
     component SizeScale: QtObject {
+        readonly property int header: 36    // brand / title row at the top of a panel
         readonly property int iconBtn: 28   // round header / media button
+        // Inline controls that stack inside one Card. They were written as
+        // Design.s(32) in Field and Pill and Design.s(30) in Stepper, so a
+        // card mixing a field, a stepper and a pill had three row heights
+        // that did not line up — the exact drift this scale exists to stop.
+        readonly property int field: 32     // text field, stepper, pill
         readonly property int knob: 36      // circular toggle inside a tile
         readonly property int row: 38       // one-line list row, square button
         readonly property int ctl: 38       // slider, field, capsule control
@@ -130,7 +143,39 @@ QtObject {
     readonly property color line: _p.outlineVariant
 
     // ── Primary Accent ───────────────────────────────────────────────────────
-    readonly property color accent: _p.primary
+    // Which named palette colour acts as the accent.
+    //
+    // The Appearance page has offered a nine-swatch accent picker since it was
+    // written, and picking a swatch changed nothing on screen: `accent` was
+    // pinned to _p.primary, and the only thing that ever reassigned _p was
+    // _applyPalette(), which nothing calls. 156 bindings across the shell read
+    // Design.accent, so the picker looked like the most powerful control in
+    // Settings while being the one that did the least.
+    //
+    // Ui deliberately does not import Services to read this itself: the
+    // standalone apps (b1air-monitor, -text, -term) load Ui into a plain
+    // QQmlApplicationEngine with no Quickshell runtime, and Services/Settings
+    // needs Quickshell.Io. The shell assigns it instead.
+    // Empty means "whatever the theme calls primary". A named colour picks
+    // that role out of the *current* palette, so choosing Green under a
+    // Solarized theme gives Solarized's green, not Catppuccin's.
+    property string accentName: ""
+
+    readonly property color accent: {
+        switch ((root.accentName || "").toLowerCase()) {
+        case "sapphire":  return _p.sapphire;
+        case "mauve":     return _p.mauve;
+        case "teal":      return _p.teal;
+        case "peach":     return _p.peach;
+        case "pink":      return _p.pink;
+        case "green":     return _p.green;
+        case "lavender":  return _p.lavender;
+        case "yellow":    return _p.yellow;
+        case "red":       return _p.red;
+        case "blue":      return _p.blue;
+        default:          return _p.primary;
+        }
+    }
     readonly property color accentText: _p.primaryText
     readonly property color accentSoft: _p.primaryBox
     readonly property color accentAlt: _p.tertiary
@@ -190,6 +235,10 @@ QtObject {
     readonly property color glassCard: tint(raised, 0.65)
     readonly property color glassTile: tint(raised, 0.55)
     readonly property color glassBorder: tint(text, 0.12)
+    // Hover/active variant. ClipboardPopup has referenced this since it was
+    // written; undeclared, it evaluated to an invalid colour, so hovering a
+    // clipboard card swapped its border for black instead of brightening it.
+    readonly property color glassBorderStrong: tint(text, 0.22)
     readonly property color glassHover: tint(text, 0.08)
     readonly property color glassActive: tint(accent, 0.20)
 
@@ -219,9 +268,21 @@ QtObject {
     readonly property bool loaded: _p.loaded
 
     function reload() {
-        paletteReader.running = false;
-        paletteReader.running = true;
+        root.resetPalette();
     }
+
+    // The palette a theme overwrites. Kept as a plain object so applyPalette()
+    // can put every role back without re-reading the file that changed them.
+    readonly property var builtinPalette: ({
+        ground: "#1e1e2e", lowest: "#11111b", low: "#181825",
+        mid: "#313244", high: "#45475a", highest: "#585b70",
+        text: "#cdd6f4", textDim: "#a6adc8", outline: "#6c7086", outlineVariant: "#45475a",
+        primary: "#89b4fa", primaryText: "#11111b", primaryBox: "#45475a", tertiary: "#cba6f7",
+        error: "#f38ba8", errorText: "#11111b",
+        blue: "#89b4fa", sapphire: "#74c7ec", mauve: "#cba6f7", pink: "#f5c2e7",
+        peach: "#fab387", yellow: "#f9e2af", green: "#a6e3a1", teal: "#94e2d5",
+        red: "#f38ba8", maroon: "#eba0ac", lavender: "#b4befe"
+    })
 
     property QtObject _p: QtObject {
         property bool loaded: false
@@ -259,53 +320,110 @@ QtObject {
         property color lavender: "#b4befe"
     }
 
-    function _applyPalette(txt) {
-        const c = _parse(txt);
-        if (!c)
-            return;
-
-        const set = (key, ...names) => {
-            for (const n of names) {
-                if (c[n]) {
-                    root._p[key] = c[n];
-                    return;
-                }
-            }
+    /**
+     * Apply a palette.
+     *
+     * `obj` maps role names to colours; any role it omits keeps the built-in
+     * value, so a theme can restyle only the accents and leave the surfaces
+     * alone. Roles are the keys of builtinPalette above, plus the aliases the
+     * Catppuccin naming uses (crust/base/mantle/surface0…), so a palette
+     * exported from either vocabulary loads.
+     *
+     * This replaces _applyPalette(txt), which called a _parse() that does not
+     * exist anywhere in the project — it would have thrown on the first call.
+     */
+    function applyPalette(obj) {
+        const src = obj || {};
+        const pick = (...names) => {
+            for (const n of names)
+                if (src[n]) return src[n];
+            return undefined;
         };
 
+        const bp = root.builtinPalette;
+        const set = (key, ...names) => {
+            const v = pick(...names);
+            root._p[key] = (v !== undefined) ? v : bp[key];
+        };
+
+        // The canonical role name comes first in every lookup. It used to be
+        // missing from most of these — set("lowest", "sunken", "base") never
+        // looked for "lowest" — so a theme written in role names got only the
+        // few roles whose alias happened to match, and exporting it produced a
+        // file that was half one palette and half the other.
         set("ground", "ground", "crust");
-        set("lowest", "sunken", "base");
-        set("low", "surface", "mantle");
-        set("mid", "raised", "surface0");
-        set("high", "hover", "surface1");
-        set("highest", "active", "surface2");
+        set("lowest", "lowest", "sunken", "base");
+        set("low", "low", "surface", "mantle");
+        set("mid", "mid", "raised", "surface0");
+        set("high", "high", "hover", "surface1");
+        set("highest", "highest", "active", "surface2");
 
         set("text", "text");
         set("textDim", "textDim", "subtext0");
-        set("outline", "textFaint", "overlay0");
-        set("outlineVariant", "line", "surface1");
+        set("outline", "outline", "textFaint", "overlay0");
+        set("outlineVariant", "outlineVariant", "line", "surface1");
 
-        set("primary", "accent", "blue");
-        set("primaryText", "accentText", "onAccent");
-        set("primaryBox", "accentSoft", "sapphire");
-        set("tertiary", "accentAlt", "mauve");
+        set("primary", "primary", "accent", "blue");
+        set("primaryText", "primaryText", "accentText", "onAccent");
+        set("primaryBox", "primaryBox", "accentSoft", "sapphire");
+        set("tertiary", "tertiary", "accentAlt", "mauve");
 
-        set("error", "danger", "red");
-        set("errorText", "dangerText", "onDanger");
+        set("error", "error", "danger", "red");
+        set("errorText", "errorText", "dangerText", "onDanger");
 
-        set("blue", "blue");
-        set("sapphire", "sapphire");
-        set("mauve", "mauve");
-        set("pink", "pink");
-        set("peach", "peach");
-        set("yellow", "yellow");
-        set("green", "green");
-        set("teal", "teal");
-        set("red", "red");
-        set("maroon", "maroon");
-        set("lavender", "lavender");
+        for (const n of ["blue", "sapphire", "mauve", "pink", "peach", "yellow",
+                         "green", "teal", "red", "maroon", "lavender"])
+            set(n, n);
 
         root._p.loaded = true;
+    }
+
+    // ── Loading the active theme ─────────────────────────────────────────────
+    //
+    // Services/Theme writes the resolved palette to ~/.config/b1air/theme.json
+    // whenever a theme is picked. Design reads it directly rather than going
+    // through that service, because Design is loaded by every app in the suite
+    // — b1air-monitor, -text, -term and the rest run in a plain
+    // QQmlApplicationEngine with no Quickshell runtime, so anything reaching
+    // for Quickshell.Io here would break them. StandardPaths and
+    // XMLHttpRequest are plain Qt, which is what makes one theme apply across
+    // the whole desktop instead of only inside the shell.
+    readonly property string activeThemePath:
+        StandardPaths.writableLocation(StandardPaths.HomeLocation)
+        + "/.config/b1air/theme.json"
+
+    function loadActiveTheme() {
+        const xhr = new XMLHttpRequest();
+        try {
+            // Startup-time and tiny, so synchronous: the alternative is a
+            // frame or two rendered in the wrong palette.
+            xhr.open("GET", root.activeThemePath, false);
+            xhr.send();
+            if ((xhr.status === 0 || xhr.status === 200)
+                    && xhr.responseText && xhr.responseText.trim() !== "") {
+                root.applyPalette(JSON.parse(xhr.responseText));
+                return true;
+            }
+        } catch (e) {
+            // No theme picked yet, or the file is unreadable. The built-in
+            // palette is already in place, so there is nothing to repair.
+        }
+        return false;
+    }
+
+    Component.onCompleted: root.loadActiveTheme()
+
+    /** Back to the palette compiled into this file. */
+    function resetPalette() {
+        root.applyPalette(root.builtinPalette);
+    }
+
+    /** The live palette, in the shape applyPalette() accepts — for export. */
+    function exportPalette() {
+        const out = {};
+        for (const k in root.builtinPalette)
+            out[k] = String(root._p[k]);
+        return out;
     }
 
     // Legacy aliases

@@ -11,3 +11,11 @@ include ~/.config/sway/conf.d/look-and-feel.conf
 include ~/.config/sway/conf.d/input.conf
 include ~/.config/sway/conf.d/keybinds.conf
 include ~/.config/sway/conf.d/windowrules.conf
+
+# Rebindings written by Settings → Keyboard land in custom_keybinds.conf. That
+# file was never included here, so the "Rebind" button appended a line, ran
+# swaymsg reload, reported "Keybind updated & Sway reloaded!" and changed
+# nothing at all. Included last so a custom binding wins over the default for
+# the same key. A glob rather than a literal path: it matches nothing quietly
+# when no rebinding has been made yet.
+include ~/.config/sway/conf.d/custom_*.conf

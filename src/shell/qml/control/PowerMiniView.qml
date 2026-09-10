@@ -94,6 +94,36 @@ MiniView {
             }
         }
 
+        // ── Per-pack breakdown ───────────────────────────────────────────────
+        // The card above is UPower's composite device, which merges every pack
+        // into one number. On a two-battery machine that is the whole story
+        // hidden: this popup said "99%" while BAT1 was still charging at 73%.
+        // Settings → Power already broke it out per pack; the popup people
+        // actually open did not, so it is the same rows here.
+        SectionLabel {
+            visible: Power.hasMultipleBatteries
+            text: "Installed packs"
+            Layout.topMargin: Design.s(Design.space.xs)
+        }
+
+        Repeater {
+            model: Power.hasMultipleBatteries ? Power.batteries : []
+
+            DeviceRow {
+                required property var modelData
+
+                Layout.fillWidth: true
+                title: Power.labelOf(modelData) + (modelData.model ? " · " + modelData.model : "")
+                subtitle: Power.stateTextOf(modelData)
+                    + (Power.healthOf(modelData) > 0
+                        ? " • health " + Power.healthOf(modelData) + "%"
+                        : "")
+                value: Power.percentOf(modelData) + "%"
+                valueTone: Power.percentOf(modelData) <= 20 ? Design.danger
+                    : (Power.healthOf(modelData) > 0 && Power.healthOf(modelData) < 70 ? Design.warn : Design.ok)
+            }
+        }
+
         // ── Screen brightness ────────────────────────────────────────────────
         SectionLabel {
             text: "Display"

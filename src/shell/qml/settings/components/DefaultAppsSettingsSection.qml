@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Io
 import "../../Ui"
 import "../../Services"
+import "../../Services" as Services
 
 // =============================================================================
 // Default Applications Settings (Dynamic Desktop App Discovery)
@@ -57,44 +58,74 @@ ColumnLayout {
         }
     }
 
-    Process {
-        id: appScanner
-        running: true
-        command: ["b1air-daemon", "apps", "all"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    let items = JSON.parse(this.text);
-                    section.browserList.clear();
-                    section.terminalList.clear();
-                    section.fileManagerList.clear();
-                    section.editorList.clear();
-                    section.playerList.clear();
+    // ── Classification ───────────────────────────────────────────────────────
+    //
+    // The scan itself is shared with the launchers through Services/Apps; this
+    // page used to spawn its own `b1air-daemon apps all` on top of theirs.
+    //
+    // Two things were wrong with the matching it did. It searched the whole
+    // Exec line for a substring, so anything whose command happened to contain
+    // "code" — qrencode, for one — was offered as a code editor. And the lists
+    // knew about b1air-term but not about b1air-files or b1air-text, so the
+    // desktop's own file manager and editor could not be chosen as the default
+    // for the very categories they exist to fill, even though the settings
+    // themselves default to them.
+    //
+    // Now the match is against the command's binary name, and our apps are in
+    // the lists. b1air-view is deliberately not among the players: it is an
+    // image viewer, and this row is the handler for video/mp4.
 
-                    for (let app of items) {
-                        let e = (app.exec || "").toLowerCase();
-                        let n = (app.name || "").toLowerCase();
-                        let f = (app.desktopFile || "").toLowerCase();
+    readonly property var browsers: ["firefox", "chrome", "google-chrome", "chromium",
+        "brave", "brave-browser", "zen", "zen-browser", "vivaldi", "librewolf",
+        "floorp", "qutebrowser", "epiphany"]
+    readonly property var terminals: ["b1air-term", "foot", "alacritty", "ghostty",
+        "wezterm", "konsole", "xterm", "kitty", "gnome-terminal"]
+    readonly property var fileManagers: ["b1air-files", "thunar", "nautilus", "dolphin",
+        "nemo", "pcmanfm", "pcmanfm-qt", "yazi", "ranger"]
+    readonly property var editors: ["b1air-text", "code", "codium", "vscodium", "cursor",
+        "nvim", "vim", "gvim", "zed", "kate", "gedit", "micro", "subl", "sublime_text"]
+    readonly property var players: ["mpv", "vlc", "spotify", "celluloid", "audacious",
+        "totem", "haruna"]
 
-                        if (e.includes("firefox") || e.includes("chrome") || e.includes("chromium") || e.includes("brave") || e.includes("zen") || e.includes("vivaldi") || e.includes("librewolf") || e.includes("floorp") || e.includes("qutebrowser")) {
-                            section.browserList.append({ name: app.name, exec: app.exec, desktopFile: app.desktopFile, icon: app.icon });
-                        }
-                        if (e.includes("b1air-term") || e.includes("foot") || e.includes("alacritty") || e.includes("ghostty") || e.includes("wezterm") || e.includes("konsole") || e.includes("xterm")) {
-                            section.terminalList.append({ name: app.name, exec: app.exec, desktopFile: app.desktopFile, icon: app.icon });
-                        }
-                        if (e.includes("thunar") || e.includes("nautilus") || e.includes("dolphin") || e.includes("nemo") || e.includes("pcmanfm") || e.includes("yazi") || e.includes("ranger")) {
-                            section.fileManagerList.append({ name: app.name, exec: app.exec, desktopFile: app.desktopFile, icon: app.icon });
-                        }
-                        if (e.includes("code") || e.includes("cursor") || e.includes("nvim") || e.includes("vim") || e.includes("zed") || e.includes("kate") || e.includes("gedit") || e.includes("micro") || e.includes("sublime")) {
-                            section.editorList.append({ name: app.name, exec: app.exec, desktopFile: app.desktopFile, icon: app.icon });
-                        }
-                        if (e.includes("mpv") || e.includes("vlc") || e.includes("spotify") || e.includes("celluloid") || e.includes("audacious")) {
-                            section.playerList.append({ name: app.name, exec: app.exec, desktopFile: app.desktopFile, icon: app.icon });
-                        }
-                    }
-                } catch (err) {}
+    /** The command's binary name: "/usr/bin/foo --bar %U" -> "foo". */
+    function execBinary(exec) {
+        const first = String(exec || "").trim().split(/\s+/)[0] || "";
+        return first.split("/").pop().toLowerCase();
+    }
+
+    function matches(bin, names) {
+        if (bin === "") return false;
+        for (const n of names)
+            if (bin === n) return true;
+        return false;
+    }
+    function rebuildDefaults() {
+        try {
+            const items = Services.Apps.list;
+            section.browserList.clear();
+            section.terminalList.clear();
+            section.fileManagerList.clear();
+            section.editorList.clear();
+            section.playerList.clear();
+
+            for (let app of items) {
+                const bin = section.execBinary(app.exec);
+                const row = { name: app.name, exec: app.exec, desktopFile: app.desktopFile, icon: app.icon };
+
+                if (section.matches(bin, section.browsers))     section.browserList.append(row);
+                if (section.matches(bin, section.terminals))    section.terminalList.append(row);
+                if (section.matches(bin, section.fileManagers)) section.fileManagerList.append(row);
+                if (section.matches(bin, section.editors))      section.editorList.append(row);
+                if (section.matches(bin, section.players))      section.playerList.append(row);
             }
-        }
+        } catch (err) {}
+    }
+
+    Component.onCompleted: section.rebuildDefaults()
+
+    Connections {
+        target: Services.Apps
+        function onListChanged() { section.rebuildDefaults(); }
     }
 
     function setBrowser(appExec, desktopFile) {
@@ -214,7 +245,12 @@ ColumnLayout {
                 }
             }
 
+            // Sized to its own text: it shares the row with the custom-binary
+            // field, and at half the row the field could not show its own
+            // placeholder — every one of these five rows had the example
+            // command cut off mid-word.
             ActionButton {
+                Layout.fillWidth: false
                 icon: "󰄬"
                 label: "Set"
                 tone: Design.sapphire
@@ -295,7 +331,12 @@ ColumnLayout {
                 }
             }
 
+            // Sized to its own text: it shares the row with the custom-binary
+            // field, and at half the row the field could not show its own
+            // placeholder — every one of these five rows had the example
+            // command cut off mid-word.
             ActionButton {
+                Layout.fillWidth: false
                 icon: "󰄬"
                 label: "Set"
                 tone: Design.green
@@ -376,7 +417,12 @@ ColumnLayout {
                 }
             }
 
+            // Sized to its own text: it shares the row with the custom-binary
+            // field, and at half the row the field could not show its own
+            // placeholder — every one of these five rows had the example
+            // command cut off mid-word.
             ActionButton {
+                Layout.fillWidth: false
                 icon: "󰄬"
                 label: "Set"
                 tone: Design.peach
@@ -457,7 +503,12 @@ ColumnLayout {
                 }
             }
 
+            // Sized to its own text: it shares the row with the custom-binary
+            // field, and at half the row the field could not show its own
+            // placeholder — every one of these five rows had the example
+            // command cut off mid-word.
             ActionButton {
+                Layout.fillWidth: false
                 icon: "󰄬"
                 label: "Set"
                 tone: Design.mauve
@@ -538,7 +589,12 @@ ColumnLayout {
                 }
             }
 
+            // Sized to its own text: it shares the row with the custom-binary
+            // field, and at half the row the field could not show its own
+            // placeholder — every one of these five rows had the example
+            // command cut off mid-word.
             ActionButton {
+                Layout.fillWidth: false
                 icon: "󰄬"
                 label: "Set"
                 tone: Design.teal

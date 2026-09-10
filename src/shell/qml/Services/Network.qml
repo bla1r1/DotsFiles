@@ -3,6 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Qt.labs.folderlistmodel
 import Quickshell.Bluetooth
 import Quickshell.Networking
 
@@ -47,28 +48,42 @@ Singleton {
     }
 
     property bool hasWifiSys: false
-    Process {
-        running: true
-        command: ["bash", "-c", "ls /sys/class/net 2>/dev/null | grep -E '^wl' | head -1"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                root.hasWifiSys = this.text.trim() !== "";
+
+    FolderListModel {
+        id: netNodes
+        folder: "file:///sys/class/net"
+        showFiles: true
+        showDirs: true
+        showDotAndDotDot: false
+
+        // Matched here rather than with nameFilters, which FolderListModel
+        // applies to files only — the sysfs entries are directories, so a
+        // filter would have matched every interface including lo and eth0.
+        onCountChanged: {
+            let found = false;
+            for (let i = 0; i < count; ++i) {
+                if (String(get(i, "fileName")).startsWith("wl")) {
+                    found = true;
+                    break;
+                }
             }
+            root.hasWifiSys = found;
         }
     }
     readonly property bool hasWifi: root.hasWifiSys || root.wifiDevice !== null
 
     readonly property var adapter: Bluetooth.defaultAdapter
 
-    property bool hasBluetoothSys: false
-    Process {
-        running: true
-        command: ["bash", "-c", "ls -d /sys/class/bluetooth/* 2>/dev/null | head -1"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                root.hasBluetoothSys = this.text.trim() !== "";
-            }
-        }
+    // A directory listing, not a job for a shell — same reasoning as
+    // Services/Power's battery and backlight probes.
+    readonly property bool hasBluetoothSys: bluetoothNodes.count > 0
+
+    FolderListModel {
+        id: bluetoothNodes
+        folder: "file:///sys/class/bluetooth"
+        showFiles: true
+        showDirs: true
+        showDotAndDotDot: false
     }
     readonly property bool hasBluetooth: root.hasBluetoothSys || root.adapter !== null
 

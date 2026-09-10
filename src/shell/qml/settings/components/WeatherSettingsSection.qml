@@ -17,6 +17,21 @@ Card {
     icon: "\u{f0590}"
     accentColor: Design.yellow
 
+    // Both fields are optional and the page never said so. Weather already
+    // works with neither of them filled in — the daemon falls back to
+    // wttr.in, which is keyless — so this page read as a required setup step
+    // for something that was running fine, and the two empty boxes looked
+    // like the reason the forecast was short.
+    Label {
+        Layout.fillWidth: true
+        wrapMode: Text.WordWrap
+        role: "caption"
+        dim: true
+        text: (section.apiKey === "" || section.cityId === "")
+            ? "Optional. Right now the forecast comes from wttr.in, which needs no key and reaches three days ahead. Fill both fields in for OpenWeather's five-day forecast."
+            : "Using OpenWeather with the key below. Clear either field to fall back to keyless wttr.in."
+    }
+
     // Was two bare TextInputs with their own font, size and colour, saving on
     // every keystroke — a half-typed key was written and then queried.
     ColumnLayout {

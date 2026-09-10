@@ -1,5 +1,5 @@
 [Desktop Entry]
-Name=Git Diff Tool
+Name=Git
 GenericName=Git Repository & Diff Tool
 Comment=Visual Git Status, Diff & Commit Tool
 Exec=b1air-git

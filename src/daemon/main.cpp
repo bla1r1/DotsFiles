@@ -88,65 +88,13 @@ static int run_focus_tracker() {
     std::signal(SIGINT, handle_signal);
     std::signal(SIGTERM, handle_signal);
 
-    SwayIPC ipc;
-    if (!ipc.connect()) {
-        std::cerr << "[b1air-focus] Error: Failed to connect to Sway IPC socket ($SWAYSOCK).\n";
-        return 1;
-    }
+    // One implementation, in SessionManager. This used to be a second copy of
+    // the same forty lines, and the two had already drifted: the tree query
+    // here still ran on the socket the subscription was parked on, long after
+    // that was fixed in the other. Running the tracker standalone and running
+    // it inside a session now exercise the same code.
+    SessionManager::run_focus_tracker();
 
-    FocusTimeDB db;
-    if (!db.open()) {
-        std::cerr << "[b1air-focus] Error: Failed to initialize SQLite database.\n";
-        return 1;
-    }
-
-    std::cout << "[b1air-focus] Daemon started. Tracking active windows via Sway IPC...\n";
-
-    std::string current_app = "Unknown";
-    std::string current_title = "";
-    bool current_locked = false;
-    auto last_switch_time = std::chrono::system_clock::now();
-
-    auto flush_interval = [&](const std::string& new_app, const std::string& new_title, bool new_locked) {
-        auto now = std::chrono::system_clock::now();
-        int64_t start_ts = std::chrono::duration_cast<std::chrono::seconds>(last_switch_time.time_since_epoch()).count();
-        int64_t end_ts = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
-
-        if (end_ts - start_ts >= 1 && !current_app.empty()) {
-            db.log_interval(start_ts, end_ts, current_app, current_title, current_locked);
-        }
-
-        current_app = new_app;
-        current_title = new_title;
-        current_locked = new_locked;
-        last_switch_time = now;
-    };
-
-    // Initial state
-    WindowInfo init_win = ipc.get_focused_window();
-    if (!init_win.app_class.empty()) {
-        current_app = init_win.app_class;
-        current_title = init_win.title;
-    }
-
-    // Subscribe to window and workspace events
-    ipc.subscribe_events({"window", "workspace"}, [&](const std::string& /*evt_type*/, const std::string& /*payload*/) {
-        if (!g_running) return;
-
-        // Check lock state
-        bool is_locked = (access(runtime_path("swaylock.lock").c_str(), F_OK) == 0);
-
-        WindowInfo win = ipc.get_focused_window();
-        std::string new_app = is_locked ? "Screen Locked" : (win.app_class.empty() ? "Desktop" : win.app_class);
-        std::string new_title = is_locked ? "Locked" : win.title;
-
-        if (new_app != current_app || is_locked != current_locked) {
-            flush_interval(new_app, new_title, is_locked);
-        }
-    });
-
-    // Final flush on exit
-    flush_interval("", "", false);
     std::cout << "[b1air-focus] Daemon stopped gracefully.\n";
     return 0;
 }
@@ -188,6 +136,29 @@ int main(int argc, char* argv[]) {
             return 1;
         }
         std::cout << db.get_stats_json(date_arg) << "\n";
+        return 0;
+    } else if (cmd == "focustime") {
+        // What the FocusTime window reads. `stats` above answers a different,
+        // older shape — different key names and none of the weekly, monthly or
+        // hourly series — so the window drew every chart empty. Kept as a
+        // separate command rather than changing `stats`, which other things
+        // and any existing script still call.
+        std::string date_arg;
+        std::string app_arg;
+        for (int i = 2; i < argc; ++i) {
+            const std::string a = argv[i];
+            if (a == "--app" && i + 1 < argc) {
+                app_arg = argv[++i];
+            } else if (date_arg.empty()) {
+                date_arg = a;
+            }
+        }
+        FocusTimeDB db;
+        if (!db.open()) {
+            std::cerr << "{\"error\":\"failed to open database\"}\n";
+            return 1;
+        }
+        std::cout << db.get_dashboard_json(date_arg, app_arg);
         return 0;
     } else if (cmd == "user") {
         if (argc < 3) {

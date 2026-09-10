@@ -1,3 +1,4 @@
+#include "proc_util.hpp"
 #include "system_control.hpp"
 #include "sway_ipc.hpp"
 #include "settings_manager.hpp"
@@ -300,25 +301,6 @@ static bool run_argv_status_env(const std::vector<std::string>& args,
     return waitpid(pid, &status, 0) == pid && WIFEXITED(status) && WEXITSTATUS(status) == 0;
 }
 
-static bool run_argv_detached(const std::vector<std::string>& args) {
-    if (args.empty()) return false;
-    pid_t pid = fork();
-    if (pid < 0) return false;
-    if (pid == 0) {
-        (void)setsid();
-        const int null_fd = open("/dev/null", O_RDWR | O_CLOEXEC);
-        if (null_fd >= 0) {
-            dup2(null_fd, STDIN_FILENO); dup2(null_fd, STDOUT_FILENO); dup2(null_fd, STDERR_FILENO);
-            if (null_fd > STDERR_FILENO) close(null_fd);
-        }
-        std::vector<char*> argv;
-        for (const auto& arg : args) argv.push_back(const_cast<char*>(arg.c_str()));
-        argv.push_back(nullptr);
-        execvp(argv[0], argv.data());
-        _exit(127);
-    }
-    return true;
-}
 
 static pid_t spawn_argv_detached(const std::vector<std::string>& args) {
     if (args.empty()) return -1;
@@ -694,7 +676,85 @@ struct DesktopAppEntry {
     std::string mime_type;
     bool no_display = false;
     bool terminal = false;
+    bool hidden = false;
+    std::string try_exec;
+    std::string only_show_in;
+    std::string not_show_in;
 };
+
+// Desktop-entry visibility rules from the XDG spec that the scan used to skip.
+//
+// Only NoDisplay was honoured, so the launcher listed entries no desktop should
+// show: Plasma's own tools (Discover, the Fcitx migration wizards) that name a
+// desktop in OnlyShowIn, service browsers like the three Avahi ones, and
+// entries whose program is not even installed. Filtering them here fixes it for
+// every consumer at once rather than in each launcher.
+
+/** Is `needle` one of the semicolon-separated names in `list`? */
+static bool desktop_list_contains(const std::string& list, const std::string& needle) {
+    size_t start = 0;
+    while (start <= list.size()) {
+        size_t end = list.find(';', start);
+        if (end == std::string::npos) end = list.size();
+        if (list.compare(start, end - start, needle) == 0) return true;
+        if (end == list.size()) break;
+        start = end + 1;
+    }
+    return false;
+}
+
+/**
+ * OnlyShowIn / NotShowIn against this desktop's name.
+ *
+ * XDG_CURRENT_DESKTOP is a colon-separated preference list — the session sets
+ * it to "b1air:sway" — and an entry is shown if any of those names matches.
+ */
+static bool desktop_entry_runs_here(const std::string& only_show_in,
+                                    const std::string& not_show_in) {
+    std::vector<std::string> names;
+    const char* current = getenv("XDG_CURRENT_DESKTOP");
+    std::string cur = current ? current : "";
+    size_t start = 0;
+    while (start <= cur.size() && !cur.empty()) {
+        size_t end = cur.find(':', start);
+        if (end == std::string::npos) end = cur.size();
+        if (end > start) names.push_back(cur.substr(start, end - start));
+        if (end == cur.size()) break;
+        start = end + 1;
+    }
+
+    if (!not_show_in.empty()) {
+        for (const auto& n : names)
+            if (desktop_list_contains(not_show_in, n)) return false;
+    }
+    if (!only_show_in.empty()) {
+        for (const auto& n : names)
+            if (desktop_list_contains(only_show_in, n)) return true;
+        return false;
+    }
+    return true;
+}
+
+/** TryExec names the program that must exist for the entry to be shown. */
+static bool try_exec_present(const std::string& try_exec) {
+    if (try_exec.empty()) return true;
+    if (try_exec.front() == '/') return access(try_exec.c_str(), X_OK) == 0;
+
+    const char* path = getenv("PATH");
+    std::string p = path ? path : "/usr/local/bin:/usr/bin:/bin";
+    size_t start = 0;
+    while (start <= p.size()) {
+        size_t end = p.find(':', start);
+        if (end == std::string::npos) end = p.size();
+        if (end > start) {
+            std::string cand = p.substr(start, end - start) + "/" + try_exec;
+            if (access(cand.c_str(), X_OK) == 0) return true;
+        }
+        if (end == p.size()) break;
+        start = end + 1;
+    }
+    return false;
+}
 
 static std::string resolve_desktop_icon(const std::string& icon) {
     if (icon.empty()) return {};
@@ -785,10 +845,17 @@ std::string SystemControl::apps_list_json(const std::string& category) {
                         else if (key == "MimeType") entry.mime_type = val;
                         else if (key == "NoDisplay") entry.no_display = (val == "true" || val == "1");
                         else if (key == "Terminal") entry.terminal = (val == "true" || val == "1");
+                        else if (key == "Hidden") entry.hidden = (val == "true" || val == "1");
+                        else if (key == "TryExec" && entry.try_exec.empty()) entry.try_exec = val;
+                        else if (key == "OnlyShowIn") entry.only_show_in = val;
+                        else if (key == "NotShowIn") entry.not_show_in = val;
                     }
                 }
 
-                if (!entry.name.empty() && !entry.exec.empty() && !entry.no_display) {
+                if (!entry.name.empty() && !entry.exec.empty()
+                        && !entry.no_display && !entry.hidden
+                        && desktop_entry_runs_here(entry.only_show_in, entry.not_show_in)
+                        && try_exec_present(entry.try_exec)) {
                     apps[fname] = entry;
                 }
             }
@@ -868,6 +935,12 @@ std::string SystemControl::apps_list_json(const std::string& category) {
                            "\"icon\":\"" + json_escape(a.icon) + "\","
                            "\"iconPath\":\"" + json_escape(resolve_desktop_icon(a.icon)) + "\","
                            "\"comment\":\"" + json_escape(a.comment) + "\","
+                           // Terminal=true was parsed and then dropped on the floor.
+                           // Launchers executed such an entry directly, so htop and
+                           // btop++ started without a terminal and died immediately —
+                           // clicking them did nothing at all. Reported so a launcher
+                           // can open them the way they need.
+                           "\"terminal\":" + std::string(a.terminal ? "true" : "false") + ","
                            "\"category\":\"" + json_escape(a.categories) + "\"}";
         res += item;
         if (i + 1 < matched.size()) res += ",";
@@ -1744,7 +1817,7 @@ bool SystemControl::ddc_set(const std::string& id, int percent) {
     else if (id.rfind("display:", 0) == 0) args.insert(args.end(), {"--display", id.substr(8)});
     else args.insert(args.end(), {"--display", id});
     args.push_back("--noverify");
-    (void)run_argv_detached(args);
+    (void)util::spawn_detached(args);
     (void)run_argv_status({"pkill", "-RTMIN+3", "waybar"});
     return true;
 }
@@ -2127,7 +2200,7 @@ bool SystemControl::wallpaper_set(const std::string& filepath, const std::string
         ipc.send_command(0, "output * bg '" + resolved_path + "' fill");
     } else {
         (void)run_argv_status({"pkill", "-x", "swaybg"});
-        (void)run_argv_detached({"swaybg", "-m", "fill", "-i", resolved_path});
+        (void)util::spawn_detached({"swaybg", "-m", "fill", "-i", resolved_path});
     }
 
     return true;
@@ -2173,7 +2246,7 @@ bool SystemControl::wallpaper_restore() {
 // ── Night Light ──────────────────────────────────────────────────────────────
 bool SystemControl::night_light_on(int temp) {
     (void)run_argv_status({"pkill", "-x", "wlsunset"});
-    (void)run_argv_detached({"wlsunset", "-t", std::to_string(temp)});
+    (void)util::spawn_detached({"wlsunset", "-t", std::to_string(temp)});
     notify_user("Night Light", "Night Light Enabled", "Warm color temperature active", "weather-clear-night");
     return true;
 }
@@ -2301,7 +2374,7 @@ int SystemControl::run_gamepad_inhibit() {
                         ssize_t n = read(fd, buf, sizeof(buf));
                         close(fd);
                         if (n > 0) {
-                            (void)run_argv_detached({"systemd-inhibit", "--what=idle", "--who=b1air-gamepad",
+                            (void)util::spawn_detached({"systemd-inhibit", "--what=idle", "--who=b1air-gamepad",
                                                      "--why=Gamepad Active", "sleep", "120"});
                         }
                     }
@@ -2413,7 +2486,7 @@ bool SystemControl::eq_apply() {
     if (out) {
         out << preset_content;
         out.close();
-        (void)run_argv_detached({"easyeffects", "-l", "live_eq"});
+        (void)util::spawn_detached({"easyeffects", "-l", "live_eq"});
         return true;
     }
     return false;
@@ -2666,7 +2739,7 @@ bool SystemControl::diary_open() {
     }
 
     std::string uri = "obsidian://open?vault=Obsidian&file=Diary/" + std::string(year) + "/" + filename;
-    return run_argv_detached({"xdg-open", uri});
+    return util::spawn_detached({"xdg-open", uri});
 }
 
 // ── Calendar Schedule ────────────────────────────────────────────────────────
@@ -2760,14 +2833,14 @@ bool SystemControl::dotfiles_sync() {
     std::string repo = find_dotfiles_repo();
     if (repo.empty()) return false;
     std::string script = "bash " + shell_quote(repo + "/update-dotfiles.sh") + " --repo-dir " + shell_quote(repo) + "; printf '\\nPress Enter to close...\\n'; read -r _";
-    return run_argv_detached({"b1air-term", "-e", "fish", "-lc", script});
+    return util::spawn_detached({"b1air-term", "-e", "fish", "-lc", script});
 }
 
 bool SystemControl::dotfiles_sys() {
     const std::string script = "if command -v yay >/dev/null 2>&1; then yay -Syu; "
                               "elif command -v paru >/dev/null 2>&1; then paru -Syu; "
                               "else sudo pacman -Syu; fi; printf '\\nPress Enter to close...\\n'; read -r _";
-    return run_argv_detached({"b1air-term", "-e", "fish", "-lc", script});
+    return util::spawn_detached({"b1air-term", "-e", "fish", "-lc", script});
 }
 
 // ── Screen Capture, Recording & QR Scanner ───────────────────────────────────
@@ -2782,7 +2855,7 @@ bool SystemControl::run_screenshot_overlay(bool edit_mode) {
     if (qml.empty()) return false;
     std::vector<std::string> argv = {"quickshell", "-p", qml};
     if (edit_mode) argv = {"env", "QS_SCREENSHOT_EDIT=true", "quickshell", "-p", qml};
-    return run_argv_detached(argv);
+    return util::spawn_detached(argv);
 }
 
 bool SystemControl::capture(const std::string& mode, const std::string& geom, bool edit) {

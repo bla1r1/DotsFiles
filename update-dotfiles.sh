@@ -286,6 +286,36 @@ sync_configs() {
         done < <(find "$REPO_DIR/.wallpapers" -type f -print0)
     fi
 
+    # Desktop entries. install.sh deploys these; the updater did not, so a
+    # renamed or added b1air-*.desktop never reached a machine that only ever
+    # runs the updater — and .config/mimeapps.list, which IS synced above,
+    # names them as the default handlers for text, directories and images.
+    if [[ -d "$REPO_DIR/.local/share/applications" ]]; then
+        mkdir -p "$HOME/.local/share/applications"
+        local changed_desktop=0
+        for entry in "$REPO_DIR"/.local/share/applications/*.desktop; do
+            [[ -e "$entry" ]] || continue
+            local base_entry dst_entry
+            base_entry="$(basename "$entry")"
+            dst_entry="$HOME/.local/share/applications/$base_entry"
+            if [[ ! -f "$dst_entry" ]] || ! cmp -s "$entry" "$dst_entry"; then
+                if [[ "$DRY_RUN" -eq 1 ]]; then
+                    log "Would update: ~/.local/share/applications/$base_entry"
+                else
+                    [[ -f "$dst_entry" ]] && {
+                        mkdir -p "$BACKUP_DIR/applications"
+                        cp -a "$dst_entry" "$BACKUP_DIR/applications/$base_entry"
+                    }
+                    cp -a "$entry" "$dst_entry"
+                    changed_desktop=1
+                fi
+            fi
+        done
+        if [[ "$changed_desktop" -eq 1 ]]; then
+            update-desktop-database "$HOME/.local/share/applications" >/dev/null 2>&1 || true
+        fi
+    fi
+
     # Fix permissions for scripts
     if [[ "$DRY_RUN" -eq 0 && -d "$HOME/.config/sway/scripts" ]]; then
         find "$HOME/.config/sway/scripts" -type f -name "*.sh" -exec chmod +x {} +
@@ -311,14 +341,17 @@ reload_environment() {
         swaymsg reload >/dev/null 2>&1 || true
     fi
 
-    # Refresh waybar if running
-    if pgrep waybar >/dev/null 2>&1; then
-        killall -SIGUSR2 waybar 2>/dev/null || true
-    fi
-
-    # Refresh quickshell if running
-    if pgrep quickshell >/dev/null 2>&1; then
-        qs -p "$HOME/.config/quickshell/Main.qml" ipc call main close 2>/dev/null || true
+    # Refresh the shell if running.
+    #
+    # Was `pgrep quickshell` plus `qs -p ~/.config/quickshell/Main.qml ipc call
+    # main close`: the process is b1air-shell, not quickshell, and ~/.config/
+    # quickshell is the older QML location (make install deploys to
+    # ~/.config/b1air-shell). Neither the test nor the call could ever match, so
+    # the shell was never reloaded after an update. The waybar branch that sat
+    # above this went with it — this desktop has a native top bar and ships no
+    # waybar config.
+    if pgrep -x b1air-shell >/dev/null 2>&1; then
+        b1air-shell reload 2>/dev/null || true
     fi
 
     ok "Environment reloaded successfully."

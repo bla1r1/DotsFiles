@@ -58,11 +58,22 @@ void GitBackend::refresh() {
 }
 
 QString GitBackend::repoName() const {
-    if (m_repoPath.isEmpty()) return "No Repository";
+    // The folder name is not a repository name. Reporting it regardless meant
+    // the header read "Current Repository: DotsFiles" for a directory with no
+    // .git in it, contradicting the pane beside it.
+    if (!m_isRepo || m_repoPath.isEmpty()) return "No Repository";
     return QFileInfo(m_repoPath).fileName();
 }
 
 void GitBackend::updateBranch() {
+    // Outside a repository `git branch --show-current` is empty for the same
+    // reason a detached HEAD is, so the empty case only means "detached" when
+    // there is a repository to be detached in.
+    if (!m_isRepo) {
+        m_branchName = QStringLiteral("—");
+        emit branchChanged();
+        return;
+    }
     QString out = runGit(QStringList() << "branch" << "--show-current");
     m_branchName = out.isEmpty() ? "detached" : out;
 
@@ -81,8 +92,21 @@ void GitBackend::updateBranch() {
 }
 
 void GitBackend::updateStatus() {
-    QString out = runGit(QStringList() << "status" << "--porcelain=v1", false);
     m_changedFiles.clear();
+
+    // A folder that is not a repository produces no porcelain output, which is
+    // indistinguishable from a repository with nothing to commit — so the
+    // header reported "Working tree clean" for any directory at all, next to a
+    // pane correctly saying "Open a repository".
+    if (!m_isRepo) {
+        m_statusSummary = QStringLiteral("No repository");
+        m_selectedFile.clear();
+        emit statusChanged();
+        emit selectedFileChanged();
+        return;
+    }
+
+    QString out = runGit(QStringList() << "status" << "--porcelain=v1", false);
 
     QStringList lines = out.split("\n", Qt::SkipEmptyParts);
     for (const auto& l : lines) {

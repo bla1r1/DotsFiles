@@ -122,12 +122,41 @@ static bool is_process_running(const std::string& pattern) {
 }
 
 // ── Focus Tracker Thread ─────────────────────────────────────────────────────
-static void focus_tracker_thread() {
+void SessionManager::run_focus_tracker() {
+    // Every failure below used to be a bare `return`. Screen-time tracking then
+    // stopped for the rest of the session with nothing said anywhere, and the
+    // only symptom was FocusTime quietly reporting "No data" — which looks
+    // exactly like a day with no activity.
     SwayIPC ipc;
-    if (!ipc.connect()) return;
+    if (!ipc.connect()) {
+        std::cerr << "[b1air-focus] no sway IPC connection; screen time will not be tracked\n";
+        return;
+    }
+
+    // A second connection, used only for queries from inside the subscription
+    // callback below.
+    //
+    // `ipc` is parked in subscribe_events()'s blocking read loop, and sway's IPC
+    // is one request/one reply on a socket: sending GET_TREE down the subscribed
+    // socket makes the tree reply and the event stream interleave, so the
+    // callback reads an event where it expected the tree and the read loop then
+    // reads the tree where it expected an event. The stream desynchronises on
+    // the first window event and tracking stops — which is why the FocusTime
+    // database had no new rows while sway was plainly emitting events.
+    //
+    // The autotiling split below already opens its own connection for exactly
+    // this reason; the tree query needs the same treatment.
+    SwayIPC query;
+    if (!query.connect()) {
+        std::cerr << "[b1air-focus] second sway IPC connection failed; screen time will not be tracked\n";
+        return;
+    }
 
     FocusTimeDB db;
-    if (!db.open()) return;
+    if (!db.open()) {
+        std::cerr << "[b1air-focus] could not open the focustime database; screen time will not be tracked\n";
+        return;
+    }
 
     std::string current_app = "Desktop";
     std::string current_title = "";
@@ -149,10 +178,12 @@ static void focus_tracker_thread() {
         last_switch_time = now;
     };
 
-    ipc.subscribe_events({"window", "workspace"}, [&](const std::string&, const std::string&) {
+    std::cerr << "[b1air-focus] tracking started\n";
+
+    bool ok = ipc.subscribe_events({"window", "workspace"}, [&](const std::string&, const std::string&) {
         if (!g_session_running) return;
         bool is_locked = (access(runtime_path("swaylock.lock").c_str(), F_OK) == 0);
-        WindowInfo win = ipc.get_focused_window();
+        WindowInfo win = query.get_focused_window();
         std::string new_app = is_locked ? "Screen Locked" : (win.app_class.empty() ? "Desktop" : win.app_class);
         std::string new_title = is_locked ? "Locked" : win.title;
 
@@ -172,6 +203,11 @@ static void focus_tracker_thread() {
             flush_interval(new_app, new_title, is_locked);
         }
     });
+
+    // subscribe_events() only returns when the socket closes or the subscribe
+    // handshake fails, so reaching here means tracking has stopped.
+    std::cerr << "[b1air-focus] tracking stopped (subscribe returned "
+              << (ok ? "true" : "false") << ")\n";
 
     flush_interval("", "", false);
 }
@@ -281,7 +317,7 @@ int SessionManager::run_session() {
     mark("wallpaper restored");
 
     // 6. Spawn Background Threads (Focus tracker, Gamepad inhibitor, Settings inotify watcher)
-    std::thread focus_th(focus_tracker_thread);
+    std::thread focus_th(SessionManager::run_focus_tracker);
     focus_th.detach();
 
     std::thread gamepad_th([&]() {

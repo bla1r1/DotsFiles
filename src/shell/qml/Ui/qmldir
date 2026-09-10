@@ -7,6 +7,7 @@ PopupShell 1.0 PopupShell.qml
 Card       1.0 Card.qml
 Tile       1.0 Tile.qml
 ScrollArea 1.0 ScrollArea.qml
+OverflowBar 1.0 OverflowBar.qml
 
 # primitives
 Label        1.0 Label.qml

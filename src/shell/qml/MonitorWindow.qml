@@ -51,6 +51,136 @@ Window {
     // ── Global Shortcuts ─────────────────────────────────────────────────────
     Shortcut { sequence: "Escape"; onActivated: window.close() }
     Shortcut { sequence: "Ctrl+F"; onActivated: if (window.currentTab === "processes") searchInput.forceActiveFocus() }
+
+    // The two tabs were reachable by mouse only, in a desktop whose whole point
+    // is the keyboard.
+    Shortcut { sequence: "Ctrl+1"; onActivated: window.currentTab = "overview" }
+    Shortcut { sequence: "Ctrl+2"; onActivated: window.currentTab = "processes" }
+    Shortcut { sequence: "Ctrl+Tab"; onActivated: window.currentTab = (window.currentTab === "overview" ? "processes" : "overview") }
+
+    // One card, four uses. These were four copies of the same sixty lines, and
+    // the copies had drifted: the badge set `width`/`height` inside a RowLayout
+    // instead of Layout.preferredWidth/Height, which a layout does not honour,
+    // so identical-looking code positioned the text differently in each card —
+    // CPU's label sat next to its badge while Memory's floated 200 px away.
+    component MetricCard: Rectangle {
+        id: card
+
+        property string label: ""
+        property string value: ""
+        property string sub: ""
+        property color tone: Design.accent
+        // 0..100 draws a progress ring; below 0 draws the glyph instead.
+        property real pct: -1
+        property string glyph: ""
+
+        Layout.fillWidth: true
+        Layout.preferredHeight: Design.s(90)
+        radius: Design.s(Design.radius.card)
+        color: Design.ground
+        border.color: Design.glassBorder
+        border.width: 1
+
+        RowLayout {
+            anchors.fill: parent
+            anchors.margins: Design.s(12)
+            spacing: Design.s(12)
+
+            Item {
+                Layout.preferredWidth: Design.s(46)
+                Layout.preferredHeight: Design.s(46)
+                Layout.alignment: Qt.AlignVCenter
+
+                // Track plus arc: the ring now reads as a gauge rather than
+                // repeating the number printed beside it.
+                Rectangle {
+                    anchors.fill: parent
+                    radius: width / 2
+                    color: Design.tint(card.tone, 0.12)
+                    border.color: Design.tint(card.tone, 0.35)
+                    border.width: Design.s(2)
+                }
+
+                Canvas {
+                    id: ringCanvas
+                    anchors.fill: parent
+                    visible: card.pct >= 0
+
+                    // Canvas paints once when it is first shown; without these
+                    // the arc was drawn before the card had a percentage (or
+                    // before it had a size) and then never again, so all four
+                    // rings rendered as empty circles.
+                    Component.onCompleted: requestPaint()
+                    onWidthChanged: requestPaint()
+                    onHeightChanged: requestPaint()
+                    onVisibleChanged: if (visible) requestPaint()
+
+                    onPaint: {
+                        const ctx = getContext("2d");
+                        ctx.reset();
+                        const r = Math.min(width, height) / 2 - Design.s(1);
+                        const cx = width / 2, cy = height / 2;
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, r, -Math.PI / 2,
+                                -Math.PI / 2 + (Math.max(0, Math.min(100, card.pct)) / 100) * 2 * Math.PI);
+                        ctx.strokeStyle = card.tone;
+                        ctx.lineWidth = Design.s(4);
+                        ctx.lineCap = "round";
+                        ctx.stroke();
+                    }
+                    Connections {
+                        target: card
+                        function onPctChanged() { ringCanvas.requestPaint(); }
+                    }
+                }
+
+                Text {
+                    anchors.centerIn: parent
+                    visible: card.pct < 0 && card.glyph !== ""
+                    text: card.glyph
+                    font.family: Design.font.icon
+                    font.pixelSize: Design.s(16)
+                    color: card.tone
+                }
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.alignment: Qt.AlignVCenter
+                spacing: Design.s(2)
+
+                Text {
+                    text: card.label
+                    font.family: Design.font.mono
+                    font.weight: Design.weight.bold
+                    font.pixelSize: Design.s(10)
+                    color: Design.textDim
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
+                }
+
+                Text {
+                    text: card.value
+                    font.family: Design.font.sans
+                    font.weight: Design.weight.bold
+                    font.pixelSize: Design.s(16)
+                    color: Design.text
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
+                }
+
+                Text {
+                    text: card.sub
+                    font.family: Design.font.sans
+                    font.pixelSize: Design.s(10)
+                    color: Design.textDim
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
+                }
+            }
+        }
+    }
+
     Shortcut { sequence: "F5"; onActivated: if (isNative) MonitorBackend.refresh() }
 
     Rectangle {
@@ -184,6 +314,7 @@ Window {
         // TAB 1: OVERVIEW (METRICS, DIALS & LIVE HISTORY GRAPH)
         // ═════════════════════════════════════════════════════════════════════
         ScrollView {
+            id: overviewScroll
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: window.currentTab === "overview"
@@ -193,275 +324,70 @@ Window {
                 id: overviewCol
                 x: Design.s(Design.space.md)
                 width: window.width - Design.s(Design.space.md * 2)
+                // Without a height the column sizes to its content, so nothing
+                // inside it could expand and the Overview tab left roughly 600
+                // px of empty black below the chart on a 1080p screen.
+                height: Math.max(implicitHeight, overviewScroll.availableHeight - Design.s(8))
                 spacing: Design.s(Design.space.md)
 
                 Item { Layout.preferredHeight: Design.s(4) }
 
-                // ── 1. Top 4 Metric Cards ────────────────────────────────────
+                // ── 1. Top metric cards ──────────────────────────────────────
                 GridLayout {
                     Layout.fillWidth: true
-                    columns: window.width > 700 ? 4 : 2
+                    columns: window.width > 900 ? 4 : 2
                     rowSpacing: Design.s(10)
                     columnSpacing: Design.s(10)
 
-                    // 1. CPU CARD
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredWidth: window.width > 700 ? 1 : 200
-                        implicitHeight: Design.s(90)
-                        radius: Design.s(Design.radius.card)
-                        color: Design.ground
-                        border.color: Design.glassBorder
-                        border.width: 1
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.margins: Design.s(10)
-                            spacing: Design.s(10)
-
-                            Rectangle {
-                                width: Design.s(44)
-                                height: Design.s(44)
-                                radius: width / 2
-                                color: Design.tint(Design.sapphire, 0.15)
-                                border.color: Design.sapphire
-                                border.width: 2
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: Math.round(window.cpuPct) + "%"
-                                    font.family: Design.font.mono
-                                    font.weight: Design.weight.bold
-                                    font.pixelSize: Design.s(11)
-                                    color: Design.sapphire
-                                }
-                            }
-
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 2
-
-                                Text {
-                                    text: "CPU"
-                                    font.family: Design.font.mono
-                                    font.weight: Design.weight.bold
-                                    font.pixelSize: Design.s(10)
-                                    color: Design.textDim
-                                }
-
-                                Text {
-                                    text: window.cpuPct.toFixed(1) + "%"
-                                    font.family: Design.font.sans
-                                    font.weight: Design.weight.bold
-                                    font.pixelSize: Design.s(14)
-                                    color: Design.text
-                                }
-
-                                Text {
-                                    text: window.cpuCores + " Cores"
-                                    font.family: Design.font.sans
-                                    font.pixelSize: Design.s(10)
-                                    color: Design.textDim
-                                    elide: Text.ElideRight
-                                    Layout.fillWidth: true
-                                }
-                            }
-                        }
+                    MetricCard {
+                        label: "CPU"
+                        value: window.cpuPct.toFixed(1) + "%"
+                        sub: window.cpuCores + " cores  ·  load " + window.loadAvgStr.split(" ")[0]
+                        pct: window.cpuPct
+                        tone: Design.sapphire
                     }
 
-                    // 2. RAM CARD
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredWidth: window.width > 700 ? 1 : 200
-                        implicitHeight: Design.s(90)
-                        radius: Design.s(Design.radius.card)
-                        color: Design.ground
-                        border.color: Design.glassBorder
-                        border.width: 1
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.margins: Design.s(10)
-                            spacing: Design.s(10)
-
-                            Rectangle {
-                                width: Design.s(44)
-                                height: Design.s(44)
-                                radius: width / 2
-                                color: Design.tint(Design.mauve, 0.15)
-                                border.color: Design.mauve
-                                border.width: 2
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: Math.round(window.ramPct) + "%"
-                                    font.family: Design.font.mono
-                                    font.weight: Design.weight.bold
-                                    font.pixelSize: Design.s(11)
-                                    color: Design.mauve
-                                }
-                            }
-
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 2
-
-                                Text {
-                                    text: "MEMORY"
-                                    font.family: Design.font.mono
-                                    font.weight: Design.weight.bold
-                                    font.pixelSize: Design.s(10)
-                                    color: Design.textDim
-                                }
-
-                                Text {
-                                    text: (window.ramUsedMb / 1024.0).toFixed(1) + " GB"
-                                    font.family: Design.font.sans
-                                    font.weight: Design.weight.bold
-                                    font.pixelSize: Design.s(14)
-                                    color: Design.text
-                                }
-
-                                Text {
-                                    text: "of " + (window.ramTotalMb / 1024.0).toFixed(1) + " GB"
-                                    font.family: Design.font.sans
-                                    font.pixelSize: Design.s(10)
-                                    color: Design.textDim
-                                }
-                            }
-                        }
+                    MetricCard {
+                        label: "MEMORY"
+                        value: (window.ramUsedMb / 1024.0).toFixed(1) + " GB"
+                        sub: "of " + (window.ramTotalMb / 1024.0).toFixed(1) + " GB  ·  "
+                             + Math.round(window.ramPct) + "% used"
+                        pct: window.ramPct
+                        tone: Design.mauve
                     }
 
-                    // 3. DISK CARD
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredWidth: window.width > 700 ? 1 : 200
-                        implicitHeight: Design.s(90)
-                        radius: Design.s(Design.radius.card)
-                        color: Design.ground
-                        border.color: Design.glassBorder
-                        border.width: 1
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.margins: Design.s(10)
-                            spacing: Design.s(10)
-
-                            Rectangle {
-                                width: Design.s(44)
-                                height: Design.s(44)
-                                radius: width / 2
-                                color: Design.tint(Design.pink, 0.15)
-                                border.color: Design.pink
-                                border.width: 2
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: Math.round(window.diskPct) + "%"
-                                    font.family: Design.font.mono
-                                    font.weight: Design.weight.bold
-                                    font.pixelSize: Design.s(11)
-                                    color: Design.pink
-                                }
-                            }
-
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 2
-
-                                Text {
-                                    text: "STORAGE"
-                                    font.family: Design.font.mono
-                                    font.weight: Design.weight.bold
-                                    font.pixelSize: Design.s(10)
-                                    color: Design.textDim
-                                }
-
-                                Text {
-                                    text: window.diskFreeGb.toFixed(1) + " GB"
-                                    font.family: Design.font.sans
-                                    font.weight: Design.weight.bold
-                                    font.pixelSize: Design.s(14)
-                                    color: Design.text
-                                }
-
-                                Text {
-                                    text: "Free Space"
-                                    font.family: Design.font.sans
-                                    font.pixelSize: Design.s(10)
-                                    color: Design.textDim
-                                }
-                            }
-                        }
+                    // The ring used to read 11% next to "154.9 GB / Free Space",
+                    // leaving it ambiguous whether the ring meant used or free.
+                    // It is the used share, and the subtitle now says so.
+                    MetricCard {
+                        label: "STORAGE"
+                        value: window.diskFreeGb.toFixed(1) + " GB free"
+                        sub: "of " + window.diskTotalGb.toFixed(1) + " GB  ·  "
+                             + Math.round(window.diskPct) + "% used"
+                        pct: window.diskPct
+                        tone: Design.peach
                     }
 
-                    // 4. SYSTEM UPTIME CARD
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredWidth: window.width > 700 ? 1 : 200
-                        implicitHeight: Design.s(90)
-                        radius: Design.s(Design.radius.card)
-                        color: Design.ground
-                        border.color: Design.glassBorder
-                        border.width: 1
-
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.margins: Design.s(10)
-                            spacing: Design.s(10)
-
-                            Rectangle {
-                                width: Design.s(44)
-                                height: Design.s(44)
-                                radius: width / 2
-                                color: Design.tint(Design.teal, 0.15)
-                                border.color: Design.teal
-                                border.width: 2
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    text: "\u{f017}" // clock
-                                    font.family: Design.font.icon
-                                    color: Design.teal
-                                    font.pixelSize: Design.s(16)
-                                }
-                            }
-
-                            ColumnLayout {
-                                Layout.fillWidth: true
-                                spacing: 2
-
-                                Text {
-                                    text: "UPTIME"
-                                    font.family: Design.font.mono
-                                    font.weight: Design.weight.bold
-                                    font.pixelSize: Design.s(10)
-                                    color: Design.textDim
-                                }
-
-                                Text {
-                                    text: window.uptimeStr
-                                    font.family: Design.font.sans
-                                    font.weight: Design.weight.bold
-                                    font.pixelSize: Design.s(14)
-                                    color: Design.text
-                                }
-
-                                Text {
-                                    text: (isNative && MonitorBackend.processes ? MonitorBackend.processes.rowCount() : 0) + " Tasks"
-                                    font.family: Design.font.sans
-                                    font.pixelSize: Design.s(10)
-                                    color: Design.textDim
-                                }
-                            }
-                        }
+                    // Uptime is not a percentage, so it gets the glyph rather
+                    // than an empty ring pretending to be a gauge. The task
+                    // count moved out of here — it has nothing to do with
+                    // uptime and already has a home in the status bar.
+                    MetricCard {
+                        label: "UPTIME"
+                        value: window.uptimeStr
+                        sub: "since last boot"
+                        pct: -1
+                        glyph: "\u{f0954}"
+                        tone: Design.ok
                     }
                 }
+
 
                 // ── 2. Live Performance History Graph ────────────────────────
                 Rectangle {
                     Layout.fillWidth: true
-                    implicitHeight: Design.s(220)
+                    Layout.fillHeight: true
+                    Layout.minimumHeight: Design.s(220)
                     radius: Design.s(Design.radius.card)
                     color: Design.ground
                     border.color: Design.glassBorder
@@ -512,25 +438,71 @@ Window {
                                 let ctx = getContext("2d");
                                 ctx.clearRect(0, 0, width, height);
 
-                                // Grid lines
-                                ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+                                function css(c, a) {
+                                    return "rgba(" + Math.round(c.r * 255) + ","
+                                                   + Math.round(c.g * 255) + ","
+                                                   + Math.round(c.b * 255) + "," + a + ")";
+                                }
+
+                                // The chart used to draw four unlabelled grid
+                                // lines, so a line halfway up the card could
+                                // have meant 50% or 5% — there was nothing to
+                                // read it against. Percentages now sit in a
+                                // gutter and the plot starts after it.
+                                const gutter = Design.s(34);
+                                const plotX = gutter;
+                                const plotW = Math.max(1, width - gutter);
+
+                                // The axis stops just above the busiest sample
+                                // instead of always at 100%. A machine idling at
+                                // 1-2% drew its whole history as a flat line
+                                // pinned to the bottom pixel of a 700px card:
+                                // technically correct, and it showed nothing at
+                                // all. The ceiling snaps to a round number and
+                                // the labels say which one, so a rescaled chart
+                                // still cannot be misread as a busy one.
+                                function ceilingFor(a, b) {
+                                    let peak = 0;
+                                    for (const s of [a, b])
+                                        for (const v of (s || []))
+                                            if (v > peak) peak = v;
+                                    // Every rung divides by four, so the four
+                                    // gridlines always land on whole numbers —
+                                    // a ceiling of 50 labelled them 38% and
+                                    // 13%, which reads like a measurement
+                                    // rather than an axis.
+                                    for (const c of [8, 20, 40, 60, 80, 100])
+                                        if (peak <= c) return c;
+                                    return 100;
+                                }
+                                const ceiling = ceilingFor(
+                                    isNative ? MonitorBackend.cpuHistory : [],
+                                    isNative ? MonitorBackend.ramHistory : []);
+
                                 ctx.lineWidth = 1;
-                                for (let y = 0; y <= height; y += height / 4) {
+                                ctx.font = Design.s(9) + "px " + Design.font.mono;
+                                ctx.textBaseline = "middle";
+                                for (let i = 0; i <= 4; ++i) {
+                                    const pctLabel = Math.round(ceiling - i * (ceiling / 4));
+                                    const y = Math.round((i / 4) * (height - 10)) + 5;
+                                    ctx.strokeStyle = css(Design.text, i === 4 ? 0.16 : 0.06);
                                     ctx.beginPath();
-                                    ctx.moveTo(0, y);
+                                    ctx.moveTo(plotX, y);
                                     ctx.lineTo(width, y);
                                     ctx.stroke();
+                                    ctx.fillStyle = css(Design.textDim, 0.85);
+                                    ctx.fillText(pctLabel + "%", 0, y);
                                 }
 
                                 function drawSeries(data, color, fillGrad) {
                                     if (!data || data.length < 2) return;
-                                    let step = width / (40 - 1);
-                                    let offset = (40 - data.length) * step;
+                                    let step = plotW / (40 - 1);
+                                    let offset = plotX + (40 - data.length) * step;
 
                                     ctx.beginPath();
                                     for (let i = 0; i < data.length; ++i) {
                                         let x = offset + (i * step);
-                                        let y = height - ((data[i] / 100.0) * (height - 10)) - 5;
+                                        let y = height - ((Math.min(data[i], ceiling) / ceiling) * (height - 10)) - 5;
                                         if (i === 0) ctx.moveTo(x, y);
                                         else ctx.lineTo(x, y);
                                     }
@@ -548,8 +520,12 @@ Window {
                                 let cpuData = isNative ? MonitorBackend.cpuHistory : [];
                                 let ramData = isNative ? MonitorBackend.ramHistory : [];
 
-                                drawSeries(cpuData, "#7aa2f7", "rgba(122, 162, 247, 0.15)");
-                                drawSeries(ramData, "#bb9af7", "rgba(187, 154, 247, 0.10)");
+                                // css() is declared with the grid above: Canvas
+                                // needs CSS colour strings, and a stringified
+                                // QML colour comes out as #AARRGGBB, which
+                                // Canvas will not parse.
+                                drawSeries(cpuData, css(Design.accent, 1.0), css(Design.accent, 0.15));
+                                drawSeries(ramData, css(Design.mauve, 1.0),  css(Design.mauve, 0.10));
                             }
                         }
                     }
@@ -722,7 +698,7 @@ Window {
                 reuseItems: true
                 model: isNative ? MonitorBackend.processes : null
 
-                ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                ScrollBar.vertical: OverflowBar {}
 
                 delegate: Rectangle {
                     width: procList.width
@@ -872,7 +848,7 @@ Window {
                 }
 
                 Text {
-                    text: "F5: Refresh  |  Escape: Close"
+                    text: "Ctrl+1/2: Tabs  |  Ctrl+F: Search  |  F5: Refresh  |  Escape: Close"
                     font.family: Design.font.sans
                     font.pixelSize: Design.s(10)
                     color: Design.textDim

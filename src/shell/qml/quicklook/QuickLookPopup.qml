@@ -34,9 +34,33 @@ PopupShell {
         }
     }
 
-    onFilePathChanged: {
+    /**
+     * Read the file and show it.
+     *
+     * Each loader now gets its command assigned here rather than bound to
+     * root.filePath. The binding and this handler both fire off the same
+     * property change with no ordering between them, so `running = true` could
+     * land while the command still held the previous path — an empty one on
+     * the first open, which is how a freshly opened preview sat on "Loading
+     * preview…" and never moved. The archive branch already did it this way;
+     * the other two did not.
+     *
+     * Also called on completion: the popup is created with filePath among its
+     * initial properties, and relying on the change signal for those is the
+     * kind of thing that works until it does not.
+     */
+    function loadPreview() {
+        textLoader.running = false;
+        archiveLoader.running = false;
+        pdfLoader.running = false;
+        root.fileText = "";
+
+        if (root.filePath === "")
+            return;
+
         detectType();
         if (root.fileType === "text") {
+            textLoader.command = ["head", "-n", "200", root.filePath];
             textLoader.running = true;
         } else if (root.fileType === "archive") {
             archiveLoader.command = root.filePath.toLowerCase().endsWith(".zip")
@@ -44,31 +68,39 @@ PopupShell {
                 : ["tar", "-tf", root.filePath];
             archiveLoader.running = true;
         } else if (root.fileType === "pdf") {
+            pdfLoader.command = ["pdfinfo", root.filePath];
             pdfLoader.running = true;
         }
     }
 
+    onFilePathChanged: root.loadPreview()
+    Component.onCompleted: root.loadPreview()
+
+    // An empty reply is an answer too — an empty file, or a command that could
+    // not read it. Saying so beats leaving "Loading preview…" on screen for
+    // good, which is indistinguishable from a hang.
+    function _finish(text, emptyNote) {
+        root.fileText = (text && text.length > 0) ? text : emptyNote;
+    }
+
     Process {
         id: textLoader
-        command: ["head", "-n", "200", root.filePath]
         stdout: StdioCollector {
-            onStreamFinished: root.fileText = this.text
+            onStreamFinished: root._finish(this.text, "This file is empty.")
         }
     }
 
     Process {
         id: archiveLoader
-        command: ["tar", "-tf", root.filePath]
         stdout: StdioCollector {
-            onStreamFinished: root.fileText = this.text
+            onStreamFinished: root._finish(this.text, "Could not list this archive.")
         }
     }
 
     Process {
         id: pdfLoader
-        command: ["pdfinfo", root.filePath]
         stdout: StdioCollector {
-            onStreamFinished: root.fileText = this.text || "PDF Document"
+            onStreamFinished: root._finish(this.text, "PDF Document")
         }
     }
 
@@ -111,7 +143,12 @@ PopupShell {
 
             Item { Layout.fillWidth: true }
 
+            // Both actions operate on root.filePath, so with no file open one
+            // copied an empty string to the clipboard and the other asked
+            // xdg-open to open "". Neither reported anything; they simply did
+            // nothing while looking available.
             ActionButton {
+                enabled: root.filePath !== ""
                 icon: "\u{f0c5}"
                 label: "Copy Path"
                 onActivated: {
@@ -121,6 +158,7 @@ PopupShell {
             }
 
             ActionButton {
+                enabled: root.filePath !== ""
                 icon: "\u{f08e}"
                 label: "Open"
                 onActivated: {
@@ -155,15 +193,31 @@ PopupShell {
                 sourceSize.height: Math.max(1, Math.round(height))
             }
 
-            // 2. Text / Code / Archive / PDF Metadata Preview
+            // 2. Nothing open yet.
+            //
+            // This used to be the placeholder text of the preview TextArea:
+            // one line of monospace in the top-left corner of an otherwise
+            // blank box, which reads like a file whose contents are the words
+            // "Select a file to preview". Every other surface in the shell
+            // states an empty view the same way, and now so does this one.
+            EmptyState {
+                anchors.centerIn: parent
+                width: parent.width - Design.s(Design.space.xl)
+                visible: root.filePath === ""
+                icon: "\u{f0214}"
+                title: "Nothing to preview"
+                hint: "Pick a file in Files and press Space."
+            }
+
+            // 3. Text / Code / Archive / PDF Metadata Preview
             ScrollView {
-                visible: root.fileType !== "image"
+                visible: root.fileType !== "image" && root.filePath !== ""
                 anchors.fill: parent
                 anchors.margins: Design.s(Design.space.sm)
                 clip: true
 
                 TextArea {
-                    text: root.fileText || (root.filePath ? "Loading preview..." : "Select a file to preview")
+                    text: root.fileText || "Loading preview…"
                     readOnly: true
                     selectByMouse: true
                     font.family: Design.font.mono

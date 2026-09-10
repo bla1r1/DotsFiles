@@ -11,6 +11,36 @@ import "WindowRegistry.js" as Registry
 Scope {
     id: rootScope
 
+    // Ui/Design cannot read Services/Settings itself — the standalone apps load
+    // Ui without a Quickshell runtime — so the shell is what joins the two. The
+    // accent picker in Appearance had no effect on anything before this.
+    Binding {
+        target: Design
+        property: "accentName"
+        value: Settings.accentName
+    }
+
+    // Services/Theme is a singleton, and a QML singleton is not created until
+    // something refers to it — so without this the theme was only applied once
+    // the Appearance page happened to be opened, and never at login.
+    // Only once Settings has actually read the file. Applying eagerly here
+    // used the schema default instead of the saved choice, and since applying
+    // publishes the palette, that overwrote the active theme with the default
+    // on every login — the picked theme survived in settings.json and was
+    // undone on disk a moment later.
+    Component.onCompleted: {
+        if (Settings.loaded && Settings.themeName)
+            Theme.apply(Settings.themeName);
+    }
+
+    Connections {
+        target: Settings
+        function onLoadedChanged() {
+            if (Settings.loaded && Settings.themeName)
+                Theme.apply(Settings.themeName);
+        }
+    }
+
     // Turns B1air.Daemon call failures into notifications.
     DaemonErrors {}
 
@@ -113,8 +143,10 @@ Scope {
     exclusionMode: ExclusionMode.Ignore
     focusable: isVisible
 
-    width: Screen.width
-    height: Screen.height
+    // Quickshell deprecated setting width/height on a PanelWindow; it wants the
+    // implicit pair and warned about both on every start.
+    implicitWidth: Screen.width
+    implicitHeight: Screen.height
 
     visible: isVisible
     readonly property string scriptDir: Quickshell.env("QS_SCRIPT_DIR") || (Quickshell.env("HOME") + "/.config/sway/scripts")

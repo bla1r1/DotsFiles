@@ -1,5 +1,6 @@
 module Services
 
+singleton Apps     1.0 Apps.qml
 singleton Settings 1.0 Settings.qml
 singleton Audio    1.0 Audio.qml
 singleton Power    1.0 Power.qml
@@ -12,4 +13,5 @@ singleton Weather       1.0 Weather.qml
 singleton SoundEffects  1.0 SoundEffects.qml
 singleton PinnedApps    1.0 PinnedApps.qml
 singleton Cmd      1.0 Cmd.qml
+singleton Theme    1.0 Theme.qml
 DaemonErrors 1.0 DaemonErrors.qml

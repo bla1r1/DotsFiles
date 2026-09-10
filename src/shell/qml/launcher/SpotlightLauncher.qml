@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Io
 import "../Ui"
 import "../Services"
+import "../Services" as Services
 
 // =============================================================================
 // macOS-style Expanding Spotlight Search (Dynamic Apps, Math, System Actions)
@@ -17,36 +18,24 @@ PopupShell {
     property string query: ""
     property int selectedIndex: 0
     property string calcResult: ""
-    property var systemApps: []
+    readonly property var systemApps: window.systemAppsMapped
     property string smartType: "calc"
 
     readonly property bool hasResults: window.query.trim().length > 0 || window.calcResult !== ""
 
     // ── Dynamic Apps Scanner ─────────────────────────────────────────────────
-    Process {
-        id: appLoader
-        running: true
-        command: ["b1air-daemon", "apps", "all"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    let items = JSON.parse(this.text);
-                    let res = [];
-                    for (let app of items) {
-                        res.push({
-                            name: app.name,
-                            desc: app.comment || "Installed Application",
-                            icon: app.icon || "\u{f108}",
-                            app_id: app.icon || "",
-                            cmd: app.exec,
-                            cat: "Applications"
-                        });
-                    }
-                    window.systemApps = res;
-                } catch (e) {}
-            }
-        }
-    }
+    // The scan lives in Services/Apps, shared with Launchpad; only the mapping
+    // to this launcher's row shape is here.
+    readonly property var systemAppsMapped: Services.Apps.list.map(app => ({
+        name: app.name,
+        desc: app.comment || "Installed Application",
+        icon: app.icon || "\u{f108}",
+        app_id: app.icon || "",
+        cmd: app.exec,
+        cat: "Applications",
+        terminal: app.terminal === true
+    }))
+
 
     // ── Core System Actions ──────────────────────────────────────────────────
     readonly property var baseApps: [

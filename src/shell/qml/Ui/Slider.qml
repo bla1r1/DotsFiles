@@ -34,7 +34,7 @@ Item {
     property int settleDelay: 600       // poller round-trip allowance
     property int cornerRadius: Design.radius.ctl
 
-    implicitHeight: Design.s(38)
+    implicitHeight: Design.s(Design.size.ctl)
 
     // ── Internals ────────────────────────────────────────────────────────────
     property int _local: 0

@@ -4,6 +4,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.UPower
+import Qt.labs.folderlistmodel
 import B1air.Daemon
 
 // =============================================================================
@@ -29,32 +30,96 @@ Singleton {
     // a D-Bus property read, and it pushes changes instead of being asked.
     readonly property var _bat: UPower.displayDevice
 
+    // FolderListModel instead of `bash -c "ls -d /sys/class/power_supply/BAT*"`.
+    // Resolving a glob is exactly what this type does, and doing it here costs
+    // no fork, no shell and no dependency on ls being on PATH — the previous
+    // form spawned a shell at startup purely to answer "is there a battery".
     property bool hasBatterySys: false
-    Process {
-        running: true
-        command: ["bash", "-c", "ls -d /sys/class/power_supply/BAT* /sys/class/power_supply/battery* 2>/dev/null | head -n1"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                root.hasBatterySys = this.text.trim() !== "";
+
+    FolderListModel {
+        id: batteryNodes
+        folder: "file:///sys/class/power_supply"
+        showFiles: true
+        showDirs: true
+        showDotAndDotDot: false
+
+        // The names are matched here rather than with nameFilters: the sysfs
+        // entries are directories, and FolderListModel applies nameFilters to
+        // files only — measured, "BAT*" returned all five nodes including AC
+        // and the two USB-C supplies. Left as a filter this would have called
+        // every desktop with a power supply a laptop.
+        onCountChanged: {
+            let found = false;
+            for (let i = 0; i < count; ++i) {
+                const n = String(get(i, "fileName"));
+                if (n.startsWith("BAT") || n.startsWith("battery")) {
+                    found = true;
+                    break;
+                }
             }
+            root.hasBatterySys = found;
         }
     }
 
-    readonly property bool hasBattery: root.hasBatterySys || (root._bat !== null && root._bat.isPresent && root._bat.isRechargeable)
+    // `_bat !== null` does not catch undefined, which is what
+    // UPower.displayDevice is before the service is ready — so the right-hand
+    // side evaluated to undefined and the whole binding did, giving
+    // "Unable to assign [undefined] to bool" in the shell log on every start.
+    // Coerced explicitly so the property is always a real boolean.
+    readonly property bool hasBattery: root.hasBatterySys
+        || (!!root._bat && root._bat.isPresent === true && root._bat.isRechargeable === true)
 
-    // The scale of UPowerDevice.percentage is genuinely ambiguous from outside:
-    // UPower's own D-Bus Percentage is 0..100, but Quickshell binds it through a
-    // dedicated `PowerPercentage` type, and a converter existing at all suggests
-    // it normalises to 0..1. Getting it wrong shows either 1% or 10000%.
-    //
-    // Handled for both until it can be checked on a machine that runs this.
-    // TO REMOVE: read the real value once, then keep only the correct branch.
-    readonly property int capacity: {
-        if (!root._bat)
-            return 0;
-        const p = root._bat.percentage;
-        return Math.round(p <= 1.0 ? p * 100 : p);
+    // Every physical pack, not just the composite. UPower.displayDevice merges
+    // them into one synthetic device, which is the right thing for the top-bar
+    // pill but hides the whole story on a machine with two: this ThinkPad's
+    // BAT0 sits at 99% fully-charged while BAT1 is still taking charge at 73%,
+    // and BAT0 has aged down to 65% of its design capacity. The composite
+    // reports one number and no health at all (displayDevice.healthPercentage
+    // is 0), so anything per-pack has to come from here.
+    readonly property var batteries: {
+        const out = [];
+        if (!UPower.devices)
+            return out;
+        for (const d of UPower.devices.values) {
+            if (d && d.isLaptopBattery && d.isPresent)
+                out.push(d);
+        }
+        return out;
     }
+
+    readonly property int batteryCount: root.batteries.length
+
+    // Only worth showing a per-pack breakdown when there is more than one pack.
+    readonly property bool hasMultipleBatteries: root.batteryCount > 1
+
+    // 0..100, or 0 when UPower has no design-capacity data for the pack.
+    function healthOf(dev) { return dev && dev.healthPercentage > 0 ? Math.round(dev.healthPercentage) : 0; }
+    function percentOf(dev) { return dev ? Math.round(dev.percentage * 100) : 0; }
+
+    function stateTextOf(dev) {
+        if (!dev) return "Unknown";
+        switch (dev.state) {
+        case UPowerDeviceState.Charging:     return "Charging";
+        case UPowerDeviceState.FullyCharged: return "Full";
+        case UPowerDeviceState.Discharging:  return "Discharging";
+        case UPowerDeviceState.Empty:        return "Empty";
+        default:                             return "Idle";
+        }
+    }
+
+    // "BAT0" reads better than the full sysfs path and matches what every other
+    // tool on the machine calls it.
+    function labelOf(dev) {
+        if (!dev) return "";
+        const np = dev.nativePath || "";
+        return np !== "" ? np : (dev.model || "Battery");
+    }
+
+    // Scale settled by reading it off a running Quickshell 0.3.1 rather than
+    // guessing: UPowerDevice.percentage is normalised to 0..1 (0.99 for a
+    // battery upower(1) reports as 99%), unlike UPower's own D-Bus Percentage
+    // which is 0..100. healthPercentage is NOT normalised — it stays 0..100.
+    readonly property int capacity: root._bat ? Math.round(root._bat.percentage * 100) : 0
     readonly property bool charging: root._bat
         ? (root._bat.state === UPowerDeviceState.Charging
            || root._bat.state === UPowerDeviceState.FullyCharged)
@@ -201,16 +266,17 @@ Singleton {
     property string _backlightDir: ""
     readonly property bool hasBacklight: root._backlightDir !== "" && root.brightnessMax > 0
 
-    Process {
-        id: findBacklight
-        running: true
-        command: ["bash", "-c", "ls -d /sys/class/backlight/*/ 2>/dev/null | head -n1"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const dir = this.text.trim();
-                if (dir !== "")
-                    root._backlightDir = dir.replace(/\/$/, "");
-            }
+    // Same again: the backlight device is whatever directory is in
+    // /sys/class/backlight, which is a listing, not a job for a shell.
+    FolderListModel {
+        id: backlightNodes
+        folder: "file:///sys/class/backlight"
+        showFiles: true
+        showDirs: true
+        showDotAndDotDot: false
+        onCountChanged: {
+            if (count > 0)
+                root._backlightDir = "/sys/class/backlight/" + String(get(0, "fileName"));
         }
     }
 

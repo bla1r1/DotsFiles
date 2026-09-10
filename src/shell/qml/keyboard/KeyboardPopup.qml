@@ -64,11 +64,23 @@ PopupShell {
 
     Process {
         id: layoutFetcher
-        command: ["bash", "-c", "swaymsg -t get_inputs | jq -r '.[] | select(.type==\"keyboard\") | .xkb_active_layout_index // 0' | head -1"]
+        // One process instead of a bash+jq+head pipeline: swaymsg already
+        // emits JSON and QML already parses it.
+        command: ["swaymsg", "-t", "get_inputs"]
         running: true
         stdout: StdioCollector {
             onStreamFinished: {
-                const idx = parseInt(this.text.trim(), 10);
+                let idx = NaN;
+                try {
+                    for (const dev of JSON.parse(this.text)) {
+                        if (dev.type === "keyboard") {
+                            idx = Number(dev.xkb_active_layout_index || 0);
+                            break;
+                        }
+                    }
+                } catch (e) {
+                    return;   // sway not answering yet
+                }
                 if (!isNaN(idx)) {
                     window.activeIndex = idx;
                     if (window.configuredLanguages.length > idx) {

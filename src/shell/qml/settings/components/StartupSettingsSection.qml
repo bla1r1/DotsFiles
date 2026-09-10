@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Io
 import "../../Ui"
 import "../../Services"
+import "../../Services" as Services
 
 // =============================================================================
 // Startup & Services Manager (Dynamic App Picker & Custom Commands)
@@ -24,27 +25,26 @@ ColumnLayout {
 
     readonly property ListModel allInstalledApps: ListModel {}
 
-    Process {
-        id: allAppsScanner
-        running: true
-        command: ["b1air-daemon", "apps", "all"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    let items = JSON.parse(this.text);
-                    section.allInstalledApps.clear();
-                    for (let app of items) {
-                        section.allInstalledApps.append({
-                            name: app.name,
-                            exec: app.exec,
-                            desktopFile: app.desktopFile,
-                            icon: app.icon,
-                            comment: app.comment || ""
-                        });
-                    }
-                } catch (e) {}
-            }
+    // The installed-app scan is shared with the launchers via Services/Apps —
+    // this page used to run its own `b1air-daemon apps all` alongside them.
+    function rebuildInstalledApps() {
+        section.allInstalledApps.clear();
+        for (const app of Services.Apps.list) {
+            section.allInstalledApps.append({
+                name: app.name,
+                exec: app.exec,
+                desktopFile: app.desktopFile,
+                icon: app.icon,
+                comment: app.comment || ""
+            });
         }
+    }
+
+    Component.onCompleted: section.rebuildInstalledApps()
+
+    Connections {
+        target: Services.Apps
+        function onListChanged() { section.rebuildInstalledApps(); }
     }
 
     function isAppEnabled(id) {
@@ -186,6 +186,7 @@ ColumnLayout {
                 }
 
                 ActionButton {
+                    Layout.fillWidth: false
                     icon: "󰐕"
                     label: section.showAppPicker ? "Close App List" : "Add Installed App…"
                     tone: Design.sapphire
@@ -357,6 +358,7 @@ ColumnLayout {
 
                 Rectangle {
                     Layout.fillWidth: true
+                    Layout.minimumWidth: Design.s(200)
                     Layout.preferredHeight: Design.s(36)
                     radius: Design.s(Design.radius.ctl)
                     color: Design.surface
@@ -385,7 +387,12 @@ ColumnLayout {
                     }
                 }
 
+                // Sized to its own text. ActionButton fills width by default,
+                // which is right when it is the only thing on its row and
+                // wrong here: it shared the row with the command field and
+                // took the space that field needs to be usable.
                 ActionButton {
+                    Layout.fillWidth: false
                     icon: "󰐕"
                     label: "Add Binary"
                     tone: Design.teal

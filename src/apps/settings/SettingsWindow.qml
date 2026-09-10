@@ -29,6 +29,15 @@ Window {
         return "monitors";
     }
 
+    // The settings window has its own root, so it needs the same
+    // Settings → Design join Main.qml does; without it the accent picker
+    // would preview nothing in the very window you pick it from.
+    Binding {
+        target: Design
+        property: "accentName"
+        value: Settings.accentName
+    }
+
     onClosing: Qt.quit()
 
     Rectangle {

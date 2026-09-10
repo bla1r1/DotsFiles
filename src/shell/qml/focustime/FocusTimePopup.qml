@@ -98,8 +98,6 @@ PopupShell {
     readonly property bool isTodaySelected: window.selectedDateStr === getIsoDate(new Date())
 
     readonly property string scriptsDir: Quickshell.env("HOME") + "/.config/quickshell/focustime"
-    readonly property string xdgRuntime: Quickshell.env("XDG_RUNTIME_DIR") || (Quickshell.env("HOME") + "/.cache/focustime")
-    readonly property string stateFilePath: window.xdgRuntime + "/focustime_state.json"
 
     // --- ENHANCED CHOREOGRAPHED STARTUP STATES ---
     property real introMain: 0.0
@@ -248,39 +246,37 @@ PopupShell {
         window.maxHourlyTotal = currentMaxHour;
     }
 
-    // --- DATA FETCHING ROUTING ---
+    // --- DATA FETCHING ---
+    //
+    // One source for every day, today included. Today used to be read from
+    // $XDG_RUNTIME_DIR/focustime_state.json, a file nothing in the project has
+    // ever written — so the default view of this window was blank on every
+    // machine, not just one without history. Other days went to
+    // `b1air-daemon stats`, which answers a different shape entirely: it has
+    // no week, month or hourly series and calls the day total
+    // `total_active_seconds`, so the charts stayed empty and the headline read
+    // 0m regardless of what the database held.
+    //
+    // `focustime` is the command that answers what this window reads. It also
+    // takes --app, so selecting an application narrows every figure on screen
+    // instead of only the list.
+    //
+    // Plain "b1air-daemon", not $HOME/.local/bin/b1air-daemon: install.sh puts
+    // the binaries wherever it can, and the rest of the shell has always let
+    // PATH resolve this.
     function requestDataUpdate() {
-        if (window.selectedAppClass === "" && getIsoDate(window.activeDate) === getIsoDate(new Date())) {
-            liveFileReader.running = true;
-        } else {
-            let localBin = Quickshell.env("HOME") + "/.local/bin/b1air-daemon";
-            let cmd = [localBin, "stats", getIsoDate(window.activeDate)];
-            if (window.selectedAppClass !== "") {
-                cmd.push("--app");
-                cmd.push(window.selectedAppClass);
-            }
-            statsPoller.command = cmd;
-            statsPoller.running = true;
+        let cmd = ["b1air-daemon", "focustime", getIsoDate(window.activeDate)];
+        if (window.selectedAppClass !== "") {
+            cmd.push("--app");
+            cmd.push(window.selectedAppClass);
         }
+        statsPoller.command = cmd;
+        statsPoller.running = true;
     }
 
-    // --- LIVE FILE READER (For Global Today) ---
-    Process {
-        id: liveFileReader
-        command: ["cat", window.stateFilePath]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                let raw = this.text.trim();
-                if (raw === "") return;
-                try {
-                    let data = JSON.parse(raw);
-                    window.updateFromData(data);
-                } catch(e) {}
-            }
-        }
-    }
-
-    Timer { 
+    // Only today keeps moving; a past day is settled and re-querying it every
+    // three seconds would be work for an answer that cannot change.
+    Timer {
         interval: 3000
         running: window.isTodaySelected && window.visible
         repeat: true
@@ -817,10 +813,19 @@ PopupShell {
                                 opacity: introMidLeft
                                 transform: Translate { x: Design.s(-30) * (1 - introMidLeft) }
 
+                                EmptyState {
+                                    anchors.centerIn: parent
+                                    width: parent.width - Design.s(32)
+                                    visible: weekListModel.count === 0
+                                    icon: "\u{f0c7a}"
+                                    title: "No week to show yet"
+                                }
+
                                 RowLayout {
                                     anchors.centerIn: parent
                                     height: parent.height - Design.s(32)
                                     spacing: Design.s(12) 
+                                    visible: weekListModel.count > 0
 
                                     Repeater {
                                         model: weekListModel
@@ -908,6 +913,28 @@ PopupShell {
                                         text: window.monthNames[window.activeDate.getMonth()]
                                     }
 
+                                    // Weekday letters, so the Monday-first grid can be
+                                    // read as a calendar rather than as 31 squares in a
+                                    // row. Same column width and spacing as the cells
+                                    // below, which is what keeps them lined up.
+                                    Grid {
+                                        Layout.alignment: Qt.AlignCenter
+                                        columns: 7
+                                        spacing: Design.s(6)
+
+                                        Repeater {
+                                            model: ["M", "T", "W", "T", "F", "S", "S"]
+                                            delegate: Label {
+                                                required property var modelData
+                                                width: Design.s(18)
+                                                horizontalAlignment: Text.AlignHCenter
+                                                role: "caption"
+                                                color: Design.textFaint
+                                                text: modelData
+                                            }
+                                        }
+                                    }
+
                                     Grid {
                                         Layout.alignment: Qt.AlignCenter
                                         columns: 7 
@@ -927,7 +954,15 @@ PopupShell {
                                                 border.width: model.isTarget ? 1 : 0
                                                 Behavior on border.color { ColorAnimation { duration: Design.duration.base } }
                                                 
-                                                visible: model.total !== -1
+                                                // Kept visible on purpose. A Grid
+                                                // skips invisible children entirely, so
+                                                // hiding the leading blanks collapsed
+                                                // them and shifted every date one column
+                                                // left of the weekday it belongs to. The
+                                                // blank keeps its slot and simply draws
+                                                // nothing — the colour above is already
+                                                // transparent for total == -1.
+                                                enabled: model.total !== -1
 
                                                 // Slight animated bounce upon load
                                                 scale: 0.7 + (0.3 * introMidRight)
@@ -985,13 +1020,8 @@ PopupShell {
                                     
                                     move: Transition { NumberAnimation { properties: "x,y"; duration: Design.duration.slow; easing.type: Easing.OutQuint } }
                                     
-                                    ScrollBar.vertical: ScrollBar {
-                                        active: appList.moving || appList.movingVertically
-                                        width: Design.s(4)
-                                        policy: ScrollBar.AsNeeded
-                                        contentItem: Rectangle { implicitWidth: Design.s(4); radius: Design.s(2); color: Design.active }
-                                    }
-                                    
+                                    ScrollBar.vertical: OverflowBar {}
+
                                     delegate: Rectangle {
                                         width: ListView.view.width
                                         height: Design.s(58) 
@@ -1077,6 +1107,20 @@ PopupShell {
                                             }
                                         }
                                     }
+                                }
+
+                                // A day with nothing recorded drew this card as a plain
+                                // empty rectangle — no heading, no message, nothing to
+                                // distinguish "no activity yet" from "this panel is
+                                // broken". Every other surface in the shell says which
+                                // it is.
+                                EmptyState {
+                                    anchors.centerIn: parent
+                                    width: parent.width
+                                    visible: appListModel.count === 0 && window.appViewFocus < 0.5
+                                    icon: "\u{f04fe}"
+                                    title: "No activity recorded"
+                                    hint: "Applications appear here once you have used them for a while."
                                 }
 
                                 // --- VIEW B: 24-Hour App Activity Chart (Now 48 chunks / 30 mins) ---
@@ -1361,12 +1405,7 @@ PopupShell {
                                 
                                 move: Transition { NumberAnimation { properties: "x,y"; duration: Design.duration.slow; easing.type: Easing.OutQuint } }
                                 
-                                ScrollBar.vertical: ScrollBar {
-                                    active: weekAppList.moving || weekAppList.movingVertically
-                                    width: Design.s(4)
-                                    policy: ScrollBar.AsNeeded
-                                    contentItem: Rectangle { implicitWidth: Design.s(4); radius: Design.s(2); color: Design.active }
-                                }
+                                ScrollBar.vertical: OverflowBar {}
                                 
                                 delegate: Rectangle {
                                     width: ListView.view.width

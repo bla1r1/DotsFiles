@@ -1,12 +1,22 @@
 [Unit]
 Description=b1air Quickshell UI Shell
+#
+# NOTE: the live session does not use these units — conf.d/autostart.conf
+# execs the daemon straight from sway, and nothing in install.sh ever runs
+# `systemctl --user enable`. They are kept for a systemd-managed session; do
+# not enable them alongside the sway exec or the daemon runs twice.
+#
+# ExecStart used to be `/usr/bin/quickshell -p %h/.config/quickshell/Main.qml`:
+# the generic binary against the *older* QML location. `make install` deploys to
+# %h/.config/b1air-shell, and b1air-shell resolves that path itself, so the unit
+# would have failed on a missing file and restart-looped every 2 s.
 Documentation=https://github.com/bla1r1/DotsFiles
 PartOf=b1air-session.target
 After=b1air-daemon.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/quickshell -p %h/.config/quickshell/Main.qml
+ExecStart=%h/.local/bin/b1air-shell
 Restart=on-failure
 RestartSec=2s
 

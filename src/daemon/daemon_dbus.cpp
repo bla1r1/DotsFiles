@@ -1,3 +1,4 @@
+#include "proc_util.hpp"
 #include "daemon_dbus.hpp"
 #include "system_control.hpp"
 #include "focustime_db.hpp"
@@ -39,26 +40,6 @@ static bool sender_is_current_user(sd_bus_message *m, sd_bus_error *error) {
     return true;
 }
 
-static bool spawn_detached(const std::vector<std::string>& args, const char* wayland_display = nullptr) {
-    if (args.empty()) return false;
-    pid_t pid = fork();
-    if (pid < 0) return false;
-    if (pid == 0) {
-        (void)setsid();
-        const int null_fd = open("/dev/null", O_RDWR | O_CLOEXEC);
-        if (null_fd >= 0) {
-            dup2(null_fd, STDIN_FILENO); dup2(null_fd, STDOUT_FILENO); dup2(null_fd, STDERR_FILENO);
-            if (null_fd > STDERR_FILENO) close(null_fd);
-        }
-        if (wayland_display) setenv("WAYLAND_DISPLAY", wayland_display, 1);
-        std::vector<char*> argv;
-        for (const auto& arg : args) argv.push_back(const_cast<char*>(arg.c_str()));
-        argv.push_back(nullptr);
-        execvp(argv[0], argv.data());
-        _exit(127);
-    }
-    return true;
-}
 
 #define REQUIRE_SESSION_USER() do { if (!sender_is_current_user(m, ret_error)) return -EACCES; } while (0)
 
@@ -76,8 +57,8 @@ static int method_lock(sd_bus_message *m, void *userdata, sd_bus_error *ret_erro
 static int method_reload(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
     REQUIRE_SESSION_USER();
-    spawn_detached({"swaymsg", "reload"});
-    spawn_detached({"b1air-shell", "forceReload"});
+    util::spawn_detached({"swaymsg", "reload"});
+    util::spawn_detached({"b1air-shell", "forceReload"});
     return sd_bus_reply_method_return(m, "");
 }
 
@@ -452,7 +433,7 @@ static int method_shell_toggle(sd_bus_message *m, void *userdata, sd_bus_error *
     if (!valid_panel(p)) return sd_bus_error_set_const(ret_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid panel");
     const std::string qml = b1air::qml_entry("Main.qml");
     if (qml.empty()) return sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FILE_NOT_FOUND, "Shell QML not installed");
-    spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "toggle", p, ""}, get_wayland_display().c_str());
+    util::spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "toggle", p, ""}, get_wayland_display().c_str());
     return sd_bus_reply_method_return(m, "");
 }
 
@@ -469,7 +450,7 @@ static int method_shell_open(sd_bus_message *m, void *userdata, sd_bus_error *re
     }
     const std::string qml = b1air::qml_entry("Main.qml");
     if (qml.empty()) return sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FILE_NOT_FOUND, "Shell QML not installed");
-    spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "open", p, a}, get_wayland_display().c_str());
+    util::spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "open", p, a}, get_wayland_display().c_str());
     return sd_bus_reply_method_return(m, "");
 }
 
@@ -478,7 +459,7 @@ static int method_shell_close(sd_bus_message *m, void *userdata, sd_bus_error *r
     REQUIRE_SESSION_USER();
     const std::string qml = b1air::qml_entry("Main.qml");
     if (qml.empty()) return sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FILE_NOT_FOUND, "Shell QML not installed");
-    spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "close"}, get_wayland_display().c_str());
+    util::spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "close"}, get_wayland_display().c_str());
     return sd_bus_reply_method_return(m, "");
 }
 
@@ -487,7 +468,7 @@ static int method_shell_reload(sd_bus_message *m, void *userdata, sd_bus_error *
     REQUIRE_SESSION_USER();
     const std::string qml = b1air::qml_entry("Main.qml");
     if (qml.empty()) return sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FILE_NOT_FOUND, "Shell QML not installed");
-    spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "forceReload"}, get_wayland_display().c_str());
+    util::spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "forceReload"}, get_wayland_display().c_str());
     return sd_bus_reply_method_return(m, "");
 }
 
@@ -499,7 +480,7 @@ static int method_shell_switcher_advance(sd_bus_message *m, void *userdata, sd_b
     REQUIRE_SESSION_USER();
     const std::string qml = b1air::qml_entry("Main.qml");
     if (qml.empty()) return sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FILE_NOT_FOUND, "Shell QML not installed");
-    spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "switcherAdvance"}, get_wayland_display().c_str());
+    util::spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "switcherAdvance"}, get_wayland_display().c_str());
     return sd_bus_reply_method_return(m, "");
 }
 
@@ -508,7 +489,7 @@ static int method_shell_switcher_confirm(sd_bus_message *m, void *userdata, sd_b
     REQUIRE_SESSION_USER();
     const std::string qml = b1air::qml_entry("Main.qml");
     if (qml.empty()) return sd_bus_error_set_const(ret_error, SD_BUS_ERROR_FILE_NOT_FOUND, "Shell QML not installed");
-    spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "switcherConfirm"}, get_wayland_display().c_str());
+    util::spawn_detached({"quickshell", "-p", qml, "ipc", "call", "main", "switcherConfirm"}, get_wayland_display().c_str());
     return sd_bus_reply_method_return(m, "");
 }
 

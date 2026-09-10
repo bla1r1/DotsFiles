@@ -1,3 +1,4 @@
+#include "proc_util.hpp"
 #include "user_manager.hpp"
 #include <pwd.h>
 #include <grp.h>
@@ -14,20 +15,6 @@
 
 namespace b1air {
 
-static std::string escape_json(const std::string& s) {
-    std::ostringstream o;
-    for (char c : s) {
-        if (c == '"') o << "\\\"";
-        else if (c == '\\') o << "\\\\";
-        else if (c == '\b') o << "\\b";
-        else if (c == '\f') o << "\\f";
-        else if (c == '\n') o << "\\n";
-        else if (c == '\r') o << "\\r";
-        else if (c == '\t') o << "\\t";
-        else o << c;
-    }
-    return o.str();
-}
 
 static bool run_argv(const std::vector<std::string>& args) {
     if (args.empty()) return false;
@@ -119,13 +106,13 @@ std::string UserManager::get_user_info_json() {
 
     std::ostringstream ss;
     ss << "{\n";
-    ss << "  \"username\": \"" << escape_json(p.username) << "\",\n";
-    ss << "  \"name\": \"" << escape_json(p.name) << "\",\n";
-    ss << "  \"uid\": \"" << escape_json(p.uid) << "\",\n";
-    ss << "  \"home\": \"" << escape_json(p.home) << "\",\n";
-    ss << "  \"shell\": \"" << escape_json(p.shell) << "\",\n";
-    ss << "  \"avatar\": \"" << escape_json(p.avatar) << "\",\n";
-    ss << "  \"groups\": \"" << escape_json(p.groups) << "\"\n";
+    ss << "  \"username\": \"" << util::escape_json(p.username) << "\",\n";
+    ss << "  \"name\": \"" << util::escape_json(p.name) << "\",\n";
+    ss << "  \"uid\": \"" << util::escape_json(p.uid) << "\",\n";
+    ss << "  \"home\": \"" << util::escape_json(p.home) << "\",\n";
+    ss << "  \"shell\": \"" << util::escape_json(p.shell) << "\",\n";
+    ss << "  \"avatar\": \"" << util::escape_json(p.avatar) << "\",\n";
+    ss << "  \"groups\": \"" << util::escape_json(p.groups) << "\"\n";
     ss << "}\n";
 
     return ss.str();

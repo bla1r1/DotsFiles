@@ -255,7 +255,7 @@ PopupShell {
             model: window.filteredList
             boundsBehavior: Flickable.StopAtBounds
 
-            ScrollBar.vertical: ScrollBar { active: true; policy: ScrollBar.AsNeeded }
+            ScrollBar.vertical: OverflowBar {}
 
             delegate: Rectangle {
                 id: emojiCell

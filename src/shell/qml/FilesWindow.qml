@@ -243,9 +243,9 @@ ApplicationWindow {
     Rectangle {
         id: windowFrame
         anchors.fill: parent
-        radius: 14
+        radius: (window.visibility === Window.Maximized) ? 0 : Design.s(14)
         color: window.colBg
-        border.color: window.colBorder
+        border.color: (window.visibility === Window.Maximized) ? "transparent" : window.colBorder
         border.width: 1
         clip: true
 
@@ -286,8 +286,8 @@ ApplicationWindow {
                             width: 28
                             height: 28
                             radius: 8
-                            color: Qt.rgba(122/255, 162/255, 247/255, 0.18)
-                            border.color: Qt.rgba(122/255, 162/255, 247/255, 0.35)
+                            color: Design.tint(Design.accent, 0.18)
+                            border.color: Design.tint(Design.accent, 0.35)
                             border.width: 1
 
                             Text {
@@ -372,7 +372,7 @@ ApplicationWindow {
                         Item { Layout.fillWidth: true }
                         Rectangle {
                             width: 18; height: 18; radius: 4
-                            color: addBmArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : "transparent"
+                            color: addBmArea.containsMouse ? Design.tint(Design.accent, 0.25) : "transparent"
                             Text {
                                 anchors.centerIn: parent
                                 text: "󰐕"
@@ -402,8 +402,8 @@ ApplicationWindow {
                             width: bookmarksList.width
                             height: 28
                             radius: 6
-                            color: window.currentPath === modelData.path ? Qt.rgba(122/255, 162/255, 247/255, 0.20) : (bmArea.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.05) : "transparent")
-                            border.color: window.currentPath === modelData.path ? Qt.rgba(122/255, 162/255, 247/255, 0.40) : "transparent"
+                            color: window.currentPath === modelData.path ? Design.tint(Design.accent, 0.20) : (bmArea.containsMouse ? Design.tint(Design.text, 0.05) : "transparent")
+                            border.color: window.currentPath === modelData.path ? Design.tint(Design.accent, 0.40) : "transparent"
                             border.width: 1
 
                             RowLayout {
@@ -489,8 +489,8 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     height: 28
                     radius: 6
-                    color: isActive ? Qt.rgba(122/255, 162/255, 247/255, 0.20) : (pillArea.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.05) : "transparent")
-                    border.color: isActive ? Qt.rgba(122/255, 162/255, 247/255, 0.45) : "transparent"
+                    color: isActive ? Design.tint(Design.accent, 0.20) : (pillArea.containsMouse ? Design.tint(Design.text, 0.05) : "transparent")
+                    border.color: isActive ? Design.tint(Design.accent, 0.45) : "transparent"
                     border.width: 1
 
                     RowLayout {
@@ -704,7 +704,7 @@ ApplicationWindow {
 
                             Rectangle {
                                 width: 30; height: 30; radius: 6
-                                color: window.showHidden ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : (hidArea.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.08) : window.colSunken)
+                                color: window.showHidden ? Design.tint(Design.accent, 0.25) : (hidArea.containsMouse ? Design.tint(Design.text, 0.08) : window.colSunken)
                                 border.color: window.showHidden ? window.colBlue : window.colBorderSubtle
                                 border.width: 1
                                 Text { anchors.centerIn: parent; text: "󰈉"; font.family: Design.font.mono; font.pixelSize: Design.s(13); color: window.showHidden ? window.colBlue : window.colDim }
@@ -713,7 +713,7 @@ ApplicationWindow {
 
                             Rectangle {
                                 width: 30; height: 30; radius: 6
-                                color: termArea.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.08) : window.colSunken
+                                color: termArea.containsMouse ? Design.tint(Design.text, 0.08) : window.colSunken
                                 border.color: window.colBorderSubtle
                                 border.width: 1
                                 Text { anchors.centerIn: parent; text: "󰞷"; font.family: Design.font.mono; font.pixelSize: Design.s(13); color: window.colFg }
@@ -746,8 +746,8 @@ ApplicationWindow {
                             width: 104
                             height: 104
                             radius: 8
-                            color: isSelected ? Qt.rgba(122/255, 162/255, 247/255, 0.22) : (cardHover.containsMouse ? window.colCardHover : "transparent")
-                            border.color: isSelected ? window.colBlue : (cardHover.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.08) : "transparent")
+                            color: isSelected ? Design.tint(Design.accent, 0.22) : (cardHover.containsMouse ? window.colCardHover : "transparent")
+                            border.color: isSelected ? window.colBlue : (cardHover.containsMouse ? Design.tint(Design.text, 0.08) : "transparent")
                             border.width: 1
 
                             readonly property bool isSelected: window.selectedIndex === index
@@ -833,7 +833,7 @@ ApplicationWindow {
                             width: listView.width
                             height: 32
                             radius: 6
-                            color: isSelected ? Qt.rgba(122/255, 162/255, 247/255, 0.22) : (lHover.containsMouse ? window.colCardHover : "transparent")
+                            color: isSelected ? Design.tint(Design.accent, 0.22) : (lHover.containsMouse ? window.colCardHover : "transparent")
                             border.color: isSelected ? window.colBlue : "transparent"
                             border.width: 1
 
@@ -910,7 +910,7 @@ ApplicationWindow {
                             width: 170
                             height: 150
                             radius: 8
-                            color: isSelected ? Qt.rgba(122/255, 162/255, 247/255, 0.22) : (gHover.containsMouse ? window.colCardHover : window.colSunken)
+                            color: isSelected ? Design.tint(Design.accent, 0.22) : (gHover.containsMouse ? window.colCardHover : window.colSunken)
                             border.color: isSelected ? window.colBlue : window.colBorderSubtle
                             border.width: 1
 
@@ -1023,7 +1023,7 @@ ApplicationWindow {
         signal clicked()
 
         width: 24; height: 24; radius: 4
-        color: nbArea.containsMouse && nb.enabled ? Qt.rgba(255/255, 255/255, 255/255, 0.10) : "transparent"
+        color: nbArea.containsMouse && nb.enabled ? Design.tint(Design.text, 0.10) : "transparent"
         opacity: nb.enabled ? 1.0 : 0.35
 
         Text {
@@ -1051,14 +1051,14 @@ ApplicationWindow {
         signal clicked()
 
         width: 26; height: 24; radius: 4
-        color: vsb.active ? window.colBlue : (vsbArea.containsMouse ? Qt.rgba(255/255, 255/255, 255/255, 0.08) : "transparent")
+        color: vsb.active ? window.colBlue : (vsbArea.containsMouse ? Design.tint(Design.text, 0.08) : "transparent")
 
         Text {
             anchors.centerIn: parent
             text: vsb.icon
             font.family: Design.font.mono
             font.pixelSize: Design.s(11)
-            color: vsb.active ? "#101119" : (vsbArea.containsMouse ? "#ffffff" : window.colDim)
+            color: vsb.active ? Design.accentText : (vsbArea.containsMouse ? "#ffffff" : window.colDim)
         }
 
         MouseArea {

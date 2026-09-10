@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
+import Quickshell.Io
 import "../../Ui"
 import "../../Services"
 
@@ -21,6 +22,51 @@ ColumnLayout {
     property bool daemonAutoStart: Settings.focusDaemonAutoStart !== undefined ? Settings.focusDaemonAutoStart : true
 
     property var notifRules: Settings.notificationRules || {}
+
+    // ── Screen time ──────────────────────────────────────────────────────────
+    //
+    // Both figures below used to come from Power.upHours/upMins — the system's
+    // uptime. That is not screen time and not "today": a machine left running
+    // overnight reported a full day of use nobody spent, and the daily-goal
+    // percentage was computed from the same number. The FocusTime window,
+    // reading the same day out of the same database, showed 3h 57m while this
+    // card said 5h 10m.
+    //
+    // This is the tracker's own total for today, which is what the card claims
+    // to be showing.
+    property int screenSeconds: 0
+
+    readonly property int screenHours: Math.floor(section.screenSeconds / 3600)
+    readonly property int screenMins: Math.floor((section.screenSeconds % 3600) / 60)
+
+    Process {
+        id: screenTimeQuery
+        running: true
+        command: ["b1air-daemon", "focustime"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try {
+                    const d = JSON.parse(this.text);
+                    if (typeof d.total === "number")
+                        section.screenSeconds = d.total;
+                } catch (e) {
+                    // Daemon not up yet. Keep the last figure rather than
+                    // flashing a zero at someone reading the page.
+                }
+            }
+        }
+    }
+
+    // Cheap and only while this page is on screen: one process a minute.
+    Timer {
+        interval: 60000
+        repeat: true
+        running: section.visible
+        onTriggered: {
+            screenTimeQuery.running = false;
+            screenTimeQuery.running = true;
+        }
+    }
 
     function isRuleEnabled(app) {
         if (!app) return true;
@@ -102,7 +148,7 @@ ColumnLayout {
                         dim: true
                     }
                     Label {
-                        text: (Power.upHours > 0 ? Power.upHours + "h " : "") + Power.upMins + "m"
+                        text: (section.screenHours > 0 ? section.screenHours + "h " : "") + section.screenMins + "m"
                         role: "subhead"
                         weight: Design.weight.bold
                         color: Design.teal
@@ -126,7 +172,7 @@ ColumnLayout {
                         dim: true
                     }
                     Label {
-                        readonly property real pct: Math.min(100, Math.round(((Power.upHours * 60 + Power.upMins) / (section.dailyGoalHours * 60)) * 100))
+                        readonly property real pct: Math.min(100, Math.round((section.screenSeconds / (section.dailyGoalHours * 3600)) * 100))
                         text: pct + "% used"
                         role: "subhead"
                         weight: Design.weight.bold

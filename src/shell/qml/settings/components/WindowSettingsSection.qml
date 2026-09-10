@@ -19,39 +19,34 @@ ColumnLayout {
     Layout.fillWidth: true
     spacing: Design.s(Design.space.lg)
 
-    property int gapsInner: Settings.gapsInner !== undefined ? Settings.gapsInner : 8
-    property int gapsOuter: Settings.gapsOuter !== undefined ? Settings.gapsOuter : 4
-    property int borderWidth: Settings.borderWidth !== undefined ? Settings.borderWidth : 2
-    property bool smartBorders: Settings.smartBorders !== undefined ? Settings.smartBorders : true
-    property bool smartGaps: Settings.smartGaps !== undefined ? Settings.smartGaps : false
-    property real inactiveOpacity: Settings.inactiveOpacity !== undefined ? Settings.inactiveOpacity : 1.0
+    readonly property int gapsInner: Settings.gapsInner
+    readonly property int gapsOuter: Settings.gapsOuter
+    readonly property int borderWidth: Settings.borderWidth
+    readonly property bool smartBorders: Settings.smartBorders
+    readonly property bool smartGaps: Settings.smartGaps
+    readonly property real inactiveOpacity: Settings.inactiveOpacity
 
     function setGapsInner(val) {
-        section.gapsInner = val;
         Settings.set("gapsInner", val);
         Quickshell.execDetached(["swaymsg", "gaps", "inner", "all", "set", String(val)]);
     }
 
     function setGapsOuter(val) {
-        section.gapsOuter = val;
         Settings.set("gapsOuter", val);
         Quickshell.execDetached(["swaymsg", "gaps", "outer", "all", "set", String(val)]);
     }
 
     function setBorderWidth(val) {
-        section.borderWidth = val;
         Settings.set("borderWidth", val);
         Quickshell.execDetached(["swaymsg", "default_border", "pixel", String(val)]);
     }
 
     function toggleSmartBorders(val) {
-        section.smartBorders = val;
         Settings.set("smartBorders", val);
         Quickshell.execDetached(["swaymsg", "smart_borders", val ? "on" : "off"]);
     }
 
     function toggleSmartGaps(val) {
-        section.smartGaps = val;
         Settings.set("smartGaps", val);
         Quickshell.execDetached(["swaymsg", "smart_gaps", val ? "on" : "off"]);
     }

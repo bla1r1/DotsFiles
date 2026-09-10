@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
+import Qt.labs.folderlistmodel
 import Quickshell.Wayland
 import Quickshell.Widgets
 import "./Ui"
@@ -11,6 +12,49 @@ import "./Services"
 
 PanelWindow {
     id: topBar
+
+    // The sway IPC socket, resolved once and kept current.
+    //
+    // Every swaymsg call below used to open a shell purely to run
+    //     SWAYSOCK=$(ls -t /run/user/$(id -u)/sway-ipc.*.sock | head -n1)
+    // because a shell that outlives a sway restart would otherwise inherit a
+    // dead socket. The concern is real, the per-call glob is not: listing the
+    // directory here follows a restart by itself, and the value is handed to
+    // each process through its environment instead of through `bash -c`.
+    readonly property string runtimeDir: Quickshell.env("XDG_RUNTIME_DIR") || "/run/user/1000"
+
+    property string swaySock: Quickshell.env("SWAYSOCK") || ""
+
+    FolderListModel {
+        id: swaySockets
+        folder: "file://" + topBar.runtimeDir
+        showDirs: false
+        showFiles: true
+        showDotAndDotDot: false
+        sortField: FolderListModel.Time
+        onCountChanged: {
+            // nameFilters matches files, and these are sockets, so the newest
+            // sway-ipc.*.sock is picked out by hand.
+            for (let i = 0; i < count; ++i) {
+                const n = String(get(i, "fileName"));
+                if (n.startsWith("sway-ipc.") && n.endsWith(".sock")) {
+                    topBar.swaySock = topBar.runtimeDir + "/" + n;
+                    return;
+                }
+            }
+        }
+    }
+
+    readonly property var swayEnv: ({ "SWAYSOCK": topBar.swaySock })
+
+    // The Game Mode page has offered "Hide Waybar — automatically hide top
+    // status bar during gaming sessions" since it was written. There is no
+    // waybar in this project (the native bar below replaced it, and the
+    // .config/waybar the README's tree claims does not exist), and nothing
+    // read the setting, so the toggle stored a value and the bar never moved.
+    // Hiding the PanelWindow also releases its exclusive zone, so tiled windows
+    // reclaim the strip.
+    visible: !(Settings.gameModeEnabled && Settings.gameModeHideBar)
     
     signal requestCommand(string cmd, bool notify)
 
@@ -177,7 +221,8 @@ PanelWindow {
 
     Process {
         id: workspacesProcess
-        command: ["bash", "-c", "SWAYSOCK=$(ls -t /run/user/$(id -u)/sway-ipc.*.sock 2>/dev/null | head -n1); export SWAYSOCK; swaymsg -t get_workspaces"]
+        command: ["swaymsg", "-t", "get_workspaces"]
+        environment: topBar.swayEnv
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
@@ -192,7 +237,8 @@ PanelWindow {
         id: runningAppsProcess
         // Resolve the current socket on every refresh: Sway assigns a new
         // socket after a restart, so inheriting an old SWAYSOCK hides windows.
-        command: ["bash", "-c", "SWAYSOCK=$(ls -t /run/user/$(id -u)/sway-ipc.*.sock 2>/dev/null | head -n1); export SWAYSOCK; swaymsg -t get_tree"]
+        command: ["swaymsg", "-t", "get_tree"]
+        environment: topBar.swayEnv
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
@@ -214,7 +260,8 @@ PanelWindow {
         running: true
         command: [
             "bash", "-c",
-            "SWAYSOCK=$(ls -t /run/user/$(id -u)/sway-ipc.*.sock 2>/dev/null | head -n1); export SWAYSOCK; " +
+            // SWAYSOCK arrives through `environment` below; the shell is still
+            // needed here only for the pgrep/kill reap loop.
             // swaymsg blocks on the sway socket and never notices its stdout closing,
             // so it outlives the shell instead of dying with it. Reap the previous
             // one here: at most one stale subscription can ever exist.
@@ -222,6 +269,7 @@ PanelWindow {
             "  [ \"$p\" != \"$$\" ] && kill \"$p\" 2>/dev/null; done; " +
             "exec swaymsg -t subscribe -m '[\"window\",\"workspace\"]'"
         ]
+        environment: topBar.swayEnv
         stdout: SplitParser {
             // Coalesce bursts: dragging a window emits a stream of events, and one
             // refresh per event would spawn more processes than the old polling did.
@@ -272,7 +320,7 @@ PanelWindow {
                 width: appRow.implicitWidth + 20
                 height: 30
                 radius: 10
-                color: appMenuArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : topBar.colBg
+                color: appMenuArea.containsMouse ? Design.tint(Design.accent, 0.25) : topBar.colBg
                 border.color: appMenuArea.containsMouse ? topBar.colBlue : topBar.colBorder
                 border.width: 1
 
@@ -338,7 +386,7 @@ PanelWindow {
                             width: 24
                             height: 24
                             radius: 6
-                            color: pinArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.22) : "transparent"
+                            color: pinArea.containsMouse ? Design.tint(Design.accent, 0.22) : "transparent"
 
                             IconImage {
                                 anchors.centerIn: parent
@@ -378,7 +426,7 @@ PanelWindow {
                         width: 20
                         height: 20
                         radius: 5
-                        color: addPinArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.25) : "transparent"
+                        color: addPinArea.containsMouse ? Design.tint(Design.accent, 0.25) : "transparent"
                         anchors.verticalCenter: parent.verticalCenter
 
                         Text {
@@ -422,7 +470,7 @@ PanelWindow {
                             width: wsText.implicitWidth + 14
                             height: 22
                             radius: 6
-                            color: modelData.focused ? topBar.colBlue : (wsMouseArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.20) : topBar.colWrkBg)
+                            color: modelData.focused ? topBar.colBlue : (wsMouseArea.containsMouse ? Design.tint(Design.accent, 0.20) : topBar.colWrkBg)
                             border.color: modelData.focused ? "transparent" : topBar.colWrkBorder
                             border.width: 1
 
@@ -433,7 +481,7 @@ PanelWindow {
                                 font.family: topBar.fontMain
                                 font.pixelSize: Design.s(11)
                                 font.bold: true
-                                color: modelData.focused ? "#101014" : (wsMouseArea.containsMouse ? topBar.colBlue : topBar.colFgDim)
+                                color: modelData.focused ? Design.accentText : (wsMouseArea.containsMouse ? topBar.colBlue : topBar.colFgDim)
                             }
 
                             MouseArea {
@@ -456,9 +504,9 @@ PanelWindow {
                     z: -1
                     onWheel: (wheel) => {
                         if (wheel.angleDelta.y > 0) {
-                            Quickshell.execDetached(["bash", "-c", "SWAYSOCK=$(ls -t /run/user/$(id -u)/sway-ipc.*.sock 2>/dev/null | head -n1) swaymsg workspace prev"]);
+                            Quickshell.execDetached({ command: ["swaymsg", "workspace", "prev"], environment: topBar.swayEnv });
                         } else if (wheel.angleDelta.y < 0) {
-                            Quickshell.execDetached(["bash", "-c", "SWAYSOCK=$(ls -t /run/user/$(id -u)/sway-ipc.*.sock 2>/dev/null | head -n1) swaymsg workspace next"]);
+                            Quickshell.execDetached({ command: ["swaymsg", "workspace", "next"], environment: topBar.swayEnv });
                         }
                     }
                 }
@@ -478,7 +526,7 @@ PanelWindow {
                         width: 28
                         height: 28
                         radius: 7
-                        color: modelData.focused ? Qt.rgba(122/255, 162/255, 247/255, 0.22) : topBar.colBg
+                        color: modelData.focused ? Design.tint(Design.accent, 0.22) : topBar.colBg
                         border.color: modelData.focused ? topBar.colBlue : topBar.colBorder
                         border.width: 1
 
@@ -495,7 +543,10 @@ PanelWindow {
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: Quickshell.execDetached(["bash", "-c", "SWAYSOCK=$(ls -t /run/user/$(id -u)/sway-ipc.*.sock 2>/dev/null | head -n1); export SWAYSOCK; swaymsg '[con_id=" + String(modelData.id) + "] focus'"])
+                            onClicked: Quickshell.execDetached({
+                                command: ["swaymsg", "[con_id=" + String(modelData.id) + "] focus"],
+                                environment: topBar.swayEnv
+                            })
                         }
 
                         ToolTip.visible: runningArea.containsMouse
@@ -514,7 +565,7 @@ PanelWindow {
             width: clockText.implicitWidth + 36
             height: 28
             radius: 999
-            color: clockArea.containsMouse ? "#89b4fa" : topBar.colBlue
+            color: clockArea.containsMouse ? Qt.lighter(topBar.colBlue, 1.25) : topBar.colBlue
 
             Behavior on color { ColorAnimation { duration: 150 } }
 
@@ -559,8 +610,8 @@ PanelWindow {
                 height: 30
                 width: statsRow.implicitWidth + 20
                 radius: 10
-                color: statsArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.15) : topBar.colBg
-                border.color: statsArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.35) : topBar.colBorder
+                color: statsArea.containsMouse ? Design.tint(Design.accent, 0.15) : topBar.colBg
+                border.color: statsArea.containsMouse ? Design.tint(Design.accent, 0.35) : topBar.colBorder
                 border.width: 1
 
                 Row {
@@ -609,7 +660,7 @@ PanelWindow {
                         width: kbdText.implicitWidth + 10
                         height: 20
                         radius: 5
-                        color: kbdArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.20) : "transparent"
+                        color: kbdArea.containsMouse ? Design.tint(Design.accent, 0.20) : "transparent"
                         Text {
                             id: kbdText
                             anchors.centerIn: parent
@@ -622,7 +673,11 @@ PanelWindow {
                         MouseArea {
                             id: kbdArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                             onClicked: {
-                                Quickshell.execDetached(["bash", "-c", "SWAYSOCK=$(ls -t /run/user/$(id -u)/sway-ipc.*.sock 2>/dev/null | head -n1) swaymsg input type:keyboard xkb_switch_layout next && b1air-daemon layout"]);
+                                Quickshell.execDetached({
+                                    command: ["swaymsg", "input", "type:keyboard", "xkb_switch_layout", "next"],
+                                    environment: topBar.swayEnv
+                                });
+                                Quickshell.execDetached(["b1air-daemon", "layout"]);
                             }
                         }
                     }
@@ -679,7 +734,7 @@ PanelWindow {
                                 text: Power.charging ? "󰂄" : "󰁹"
                                 font.family: topBar.fontMain
                                 font.pixelSize: Design.s(13)
-                                color: Power.charging ? "#a6e3a1" : topBar.colFgDim
+                                color: Power.charging ? Design.ok : topBar.colFgDim
                             }
                             Text {
                                 text: Power.capacity + "%"
@@ -700,7 +755,7 @@ PanelWindow {
                     // Notification Bell (opens Control Center)
                     Rectangle {
                         width: 20; height: 20; radius: 5
-                        color: bellArea.containsMouse ? Qt.rgba(122/255, 162/255, 247/255, 0.20) : "transparent"
+                        color: bellArea.containsMouse ? Design.tint(Design.accent, 0.20) : "transparent"
                         Text {
                             anchors.centerIn: parent
                             text: "󰂚"
@@ -718,7 +773,7 @@ PanelWindow {
                     Rectangle {
                         id: powerBtn
                         width: 22; height: 22; radius: 6
-                        color: powerArea.containsMouse ? Qt.rgba(247/255, 118/255, 142/255, 0.25) : "transparent"
+                        color: powerArea.containsMouse ? Design.tint(Design.danger, 0.25) : "transparent"
 
                         Text {
                             anchors.centerIn: parent

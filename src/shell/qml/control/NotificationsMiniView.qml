@@ -6,45 +6,33 @@ import "../Services"
 
 // =============================================================================
 // Notifications Mini View (Control Center Subpage)
+//
+// Was the one subpage of five that did not use MiniView: it hand-rolled the
+// same header, with a different back-arrow glyph and a bordered button where
+// the other four use a hover tone, and it was the only mini view with no way
+// through to its own full settings page. Same frame as its siblings now.
 // =============================================================================
 
-Item {
+MiniView {
     id: root
 
-    signal backClicked()
+    title: "Notifications"
+    icon: "\u{f009a}"
+    tone: Design.lavender
+    footerLabel: "Notification Settings…"
+
+    trailing: ActionButton {
+        visible: Notifications.history.count > 0
+        icon: "\u{f0156}"
+        label: "Clear"
+        onActivated: Notifications.clearAllHistory()
+    }
 
     ColumnLayout {
         anchors.fill: parent
         spacing: Design.s(Design.space.md)
 
-        // ── 1. Header ────────────────────────────────────────────────────────
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: Design.s(Design.space.sm)
-
-            IconButton {
-                icon: "\u{f0141}" // back arrow
-                bordered: true
-                onClicked: root.backClicked()
-            }
-
-            Label {
-                text: "Notifications"
-                role: "subhead"
-                weight: Design.weight.bold
-                Layout.fillWidth: true
-                elide: Text.ElideRight
-            }
-
-            ActionButton {
-                visible: Notifications.history.count > 0
-                icon: "\u{f0156}"
-                label: "Clear"
-                onActivated: Notifications.clearAllHistory()
-            }
-        }
-
-        // ── 2. DND Toggle Bar ────────────────────────────────────────────────
+        // ── DND toggle ───────────────────────────────────────────────────────
         Card {
             Layout.fillWidth: true
 
@@ -56,7 +44,7 @@ Item {
             }
         }
 
-        // ── 3. Notification History List ─────────────────────────────────────
+        // ── History ──────────────────────────────────────────────────────────
         ListView {
             Layout.fillWidth: true
             Layout.fillHeight: true

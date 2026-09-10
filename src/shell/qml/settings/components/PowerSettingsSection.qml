@@ -13,6 +13,12 @@ ColumnLayout {
     Layout.fillWidth: true
     spacing: Design.s(Design.space.lg)
 
+    // Services/Power is refcounted — only ControlCenter ever acquired it, so
+    // opening this page started no poller and "Balanced" stayed lit no matter
+    // which profile was actually active.
+    Component.onCompleted: Power.acquire()
+    Component.onDestruction: Power.release()
+
     // ── 1. Energy Profiles Card ──────────────────────────────────────────────
     Card {
         title: "Energy & performance"
@@ -20,7 +26,19 @@ ColumnLayout {
         icon: "\u{f0084}"
         accentColor: Design.green
 
+        // The mini view in the Control Center has always had this empty state;
+        // the full page drew three live-looking tiles that silently did nothing
+        // when power-profiles-daemon was not running.
+        EmptyState {
+            visible: !Power.hasProfiles
+            Layout.fillWidth: true
+            icon: "\u{f0241}"
+            title: "No energy modes"
+            hint: "power-profiles-daemon is not running, so there is nothing to switch between."
+        }
+
         RowLayout {
+            visible: Power.hasProfiles
             Layout.fillWidth: true
             spacing: Design.s(Design.space.sm)
 
@@ -72,7 +90,29 @@ ColumnLayout {
         }
     }
 
-    // ── 2. Battery Health Card (if battery exists) ───────────────────────────
+    // ── 2. Display brightness ────────────────────────────────────────────────
+    // The page advertises "brightness" in its own search tags and had no
+    // brightness control on it — the only slider lived in the Control Center
+    // mini view, so searching for it landed you on a page without it.
+    Card {
+        visible: Power.hasBacklight
+        title: "Display brightness"
+        subtitle: "Backlight level of the built-in panel"
+        icon: "\u{f00df}"
+        accentColor: Design.yellow
+
+        Slider {
+            Layout.fillWidth: true
+            Layout.preferredHeight: Design.s(Design.size.ctl)
+            value: Power.brightness
+            tone: Design.yellow
+            icon: "\u{f00df}"
+            label: "Brightness"
+            onMoved: pct => Power.setBrightness(pct)
+        }
+    }
+
+    // ── 3. Battery ───────────────────────────────────────────────────────────
     Card {
         visible: Power.hasBattery
         title: "Battery"
@@ -108,16 +148,65 @@ ColumnLayout {
                     weight: Design.weight.bold
                 }
 
+                // The mini view showed the time estimate and the full settings
+                // page did not, so the popup was strictly more informative than
+                // the page it links to.
                 Label {
-                    text: "Status: " + Power.status
+                    text: Power.status + (Power.timeRemainingText !== ""
+                        ? " • " + (Power.charging ? "until full " : "left ") + Power.timeRemainingText
+                        : "")
                     role: "caption"
                     dim: true
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
                 }
             }
         }
+
+        // ── Per-pack breakdown ───────────────────────────────────────────────
+        // Everything above is UPower's composite device. On a two-battery
+        // machine that single number hides which pack is doing the work and
+        // which one has aged: BAT0 can sit at 99% and fully-charged while BAT1
+        // is still charging at 73%, with BAT0 down to 65% of design capacity.
+        SectionLabel {
+            visible: Power.hasMultipleBatteries
+            text: "Installed packs"
+            Layout.topMargin: Design.s(Design.space.sm)
+        }
+
+        Repeater {
+            model: Power.hasMultipleBatteries ? Power.batteries : []
+
+            DeviceRow {
+                required property var modelData
+
+                Layout.fillWidth: true
+                title: Power.labelOf(modelData) + (modelData.model ? " · " + modelData.model : "")
+                subtitle: Power.stateTextOf(modelData)
+                    + (Power.healthOf(modelData) > 0
+                        ? " • health " + Power.healthOf(modelData) + "%"
+                        : "")
+                value: Power.percentOf(modelData) + "%"
+                valueTone: Power.percentOf(modelData) <= 20 ? Design.danger
+                    : (Power.healthOf(modelData) > 0 && Power.healthOf(modelData) < 70 ? Design.warn : Design.ok)
+            }
+        }
+
+        // A single pack still has health worth showing; it just does not need a
+        // list to show it in.
+        DeviceRow {
+            visible: !Power.hasMultipleBatteries && Power.batteryCount === 1
+                     && Power.healthOf(Power.batteries[0]) > 0
+            Layout.fillWidth: true
+            Layout.topMargin: Design.s(Design.space.sm)
+            title: "Battery health"
+            subtitle: "Capacity now, against what the pack shipped with"
+            value: Power.batteryCount === 1 ? Power.healthOf(Power.batteries[0]) + "%" : ""
+            valueTone: Power.batteryCount === 1 && Power.healthOf(Power.batteries[0]) < 70 ? Design.warn : Design.ok
+        }
     }
 
-    // ── 3. Screen and Sleep Timeouts ─────────────────────────────────────────
+    // ── 4. Screen and Sleep Timeouts ─────────────────────────────────────────
     Card {
         title: "Screen & sleep timeouts"
         subtitle: "Control idle dimming, display power off, and automatic system suspension"
@@ -149,7 +238,7 @@ ColumnLayout {
             visible: Settings.autoSuspend
             label: "Suspend system after"
             valueText: (Math.round(Settings.suspendTimeout / 60)) + " min"
-            onDecrement: Settings.set("suspendTimeout", Math.max(120, Settings.suspendTimeout - 300))
+            onDecrement: Settings.set("suspendTimeout", Math.max(300, Settings.suspendTimeout - 300))
             onIncrement: Settings.set("suspendTimeout", Math.min(7200, Settings.suspendTimeout + 300))
         }
     }

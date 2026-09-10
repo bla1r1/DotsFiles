@@ -20,6 +20,12 @@ import B1air.Daemon
 Singleton {
     id: root
 
+    /** "" for anything wlroots could not actually read off the display. */
+    function _named(v) {
+        const t = String(v || "").trim();
+        return t.toLowerCase() === "unknown" ? "" : t;
+    }
+
     // {name, make, model, resW, resH, rate, sysScale, x, y, focused, active,
     //  modes: [{w, h, rate}]}
     property var outputs: []
@@ -94,8 +100,14 @@ Singleton {
             }));
             return {
                 name: o.name,
-                make: o.make || "",
-                model: o.model || "",
+
+                // Sway reports the literal string "Unknown" for make, model and
+                // serial on any output with no EDID to read — a headless
+                // output, a virtual one, some KVMs. Callers only checked for an
+                // empty string, so the Displays page introduced the selected
+                // screen as "Unknown Unknown". Absent is absent.
+                make: root._named(o.make),
+                model: root._named(o.model),
                 resW: mode.width,
                 resH: mode.height,
                 rate: Math.round((mode.refresh || 60000) / 1000),

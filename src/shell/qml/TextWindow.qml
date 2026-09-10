@@ -6,7 +6,7 @@ import Ui
 
 Window {
     id: window
-    title: (TextBackend.isModified ? "● " : "") + TextBackend.fileName + " — b1air-text"
+    title: (TextBackend.isModified ? "● " : "") + "Text Editor — " + TextBackend.fileName
     width: Design.s(900)
     height: Design.s(620)
     minimumWidth: Design.s(680)
@@ -14,11 +14,30 @@ Window {
     visible: true
     color: "transparent"
 
-    onClosing: Qt.quit()
+    // This copy — the one main.cpp actually loads — quit outright, so closing
+    // b1air-text with unsaved changes threw them away without a word. The
+    // confirmation below already existed in src/apps/text/TextWindow.qml, a
+    // copy nothing loads, so the protection was written and then never shipped.
+    onClosing: function(close) {
+        if (TextBackend.isModified) {
+            close.accepted = false;
+            window.closeAfterSave = true;
+            unsavedDialog.open();
+        } else {
+            Qt.quit();
+        }
+    }
 
+    property bool closeAfterSave: false
     property bool wordWrapEnabled: false
     property int currentLine: 1
     property int currentCol: 1
+
+    function newFileWithConfirmation() {
+        window.closeAfterSave = false;
+        if (TextBackend.isModified) unsavedDialog.open();
+        else TextBackend.newFile();
+    }
 
     function calculateCursorPos() {
         let textBefore = editorArea.text.substring(0, editorArea.cursorPosition);
@@ -29,7 +48,7 @@ Window {
 
     // ── Global Shortcuts ─────────────────────────────────────────────────────
     Shortcut { sequence: "Ctrl+S"; onActivated: TextBackend.saveFile() }
-    Shortcut { sequence: "Ctrl+N"; onActivated: TextBackend.newFile() }
+    Shortcut { sequence: "Ctrl+N"; onActivated: window.newFileWithConfirmation() }
     Shortcut { sequence: "Escape"; onActivated: window.close() }
 
     Rectangle {
@@ -116,7 +135,7 @@ Window {
                     IconButton {
                         icon: "\u{f067}" // plus
                         bordered: true
-                        onClicked: TextBackend.newFile()
+                        onClicked: window.newFileWithConfirmation()
                     }
 
                     IconButton {
@@ -213,7 +232,7 @@ Window {
                     Layout.fillHeight: true
                     clip: true
 
-                    ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+                    ScrollBar.vertical: OverflowBar {}
                     ScrollBar.horizontal: ScrollBar { policy: window.wordWrapEnabled ? ScrollBar.AlwaysOff : ScrollBar.AsNeeded }
 
                     TextArea.flickable: TextArea {
@@ -313,4 +332,37 @@ Window {
         }
     }
 }
+
+    Dialog {
+        id: unsavedDialog
+        title: "Unsaved changes"
+        modal: true
+        anchors.centerIn: parent
+        standardButtons: Dialog.Cancel | Dialog.Discard | Dialog.Save
+        onAccepted: {
+            TextBackend.saveFile();
+            if (window.closeAfterSave) Qt.quit();
+            else TextBackend.newFile();
+        }
+        onDiscarded: {
+            if (window.closeAfterSave) Qt.quit();
+            else TextBackend.newFile();
+        }
+        // Same shape as b1air-notes' delete dialog: a wrapping label and the
+        // Dialog would each size from the other, and Text.implicitWidth is
+        // read-only, so the explicit size lives on a wrapping Item.
+        contentItem: Item {
+            implicitWidth: Design.s(340)
+            implicitHeight: saveMsg.implicitHeight + Design.s(36)
+
+            Label {
+                id: saveMsg
+                anchors.fill: parent
+                anchors.margins: Design.s(18)
+                text: "Save changes before starting a new file or closing the editor?"
+                wrapMode: Text.WordWrap
+            }
+        }
+    }
+
 }
