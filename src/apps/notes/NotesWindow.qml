@@ -203,7 +203,27 @@ ApplicationWindow {
                         }
                     }
 
-                    Item { Layout.fillWidth: true }
+                    // What the two buttons above did. Both set a status the
+                    // window never showed, so pressing either was silent —
+                    // including the case where Notion has no credentials at
+                    // all, which is every install, since nothing here sets
+                    // them. Now the button says so, and says where they go.
+                    Text {
+                        id: syncStatusText
+                        Layout.fillWidth: true
+                        Layout.leftMargin: Design.s(Design.space.sm)
+                        text: NotesBackend.syncStatus
+                        elide: Text.ElideRight
+                        font.family: Design.font.sans
+                        font.pixelSize: Design.s(11)
+                        color: NotesBackend.syncStatus.indexOf("Error") >= 0
+                               || NotesBackend.syncStatus.indexOf("not configured") >= 0
+                               || NotesBackend.syncStatus.indexOf("No Obsidian") >= 0
+                            ? Design.warn : Design.textDim
+                        visible: NotesBackend.syncStatus !== "" && NotesBackend.syncStatus !== "Ready"
+                    }
+
+                    Item { Layout.fillWidth: !syncStatusText.visible }
 
                     // Search Bar
                     Rectangle {

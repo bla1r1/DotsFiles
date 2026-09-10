@@ -41,13 +41,10 @@ Singleton {
     readonly property alias kbOptions: data.kbOptions
     readonly property alias wallpaperDir: data.wallpaperDir
     readonly property alias workspaceCount: data.workspaceCount
-    readonly property alias workspaceAssignments: data.workspaceAssignments
     readonly property alias monitors: data.monitors
 
     // Key step sizes — how far one press of a media key moves the value.
     readonly property alias audioStep: data.audioStep
-    readonly property alias brightnessStep: data.brightnessStep
-    readonly property alias keyboardBacklightStep: data.keyboardBacklightStep
     readonly property alias audioNotifications: data.audioNotifications
 
     // Lock and idle
@@ -103,7 +100,6 @@ Singleton {
 
     // Native Top Bar
     readonly property alias barPosition: data.barPosition
-    readonly property alias barShowCava: data.barShowCava
     readonly property alias barShowWeather: data.barShowWeather
     readonly property alias barShowMedia: data.barShowMedia
     readonly property alias barShowTray: data.barShowTray
@@ -151,7 +147,6 @@ Singleton {
 
     // Device management
     readonly property alias disabledAudioDevices: data.disabledAudioDevices
-    readonly property alias disabledOutputs: data.disabledOutputs
 
     /** True once the file has been read at least once. */
     property bool loaded: false
@@ -244,8 +239,6 @@ Singleton {
         wallpaperDir: Quickshell.env("HOME") + "/.wallpapers",
         workspaceCount: 10,
         audioStep: 5,
-        brightnessStep: 5,
-        keyboardBacklightStep: 10,
         audioNotifications: true,
         dimOnLock: true,
         dimTimeout: 240,
@@ -283,7 +276,6 @@ Singleton {
         gameModeHideBar: true,
         gameModeDND: false,
         barPosition: "top",
-        barShowCava: true,
         barShowWeather: true,
         barShowMedia: true,
         barShowTray: true,
@@ -313,10 +305,8 @@ Singleton {
         focusAutoDnd: true,
         focusBreakReminders: true,
         focusDaemonAutoStart: true,
-        workspaceAssignments: [],
         monitors: [],
         disabledAudioDevices: [],
-        disabledOutputs: []
     })
 
     // ── Store ────────────────────────────────────────────────────────────────
@@ -346,14 +336,10 @@ Singleton {
             property string kbOptions: "grp:alt_shift_toggle"
             property string wallpaperDir: Quickshell.env("HOME") + "/.wallpapers"
             property int workspaceCount: 10
-            property var workspaceAssignments: []
             property var monitors: []
             property var disabledAudioDevices: []
-            property var disabledOutputs: []
-
+            property var
             property int audioStep: 5
-            property int brightnessStep: 5
-            property int keyboardBacklightStep: 10
             property bool audioNotifications: true
 
             property bool dimOnLock: true
@@ -398,7 +384,6 @@ Singleton {
             property bool gameModeDND: false
 
             property string barPosition: "top"
-            property bool barShowCava: true
             property bool barShowWeather: true
             property bool barShowMedia: true
             property bool barShowTray: true

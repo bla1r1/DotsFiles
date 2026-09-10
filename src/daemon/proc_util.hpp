@@ -12,6 +12,8 @@
 // source, which is one less place for the copies to come back.
 
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <cerrno>
 #include <unistd.h>
 #include <sys/wait.h>
 
@@ -95,6 +97,41 @@ inline bool spawn_detached(const std::vector<std::string>& args,
     // process does not wait, so init adopts it once this process exits. Callers
     // that need the exit status should not be using a detached spawn.
     return true;
+}
+
+/**
+ * Create a directory and every parent it needs.
+ *
+ * mkdir(2) makes one level. The screenshot path went through a single
+ * mkdir("$HOME/Pictures/Screenshots"), which fails with ENOENT on any machine
+ * where ~/Pictures does not exist yet — a fresh install, before anything has
+ * created the XDG user directories — so the capture was written nowhere and
+ * the only sign was a non-zero exit nobody sees. A configured folder nested
+ * more than one level deep failed the same way.
+ *
+ * Returns whether the directory exists afterwards.
+ */
+inline bool mkdir_p(const std::string& path, mode_t mode = 0755) {
+    if (path.empty()) return false;
+
+    std::string built;
+    size_t i = 0;
+    if (path[0] == '/') { built = "/"; i = 1; }
+
+    while (i <= path.size()) {
+        const size_t slash = path.find('/', i);
+        const std::string part = path.substr(i, slash == std::string::npos ? std::string::npos : slash - i);
+        if (!part.empty()) {
+            if (built.size() > 1 || (built.size() == 1 && built[0] != '/')) built += "/";
+            built += part;
+            if (mkdir(built.c_str(), mode) != 0 && errno != EEXIST) return false;
+        }
+        if (slash == std::string::npos) break;
+        i = slash + 1;
+    }
+
+    struct stat st{};
+    return stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode);
 }
 
 } // namespace util

@@ -129,13 +129,17 @@ static int method_capture(sd_bus_message *m, void *userdata, sd_bus_error *ret_e
     REQUIRE_SESSION_USER();
     const char *mode = "full";
     sd_bus_message_read(m, "s", &mode);
-    SystemControl::capture_screenshot(mode ? mode : "full");
+    // One implementation. capture_screenshot() was a second copy of this
+    // feature living behind this method: it ignored every screenshot setting,
+    // wrote its own filename convention, and its window mode was broken the
+    // same way capture()'s was. Callers of Capture get the real one now.
+    SystemControl::capture(mode ? mode : "full", "", false);
     return sd_bus_reply_method_return(m, "");
 }
 
-// Distinct from method_capture: SystemControl::capture() is the richer,
-// geometry/editor-aware implementation the CLI `capture` verb uses, separate
-// from capture_screenshot() behind the older Capture method above.
+// Capture with an explicit geometry and an optional editor pass. Both this
+// and the plain Capture above reach SystemControl::capture(); this one simply
+// passes the extra arguments.
 static int method_capture_geom(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
     (void)userdata; (void)ret_error;
     REQUIRE_SESSION_USER();

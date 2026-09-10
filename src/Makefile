@@ -59,8 +59,16 @@ $(TARGET_SECRET): $(SECRET_OBJS)
 $(SQLITE_OBJ): third_party/sqlite/sqlite3.c
 	$(CC) $(SQLITE_CFLAGS) -c $< -o $@
 
+# -MMD -MP writes a .d file beside each object listing the headers it included,
+# and the -include below feeds those back to make. Without them a header change
+# rebuilt nothing: editing proc_util.hpp or system_control.hpp left every object
+# that includes it untouched, make reported success, and the binary that came
+# out was the old one. That is not a theoretical hazard — it happened during
+# this work, and the only symptom was a fix that appeared not to work.
 daemon/%.o: daemon/%.cpp
-	$(CXX) $(CXXFLAGS) $(if $(filter daemon/polkit_agent_main.cpp,$<),$(POLKIT_CFLAGS),) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -MMD -MP $(if $(filter daemon/polkit_agent_main.cpp,$<),$(POLKIT_CFLAGS),) -c $< -o $@
+
+-include $(DAEMON_OBJS:.o=.d) $(POLKIT_OBJS:.o=.d) $(SECRET_OBJS:.o=.d)
 
 shell-target:
 	cmake -B shell/build shell
@@ -87,6 +95,7 @@ install: daemon-target polkit-target secret-target shell-target
 
 clean:
 	rm -f $(DAEMON_OBJS) $(SQLITE_OBJ) $(POLKIT_OBJS) $(SECRET_OBJS) $(TARGET_DAEMON) $(TARGET_POLKIT) $(TARGET_SECRET) $(TARGET_CONTROLLER)
+	rm -f $(DAEMON_OBJS:.o=.d) $(POLKIT_OBJS:.o=.d) $(SECRET_OBJS:.o=.d)
 	rm -rf shell/build
 
 .PHONY: all daemon-target polkit-target secret-target shell-target controller daemon apps shell install clean

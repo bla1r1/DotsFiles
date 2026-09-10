@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Io
 import Qt.labs.folderlistmodel
 import Quickshell.Wayland
+import Quickshell.Services.SystemTray
 import Quickshell.Widgets
 import "./Ui"
 import B1air.Daemon
@@ -47,6 +48,35 @@ PanelWindow {
 
     readonly property var swayEnv: ({ "SWAYSOCK": topBar.swaySock })
 
+    /**
+     * The workspace strip: 1..Settings.workspaceCount, plus anything sway has
+     * outside that range.
+     *
+     * The bar used to draw only the workspaces sway currently reports, so
+     * "Workspace count" in Settings → Native Top Bar — which says in as many
+     * words "how many workspace numbers the bar shows" — changed nothing at
+     * all. Showing the empty ones is also what makes them reachable: a
+     * workspace you have never visited has no pill to click.
+     */
+    readonly property var workspaceSlots: {
+        const live = {};
+        for (const w of topBar.workspacesList)
+            live[String(w.name !== undefined ? w.name : w.num)] = w;
+
+        const out = [];
+        const count = Math.max(1, Settings.workspaceCount || 10);
+        for (let i = 1; i <= count; ++i) {
+            const key = String(i);
+            const w = live[key];
+            out.push({ name: key, focused: w ? !!w.focused : false, exists: !!w });
+            delete live[key];
+        }
+        // Named or out-of-range workspaces still have to be reachable.
+        for (const key in live)
+            out.push({ name: key, focused: !!live[key].focused, exists: true });
+        return out;
+    }
+
     // The Game Mode page has offered "Hide Waybar — automatically hide top
     // status bar during gaming sessions" since it was written. There is no
     // waybar in this project (the native bar below replaced it, and the
@@ -63,7 +93,10 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.exclusiveZone: Design.s(40)
     
-    anchors.top: true
+    // Settings → Native Top Bar has a Top/Bottom control; nothing read it, so
+    // the bar was anchored to the top whatever it said.
+    anchors.top: Settings.barPosition !== "bottom"
+    anchors.bottom: Settings.barPosition === "bottom"
     anchors.left: true
     anchors.right: true
     implicitHeight: Design.s(38)
@@ -173,7 +206,10 @@ PanelWindow {
         triggeredOnStart: true
         onTriggered: {
             let now = new Date();
-            topBar.clockTime = Qt.formatTime(now, "hh:mm");
+            // Settings → Native Top Bar offers a 24-hour toggle. Nothing read
+            // it: the bar formatted "hh:mm" unconditionally, so the switch
+            // stored a value and the clock never changed.
+            topBar.clockTime = Qt.formatTime(now, Settings.barClock24h ? "hh:mm" : "h:mm AP");
             topBar.clockDate = Qt.formatDate(now, "dddd, d MMMM yyyy");
         }
     }
@@ -464,24 +500,33 @@ PanelWindow {
                     spacing: 4
 
                     Repeater {
-                        model: topBar.workspacesList
+                        model: topBar.workspaceSlots
                         delegate: Rectangle {
                             id: wsPill
+                            required property var modelData
+
                             width: wsText.implicitWidth + 14
                             height: 22
                             radius: 6
-                            color: modelData.focused ? topBar.colBlue : (wsMouseArea.containsMouse ? Design.tint(Design.accent, 0.20) : topBar.colWrkBg)
-                            border.color: modelData.focused ? "transparent" : topBar.colWrkBorder
+                            color: wsPill.modelData.focused ? topBar.colBlue
+                                 : (wsMouseArea.containsMouse ? Design.tint(Design.accent, 0.20) : topBar.colWrkBg)
+                            border.color: wsPill.modelData.focused ? "transparent" : topBar.colWrkBorder
                             border.width: 1
+
+                            // An empty slot is a place you can go, not a place
+                            // you are; it says so by being fainter rather than
+                            // by being missing.
+                            opacity: wsPill.modelData.exists || wsPill.modelData.focused ? 1.0 : 0.45
 
                             Text {
                                 id: wsText
                                 anchors.centerIn: parent
-                                text: modelData.name || (index + 1)
+                                text: wsPill.modelData.name
                                 font.family: topBar.fontMain
                                 font.pixelSize: Design.s(11)
                                 font.bold: true
-                                color: modelData.focused ? Design.accentText : (wsMouseArea.containsMouse ? topBar.colBlue : topBar.colFgDim)
+                                color: wsPill.modelData.focused ? Design.accentText
+                                     : (wsMouseArea.containsMouse ? topBar.colBlue : topBar.colFgDim)
                             }
 
                             MouseArea {
@@ -490,7 +535,7 @@ PanelWindow {
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {
-                                    const workspace = String(modelData.name || (index + 1));
+                                    const workspace = String(wsPill.modelData.name);
                                     if (/^[A-Za-z0-9_.-]+$/.test(workspace))
                                         Quickshell.execDetached(["swaymsg", "workspace", workspace]);
                                 }
@@ -604,6 +649,167 @@ PanelWindow {
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             spacing: 6
+
+            // 0. Media title and weather.
+            //
+            // Settings → Native Top Bar has offered "Media Player Title —
+            // display currently playing track name and artist" and "Weather
+            // Status — show temperature and weather condition badge" since it
+            // was written, and the bar had neither module: the two switches
+            // stored a value nothing read. Both services already exist and are
+            // used by the Control Center, so this is wiring, not new plumbing.
+
+            Rectangle {
+                height: 30
+                width: mediaRow.implicitWidth + 20
+                radius: 10
+                color: mediaArea.containsMouse ? Design.tint(Design.mauve, 0.15) : topBar.colBg
+                border.color: mediaArea.containsMouse ? Design.tint(Design.mauve, 0.35) : topBar.colBorder
+                border.width: 1
+                anchors.verticalCenter: parent.verticalCenter
+
+                // Only when asked for, and only when there is something to say.
+                visible: Settings.barShowMedia && Media.hasPlayer
+                         && String(Media.track.title || "") !== ""
+
+                Row {
+                    id: mediaRow
+                    anchors.centerIn: parent
+                    spacing: 6
+
+                    Text {
+                        text: Media.playing ? "\u{f040a}" : "\u{f03e4}"
+                        font.family: Design.font.icon
+                        font.pixelSize: Design.s(12)
+                        color: topBar.colBlue
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+
+                    Text {
+                        // Elided rather than allowed to push the clock off
+                        // centre: a track title is arbitrarily long.
+                        width: Math.min(implicitWidth, Design.s(220))
+                        elide: Text.ElideRight
+                        text: (Media.track.artist ? Media.track.artist + " — " : "")
+                              + (Media.track.title || "")
+                        font.family: topBar.fontMain
+                        font.pixelSize: Design.s(11)
+                        color: topBar.colFgDim
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                }
+
+                MouseArea {
+                    id: mediaArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: topBar.requestCommand("toggle:music:", true)
+                }
+            }
+
+            Rectangle {
+                height: 30
+                width: weatherRow.implicitWidth + 20
+                radius: 10
+                color: weatherArea.containsMouse ? Design.tint(Design.sapphire, 0.15) : topBar.colBg
+                border.color: weatherArea.containsMouse ? Design.tint(Design.sapphire, 0.35) : topBar.colBorder
+                border.width: 1
+                anchors.verticalCenter: parent.verticalCenter
+
+                visible: Settings.barShowWeather && Weather.loaded
+
+                Row {
+                    id: weatherRow
+                    anchors.centerIn: parent
+                    spacing: 6
+
+                    Text {
+                        text: Weather.icon
+                        font.family: Design.font.icon
+                        font.pixelSize: Design.s(12)
+                        color: topBar.colCyan
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+
+                    Text {
+                        text: Weather.temp
+                        font.family: topBar.fontMain
+                        font.pixelSize: Design.s(11)
+                        font.bold: true
+                        color: topBar.colFgDim
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                }
+
+                MouseArea {
+                    id: weatherArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: topBar.requestCommand("toggle:calendar:", true)
+                }
+            }
+
+            // 0b. System tray.
+            //
+            // The third switch on that page with nothing behind it. Quickshell
+            // ships the StatusNotifierItem host; the bar simply never used it,
+            // so background applets — Telegram, Steam, the ones the setting
+            // names — had nowhere to appear on this desktop at all.
+            Rectangle {
+                height: 30
+                width: trayRow.implicitWidth + 20
+                radius: 10
+                color: topBar.colBg
+                border.color: topBar.colBorder
+                border.width: 1
+                anchors.verticalCenter: parent.verticalCenter
+
+                // No applets means no empty pill sitting in the bar.
+                visible: Settings.barShowTray && SystemTray.items.values.length > 0
+
+                Row {
+                    id: trayRow
+                    anchors.centerIn: parent
+                    spacing: 8
+
+                    Repeater {
+                        model: SystemTray.items
+
+                        delegate: Item {
+                            required property var modelData
+                            width: 16
+                            height: 16
+                            anchors.verticalCenter: parent.verticalCenter
+
+                            IconImage {
+                                anchors.fill: parent
+                                source: parent.modelData.icon
+                                asynchronous: true
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
+                                cursorShape: Qt.PointingHandCursor
+                                // The three gestures a tray icon is expected to
+                                // answer, rather than only the first one.
+                                onClicked: mouse => {
+                                    const item = parent.modelData;
+                                    if (mouse.button === Qt.MiddleButton)
+                                        item.secondaryActivate();
+                                    else if (mouse.button === Qt.RightButton)
+                                        item.display(topBar, 0, Design.s(34));
+                                    else
+                                        item.activate();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
             // 1. Stats Island (CPU + Load/RAM)
             Rectangle {

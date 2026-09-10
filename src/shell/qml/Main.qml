@@ -230,7 +230,8 @@ Scope {
     }
 
     function getLayout(name) {
-        return Registry.getLayout(name, 0, 0, Screen.width, Screen.height, masterWindow.globalUiScale);
+        return Registry.getLayout(name, 0, 0, Screen.width, Screen.height, masterWindow.globalUiScale,
+                                  Settings.barPosition === "bottom");
     }
 
     Connections {

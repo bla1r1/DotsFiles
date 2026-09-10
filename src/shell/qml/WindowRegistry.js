@@ -18,8 +18,14 @@ function s(val, scale) {
     return Math.round(val * scale);
 }
 
-function getLayout(name, mx, my, mw, mh, userScale) {
+function getLayout(name, mx, my, mw, mh, userScale, barAtBottom) {
     let scale = getScale(mw, userScale);
+
+    // Popups that hang off the bar have to hang off whichever edge it is on.
+    // Every one of them hard-coded 58px from the top, so moving the bar to the
+    // bottom — which Settings offers — would have left them floating against
+    // the opposite edge from the thing they belong to.
+    const barEdge = barAtBottom ? s(12, scale) : s(58, scale);
 
     let base = {
         // One surface with pages. The four entries it replaces stay below so an
@@ -31,42 +37,42 @@ function getLayout(name, mx, my, mw, mh, userScale) {
         // the media card add up to roughly 690px, so at 580 the last card was
         // always half-cut against the bottom edge. It still scrolls when a
         // screen cannot spare the height.
-        "control":       { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "notifications": { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "wifi":          { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "bluetooth": { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "sound":     { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "power":     { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "battery":   { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "volume":    { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "network":   { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: s(58, scale), comp: "control/ControlCenter.qml" },
-        "calendar":  { w: s(860, scale), h: s(480, scale), rx: Math.floor((mw/2)-(s(860, scale)/2)), ry: s(75, scale), comp: "calendar/CalendarPopup.qml" },
+        "control":       { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: barEdge, comp: "control/ControlCenter.qml" },
+        "notifications": { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: barEdge, comp: "control/ControlCenter.qml" },
+        "wifi":          { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: barEdge, comp: "control/ControlCenter.qml" },
+        "bluetooth": { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: barEdge, comp: "control/ControlCenter.qml" },
+        "sound":     { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: barEdge, comp: "control/ControlCenter.qml" },
+        "power":     { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: barEdge, comp: "control/ControlCenter.qml" },
+        "battery":   { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: barEdge, comp: "control/ControlCenter.qml" },
+        "volume":    { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: barEdge, comp: "control/ControlCenter.qml" },
+        "network":   { w: s(390, scale), h: s(700, scale), rx: mw - s(410, scale), ry: barEdge, comp: "control/ControlCenter.qml" },
+        "calendar":  { w: s(860, scale), h: s(480, scale), rx: Math.floor((mw/2)-(s(860, scale)/2)), ry: barAtBottom ? s(28, scale) : s(75, scale), comp: "calendar/CalendarPopup.qml" },
         // 760: the cover block, the transport row, the ten EQ bands and the preset
         // buttons need about 730px, and at 620 the preset row was sliced in half
         // against the bottom edge with nothing on screen offering to scroll.
-        "music":     { w: s(700, scale), h: s(760, scale), rx: s(12, scale), ry: s(58, scale), comp: "music/MusicPopup.qml" },
-        "audioFull":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
-        "powerFull":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
-        "netFull":    { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
-        "appearance": { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
-        "nightlight": { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
-        "input":      { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
-        "wallpaper":     { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
+        "music":     { w: s(700, scale), h: s(760, scale), rx: s(12, scale), ry: barEdge, comp: "music/MusicPopup.qml" },
+        "audioFull":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: barAtBottom ? s(24, scale) : s(70, scale), comp: "settings/SettingsApp.qml" },
+        "powerFull":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: barAtBottom ? s(24, scale) : s(70, scale), comp: "settings/SettingsApp.qml" },
+        "netFull":    { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: barAtBottom ? s(24, scale) : s(70, scale), comp: "settings/SettingsApp.qml" },
+        "appearance": { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: barAtBottom ? s(24, scale) : s(70, scale), comp: "settings/SettingsApp.qml" },
+        "nightlight": { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: barAtBottom ? s(24, scale) : s(70, scale), comp: "settings/SettingsApp.qml" },
+        "input":      { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: barAtBottom ? s(24, scale) : s(70, scale), comp: "settings/SettingsApp.qml" },
+        "wallpaper":     { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: barAtBottom ? s(24, scale) : s(70, scale), comp: "settings/SettingsApp.qml" },
         "clipboard":     { w: s(620, scale), h: s(520, scale), rx: Math.floor((mw/2)-(s(620, scale)/2)), ry: Math.floor((mh/2)-(s(520, scale)/2)), comp: "clipboard/ClipboardPopup.qml" },
-        "mediaFull":     { w: s(700, scale), h: s(760, scale), rx: s(12, scale), ry: s(58, scale), comp: "music/MusicPopup.qml" },
+        "mediaFull":     { w: s(700, scale), h: s(760, scale), rx: s(12, scale), ry: barEdge, comp: "music/MusicPopup.qml" },
         "stewart":   { w: s(800, scale), h: s(600, scale), rx: Math.floor((mw/2)-(s(800, scale)/2)), ry: Math.floor((mh/2)-(s(600, scale)/2)), comp: "stewart/stewart.qml" },
-        "monitors":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
+        "monitors":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: barAtBottom ? s(24, scale) : s(70, scale), comp: "settings/SettingsApp.qml" },
         "focustime": { w: s(900, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(900, scale)/2)), ry: Math.floor((mh/2)-(s(720, scale)/2)), comp: "focustime/FocusTimePopup.qml" },
-        "guide":     { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
+        "guide":     { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: barAtBottom ? s(24, scale) : s(70, scale), comp: "settings/SettingsApp.qml" },
         "pollkit":   { w: s(520, scale), h: s(400, scale), rx: Math.floor((mw/2)-(s(520, scale)/2)), ry: Math.floor((mh/2)-(s(400, scale)/2)), comp: "pollkit/UpdaterPopup.qml" },
         "session":   { w: s(680, scale), h: s(280, scale), rx: Math.floor((mw/2)-(s(680, scale)/2)), ry: Math.floor((mh/2)-(s(280, scale)/2)), comp: "session/SessionMenu.qml" },
-        "keyboard":  { w: s(250, scale), h: s(170, scale), rx: mw - s(330, scale), ry: s(58, scale), comp: "keyboard/KeyboardPopup.qml" },
+        "keyboard":  { w: s(250, scale), h: s(170, scale), rx: mw - s(330, scale), ry: barEdge, comp: "keyboard/KeyboardPopup.qml" },
         "spotlight": { w: s(660, scale), h: s(460, scale), rx: Math.floor((mw/2)-(s(660, scale)/2)), ry: Math.floor((mh/2)-(s(460, scale)/2)), comp: "launcher/SpotlightLauncher.qml" },
         "launchpad": { w: s(820, scale), h: s(540, scale), rx: Math.floor((mw/2)-(s(820, scale)/2)), ry: Math.floor((mh/2)-(s(540, scale)/2)), comp: "launcher/Launchpad.qml" },
         "launcher":  { w: s(820, scale), h: s(540, scale), rx: Math.floor((mw/2)-(s(820, scale)/2)), ry: Math.floor((mh/2)-(s(540, scale)/2)), comp: "launcher/Launchpad.qml" },
         "menu":      { w: s(820, scale), h: s(540, scale), rx: Math.floor((mw/2)-(s(820, scale)/2)), ry: Math.floor((mh/2)-(s(540, scale)/2)), comp: "launcher/Launchpad.qml" },
         "emoji":     { w: s(480, scale), h: s(440, scale), rx: Math.floor((mw/2)-(s(480, scale)/2)), ry: Math.floor((mh/2)-(s(440, scale)/2)), comp: "emoji/EmojiPickerPopup.qml" },
-        "settings":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: s(70, scale), comp: "settings/SettingsApp.qml" },
+        "settings":  { w: s(980, scale), h: s(720, scale), rx: Math.floor((mw/2)-(s(980, scale)/2)), ry: barAtBottom ? s(24, scale) : s(70, scale), comp: "settings/SettingsApp.qml" },
         "zones":     { w: s(760, scale), h: s(520, scale), rx: Math.floor((mw/2)-(s(760, scale)/2)), ry: Math.floor((mh/2)-(s(520, scale)/2)), comp: "zones/FancyZonesOverlay.qml" },
         "ruler":     { w: s(820, scale), h: s(580, scale), rx: Math.floor((mw/2)-(s(820, scale)/2)), ry: Math.floor((mh/2)-(s(580, scale)/2)), comp: "ruler/ScreenRulerOverlay.qml" },
         "shelf":     { w: s(640, scale), h: s(480, scale), rx: mw - s(660, scale), ry: mh - s(510, scale), comp: "shelf/DropShelf.qml" },

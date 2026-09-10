@@ -51,6 +51,7 @@ ApplicationWindow {
     readonly property color colBorderSubtle: Design.line
     readonly property color colBlue: Design.accent
     readonly property color colPurple: Design.mauve
+    readonly property color colPink: Design.pink
     readonly property color colCyan: Design.sapphire
     readonly property color colGreen: Design.ok
     readonly property color colOrange: Design.warn
@@ -73,29 +74,53 @@ ApplicationWindow {
         return date.toLocaleDateString(Qt.locale(), "MMM d, yyyy") + " " + date.toLocaleTimeString(Qt.locale(), "hh:mm");
     }
 
+    // One table, not two lists.
+    //
+    // The glyph and the colour were each chosen by their own chain of
+    // indexOf() calls over their own hand-kept extension lists, and the two had
+    // drifted: .ts, .bmp and every audio format had a glyph but no colour, so
+    // they drew a music note in the default foreground; .ini and .toml had the
+    // document colour but the generic file glyph; .bz2 and .xz were archives to
+    // one list and unknown to the other. A file's kind is one fact, so it is
+    // decided once and both answers come from it.
+    readonly property var fileKinds: [
+        { glyph: "󰋩", tone: "purple", ext: ["png","jpg","jpeg","webp","gif","svg","bmp","ico","tiff","avif"] },
+        { glyph: "󰕼", tone: "orange", ext: ["mp4","mkv","avi","mov","webm","m4v"] },
+        { glyph: "󰎆", tone: "pink",   ext: ["mp3","flac","wav","ogg","m4a","opus"] },
+        { glyph: "󰅩", tone: "cyan",   ext: ["cpp","hpp","cc","cxx","c","h","rs","py","js","ts","jsx","tsx","qml","go","java","rb","lua","vim"] },
+        { glyph: "󰆍", tone: "green",  ext: ["sh","bash","zsh","fish"] },
+        { glyph: "󰛫", tone: "yellow", ext: ["zip","tar","gz","7z","bz2","xz","zst","rar"] },
+        { glyph: "󰘦", tone: "green",  ext: ["json","yaml","yml","toml","ini","conf","cfg"] },
+        { glyph: "󰈙", tone: "green",  ext: ["txt","md","rst","org"] },
+        { glyph: "󰈦", tone: "red",    ext: ["pdf"] }
+    ]
+
+    function fileKind(name) {
+        const ext = (name || "").split('.').pop().toLowerCase();
+        for (const k of window.fileKinds)
+            if (k.ext.indexOf(ext) >= 0) return k;
+        return null;
+    }
+
     function getIconGlyph(name, isDir) {
         if (isDir) return "󰉋";
-        let ext = (name || "").split('.').pop().toLowerCase();
-        if (["png","jpg","jpeg","webp","gif","svg","bmp"].indexOf(ext) >= 0) return "󰋩";
-        if (["mp4","mkv","avi","mov","webm"].indexOf(ext) >= 0) return "󰕼";
-        if (["mp3","flac","wav","ogg","m4a"].indexOf(ext) >= 0) return "󰎆";
-        if (["cpp","hpp","c","h","rs","py","js","ts","qml","sh"].indexOf(ext) >= 0) return "󰅩";
-        if (["zip","tar","gz","7z","bz2","xz"].indexOf(ext) >= 0) return "󰛫";
-        if (["txt","md","json","yaml","yml","conf"].indexOf(ext) >= 0) return "󰈙";
-        if (ext === "pdf") return "󰈦";
-        return "󰈔";
+        const k = window.fileKind(name);
+        return k ? k.glyph : "󰈔";
     }
 
     function getIconColor(name, isDir) {
         if (isDir) return window.colBlue;
-        let ext = (name || "").split('.').pop().toLowerCase();
-        if (["png","jpg","jpeg","webp","gif","svg"].indexOf(ext) >= 0) return window.colPurple;
-        if (["cpp","hpp","qml","py","rs","sh","js","c","h"].indexOf(ext) >= 0) return window.colCyan;
-        if (["txt","md","json","conf","ini","toml","yaml","yml"].indexOf(ext) >= 0) return window.colGreen;
-        if (["mp4","mkv","avi","mov","webm"].indexOf(ext) >= 0) return window.colOrange;
-        if (["zip","tar","gz","7z"].indexOf(ext) >= 0) return window.colYellow;
-        if (ext === "pdf") return window.colRed;
-        return window.colFg;
+        const k = window.fileKind(name);
+        switch (k ? k.tone : "") {
+        case "purple": return window.colPurple;
+        case "orange": return window.colOrange;
+        case "pink":   return window.colPink;
+        case "cyan":   return window.colCyan;
+        case "green":  return window.colGreen;
+        case "yellow": return window.colYellow;
+        case "red":    return window.colRed;
+        default:       return window.colFg;
+        }
     }
 
     function isImageFile(name) {
@@ -763,11 +788,20 @@ ApplicationWindow {
                                     Layout.fillHeight: true
 
                                     Image {
+                                        id: gridThumb
                                         anchors.centerIn: parent
                                         width: 44; height: 44
                                         source: window.isImageFile(model.fileName) ? model.filePath : ""
                                         fillMode: Image.PreserveAspectFit
-                                        visible: window.isImageFile(model.fileName)
+
+                                        // Ready, not "the name ends in .png". Whether a file is
+                                        // an image decided both halves of this, so a picture
+                                        // that would not decode — truncated, empty, or simply
+                                        // not the format its name claims — drew an empty cell
+                                        // with a filename under it and no icon of any kind.
+                                        // The glyph now covers that, and covers the moment
+                                        // before an async thumbnail arrives.
+                                        visible: status === Image.Ready
                                         asynchronous: true
                                         cache: true
                                         // Low resolution decoding to eliminate scroll stutter!
@@ -780,7 +814,7 @@ ApplicationWindow {
                                         font.family: Design.font.mono
                                         font.pixelSize: Design.s(34)
                                         color: window.getIconColor(model.fileName, model.fileIsDir)
-                                        visible: !window.isImageFile(model.fileName)
+                                        visible: !gridThumb.visible
                                     }
                                 }
 
@@ -929,10 +963,11 @@ ApplicationWindow {
                                     clip: true
 
                                     Image {
+                                        id: galleryThumb
                                         anchors.fill: parent
                                         source: window.isImageFile(model.fileName) ? model.filePath : ""
                                         fillMode: Image.PreserveAspectCrop
-                                        visible: window.isImageFile(model.fileName)
+                                        visible: status === Image.Ready
                                         asynchronous: true
                                         cache: true
                                         // Low resolution for gallery view
@@ -945,7 +980,7 @@ ApplicationWindow {
                                         font.family: Design.font.mono
                                         font.pixelSize: Design.s(38)
                                         color: window.getIconColor(model.fileName, model.fileIsDir)
-                                        visible: !window.isImageFile(model.fileName)
+                                        visible: !galleryThumb.visible
                                     }
                                 }
 

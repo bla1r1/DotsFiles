@@ -34,7 +34,6 @@ public:
     static bool monitors_save(const std::string& layout_json);
 
     // Screenshot helper
-    static bool capture_screenshot(const std::string& mode = "full"); // "full", "area", "window"
 
     // Waybar & Layout helpers
     static std::string get_layout_shorthand();

@@ -144,7 +144,6 @@ DesktopSettings SettingsManager::load(const std::string& path_arg) {
     s.guideShortcut = find_json_bool(content, "guideShortcut", s.guideShortcut);
     s.topbarHelpIcon = find_json_bool(content, "topbarHelpIcon", s.topbarHelpIcon);
     s.barPosition = find_json_string(content, "barPosition", s.barPosition);
-    s.barShowCava = find_json_bool(content, "barShowCava", s.barShowCava);
     s.barShowWeather = find_json_bool(content, "barShowWeather", s.barShowWeather);
     s.barShowMedia = find_json_bool(content, "barShowMedia", s.barShowMedia);
     s.barShowTray = find_json_bool(content, "barShowTray", s.barShowTray);
@@ -195,7 +194,6 @@ bool SettingsManager::save(const DesktopSettings& s, const std::string& path_arg
         << "  \"guideShortcut\": " << (s.guideShortcut ? "true" : "false") << ",\n"
         << "  \"topbarHelpIcon\": " << (s.topbarHelpIcon ? "true" : "false") << ",\n"
         << "  \"barPosition\": " << json_quote(s.barPosition) << ",\n"
-        << "  \"barShowCava\": " << (s.barShowCava ? "true" : "false") << ",\n"
         << "  \"barShowWeather\": " << (s.barShowWeather ? "true" : "false") << ",\n"
         << "  \"barShowMedia\": " << (s.barShowMedia ? "true" : "false") << ",\n"
         << "  \"barShowTray\": " << (s.barShowTray ? "true" : "false") << ",\n"
@@ -273,6 +271,14 @@ std::string SettingsManager::get_json_string(const std::string& key) {
     std::string path = get_settings_filepath();
     std::string content = read_file_contents(path);
     return find_json_string(content, key, "");
+}
+
+bool SettingsManager::get_json_bool(const std::string& key, bool def) {
+    return find_json_bool(read_file_contents(get_settings_filepath()), key, def);
+}
+
+int SettingsManager::get_json_int(const std::string& key, int def) {
+    return find_json_int(read_file_contents(get_settings_filepath()), key, def);
 }
 
 bool SettingsManager::set_json_value(const std::string& key, const std::string& val) {

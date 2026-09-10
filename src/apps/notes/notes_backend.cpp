@@ -255,21 +255,34 @@ void NotesBackend::setNotionCredentials(const QString& token, const QString& dbI
 }
 
 void NotesBackend::syncWithObsidian() {
-    m_syncStatus = "Syncing Obsidian...";
-    emit syncStatusChanged();
-    loadNotes();
-    m_syncStatus = "Obsidian Synced";
-    emit syncStatusChanged();
-}
-
-void NotesBackend::syncWithNotion() {
-    if (!isNotionConfigured()) {
-        m_syncStatus = "Notion API token not configured";
+    // Without a vault this used to reload the local notes and report
+    // "Obsidian Synced" — a success message for something it had not done.
+    if (m_obsidianVault.isEmpty()) {
+        m_syncStatus = "No Obsidian vault. Set obsidianVault in "
+                       + m_storageDir + "/config.json";
         emit syncStatusChanged();
         return;
     }
 
-    m_syncStatus = "Syncing with Notion API...";
+    m_syncStatus = "Syncing Obsidian…";
+    emit syncStatusChanged();
+    loadNotes();
+    m_syncStatus = "Synced with " + m_obsidianVault;
+    emit syncStatusChanged();
+}
+
+void NotesBackend::syncWithNotion() {
+    // Nothing in the window sets these, so the message has to say where they
+    // come from — otherwise the button is silent and there is no way to learn
+    // what it wants.
+    if (!isNotionConfigured()) {
+        m_syncStatus = "Notion not configured. Add notionToken and notionDbId to "
+                       + m_storageDir + "/config.json";
+        emit syncStatusChanged();
+        return;
+    }
+
+    m_syncStatus = "Syncing with Notion…";
     emit syncStatusChanged();
 
     QUrl url("https://api.notion.com/v1/databases/" + m_notionDbId + "/query");

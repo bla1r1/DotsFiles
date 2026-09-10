@@ -22,7 +22,6 @@ struct DesktopSettings {
     bool guideShortcut = true;
     bool topbarHelpIcon = false;
     std::string barPosition = "top";
-    bool barShowCava = true;
     bool barShowWeather = true;
     bool barShowMedia = true;
     bool barShowTray = true;
@@ -52,6 +51,11 @@ public:
     static bool apply_from_file(const std::string& path = "");
 
     static std::string get_json_string(const std::string& key);
+
+    // The struct above covers what apply_to_sway needs. These read anything
+    // else in the file by name, for the settings only one caller cares about.
+    static bool get_json_bool(const std::string& key, bool def);
+    static int  get_json_int(const std::string& key, int def);
     static bool set_json_value(const std::string& key, const std::string& val);
 
     static int watch_and_apply(volatile int* running_flag);

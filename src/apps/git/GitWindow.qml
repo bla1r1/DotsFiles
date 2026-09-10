@@ -15,6 +15,15 @@ ApplicationWindow {
     color: "transparent"
     flags: Qt.Window
 
+    // With no repository open, every action in this window is a no-op: staging,
+    // committing, fetching and pushing all need one. They were all live anyway
+    // — "Stage All" and "Unstage All" clickable, the commit fields editable,
+    // and a commit button reading "Commit to —" with a dash where the branch
+    // goes. Nothing happened and nothing said why.
+    // isRepo, not repoPath: when the search finds no .git the backend still
+    // sets repoPath to the directory it started from, so that is never empty.
+    readonly property bool hasRepo: GitBackend.isRepo
+
     // A second, hand-rolled Tokyo Night palette used to live here alongside the
     // Catppuccin one in Ui/Design.qml, so this window never followed the theme.
     // The names stay — they are used throughout the file — but each now resolves
@@ -232,11 +241,14 @@ ApplicationWindow {
                             }
                         }
 
+                        opacity: window.hasRepo ? 1.0 : 0.45
+                        enabled: window.hasRepo
+
                         MouseArea {
                             id: syncArea
                             anchors.fill: parent
                             hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
+                            cursorShape: parent.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                             onClicked: GitBackend.fetch()
                         }
                     }
@@ -251,17 +263,21 @@ ApplicationWindow {
                             color: pushArea.containsMouse ? Design.tint(Design.mauve, 0.25) : "transparent"
                             border.color: pushArea.containsMouse ? window.colPurple : window.colBorder
                             border.width: 1
+                            opacity: window.hasRepo ? 1.0 : 0.45
+                            enabled: window.hasRepo
                             Text { anchors.centerIn: parent; text: "󰜮"; font.family: Design.font.mono; font.pixelSize: Design.s(13); color: window.colPurple }
-                            MouseArea { id: pushArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: GitBackend.push() }
+                            MouseArea { id: pushArea; anchors.fill: parent; hoverEnabled: true; cursorShape: parent.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor; onClicked: GitBackend.push() }
                         }
 
                         Rectangle {
                             width: 28; height: 28; radius: 6
+                            opacity: window.hasRepo ? 1.0 : 0.45
+                            enabled: window.hasRepo
                             color: pullArea.containsMouse ? Design.tint(Design.sapphire, 0.25) : "transparent"
                             border.color: pullArea.containsMouse ? window.colCyan : window.colBorder
                             border.width: 1
                             Text { anchors.centerIn: parent; text: "󰜱"; font.family: Design.font.mono; font.pixelSize: Design.s(13); color: window.colCyan }
-                            MouseArea { id: pullArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: GitBackend.pull() }
+                            MouseArea { id: pullArea; anchors.fill: parent; hoverEnabled: true; cursorShape: parent.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor; onClicked: GitBackend.pull() }
                         }
                     }
 
@@ -431,9 +447,11 @@ ApplicationWindow {
                                                 font.family: Design.font.sans
                                                 font.pixelSize: Design.s(10)
                                                 color: window.colGreen
+                                                opacity: window.hasRepo ? 1.0 : 0.45
+                                                enabled: window.hasRepo
                                                 MouseArea {
                                                     anchors.fill: parent
-                                                    cursorShape: Qt.PointingHandCursor
+                                                    cursorShape: parent.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                                                     onClicked: GitBackend.stageAll()
                                                 }
                                             }
@@ -443,9 +461,11 @@ ApplicationWindow {
                                                 font.family: Design.font.sans
                                                 font.pixelSize: Design.s(10)
                                                 color: window.colRed
+                                                opacity: window.hasRepo ? 1.0 : 0.45
+                                                enabled: window.hasRepo
                                                 MouseArea {
                                                     anchors.fill: parent
-                                                    cursorShape: Qt.PointingHandCursor
+                                                    cursorShape: parent.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                                                     onClicked: GitBackend.unstageAll()
                                                 }
                                             }
@@ -611,16 +631,18 @@ ApplicationWindow {
                                                 Layout.fillWidth: true
                                                 height: 28
                                                 radius: 5
-                                                color: sumInput.text.trim() ? (commitArea.containsMouse ? Qt.lighter(window.colBlue, 1.1) : window.colBlue) : Design.tint(Design.accent, 0.20)
-                                                enabled: sumInput.text.trim().length > 0
+                                                readonly property bool ready: window.hasRepo && sumInput.text.trim().length > 0
+                                                color: ready ? (commitArea.containsMouse ? Qt.lighter(window.colBlue, 1.1) : window.colBlue) : Design.tint(Design.accent, 0.20)
+                                                enabled: ready
 
                                                 Text {
                                                     anchors.centerIn: parent
-                                                    text: "Commit to " + GitBackend.branchName
+                                                    text: window.hasRepo ? "Commit to " + GitBackend.branchName
+                                                                         : "No repository open"
                                                     font.family: Design.font.sans
                                                     font.pixelSize: Design.s(11)
                                                     font.bold: true
-                                                    color: sumInput.text.trim() ? Design.accentText : window.colDim
+                                                    color: parent.ready ? Design.accentText : window.colDim
                                                 }
 
                                                 MouseArea {

@@ -7,6 +7,12 @@ import Ui
 ApplicationWindow {
     id: window
     title: ViewBackend.fileName ? ("Image Viewer — " + ViewBackend.fileName) : "Image Viewer"
+
+    // With nothing open this window was a plain empty rectangle: the title bar
+    // said "No Image Open" and the canvas said nothing at all, while the zoom,
+    // rotate and next/previous controls all sat there enabled with nothing to
+    // act on. Every other surface in the suite states an empty view.
+    readonly property bool hasImage: ViewBackend.currentPath !== ""
     width: 960
     height: 640
     minimumWidth: 500
@@ -178,6 +184,15 @@ ApplicationWindow {
                     }
                 }
 
+                EmptyState {
+                    anchors.centerIn: parent
+                    width: parent.width - Design.s(Design.space.xl) * 2
+                    visible: !window.hasImage
+                    icon: "\u{f02e9}"
+                    title: "No image open"
+                    hint: "Open one from Files, or pass a path: b1air-view picture.png"
+                }
+
                 // Left Arrow Overlay (Prev)
                 Rectangle {
                     anchors.left: parent.left
@@ -187,6 +202,7 @@ ApplicationWindow {
                     color: prevArrArea.containsMouse ? Design.tint(Design.ground, 0.85) : Design.tint(Design.ground, 0.45)
                     border.color: window.colBorder
                     border.width: 1
+                    visible: window.hasImage
                     Text { anchors.centerIn: parent; text: "󰁍"; font.family: Design.font.mono; font.pixelSize: Design.s(14); color: window.colFg }
                     MouseArea { id: prevArrArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: ViewBackend.previous() }
                 }
@@ -197,6 +213,7 @@ ApplicationWindow {
                     anchors.rightMargin: 16
                     anchors.verticalCenter: parent.verticalCenter
                     width: 36; height: 36; radius: 18
+                    visible: window.hasImage
                     color: nextArrArea.containsMouse ? Design.tint(Design.ground, 0.85) : Design.tint(Design.ground, 0.45)
                     border.color: window.colBorder
                     border.width: 1

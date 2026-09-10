@@ -16,6 +16,7 @@
 #include <iomanip>
 #include <sstream>
 #include <algorithm>
+#include <functional>
 #include <array>
 #include <memory>
 #include <random>
@@ -1189,7 +1190,19 @@ bool SystemControl::monitors_apply(const std::string& layout_json) {
         int y = static_cast<int>(get_num("y", 0));
         std::string transform = get_str("transform");
 
-        if (!name.empty() && resW > 0 && resH > 0) {
+        // Whether the output is on at all. The layout has carried "active"
+        // since it was written — the QML that builds it even documents the
+        // daemon as normalising the field — and nothing here read it, so an
+        // output turned off in Settings came back on at the next restore.
+        // Turning it off is also the whole command: mode and position mean
+        // nothing for a disabled output, and sway rejects them for one.
+        const bool active = chunk.find("\"active\":false") == std::string::npos
+                         && chunk.find("\"active\": false") == std::string::npos;
+
+        if (!name.empty() && !active) {
+            ipc.send_command(0, "output \"" + name + "\" disable");
+        } else if (!name.empty() && resW > 0 && resH > 0) {
+            ipc.send_command(0, "output \"" + name + "\" enable");
             std::string mode_str = std::to_string(resW) + "x" + std::to_string(resH);
             if (rate > 0) {
                 std::stringstream rss;
@@ -1225,18 +1238,31 @@ bool SystemControl::monitors_restore() {
     std::string saved_json = read_file_string(state_path);
 
     if (!saved_json.empty() && saved_json != "[]") {
+        // Does the saved layout mention any output that is actually connected?
+        //
+        // This used to scan the reply for the literal bytes "name":" — with no
+        // space. Sway pretty-prints its IPC replies, so what arrives is
+        // "name": "HEADLESS-1", the search matched nothing, and the saved
+        // layout was never applied: monitor restore had never once worked.
+        // Parsed rather than searched, so spacing cannot decide it again.
         bool has_match = false;
-        size_t cur = 0;
-        while ((cur = outputs_json.find("\"name\":\"", cur)) != std::string::npos) {
-            size_t end = outputs_json.find('"', cur + 8);
-            if (end != std::string::npos) {
-                std::string name = outputs_json.substr(cur + 8, end - (cur + 8));
-                if (saved_json.find("\"name\":\"" + name + "\"") != std::string::npos) {
-                    has_match = true;
-                    break;
+        try {
+            const auto outputs = nlohmann::json::parse(outputs_json);
+            const auto saved = nlohmann::json::parse(saved_json);
+            for (const auto& o : outputs) {
+                if (!o.contains("name") || !o["name"].is_string()) continue;
+                const std::string name = o["name"].get<std::string>();
+                for (const auto& sv : saved) {
+                    if (sv.contains("name") && sv["name"].is_string()
+                        && sv["name"].get<std::string>() == name) {
+                        has_match = true;
+                        break;
+                    }
                 }
+                if (has_match) break;
             }
-            cur += 8;
+        } catch (const std::exception&) {
+            has_match = false;
         }
 
         if (has_match) {
@@ -1287,47 +1313,6 @@ bool SystemControl::monitors_restore() {
 }
 
 // ── Screenshots ──────────────────────────────────────────────────────────────
-bool SystemControl::capture_screenshot(const std::string& mode) {
-    const char* home = std::getenv("HOME");
-    std::string target_dir = std::string(home ? home : "/tmp") + "/Pictures/Screenshots";
-    mkdir(target_dir.c_str(), 0755);
-
-    auto now = std::chrono::system_clock::now();
-    auto in_time_t = std::chrono::system_clock::to_time_t(now);
-    std::stringstream ss;
-    ss << std::put_time(std::localtime(&in_time_t), "%Y-%m-%d_%H-%M-%S");
-    std::string timestamp = ss.str();
-    std::string filepath = target_dir + "/screenshot_" + timestamp + ".png";
-
-    std::string geometry;
-    if (mode == "area") {
-        geometry = run_argv_capture({"slurp"});
-        if (geometry.empty() || !valid_geometry(geometry)) return false;
-    } else if (mode == "window") {
-        SwayIPC ipc;
-        if (!ipc.connect()) return false;
-        const std::string tree = ipc.get_tree();
-        const size_t focused = tree.find("\"focused\":true");
-        const size_t rect = focused == std::string::npos ? std::string::npos : tree.rfind("\"rect\":", focused);
-        if (rect == std::string::npos) return false;
-        try {
-            const int x = std::stoi(tree.substr(tree.find("\"x\":", rect) + 4));
-            const int y = std::stoi(tree.substr(tree.find("\"y\":", rect) + 4));
-            const int w = std::stoi(tree.substr(tree.find("\"width\":", rect) + 8));
-            const int h = std::stoi(tree.substr(tree.find("\"height\":", rect) + 9));
-            geometry = std::to_string(x) + "," + std::to_string(y) + " " + std::to_string(w) + "x" + std::to_string(h);
-        } catch (...) { return false; }
-    }
-    std::vector<std::string> grim_args = {"grim"};
-    if (!geometry.empty()) { grim_args.push_back("-g"); grim_args.push_back(geometry); }
-    grim_args.push_back(filepath);
-    if (!run_argv_status(grim_args)) return false;
-    const std::string image = read_file_string(filepath);
-    if (image.empty() || !run_argv_with_raw_stdin({"wl-copy", "-t", "image/png"}, image)) return false;
-    notify_user("Screenshot", "Screenshot Saved", filepath, filepath);
-    return true;
-}
-
 // ── Fullscreen Toggle ────────────────────────────────────────────────────────
 bool SystemControl::toggle_fullscreen() {
     SwayIPC ipc;
@@ -2860,47 +2845,120 @@ bool SystemControl::run_screenshot_overlay(bool edit_mode) {
 
 bool SystemControl::capture(const std::string& mode, const std::string& geom, bool edit) {
     if (!geom.empty() && !valid_geometry(geom)) return false;
+
+    // Settings → Screenshots offers a folder, a format, a delay and switches
+    // for saving and copying. None of them reached here: this function wrote
+    // Screenshot_<time>.png into ~/Pictures/Screenshots, always, and always
+    // copied to the clipboard. Five controls storing values nothing read.
     const char* home = std::getenv("HOME");
-    std::string target_dir = std::string(home ? home : "/tmp") + "/Pictures/Screenshots";
-    mkdir(target_dir.c_str(), 0755);
+    const std::string home_dir = std::string(home ? home : "/tmp");
+
+    std::string target_dir = SettingsManager::get_json_string("screenshotDir");
+    if (target_dir.empty()) target_dir = home_dir + "/Pictures/Screenshots";
+    if (target_dir.rfind("~/", 0) == 0) target_dir = home_dir + target_dir.substr(1);
+
+    std::string format = SettingsManager::get_json_string("screenshotFormat");
+    std::transform(format.begin(), format.end(), format.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    if (format != "jpg" && format != "jpeg" && format != "webp") format = "png";
+
+    const int delay = std::max(0, std::min(60, SettingsManager::get_json_int("screenshotDelay", 0)));
+    const bool to_file = SettingsManager::get_json_bool("screenshotSaveToFile", true);
+    const bool to_clipboard = SettingsManager::get_json_bool("screenshotCopyToClipboard", true);
+
+    if (!util::mkdir_p(target_dir)) {
+        notify_user("Screenshot", "Cannot write there", target_dir, "");
+        return false;
+    }
 
     auto now = std::chrono::system_clock::now();
     auto in_time_t = std::chrono::system_clock::to_time_t(now);
     std::stringstream ss;
     ss << std::put_time(std::localtime(&in_time_t), "%Y-%m-%d_%H-%M-%S");
     std::string timestamp = ss.str();
-    std::string filepath = target_dir + "/Screenshot_" + timestamp + ".png";
+
+    // Turning both switches off would throw the capture away, so the file is
+    // still written; a screenshot that goes nowhere is not a setting anyone
+    // means to choose. Editing needs a real file on disk in any case.
+    const bool keep_file = to_file || !to_clipboard || edit;
+    const std::string ext = (format == "jpg") ? "jpeg" : format;
+    std::string filepath = keep_file
+        ? target_dir + "/Screenshot_" + timestamp + "." + ext
+        : runtime_dir() + "/screenshot-" + timestamp + "." + ext;
 
     std::string selected = geom;
     if (selected.empty() && mode == "area") selected = run_argv_capture({"slurp"});
     if (!selected.empty() && !valid_geometry(selected)) return false;
     if (selected.empty() && mode == "window") {
+        // This used to look for the bytes "focused":true and then walk
+        // backwards to the nearest "rect": . Sway pretty-prints its IPC
+        // replies, so the text is "focused": true — with a space — and the
+        // search matched nothing on any machine: Super+Shift+Print, which the
+        // README and the shortcut sheet both document, has never taken a
+        // screenshot. Walking the parsed tree also picks the focused node's
+        // own rect rather than whichever one happened to sit above it.
         SwayIPC ipc;
         if (!ipc.connect()) return false;
         const std::string tree = ipc.get_tree();
-        const size_t focused = tree.find("\"focused\":true");
-        const size_t rect = focused == std::string::npos ? std::string::npos : tree.rfind("\"rect\":", focused);
-        if (rect == std::string::npos) return false;
+
+        std::function<const nlohmann::json*(const nlohmann::json&)> find_focused =
+            [&](const nlohmann::json& node) -> const nlohmann::json* {
+                if (node.value("focused", false) && node.contains("rect"))
+                    return &node;
+                for (const char* key : {"nodes", "floating_nodes"}) {
+                    if (!node.contains(key) || !node[key].is_array()) continue;
+                    for (const auto& child : node[key])
+                        if (const auto* hit = find_focused(child)) return hit;
+                }
+                return nullptr;
+            };
+
         try {
-            const int x = std::stoi(tree.substr(tree.find("\"x\":", rect) + 4));
-            const int y = std::stoi(tree.substr(tree.find("\"y\":", rect) + 4));
-            const int w = std::stoi(tree.substr(tree.find("\"width\":", rect) + 8));
-            const int h = std::stoi(tree.substr(tree.find("\"height\":", rect) + 9));
-            selected = std::to_string(x) + "," + std::to_string(y) + " " + std::to_string(w) + "x" + std::to_string(h);
-        } catch (...) { return false; }
+            const auto parsed = nlohmann::json::parse(tree);
+            const auto* node = find_focused(parsed);
+            if (!node) return false;
+            const auto& r = (*node)["rect"];
+            selected = std::to_string(r.value("x", 0)) + "," + std::to_string(r.value("y", 0))
+                     + " " + std::to_string(r.value("width", 0)) + "x"
+                     + std::to_string(r.value("height", 0));
+        } catch (const std::exception&) { return false; }
     }
+    // After the selection, not before it: the delay exists so a menu can be
+    // opened and left open while the shot is taken.
+    if (delay > 0) sleep(static_cast<unsigned int>(delay));
+
     std::vector<std::string> grim_args = {"grim"};
+    // grim writes png and jpeg itself; webp is converted afterwards.
+    grim_args.push_back("-t");
+    grim_args.push_back(format == "webp" ? "png" : ext);
     if (!selected.empty()) { grim_args.push_back("-g"); grim_args.push_back(selected); }
     grim_args.push_back(filepath);
     if (!run_argv_status(grim_args)) return false;
+
+    if (format == "webp") {
+        // imagemagick is already a declared dependency. If the conversion
+        // fails the PNG stays where it is rather than the capture being lost.
+        (void)run_argv_status({"magick", filepath, filepath});
+    }
+
+    const std::string mime = (format == "png") ? "image/png"
+                           : (format == "webp") ? "image/webp" : "image/jpeg";
+
     if (edit) {
         if (!run_argv_status_env({"satty", "--filename", filepath, "--output-filename", filepath,
                                   "--init-tool", "brush", "--copy-command", "wl-copy"},
                                  {{"GSK_RENDERER", "gl"}})) return false;
-    } else {
+    } else if (to_clipboard) {
         const std::string image = read_file_string(filepath);
-        if (image.empty() || !run_argv_with_raw_stdin({"wl-copy", "-t", "image/png"}, image)) return false;
+        if (image.empty() || !run_argv_with_raw_stdin({"wl-copy", "-t", mime}, image)) return false;
     }
+
+    if (!keep_file) {
+        unlink(filepath.c_str());
+        notify_user("Screenshot", "Copied to clipboard", "", "");
+        return true;
+    }
+
     notify_user("Screenshot", "Screenshot Saved", filepath, filepath);
     return true;
 }

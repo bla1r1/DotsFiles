@@ -16,7 +16,6 @@ ColumnLayout {
     spacing: Design.s(Design.space.lg)
 
     property string barPosition: Settings.barPosition || "top"
-    property bool barShowCava: Settings.barShowCava !== undefined ? Settings.barShowCava : true
     property bool barShowWeather: Settings.barShowWeather !== undefined ? Settings.barShowWeather : true
     property bool barShowMedia: Settings.barShowMedia !== undefined ? Settings.barShowMedia : true
     property bool barShowTray: Settings.barShowTray !== undefined ? Settings.barShowTray : true
@@ -97,27 +96,13 @@ ColumnLayout {
         icon: "\u{f009}"
         accentColor: Design.mauve
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: Design.s(Design.space.md)
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: Design.s(2)
-                Label { text: "Audio Visualizer (Cava)"; weight: Design.weight.semibold }
-                Label { text: "Show real-time equalizer bars next to workspace indicator"; role: "caption"; dim: true }
-            }
-
-            Toggle {
-                checked: section.barShowCava
-                onToggled: {
-                    const next = !section.barShowCava;
-                    section.barShowCava = next;
-                    Settings.set("barShowCava", next);
-                    section.reloadTopBar();
-                }
-            }
-        }
+        // "Audio Visualizer (Cava)" used to be the first switch here. There is
+        // no visualizer in the bar and no cava anywhere in this project — not
+        // in the package list, not as a process, not as a module — so the
+        // switch stored a value nothing read, promising a feature that does not
+        // exist. Building it would mean taking on an external program, which is
+        // the opposite of the direction the rest of the suite is going. Better
+        // to not offer it than to offer it and do nothing.
 
         RowLayout {
             Layout.fillWidth: true

@@ -166,9 +166,23 @@ Singleton {
         onTriggered: Daemon.forceReload()
     }
 
+    /**
+     * Turn an output on or off, and remember it.
+     *
+     * This used to shell straight out to `swaymsg output NAME disable` and
+     * stop there. The choice never reached the saved layout, and the daemon's
+     * restore ignored the field anyway, so a display switched off in Settings
+     * came back on at the next login — twice over. Going through apply() means
+     * one path: sway gets the command, the layout gets written, and restore
+     * reproduces it.
+     */
     function setEnabled(name, enabled) {
-        Quickshell.execDetached(["swaymsg", "output", name, enabled ? "enable" : "disable"]);
-        applyRecheck.restart();
+        const layout = root.outputs.map(o => ({
+            name: o.name, resW: o.resW, resH: o.resH, rate: o.rate,
+            sysScale: o.sysScale, x: o.x, y: o.y, transform: o.transform,
+            active: o.name === name ? enabled : o.active
+        }));
+        root.apply(layout);
     }
 
     function setTransform(name, rot) {

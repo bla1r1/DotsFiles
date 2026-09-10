@@ -40,11 +40,10 @@ public:
     Q_INVOKABLE void setGameMode(bool enabled);
     Q_INVOKABLE void capture(const QString& mode);
 
-    // Distinct from capture(): the daemon has two independent screenshot
-    // implementations (Capture wraps capture_screenshot(), this wraps the
-    // richer capture() with geometry/editor support that the CLI's `capture`
-    // verb uses). Keeping them separate here preserves each call site's
-    // existing behavior rather than silently picking one.
+    // Same implementation as capture(), with an explicit region and an
+    // optional editor pass. The daemon used to have two independent screenshot
+    // functions behind these two methods; the second one ignored every
+    // screenshot setting and its window mode never worked, so it is gone.
     Q_INVOKABLE void captureWithGeometry(const QString& mode, const QString& geometry = QString(),
                                          bool edit = false);
     Q_INVOKABLE void power(const QString& action);
