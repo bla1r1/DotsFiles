@@ -230,6 +230,50 @@ ColumnLayout {
         }
     }
 
+    // ── 3.5 Low battery ──────────────────────────────────────────────────────
+    Card {
+        visible: Power.hasBattery
+        title: "Low battery"
+        subtitle: "What happens as the charge runs out"
+        icon: "\u{f0084}"
+        accentColor: Design.warn
+
+        Toggle {
+            label: "Warn me when the battery is low"
+            subtitle: "A notification at the level below. Nothing warned about the "
+                    + "charge before — the machine simply went off."
+            checked: Settings.batteryLowWarning !== false
+            onToggled: Settings.set("batteryLowWarning", !(Settings.batteryLowWarning !== false))
+        }
+
+        Stepper {
+            visible: Settings.batteryLowWarning !== false
+            label: "Warn at"
+            valueText: Power.lowThreshold + "%"
+            onDecrement: Settings.set("batteryLowPercent",
+                                      Math.max(Power.criticalThreshold + 5, Power.lowThreshold - 5))
+            onIncrement: Settings.set("batteryLowPercent", Math.min(50, Power.lowThreshold + 5))
+        }
+
+        Toggle {
+            label: "Suspend before the battery dies"
+            subtitle: "A suspend with a few percent left keeps the session; a flat "
+                    + "battery does not."
+            checked: Settings.batteryCriticalAction !== "none"
+            onToggled: Settings.set("batteryCriticalAction",
+                                    Settings.batteryCriticalAction === "none" ? "suspend" : "none")
+        }
+
+        Stepper {
+            visible: Settings.batteryCriticalAction !== "none"
+            label: "Suspend at"
+            valueText: Power.criticalThreshold + "%"
+            onDecrement: Settings.set("batteryCriticalPercent", Math.max(2, Power.criticalThreshold - 1))
+            onIncrement: Settings.set("batteryCriticalPercent",
+                                      Math.min(Power.lowThreshold - 5, Power.criticalThreshold + 1))
+        }
+    }
+
     // ── 4. Screen and Sleep Timeouts ─────────────────────────────────────────
     Card {
         title: "Screen & sleep timeouts"

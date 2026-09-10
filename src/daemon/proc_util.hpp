@@ -12,6 +12,7 @@
 // source, which is one less place for the copies to come back.
 
 #include <fcntl.h>
+#include <cstring>
 #include <sys/stat.h>
 #include <cerrno>
 #include <unistd.h>
@@ -21,6 +22,8 @@
 #include <sstream>
 #include <string>
 #include <vector>
+
+extern char **environ;
 
 namespace b1air {
 namespace util {
@@ -70,6 +73,38 @@ inline bool spawn_detached(const std::vector<std::string>& args,
                            const char* wayland_display = nullptr) {
     if (args.empty()) return false;
 
+    // Everything the child needs is built here, before the fork.
+    //
+    // fork() in a process with threads gives the child one thread and every
+    // lock exactly as it was at that instant — including the allocator's. If
+    // another thread happened to be inside malloc, the child deadlocks the
+    // first time it allocates, which it did: the argv vector was being built
+    // *after* the fork. The child then never reached execvp and never exited,
+    // and the parent sat in the waitpid below for ever.
+    //
+    // That is not theoretical. The shell's restart watchdog runs on its own
+    // thread; its first respawn hung the whole watchdog, so a desktop that had
+    // lost its shell stayed that way. Between fork and exec this now does
+    // nothing but open/dup2/setsid/execvp, all of which are safe there.
+    std::vector<char*> argv;
+    argv.reserve(args.size() + 1);
+    for (const auto& arg : args) argv.push_back(const_cast<char*>(arg.c_str()));
+    argv.push_back(nullptr);
+
+    // Same reason: an environment for the child, assembled before the fork
+    // rather than by calling setenv() inside it.
+    std::string wl_entry;
+    std::vector<char*> envp;
+    if (wayland_display) {
+        wl_entry = std::string("WAYLAND_DISPLAY=") + wayland_display;
+        for (char** e = environ; e && *e; ++e) {
+            if (std::strncmp(*e, "WAYLAND_DISPLAY=", 16) != 0)
+                envp.push_back(*e);
+        }
+        envp.push_back(const_cast<char*>(wl_entry.c_str()));
+        envp.push_back(nullptr);
+    }
+
     // Double fork. The first child forks again and exits at once; the
     // grandchild is orphaned and inherited by init, which reaps it. The parent
     // waits only for the short-lived middle process.
@@ -100,14 +135,11 @@ inline bool spawn_detached(const std::vector<std::string>& args,
             dup2(null_fd, STDERR_FILENO);
             if (null_fd > STDERR_FILENO) close(null_fd);
         }
-        if (wayland_display) setenv("WAYLAND_DISPLAY", wayland_display, 1);
 
-        std::vector<char*> argv;
-        argv.reserve(args.size() + 1);
-        for (const auto& arg : args) argv.push_back(const_cast<char*>(arg.c_str()));
-        argv.push_back(nullptr);
-
-        execvp(argv[0], argv.data());
+        if (!envp.empty())
+            execvpe(argv[0], argv.data(), envp.data());
+        else
+            execvp(argv[0], argv.data());
         _exit(127);
     }
 

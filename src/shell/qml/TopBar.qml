@@ -1055,20 +1055,55 @@ PanelWindow {
                         }
                     }
 
-                    // Notification Bell (opens Control Center)
+                    // Notification bell — opens the notification centre.
+                    //
+                    // It opened the Control Center's main page: the tile grid,
+                    // with the notifications one tap further in. A bell that
+                    // does not go to the notifications is the wrong bell.
+                    // `toggle:notifications:` opens the same window straight
+                    // on that list.
+                    //
+                    // It also carried no count, while the service has always
+                    // published one — so the only sign that anything had
+                    // arrived was a toast you had to catch before it faded.
                     Rectangle {
                         width: Design.s(20); height: Design.s(20); radius: Design.s(5)
                         color: bellArea.containsMouse ? Design.tint(Design.accent, 0.20) : "transparent"
                         Text {
                             anchors.centerIn: parent
-                            text: "󰂚"
+                            text: Notifications.dnd ? "󰂛"
+                                : (Notifications.unreadCount > 0 ? "󰂞" : "󰂚")
                             font.family: topBar.fontMain
                             font.pixelSize: Design.s(13)
-                            color: topBar.colFgDim
+                            color: Notifications.dnd ? topBar.colFgDim
+                                 : (Notifications.unreadCount > 0 ? topBar.colBlue : topBar.colFgDim)
                         }
+
+                        // A dot rather than a number: at this size a count of
+                        // more than one digit is unreadable, and "something is
+                        // waiting" is all the bar needs to say.
+                        Rectangle {
+                            visible: Notifications.unreadCount > 0 && !Notifications.dnd
+                            width: Design.s(6); height: Design.s(6)
+                            radius: width / 2
+                            color: Design.accent
+                            anchors.right: parent.right
+                            anchors.top: parent.top
+                            anchors.rightMargin: -Design.s(1)
+                            anchors.topMargin: -Design.s(1)
+                            border.width: 1
+                            border.color: topBar.colBg
+                        }
+
                         MouseArea {
                             id: bellArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                            onClicked: topBar.requestCommand("toggle:control:", true)
+                            acceptedButtons: Qt.LeftButton | Qt.RightButton
+                            onClicked: (mouse) => {
+                                if (mouse.button === Qt.RightButton)
+                                    Notifications.toggleDnd();
+                                else
+                                    topBar.requestCommand("toggle:notifications:", true);
+                            }
                         }
                     }
 

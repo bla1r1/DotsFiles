@@ -124,6 +124,93 @@ Singleton {
         ? (root._bat.state === UPowerDeviceState.Charging
            || root._bat.state === UPowerDeviceState.FullyCharged)
         : false
+    // ── Low battery ──────────────────────────────────────────────────────────
+    //
+    // Nothing in this desktop looked at the charge. Not a threshold, not
+    // UPower's own WarningLevel, no notification and no emergency suspend —
+    // the battery simply ran to zero and the machine went off mid-sentence.
+    // The only thing that ever acted on power was swayidle, and it counts
+    // idleness, not charge.
+    //
+    // Two thresholds, both configurable on the Power page. The warning is a
+    // notification; the critical one suspends, because a suspend with a few
+    // percent left keeps the session and a flat battery does not.
+    readonly property int lowThreshold: {
+        const n = Number(Settings.batteryLowPercent);
+        return (isFinite(n) && n > 0) ? Math.round(n) : 15;
+    }
+    readonly property int criticalThreshold: {
+        const n = Number(Settings.batteryCriticalPercent);
+        return (isFinite(n) && n > 0) ? Math.round(n) : 5;
+    }
+
+    // Latched so a battery hovering on the threshold does not notify on every
+    // UPower update. Cleared once the charge recovers past the threshold, or
+    // as soon as the cable goes in.
+    property bool _warnedLow: false
+    property bool _warnedCritical: false
+
+    onCapacityChanged: root._checkCharge()
+    onChargingChanged: root._checkCharge()
+
+    function _checkCharge() {
+        if (!root.hasBattery)
+            return;
+
+        if (root.charging) {
+            root._warnedLow = false;
+            root._warnedCritical = false;
+            return;
+        }
+
+        // A percentage of 0 is what UPower reports before it has read the
+        // hardware, and treating that as an empty battery would suspend the
+        // machine seconds after login.
+        if (root.capacity <= 0)
+            return;
+
+        if (root.capacity > root.lowThreshold)
+            root._warnedLow = false;
+        if (root.capacity > root.criticalThreshold)
+            root._warnedCritical = false;
+
+        if (Settings.batteryCriticalAction !== "none"
+                && root.capacity <= root.criticalThreshold && !root._warnedCritical) {
+            root._warnedCritical = true;
+            root._warnedLow = true;
+            Quickshell.execDetached(["notify-send", "-u", "critical", "-a", "Power",
+                                     "-i", "battery-caution",
+                                     "Battery critical — " + root.capacity + "%",
+                                     "Suspending now to save the session."]);
+            // A moment for the notification to be drawn and for anything
+            // mid-write to finish before the machine goes down.
+            criticalDelay.start();
+            return;
+        }
+
+        if (Settings.batteryLowWarning !== false
+                && root.capacity <= root.lowThreshold && !root._warnedLow) {
+            root._warnedLow = true;
+            Quickshell.execDetached(["notify-send", "-u", "critical", "-a", "Power",
+                                     "-i", "battery-low",
+                                     "Battery low — " + root.capacity + "%",
+                                     "Plug in, or the machine will suspend at "
+                                         + root.criticalThreshold + "%."]);
+        }
+    }
+
+    Timer {
+        id: criticalDelay
+        interval: 5000
+        onTriggered: {
+            // Checked again: five seconds is long enough for someone to plug
+            // in after reading the notification, and suspending anyway would
+            // be the wrong answer to that.
+            if (!root.charging)
+                Quickshell.execDetached(["b1air-daemon", "power", "suspend"]);
+        }
+    }
+
     readonly property string status: {
         if (!root._bat) return "Unknown";
         switch (root._bat.state) {

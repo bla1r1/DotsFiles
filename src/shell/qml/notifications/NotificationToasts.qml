@@ -15,7 +15,16 @@ PanelWindow {
     color: "transparent"
 
     WlrLayershell.namespace: "qs-notifications"
-    WlrLayershell.layer: WlrLayer.Overlay
+
+    // Below the shell's own popups, above ordinary windows.
+    //
+    // Toasts were on the overlay layer, the same as the popup host — and
+    // within a layer the surface created last is on top, which is this one.
+    // So a notification arriving while the Control Center was open landed
+    // across it. WlrLayer.Top still puts toasts above every application
+    // window, which is the whole point of them, while a shell surface the
+    // user has deliberately opened stays in front.
+    WlrLayershell.layer: WlrLayer.Top
     
     exclusionMode: ExclusionMode.Ignore
     focusable: false

@@ -6,6 +6,8 @@
 #include "daemon_dbus.hpp"
 #include "runtime.hpp"
 #include "proc_util.hpp"
+#include <spawn.h>
+#include <cstring>
 
 #include <iostream>
 #include <thread>
@@ -49,17 +51,18 @@ static void spawn_shell_detached(const std::string& cmd) {
     }
 }
 
+// Every long-lived helper this session starts goes through util::spawn_detached,
+// which double-forks so the grandchild is orphaned and reaped by init.
+//
+// This used to fork once and never wait, so the shell, the polkit agent and the
+// rest stayed children of the daemon — and when one of them exited it became a
+// zombie that nothing reaped, because the daemon runs waitpid() only for the
+// commands it needs an exit status from. A zombie is still a process as far as
+// pgrep is concerned, so `is_process_running("quickshell")` kept answering yes
+// about a shell that had been dead for hours. That is not a tidiness problem:
+// it is what made the shell's own restart check unable to see a crash.
 static void spawn_argv_detached(const std::vector<std::string>& args) {
-    if (args.empty()) return;
-    const pid_t pid = fork();
-    if (pid < 0) return;
-    if (pid == 0) {
-        std::vector<char*> argv;
-        for (const auto& arg : args) argv.push_back(const_cast<char*>(arg.c_str()));
-        argv.push_back(nullptr);
-        execvp(argv[0], argv.data());
-        _exit(127);
-    }
+    (void)util::spawn_detached(args);
 }
 
 static bool run_status(const std::vector<std::string>& args) {
@@ -119,8 +122,16 @@ static bool safe_custom_command(const std::string& cmd) {
     return true;
 }
 
+// A zombie is not running.
+//
+// pgrep lists processes in every state, defunct included, so this answered yes
+// about a helper that had exited and was waiting to be reaped. `-r` restricts
+// the match to running, sleeping and disk-wait — everything except Z and T —
+// which is the question actually being asked here: is this thing still doing
+// its job.
 static bool is_process_running(const std::string& pattern) {
-    return run_status({"pgrep", "-x", pattern}) || run_status({"pgrep", "-f", pattern});
+    return run_status({"pgrep", "-r", "DRSW", "-x", pattern})
+        || run_status({"pgrep", "-r", "DRSW", "-f", pattern});
 }
 
 // ── Focus Tracker Thread ─────────────────────────────────────────────────────
@@ -509,12 +520,105 @@ int SessionManager::run_session() {
         spawn_shell_detached(build_swayidle_command(settings));
     }
 
-    // 10. Launch Native Desktop Shell & TopBar (integrated Layer-Shell)
-    if (!is_process_running("quickshell")) {
-        const std::string qs_main = qml_entry("Main.qml");
-        if (!qs_main.empty()) spawn_argv_detached({"quickshell", "-p", qs_main});
+    // 10. The desktop shell, and a supervisor that owns it.
+    //
+    // The shell used to be started once and never looked at again. If
+    // quickshell exits — a crash, an OOM kill, a QML error that takes the
+    // whole config down — the desktop loses its bar, every popup, the
+    // notifications, the launcher, the lock screen and Alt+Tab, and the only
+    // way back is a TTY.
+    //
+    // systemd units for this exist in .config/systemd/user with the right
+    // Restart= lines and are deliberately not enabled: sway execs this daemon
+    // directly, so enabling them would run the daemon twice. Supervision
+    // belongs where the spawn already happens.
+    //
+    // The shell is a *direct* child of this thread, launched with posix_spawn
+    // and waited on with waitpid. Two earlier attempts polled pgrep on a timer
+    // instead and both were wrong in instructive ways: pgrep counts a defunct
+    // process as running, so a crashed shell looked alive; and forking from a
+    // thread to respawn deadlocked the child in the allocator, which hung the
+    // supervisor itself after a single restart. Waiting on a child you own has
+    // neither problem — waitpid returns exactly when the shell dies, and there
+    // is no zombie because this is what reaps it.
+    //
+    // Restarts are capped. A shell that dies immediately and repeatedly is
+    // broken rather than unlucky — a QML syntax error does exactly that — and
+    // respawning it forever would bury the reason in the log and cost a core.
+    const std::string qs_main = qml_entry("Main.qml");
+    if (qs_main.empty()) {
+        std::cerr << "[b1air-session] Main.qml not found; the shell cannot start\n";
+    } else {
+        std::thread shell_supervisor([qs_main]() {
+            constexpr int kMaxRestarts = 5;
+            constexpr int kFailureWindowSec = 120;
+            // A shell that stayed up this long counts as healthy again, so a
+            // crash next week does not inherit today's failure count.
+            constexpr int kHealthySec = 300;
+
+            int failures = 0;
+            auto window_start = std::chrono::steady_clock::now();
+
+            while (g_session_running) {
+                // Everything the child needs, prepared before the spawn.
+                const char* argv[] = {"quickshell", "-p", qs_main.c_str(), nullptr};
+
+                posix_spawnattr_t attr;
+                posix_spawnattr_init(&attr);
+                posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSID);
+
+                pid_t pid = 0;
+                const int rc = posix_spawnp(&pid, "quickshell", nullptr, &attr,
+                                            const_cast<char* const*>(argv), environ);
+                posix_spawnattr_destroy(&attr);
+
+                if (rc != 0) {
+                    std::cerr << "[b1air-session] could not start the shell: "
+                              << std::strerror(rc) << "\n";
+                    std::this_thread::sleep_for(std::chrono::seconds(5));
+                    continue;
+                }
+
+                const auto started = std::chrono::steady_clock::now();
+                int status = 0;
+                while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
+                if (!g_session_running) break;
+
+                const auto now = std::chrono::steady_clock::now();
+                const auto uptime = std::chrono::duration_cast<std::chrono::seconds>(
+                    now - started).count();
+
+                if (uptime >= kHealthySec) {
+                    failures = 0;
+                    window_start = now;
+                } else if (std::chrono::duration_cast<std::chrono::seconds>(
+                               now - window_start).count() > kFailureWindowSec) {
+                    failures = 0;
+                    window_start = now;
+                }
+
+                if (++failures > kMaxRestarts) {
+                    std::cerr << "[b1air-session] the shell has exited " << kMaxRestarts
+                              << " times in " << kFailureWindowSec
+                              << "s; not restarting it again\n";
+                    (void)util::spawn_detached({"notify-send", "-u", "critical",
+                        "-a", "b1air", "-i", "dialog-error",
+                        "Desktop shell keeps crashing",
+                        "Giving up after " + std::to_string(kMaxRestarts)
+                            + " restarts. Run `quickshell -p " + qs_main + "` to see why."});
+                    return;
+                }
+
+                std::cerr << "[b1air-session] the shell exited after " << uptime
+                          << "s; restarting it (" << failures << "/" << kMaxRestarts << ")\n";
+                // A moment's pause so a shell that fails instantly does not
+                // spin the loop.
+                std::this_thread::sleep_for(std::chrono::seconds(2));
+            }
+        });
+        shell_supervisor.detach();
     }
-    mark("quickshell spawned (shell's own startup begins now, untimed)");
+    mark("shell supervisor started (the shell's own startup begins now, untimed)");
 
     // 12. Auto-tune compositor effects for software rasterizer / VM (KDE Plasma approach)
     //

@@ -48,6 +48,10 @@ Singleton {
     readonly property alias audioNotifications: data.audioNotifications
 
     // Lock and idle
+    readonly property alias batteryLowWarning: data.batteryLowWarning
+    readonly property alias batteryLowPercent: data.batteryLowPercent
+    readonly property alias batteryCriticalPercent: data.batteryCriticalPercent
+    readonly property alias batteryCriticalAction: data.batteryCriticalAction
     readonly property alias dimOnLock: data.dimOnLock
     readonly property alias dimTimeout: data.dimTimeout
     readonly property alias lockTimeout: data.lockTimeout
@@ -238,6 +242,10 @@ Singleton {
         workspaceCount: 10,
         audioStep: 5,
         audioNotifications: true,
+        batteryLowWarning: true,
+        batteryLowPercent: 15,
+        batteryCriticalPercent: 5,
+        batteryCriticalAction: "suspend",
         dimOnLock: true,
         dimTimeout: 240,
         lockTimeout: 300,
@@ -337,6 +345,10 @@ Singleton {
             property int audioStep: 5
             property bool audioNotifications: true
 
+            property bool batteryLowWarning: true
+            property int batteryLowPercent: 15
+            property int batteryCriticalPercent: 5
+            property string batteryCriticalAction: "suspend"
             property bool dimOnLock: true
             property int dimTimeout: 240
             property int lockTimeout: 300

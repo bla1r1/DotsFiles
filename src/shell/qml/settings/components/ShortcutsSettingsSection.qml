@@ -50,6 +50,7 @@ ColumnLayout {
             color: Design.blue,
             items: [
                 { key: "Mod + C", label: "Control Center", desc: "Quick tiles, volume, brightness and media" },
+                { key: "Mod + Shift + N", label: "Notification Center", desc: "Everything that has arrived, and the per-app mutes" },
                 { key: "Mod + V", label: "Clipboard History", desc: "Search and paste previously copied text" },
                 { key: "Mod + .", label: "Emoji Picker", desc: "Search emoji and paste into the focused window" },
                 { key: "Mod + B", label: "Battery", desc: "Charge, health and energy-mode popup" },

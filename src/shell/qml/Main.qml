@@ -130,6 +130,11 @@ Scope {
         }
 
         function toggleControl() { masterWindow.handleIpcCommand("toggle:control:", true) }
+        // The notification centre: the same window, opened straight on the
+        // list rather than on the tile grid. It was reachable only as
+        // `toggle notifications`, with no named function beside its siblings
+        // and no key binding.
+        function toggleNotifications() { masterWindow.handleIpcCommand("toggle:notifications:", true) }
         function toggleBattery() { masterWindow.handleIpcCommand("toggle:battery:", true) }
         function toggleVolume() { masterWindow.handleIpcCommand("toggle:volume:", true) }
         function toggleMusic() { masterWindow.handleIpcCommand("toggle:music:", true) }

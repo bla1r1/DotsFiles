@@ -21,6 +21,12 @@ MiniView {
     tone: Design.lavender
     footerLabel: "Notification Settings…"
 
+    // While this list is on screen, a toast repeating one of its lines is
+    // noise — and toasts used to be drawn on top of it, because both surfaces
+    // sat on the overlay layer and this one was created first.
+    Component.onCompleted: Notifications.acquireList()
+    Component.onDestruction: Notifications.releaseList()
+
     trailing: ActionButton {
         visible: Notifications.history.count > 0
         icon: "\u{f0156}"

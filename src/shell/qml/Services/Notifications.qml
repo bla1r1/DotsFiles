@@ -2,6 +2,7 @@ pragma Singleton
 
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Services.Notifications
 
 // =============================================================================
@@ -45,6 +46,18 @@ Singleton {
     // notifications while in game" was inert for the same reason: the switch
     // stored a value and no notification path consulted it.
     property bool manualDnd: false
+
+    /**
+     * Whether a surface showing the notification list is on screen.
+     *
+     * Refcounted the way Services/Power and Services/Network are: a view
+     * acquires it while it is up and releases it when it goes away, so two
+     * views open at once cannot switch it off for each other.
+     */
+    property int _listViewers: 0
+    readonly property bool listVisible: root._listViewers > 0
+    function acquireList() { root._listViewers++; }
+    function releaseList() { if (root._listViewers > 0) root._listViewers--; }
 
     readonly property bool dnd: root.manualDnd
         || (Settings.gameModeEnabled === true && Settings.gameModeDND === true)
@@ -102,9 +115,13 @@ Singleton {
         // Add to history
         root.history.insert(0, item);
         if (root.history.count > 50) root.history.remove(50);
+        root._save();
 
-        // Show toast popup only if DND is off and app is not muted
-        if (!root.dnd && !root.isAppMuted(item.appName)) {
+        // Show a toast only if DND is off, the app is not muted, and the list
+        // is not already on screen. A toast that repeats a line the user is
+        // looking at in the notification centre is noise, and it used to land
+        // on top of that very list.
+        if (!root.dnd && !root.isAppMuted(item.appName) && !root.listVisible) {
             root.activeToasts.append(item);
         }
     }
@@ -131,12 +148,112 @@ Singleton {
     function dismissHistoryItem(index) {
         if (index >= 0 && index < root.history.count) {
             root.history.remove(index);
+            root._save();
         }
     }
 
     function clearAllHistory() {
         root.history.clear();
         root.activeToasts.clear();
+        root._save();
+    }
+
+    // ── Persistence ──────────────────────────────────────────────────────────
+    //
+    // The history was a ListModel and nothing else, so a shell restart — an
+    // update, a crash, the supervisor bringing it back — took everything
+    // unread with it. The clipboard learned to survive that; notifications had
+    // not.
+    //
+    // Same store and the same shape of mistake to avoid: a save must not go
+    // out before the load has come back, or the first notification of the
+    // session replaces the file with a single entry. Measured on the clipboard
+    // when that guard was missing: ten records became one.
+    property bool _loaded: false
+    property bool _saveWanted: false
+    property string _pendingSave: ""
+
+    function _applyStored(raw) {
+        if (root._loaded)
+            return;
+        try {
+            const list = JSON.parse((raw || "").trim() || "[]");
+            if (Array.isArray(list)) {
+                // Appended, not inserted: anything that arrived while the read
+                // was in flight is newer and already at the top.
+                for (const entry of list) {
+                    if (entry && entry.summary !== undefined)
+                        root.history.append(entry);
+                }
+                while (root.history.count > 50) root.history.remove(50);
+            }
+        } catch (e) {
+            console.log("Notification history load error:", e);
+        }
+        root._loaded = true;
+        if (root._saveWanted)
+            root._save();
+    }
+
+    function _save() {
+        if (!root._loaded) {
+            root._saveWanted = true;
+            return;
+        }
+        const arr = [];
+        for (let i = 0; i < root.history.count; i++) {
+            const it = root.history.get(i);
+            // `obj` is the live Quickshell notification; it cannot be
+            // serialised and means nothing after a restart, so only the fields
+            // the list actually draws are stored.
+            arr.push({
+                id: it.id, appName: it.appName, summary: it.summary,
+                body: it.body, icon: it.icon, urgency: it.urgency, time: it.time
+            });
+        }
+        root._pendingSave = JSON.stringify(arr);
+        saveDebounce.restart();
+    }
+
+    Process {
+        id: historyLoader
+        running: true
+        command: ["b1air-secret-service", "get", "notification-history"]
+        stdout: StdioCollector {
+            onStreamFinished: root._applyStored(this.text)
+        }
+    }
+
+    // If the store never answers — no daemon, a broken keyring — recording has
+    // to start anyway rather than staying frozen for the session.
+    Timer {
+        interval: 4000
+        running: !root._loaded
+        onTriggered: root._applyStored("")
+    }
+
+    Process {
+        id: historySaver
+        stdinEnabled: true
+        command: ["b1air-secret-service", "set", "notification-history"]
+        onStarted: {
+            write(root._pendingSave);
+            stdinEnabled = false;
+        }
+    }
+
+    // `stdinEnabled` is a property, not a one-shot: left false it closes the
+    // pipe for every later run too, and the store freezes at whatever the
+    // first save held. Re-opened on each write, and debounced because a burst
+    // of notifications would otherwise spawn a helper apiece.
+    Timer {
+        id: saveDebounce
+        interval: 400
+        onTriggered: {
+            historySaver.running = false;
+            historySaver.stdinEnabled = true;
+            historySaver.running = true;
+        }
     }
 
     function toggleDnd() {
