@@ -4,7 +4,7 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import "../Ui"
-import "../Services"
+import "../Services" as Services
 
 // =============================================================================
 // Visual Window Switcher (Alt+Tab) Overlay
@@ -190,7 +190,16 @@ Rectangle {
                             anchors.centerIn: parent
                             width: Design.s(48)
                             height: Design.s(48)
-                            source: winCard.model.app_id ? "image://icon/" + winCard.model.app_id : ""
+                            // The desktop entry knows the icon; the app_id on
+                            // its own is not one. Falls back to the old guess
+                            // for windows with no entry installed.
+                            source: {
+                                const id = winCard.model.app_id || "";
+                                if (id === "") return "";
+                                const found = Services.Apps.iconFor(id);
+                                if (found === "") return "image://icon/" + id;
+                                return found.startsWith("/") ? "file://" + found : "image://icon/" + found;
+                            }
                             fillMode: Image.PreserveAspectFit
                             visible: source.toString() !== ""
                         }

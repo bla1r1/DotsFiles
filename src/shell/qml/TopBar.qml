@@ -168,6 +168,15 @@ PanelWindow {
     }
 
     function appIcon(appId) {
+        // The desktop entry first: it knows the icon, and it resolves through
+        // whatever theme the desktop is set to, so a window in the bar looks
+        // like the same window in the switcher and the launcher. The chain
+        // below pinned seven of our own app-ids to AdwaitaLegacy PNGs and gave
+        // every other application on the machine the same grey executable box.
+        const fromEntry = Apps.iconFor(appId);
+        if (fromEntry !== "")
+            return fromEntry.startsWith("/") ? "file://" + fromEntry : "image://icon/" + fromEntry;
+
         const id = (appId || "").toLowerCase();
         if (id.includes("b1air-term")) return "file:///usr/share/icons/AdwaitaLegacy/48x48/legacy/utilities-terminal.png";
         if (id.includes("b1air-files")) return "file:///usr/share/icons/AdwaitaLegacy/48x48/legacy/system-file-manager.png";

@@ -64,8 +64,16 @@ ShellRoot {
     // System Authentication hook
     PamContext {
         id: pam
-        
-        Component.onCompleted: pam.start()
+
+        // Measured, not assumed: with no config set, Quickshell uses the
+        // "login" service from /etc/pam.d, which exists on Arch and prompts
+        // for a password as expected. Nothing extra needs installing.
+        Component.onCompleted: {
+            if (!pam.start()) {
+                lockUI.failed = true;
+                lockUI.statusText = "Authentication unavailable";
+            }
+        }
 
         onCompleted: (result) => {
             lockUI.authenticating = false;
@@ -75,8 +83,24 @@ ShellRoot {
             } else {
                 lockUI.failed = true;
                 lockUI.statusText = "Access Denied";
-                pam.start();
+                if (!pam.start()) {
+                    lockUI.statusText = "Authentication unavailable";
+                }
             }
+        }
+
+        // Nothing listened to this before. A PAM conversation that cannot even
+        // start — a broken /etc/pam.d/login, a distribution that names the
+        // service something else, a resource limit — left the screen reading
+        // "Locked", accepting a password and doing nothing with it, with no
+        // message and no hint that the lock was never going to open. It says
+        // so now, which is the difference between a wrong password and a
+        // machine that cannot check one.
+        onError: (err) => {
+            lockUI.authenticating = false;
+            lockUI.failed = true;
+            lockUI.statusText = "Authentication unavailable";
+            console.warn("[b1air-lock] PAM error:", err, pam.message);
         }
     }
 

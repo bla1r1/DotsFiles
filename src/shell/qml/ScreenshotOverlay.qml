@@ -6,6 +6,7 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
 import "Ui"
+import "./Services"
 
 PanelWindow {
     id: root
@@ -17,7 +18,10 @@ PanelWindow {
     
     exclusionMode: ExclusionMode.Ignore 
     focusable: true
-    screen: Quickshell.cursorScreen
+    // Quickshell has no cursorScreen property — the singleton exposes screens
+    // and nothing else — so this assignment evaluated to undefined and the
+    // overlay opened on the default screen no matter where the user was.
+    screen: Screens.focused
     width: screen.width
     height: screen.height
 
@@ -76,6 +80,7 @@ PanelWindow {
     ListModel { id: micModel }
     
     Component.onCompleted: {
+        Screens.refresh();
         let micData = Quickshell.env("QS_MIC_LIST") || ""
         if (micData.trim() !== "") {
             let lines = micData.trim().split('\n')
@@ -116,7 +121,16 @@ PanelWindow {
     property real selW: Math.abs(endX - startX)
     property real selH: Math.abs(endY - startY)
     
-    property string geometryString: `${Math.round(selX)},${Math.round(selY)} ${Math.round(selW)}x${Math.round(selH)}`
+    // grim, satty and the QR scanner all take a region in the compositor's
+    // global coordinates; selX and selY are local to this window, which sits on
+    // whichever screen the cursor was on. On the primary screen the two are the
+    // same number and nothing looked wrong. On any other screen they are not,
+    // so a selection made there was captured from the corresponding spot on the
+    // first screen instead.
+    readonly property int screenOffsetX: root.screen ? root.screen.x : 0
+    readonly property int screenOffsetY: root.screen ? root.screen.y : 0
+
+    property string geometryString: `${Math.round(selX) + screenOffsetX},${Math.round(selY) + screenOffsetY} ${Math.round(selW)}x${Math.round(selH)}`
     property int interactionMode: 0
     property real anchorX: 0; property real anchorY: 0
     property real initX: 0; property real initY: 0

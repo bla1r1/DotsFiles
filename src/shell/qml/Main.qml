@@ -31,6 +31,12 @@ Scope {
     Component.onCompleted: {
         if (Settings.loaded && Settings.themeName)
             Theme.apply(Settings.themeName);
+
+        // Warm the focused-screen lookup, so the first toast or OSD is placed
+        // correctly instead of appearing on screen one and hopping across once
+        // the answer arrives. The singleton is created lazily otherwise — at
+        // the moment something first asks it a question.
+        Screens.refresh();
     }
 
     Connections {
@@ -44,9 +50,24 @@ Scope {
     // Turns B1air.Daemon call failures into notifications.
     DaemonErrors {}
 
-    TopBar {
-        id: mainTopBar
-        onRequestCommand: (cmd, notify) => masterWindow.handleIpcCommand(cmd, notify)
+    // One bar per screen.
+    //
+    // TopBar was instantiated once, and a PanelWindow with no screen set lands
+    // on the first one — so on a two-monitor desktop the second monitor had no
+    // bar at all: no clock, no workspaces, no tray, nothing. Confirmed on a
+    // live session with two outputs, where the bar covered x 0..1920 of a
+    // 3840-wide desktop and the rest was bare.
+    //
+    // Odd, given how much of this project is about multiple monitors: a
+    // Displays page, a persisted layout, per-output brightness.
+    Variants {
+        model: Quickshell.screens
+
+        delegate: TopBar {
+            required property var modelData
+            screen: modelData
+            onRequestCommand: (cmd, notify) => masterWindow.handleIpcCommand(cmd, notify)
+        }
     }
 
     PanelWindow {

@@ -338,7 +338,6 @@ Singleton {
             property int workspaceCount: 10
             property var monitors: []
             property var disabledAudioDevices: []
-            property var
             property int audioStep: 5
             property bool audioNotifications: true
 

@@ -4,6 +4,7 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Wayland
 import "../Ui"
+import "../Services"
 
 // =============================================================================
 // Native Polkit Authentication Dialog
@@ -22,7 +23,9 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
     focusable: true
     
-    screen: Quickshell.screens[0]
+    // A password prompt belongs on the screen being used, not always on the
+    // first one.
+    screen: Screens.focused
     width: Screen.width
     height: Screen.height
 
@@ -268,6 +271,7 @@ PanelWindow {
     }
 
     Component.onCompleted: {
+        Screens.refresh();
         pwdInput.forceActiveFocus();
     }
 

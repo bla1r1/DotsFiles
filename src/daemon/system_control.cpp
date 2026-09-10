@@ -757,25 +757,112 @@ static bool try_exec_present(const std::string& try_exec) {
     return false;
 }
 
+/**
+ * The icon theme the desktop is actually configured to use.
+ *
+ * gtk-3.0/settings.ini and qt6ct.conf both name it, and this project ships
+ * both saying Papirus-Dark. Read once: the answer does not change while the
+ * session runs, and every desktop entry asks for it.
+ */
+static const std::string& configured_icon_theme() {
+    static const std::string theme = [] () -> std::string {
+        const char* home = std::getenv("HOME");
+        if (!home) return "hicolor";
+        const std::string h = home;
+        const std::pair<std::string, std::string> sources[] = {
+            { h + "/.config/gtk-3.0/settings.ini", "gtk-icon-theme-name" },
+            { h + "/.config/gtk-4.0/settings.ini", "gtk-icon-theme-name" },
+            { h + "/.config/qt6ct/qt6ct.conf",     "icon_theme" },
+        };
+        for (const auto& [path, key] : sources) {
+            std::ifstream f(path);
+            std::string line;
+            while (std::getline(f, line)) {
+                const size_t eq = line.find('=');
+                if (eq == std::string::npos) continue;
+                std::string k = line.substr(0, eq);
+                k.erase(std::remove_if(k.begin(), k.end(), ::isspace), k.end());
+                if (k != key) continue;
+                std::string v = line.substr(eq + 1);
+                while (!v.empty() && (v.front() == ' ' || v.front() == '"')) v.erase(v.begin());
+                while (!v.empty() && (v.back() == ' ' || v.back() == '"' || v.back() == '\r')) v.pop_back();
+                if (!v.empty()) return v;
+            }
+        }
+        return "hicolor";
+    }();
+    return theme;
+}
+
+/**
+ * An icon name from a desktop entry to a file on disk.
+ *
+ * This used to search five hard-coded directories — hicolor, one AdwaitaLegacy
+ * folder and pixmaps — and never the icon theme the desktop is set to. This
+ * project installs papirus-icon-theme and writes Papirus-Dark into both the
+ * GTK and the Qt settings it ships, and Papirus was not among the paths, so
+ * most entries resolved to nothing: b1air-notes, b1air-git and b1air-view all
+ * came back with no icon and drew the "not found" placeholder in the window
+ * switcher.
+ *
+ * Icon themes lay their files out as <theme>/<size>/<context>/<name>.<ext> or
+ * <theme>/<context>/<size>/<name>.<ext> depending on the theme, so both are
+ * tried, along with the theme's Inherits chain.
+ */
 static std::string resolve_desktop_icon(const std::string& icon) {
     if (icon.empty()) return {};
     if (icon.front() == '/') return icon;
 
     const char* home = std::getenv("HOME");
-    std::vector<std::string> roots = {
-        "/usr/share/icons/hicolor/scalable/apps/",
-        "/usr/share/icons/hicolor/48x48/apps/",
-        "/usr/share/icons/hicolor/64x64/apps/",
+    const std::string h = home ? home : "";
+
+    std::vector<std::string> theme_roots;
+    for (const std::string& base : { h.empty() ? std::string() : h + "/.local/share/icons",
+                                     std::string("/usr/share/icons") }) {
+        if (base.empty()) continue;
+        for (const std::string& theme : { configured_icon_theme(), std::string("hicolor") })
+            theme_roots.push_back(base + "/" + theme);
+    }
+
+    const char* contexts[] = { "apps", "mimetypes", "categories", "devices", "places", "legacy" };
+    const char* exts[] = { ".svg", ".png", ".xpm" };
+
+    for (const auto& root : theme_roots) {
+        std::error_code ec;
+        if (!std::filesystem::is_directory(root, ec)) continue;
+
+        // <theme>/<context>/<size>/name and <theme>/<size>/<context>/name both
+        // occur in the wild; walking the theme's own top level covers each.
+        for (const auto& entry : std::filesystem::directory_iterator(root, ec)) {
+            if (!entry.is_directory()) continue;
+            for (const char* ctx : contexts) {
+                for (const char* ext : exts) {
+                    const std::string a = entry.path().string() + "/" + ctx + "/" + icon + ext;
+                    if (access(a.c_str(), R_OK) == 0) return a;
+                }
+            }
+            // <theme>/apps/<size>/name
+            for (const auto& sub : std::filesystem::directory_iterator(entry.path(), ec)) {
+                if (!sub.is_directory()) continue;
+                for (const char* ext : exts) {
+                    const std::string b = sub.path().string() + "/" + icon + ext;
+                    if (access(b.c_str(), R_OK) == 0) return b;
+                }
+            }
+        }
+    }
+
+    // Themes exhausted: the places an icon can still be.
+    std::vector<std::string> flat = {
         "/usr/share/icons/AdwaitaLegacy/48x48/legacy/",
         "/usr/share/pixmaps/"
     };
-    if (home) roots.push_back(std::string(home) + "/.local/share/icons/hicolor/scalable/apps/");
-    for (const auto& root : roots) {
-        for (const auto& ext : {std::string(".svg"), std::string(".png"), std::string(".xpm")}) {
-            std::string candidate = root + icon + ext;
+    if (!h.empty()) flat.push_back(h + "/.local/share/icons/");
+    for (const auto& root : flat)
+        for (const char* ext : exts) {
+            const std::string candidate = root + icon + ext;
             if (access(candidate.c_str(), R_OK) == 0) return candidate;
         }
-    }
     return {};
 }
 
@@ -1016,53 +1103,119 @@ int SystemControl::window_count_minimized() {
     return count;
 }
 
+namespace {
+
+/**
+ * Depth-first walk over a sway tree.
+ *
+ * The two functions below used to pick the tree apart with substring searches
+ * — find("{\"id\":"), find("\"app_id\":\""), find("\"focused\":true") — and
+ * sway pretty-prints its IPC replies. The text is `{\n    "id": 3` and
+ * `"focused": true`, with spaces, so none of those patterns matched anything
+ * on any machine and both lists came back empty every time. Measured against a
+ * live tree:
+ *
+ *   swaymsg -r -t get_tree | grep -c '"app_id":"'    -> 0
+ *   swaymsg -r -t get_tree | grep -c '"focused":true' -> 0
+ *
+ * Walking the parsed tree costs one parse of a document the daemon already has
+ * in hand, and whitespace cannot break it again.
+ */
+void walk_tree(const nlohmann::json& node,
+               const std::function<void(const nlohmann::json&)>& visit) {
+    visit(node);
+    for (const char* key : {"nodes", "floating_nodes"}) {
+        if (!node.contains(key) || !node[key].is_array()) continue;
+        for (const auto& child : node[key]) walk_tree(child, visit);
+    }
+}
+
+/**
+ * A string field, treating JSON null as absent.
+ *
+ * nlohmann's value() throws type_error when the key is present but holds the
+ * wrong type, and sway sends "name": null for a container that has no title —
+ * which threw out of the whole listing rather than skipping one node.
+ */
+std::string json_str(const nlohmann::json& n, const char* key, const std::string& def) {
+    if (!n.contains(key) || !n[key].is_string()) return def;
+    return n[key].get<std::string>();
+}
+
+/**
+ * Width and height of the focused output, falling back to the first one.
+ *
+ * PiP and the zone snapper each took the first "rect": in the outputs reply and
+ * read the numbers after it, which happens to work on a single monitor and
+ * places the window on the wrong screen on any other. Both wanted the display
+ * the user is actually looking at.
+ */
+void focused_output_size(const std::string& outputs_json, int& w, int& h) {
+    w = 1920;
+    h = 1080;
+    try {
+        const auto outputs = nlohmann::json::parse(outputs_json);
+        const nlohmann::json* chosen = nullptr;
+        for (const auto& o : outputs) {
+            if (!o.contains("rect")) continue;
+            if (!chosen) chosen = &o;
+            if (o.value("focused", false)) { chosen = &o; break; }
+        }
+        if (chosen) {
+            const auto& r = (*chosen)["rect"];
+            w = r.value("width", w);
+            h = r.value("height", h);
+        }
+    } catch (const std::exception&) {
+        // Keep the 1920x1080 assumption rather than placing nothing.
+    }
+}
+
+/** A window someone can see, as opposed to a workspace or a split container. */
+bool is_window(const nlohmann::json& n) {
+    const std::string type = json_str(n, "type", "");
+    if (type != "con" && type != "floating_con") return false;
+    return n.contains("app_id") || n.contains("window_properties") || n.contains("window");
+}
+
+/** app_id, falling back to the X11 class for an XWayland window. */
+std::string node_app_id(const nlohmann::json& n) {
+    if (n.contains("app_id") && n["app_id"].is_string()) return n["app_id"].get<std::string>();
+    if (n.contains("window_properties") && n["window_properties"].is_object()) {
+        const auto& wp = n["window_properties"];
+        if (wp.contains("class") && wp["class"].is_string()) return wp["class"].get<std::string>();
+    }
+    return "application";
+}
+
+} // namespace
+
 std::string SystemControl::window_list_minimized_json() {
     SwayIPC ipc;
     if (!ipc.connect()) return "[]";
-    std::string tree = ipc.send_command(4, "");
-    
+
+    nlohmann::json tree;
+    try { tree = nlohmann::json::parse(ipc.send_command(4, "")); }
+    catch (const std::exception&) { return "[]"; }
+
     std::vector<std::string> items;
-    size_t pos = 0;
-    while ((pos = tree.find("\"marks\"", pos)) != std::string::npos) {
-        size_t end_marks = tree.find("]", pos);
-        if (end_marks != std::string::npos) {
-            std::string marks_substr = tree.substr(pos, end_marks - pos);
-            if (marks_substr.find("_b1air_minimized") != std::string::npos) {
-                size_t node_start = tree.rfind("{\"id\":", pos);
-                if (node_start != std::string::npos) {
-                    std::string node_chunk = tree.substr(node_start, 600);
-                    int64_t id = 0;
-                    std::string name = "Window";
-                    std::string app_id = "application";
-                    
-                    size_t id_pos = node_chunk.find("\"id\":");
-                    if (id_pos != std::string::npos) {
-                        try { id = std::stoll(node_chunk.substr(id_pos + 5)); } catch (...) {}
-                    }
-                    size_t name_pos = node_chunk.find("\"name\":\"");
-                    if (name_pos != std::string::npos) {
-                        size_t name_end = node_chunk.find("\"", name_pos + 8);
-                        if (name_end != std::string::npos) {
-                            name = node_chunk.substr(name_pos + 8, name_end - (name_pos + 8));
-                        }
-                    }
-                    size_t app_pos = node_chunk.find("\"app_id\":\"");
-                    if (app_pos != std::string::npos) {
-                        size_t app_end = node_chunk.find("\"", app_pos + 10);
-                        if (app_end != std::string::npos) {
-                            app_id = node_chunk.substr(app_pos + 10, app_end - (app_pos + 10));
-                        }
-                    }
-                    
-                    if (id > 0) {
-                        items.push_back("{\"id\":" + std::to_string(id) + ",\"name\":\"" + json_escape(name) + "\",\"app_id\":\"" + json_escape(app_id) + "\"}");
-                    }
-                }
-            }
-        }
-        pos += 7;
-    }
-    
+    walk_tree(tree, [&](const nlohmann::json& n) {
+        if (!is_window(n)) return;
+        if (!n.contains("marks") || !n["marks"].is_array()) return;
+
+        bool minimized = false;
+        for (const auto& mark : n["marks"])
+            if (mark.is_string() && mark.get<std::string>().find("_b1air_minimized") != std::string::npos)
+                minimized = true;
+        if (!minimized) return;
+
+        const int64_t id = n.value("id", static_cast<int64_t>(0));
+        if (id <= 0) return;
+        items.push_back("{\"id\":" + std::to_string(id)
+                        + ",\"name\":\"" + json_escape(json_str(n, "name", "Window"))
+                        + "\",\"app_id\":\"" + json_escape(node_app_id(n)) + "\"}");
+    });
+
     std::string res = "[";
     for (size_t i = 0; i < items.size(); ++i) {
         res += items[i];
@@ -1075,56 +1228,27 @@ std::string SystemControl::window_list_minimized_json() {
 std::string SystemControl::window_list_open_json() {
     SwayIPC ipc;
     if (!ipc.connect()) return "[]";
-    std::string tree = ipc.send_command(4, ""); // GET_TREE
+
+    nlohmann::json tree;
+    try { tree = nlohmann::json::parse(ipc.send_command(4, "")); }
+    catch (const std::exception&) { return "[]"; }
 
     std::vector<std::string> items;
-    size_t pos = 0;
+    walk_tree(tree, [&](const nlohmann::json& n) {
+        if (!is_window(n)) return;
 
-    while ((pos = tree.find("{\"id\":", pos)) != std::string::npos) {
-        size_t node_end = tree.find("{\"id\":", pos + 6);
-        std::string node_chunk = (node_end != std::string::npos) ? tree.substr(pos, node_end - pos) : tree.substr(pos, 800);
+        const int64_t id = n.value("id", static_cast<int64_t>(0));
+        const std::string name = json_str(n, "name", "");
+        const std::string app_id = node_app_id(n);
+        if (id <= 0 || name.empty() || name == "null") return;
+        // The shell's own surfaces are not windows anyone wants to switch to.
+        if (app_id == "quickshell" || app_id == "waybar") return;
 
-        if ((node_chunk.find("\"app_id\":") != std::string::npos || node_chunk.find("\"window_properties\":") != std::string::npos) &&
-            node_chunk.find("\"type\":\"con\"") != std::string::npos) {
-            
-            int64_t id = 0;
-            std::string name = "Window";
-            std::string app_id = "application";
-            bool focused = (node_chunk.find("\"focused\":true") != std::string::npos || node_chunk.find("\"focused\": true") != std::string::npos);
-
-            size_t id_pos = node_chunk.find("\"id\":");
-            if (id_pos != std::string::npos) {
-                try { id = std::stoll(node_chunk.substr(id_pos + 5)); } catch (...) {}
-            }
-            size_t name_pos = node_chunk.find("\"name\":\"");
-            if (name_pos != std::string::npos) {
-                size_t name_end = node_chunk.find("\"", name_pos + 8);
-                if (name_end != std::string::npos) {
-                    name = node_chunk.substr(name_pos + 8, name_end - (name_pos + 8));
-                }
-            }
-            size_t app_pos = node_chunk.find("\"app_id\":\"");
-            if (app_pos != std::string::npos) {
-                size_t app_end = node_chunk.find("\"", app_pos + 10);
-                if (app_end != std::string::npos) {
-                    app_id = node_chunk.substr(app_pos + 10, app_end - (app_pos + 10));
-                }
-            } else {
-                size_t cls_pos = node_chunk.find("\"class\":\"");
-                if (cls_pos != std::string::npos) {
-                    size_t cls_end = node_chunk.find("\"", cls_pos + 9);
-                    if (cls_end != std::string::npos) {
-                        app_id = node_chunk.substr(cls_pos + 9, cls_end - (cls_pos + 9));
-                    }
-                }
-            }
-
-            if (id > 0 && !name.empty() && name != "null" && app_id != "quickshell" && app_id != "waybar") {
-                items.push_back("{\"id\":" + std::to_string(id) + ",\"name\":\"" + json_escape(name) + "\",\"app_id\":\"" + json_escape(app_id) + "\",\"focused\":" + (focused ? "true" : "false") + "}");
-            }
-        }
-        pos += 6;
-    }
+        items.push_back("{\"id\":" + std::to_string(id)
+                        + ",\"name\":\"" + json_escape(name)
+                        + "\",\"app_id\":\"" + json_escape(app_id)
+                        + "\",\"focused\":" + (n.value("focused", false) ? "true" : "false") + "}");
+    });
 
     std::string res = "[";
     for (size_t i = 0; i < items.size(); ++i) {
@@ -1270,43 +1394,39 @@ bool SystemControl::monitors_restore() {
         }
     }
 
+    // First run, or a set of displays never seen before: lay them out left to
+    // right in the order sway reports and give each the next workspace.
+    //
+    // This used to cut the reply at the first '}' and search the piece for
+    // "name":" — which sway never writes, since it pretty-prints — so the
+    // fallback never arranged anything either. Both halves of monitor restore
+    // were dead for the same reason.
     int x = 0;
     int ws = 1;
-    size_t cur = 0;
-    while ((cur = outputs_json.find('{', cur)) != std::string::npos) {
-        size_t end = outputs_json.find('}', cur);
-        if (end == std::string::npos) break;
-        std::string chunk = outputs_json.substr(cur, end - cur + 1);
+    try {
+        for (const auto& out : nlohmann::json::parse(outputs_json)) {
+            const std::string name = json_str(out, "name", "");
+            if (name.empty()) continue;
 
-        size_t np = chunk.find("\"name\":\"");
-        if (np != std::string::npos) {
-            size_t ne = chunk.find('"', np + 8);
-            if (ne != std::string::npos) {
-                std::string name = chunk.substr(np + 8, ne - (np + 8));
-                int width = 1920;
-                double scale = 1.0;
+            double scale = out.value("scale", 1.0);
+            if (scale <= 0) scale = 1.0;
 
-                size_t wp = chunk.find("\"width\":");
-                if (wp != std::string::npos) {
-                    try { width = std::stoi(chunk.substr(wp + 8)); } catch (...) {}
-                }
-                size_t sp = chunk.find("\"scale\":");
-                if (sp != std::string::npos) {
-                    try { scale = std::stod(chunk.substr(sp + 8)); } catch (...) {}
-                }
-                if (scale <= 0) scale = 1.0;
+            int width = 1920;
+            if (out.contains("current_mode") && out["current_mode"].is_object())
+                width = out["current_mode"].value("width", 1920);
+            else if (out.contains("rect") && out["rect"].is_object())
+                width = out["rect"].value("width", 1920);
 
-                std::stringstream scss;
-                scss << std::fixed << std::setprecision(2) << scale;
-                std::string cmd = "output \"" + name + "\" position " + std::to_string(x) + " 0 scale " + scss.str();
-                ipc.send_command(0, cmd);
-                ipc.send_command(0, "workspace number " + std::to_string(ws) + " output \"" + name + "\"");
+            std::stringstream scss;
+            scss << std::fixed << std::setprecision(2) << scale;
+            ipc.send_command(0, "output \"" + name + "\" position " + std::to_string(x) + " 0 scale " + scss.str());
+            ipc.send_command(0, "workspace number " + std::to_string(ws) + " output \"" + name + "\"");
 
-                x += static_cast<int>(width / scale);
-                ws++;
-            }
+            x += static_cast<int>(width / scale);
+            ws++;
         }
-        cur = end + 1;
+    } catch (const std::exception&) {
+        return false;
     }
 
     return true;
@@ -3465,17 +3585,22 @@ bool SystemControl::pip_toggle() {
     std::string tree = ipc.get_tree();
     if (tree.empty()) return false;
 
-    // Check if focused window is already marked "pip"
+    // Is the focused window already in PiP?
+    //
+    // This used to find "focused":true — which sway, pretty-printing, never
+    // writes — and then guess at the surrounding object with rfind('{') and
+    // find('}'), a window that lands inside the node's own nested rect. It
+    // never found a mark, so toggling off did nothing and the same window was
+    // pinned again on every press.
     bool in_pip = false;
-    size_t focused_pos = tree.find("\"focused\":true");
-    if (focused_pos != std::string::npos) {
-        // Look backwards for marks or nearby container context
-        size_t con_start = tree.rfind('{', focused_pos);
-        size_t con_end = tree.find('}', focused_pos);
-        if (con_start != std::string::npos && con_end != std::string::npos) {
-            std::string sub = tree.substr(con_start, con_end - con_start);
-            if (sub.find("\"pip\"") != std::string::npos) in_pip = true;
-        }
+    try {
+        walk_tree(nlohmann::json::parse(tree), [&](const nlohmann::json& n) {
+            if (!n.value("focused", false) || !n.contains("marks") || !n["marks"].is_array()) return;
+            for (const auto& mark : n["marks"])
+                if (mark.is_string() && mark.get<std::string>() == "pip") in_pip = true;
+        });
+    } catch (const std::exception&) {
+        return false;
     }
 
     if (in_pip) {
@@ -3486,18 +3611,7 @@ bool SystemControl::pip_toggle() {
 
     // PiP Geometry: 480x270 at bottom right (1920x1080 standard offset)
     int sw = 1920, sh = 1080;
-    std::string outputs = ipc.get_outputs();
-    size_t rect_pos = outputs.find("\"rect\":");
-    if (rect_pos != std::string::npos) {
-        size_t w_pos = outputs.find("\"width\":", rect_pos);
-        size_t h_pos = outputs.find("\"height\":", rect_pos);
-        if (w_pos != std::string::npos && h_pos != std::string::npos) {
-            try {
-                sw = std::stoi(outputs.substr(w_pos + 8));
-                sh = std::stoi(outputs.substr(h_pos + 9));
-            } catch (...) {}
-        }
-    }
+    focused_output_size(ipc.get_outputs(), sw, sh);
 
     int pw = 480;
     int ph = 270;
@@ -3537,30 +3651,36 @@ bool SystemControl::force_quit() {
     int target_pid = 0;
     std::string target_name = "Application";
 
-    size_t search_pos = 0;
-    while ((search_pos = tree.find("\"pid\":", search_pos)) != std::string::npos) {
-        int pid = 0;
-        try { pid = std::stoi(tree.substr(search_pos + 6)); } catch (...) {}
-        if (pid > 0) {
-            // Check rect around this node
-            size_t rect_pos = tree.rfind("\"rect\":", search_pos);
-            if (rect_pos != std::string::npos && search_pos - rect_pos < 400) {
-                int x = 0, y = 0, w = 0, h = 0;
-                sscanf(tree.c_str() + rect_pos, "\"rect\":{\"x\":%d,\"y\":%d,\"width\":%d,\"height\":%d", &x, &y, &w, &h);
-                if (click_x >= x && click_x <= x + w && click_y >= y && click_y <= y + h) {
-                    target_pid = pid;
-                    size_t name_pos = tree.rfind("\"name\":\"", search_pos);
-                    if (name_pos != std::string::npos && search_pos - name_pos < 400) {
-                        size_t end_name = tree.find('"', name_pos + 8);
-                        if (end_name != std::string::npos) {
-                            target_name = tree.substr(name_pos + 8, end_name - (name_pos + 8));
-                        }
-                    }
-                    break;
-                }
-            }
-        }
-        search_pos += 6;
+    // Find the window under the pointer.
+    //
+    // This used to scan for "pid": , then rfind the nearest "rect": within 400
+    // bytes and read it with an sscanf format that had no spaces in it:
+    //
+    //   sscanf(..., "\"rect\":{\"x\":%d,\"y\":%d,...")
+    //
+    // Sway pretty-prints, so the text is `"rect": {\n  "x": 0,` and the format
+    // matched nothing; "name":" never matched either. The pointer was never
+    // resolved to a window and every force-quit fell through to killing the
+    // focused one instead — which is not the same window when the click was
+    // meant to pick a different one. The "nearest rect within 400 bytes" was
+    // guesswork besides: a node's own rect is the one that belongs to it.
+    try {
+        const auto parsed = nlohmann::json::parse(tree);
+        walk_tree(parsed, [&](const nlohmann::json& n) {
+            if (target_pid > 0 || !is_window(n)) return;
+            const int pid = n.value("pid", 0);
+            if (pid <= 0 || !n.contains("rect") || !n["rect"].is_object()) return;
+
+            const auto& r = n["rect"];
+            const int x = r.value("x", 0), y = r.value("y", 0);
+            const int w = r.value("width", 0), h = r.value("height", 0);
+            if (click_x < x || click_x > x + w || click_y < y || click_y > y + h) return;
+
+            target_pid = pid;
+            target_name = json_str(n, "name", "Application");
+        });
+    } catch (const std::exception&) {
+        // Fall through to killing the focused window.
     }
 
     if (target_pid > 0) {
@@ -3591,18 +3711,7 @@ bool SystemControl::zones_apply(int zone_id) {
     if (!ipc.connect()) return false;
 
     int sw = 1920, sh = 1080;
-    std::string outputs = ipc.get_outputs();
-    size_t rect_pos = outputs.find("\"rect\":");
-    if (rect_pos != std::string::npos) {
-        size_t w_pos = outputs.find("\"width\":", rect_pos);
-        size_t h_pos = outputs.find("\"height\":", rect_pos);
-        if (w_pos != std::string::npos && h_pos != std::string::npos) {
-            try {
-                sw = std::stoi(outputs.substr(w_pos + 8));
-                sh = std::stoi(outputs.substr(h_pos + 9));
-            } catch (...) {}
-        }
-    }
+    focused_output_size(ipc.get_outputs(), sw, sh);
 
     int bar_h = 48;
     int gap = 12;

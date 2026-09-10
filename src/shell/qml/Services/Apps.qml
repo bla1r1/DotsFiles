@@ -28,6 +28,43 @@ Singleton {
     readonly property bool loaded: root._loaded
     property bool _loaded: false
 
+    /**
+     * The icon for a window, from its app_id.
+     *
+     * Surfaces that show live windows — the Alt+Tab switcher, the top bar's
+     * running-apps island — used the app_id directly as an icon name:
+     * `image://icon/b1air-files`. That works only when an application's app_id
+     * happens to also be an icon name, which is true for firefox and konsole
+     * and false for every app in this suite, so our own windows all drew the
+     * "icon not found" placeholder. A Wayland app_id is by convention the base
+     * name of the application's desktop entry, and the entry is what knows the
+     * icon, so look it up there.
+     *
+     * Returns an absolute path or an icon name; "" when nothing matches, so a
+     * caller can fall back to the old behaviour for anything not installed as
+     * a desktop entry.
+     */
+    function iconFor(appId) {
+        const id = String(appId || "").toLowerCase();
+        if (id === "")
+            return "";
+
+        for (const a of root.list) {
+            const base = String(a.desktopFile || "").replace(/\.desktop$/i, "").toLowerCase();
+            if (base === id)
+                return a.iconPath || a.icon || "";
+        }
+
+        // Reverse-DNS entries (org.kde.dolphin.desktop) against a plain class
+        // (dolphin), and the other way round.
+        for (const a of root.list) {
+            const base = String(a.desktopFile || "").replace(/\.desktop$/i, "").toLowerCase();
+            if (base.endsWith("." + id) || id.endsWith("." + base))
+                return a.iconPath || a.icon || "";
+        }
+        return "";
+    }
+
     /** Re-scan. Cheap to call: one process, and only when asked. */
     function reload() {
         appLoader.running = false;

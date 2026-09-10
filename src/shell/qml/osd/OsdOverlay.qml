@@ -23,7 +23,9 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
     focusable: false
     
-    screen: Quickshell.screens[0]
+    // Follows the focused output. Refreshed when the OSD is about to appear
+    // rather than on a timer: a volume key is the only thing that opens it.
+    screen: Screens.focused
 
     anchors.top: false
     anchors.right: false
@@ -34,6 +36,7 @@ PanelWindow {
     implicitHeight: osdCard.implicitHeight + Design.s(90)
 
     visible: osdOpacity > 0.0
+    onVisibleChanged: if (visible) Screens.refresh()
 
     property real osdOpacity: 0.0
     property string osdIcon: "\u{f057e}"

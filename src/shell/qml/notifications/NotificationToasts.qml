@@ -20,7 +20,8 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
     focusable: false
     
-    screen: Quickshell.screens[0]
+    // Toasts belong on the screen in use, not always the first one.
+    screen: Screens.focused
 
     anchors.top: true
     anchors.right: true
@@ -31,6 +32,7 @@ PanelWindow {
     implicitHeight: toastColumn.implicitHeight + topOffset + Design.s(20)
 
     visible: Notifications.activeToasts.count > 0 && !Notifications.dnd
+    onVisibleChanged: if (visible) Screens.refresh()
 
     Item {
         anchors.fill: parent
