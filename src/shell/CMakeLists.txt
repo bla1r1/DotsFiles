@@ -7,12 +7,19 @@ project(b1air-shell VERSION 0.1.0 LANGUAGES CXX C)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTORCC ON)
-set(CMAKE_AUTOUIC ON)
+# AUTOUIC and AUTORCC are off: this project has no .ui and no .qrc file, and
+# each of them adds a scan of every source on every build for nothing.
+set(CMAKE_AUTOUIC OFF)
+set(CMAKE_AUTORCC OFF)
 
+# CMAKE_<LANG>_COMPILER_LAUNCHER rather than the RULE_LAUNCH_COMPILE global
+# property this replaces: that property is honoured only by the Makefile
+# generator, so configuring with Ninja — or anything else — silently lost the
+# cache.
 find_program(CCACHE_PROGRAM ccache)
 if(CCACHE_PROGRAM)
-    set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_PROGRAM}")
+    set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+    set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
 endif()
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Qml QmlModels Quick WaylandClient DBus Network)
@@ -21,6 +28,11 @@ find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(POLKIT_AGENT REQUIRED IMPORTED_TARGET polkit-agent-1)
 pkg_check_modules(LIBARCHIVE REQUIRED IMPORTED_TARGET libarchive)
+# Through pkg-config rather than a bare `crypto` link name: the flags come from
+# the installed OpenSSL, and a machine without the headers fails at configure
+# with a name to search for instead of at the link step. See src/Makefile for
+# why this one library is not vendored the way SQLite is.
+pkg_check_modules(LIBCRYPTO REQUIRED IMPORTED_TARGET libcrypto)
 
 set(SOURCES
     main.cpp
@@ -76,7 +88,7 @@ target_link_libraries(b1air-shell PRIVATE
     LayerShellQt::Interface
     Threads::Threads
     systemd
-    crypto
+    PkgConfig::LIBCRYPTO
 )
 
 # Separate user-session Polkit agent process. The graphical prompt remains in
@@ -96,14 +108,14 @@ target_include_directories(b1air-polkit-agent PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../third_party
     ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/sqlite
 )
-target_link_libraries(b1air-polkit-agent PRIVATE Threads::Threads systemd crypto PkgConfig::POLKIT_AGENT)
+target_link_libraries(b1air-polkit-agent PRIVATE Threads::Threads systemd PkgConfig::LIBCRYPTO PkgConfig::POLKIT_AGENT)
 
 add_executable(b1air-secret-service
     ../daemon/secret_service_main.cpp
     ../daemon/secret_store.cpp
 )
 target_include_directories(b1air-secret-service PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../daemon)
-target_link_libraries(b1air-secret-service PRIVATE crypto)
+target_link_libraries(b1air-secret-service PRIVATE PkgConfig::LIBCRYPTO)
 
 # ── b1air-files (Native File Manager & Gallery) ──────────────────────────────
 add_executable(b1air-files

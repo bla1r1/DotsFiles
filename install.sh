@@ -628,8 +628,18 @@ build_b1air_suite() {
         fi
 
         # 1. Daemon
-        make -C "$REPO_DIR/src" clean >/dev/null 2>&1 || true
-        make -C "$REPO_DIR/src" PREFIX="${HOME}/.local/bin" install || {
+        #
+        # No `make clean` first. It threw away every object and the whole CMake
+        # build directory on every run, so an install that changed one file
+        # recompiled the entire suite — including a fresh CMake configure and a
+        # full AUTOMOC pass. The dependency tracking in src/Makefile is correct
+        # (-MMD -MP, fed back with -include), so an incremental build is the
+        # right default; B1AIR_CLEAN_BUILD=1 forces the old behaviour.
+        if [[ "${B1AIR_CLEAN_BUILD:-0}" == "1" ]]; then
+            make -C "$REPO_DIR/src" clean >/dev/null 2>&1 || true
+        fi
+        make -C "$REPO_DIR/src" -j"$(nproc 2>/dev/null || echo 4)" \
+            PREFIX="${HOME}/.local/bin" install || {
             err "Failed to build b1air-daemon — see the compiler output above."; exit 1; }
         if sudo install -m 755 "$REPO_DIR/src/b1air-daemon" /usr/local/bin/b1air-daemon 2>/dev/null; then
             ok "b1air-daemon installed to /usr/local/bin/b1air-daemon"
@@ -639,11 +649,14 @@ build_b1air_suite() {
 
         # 2. Native b1air-shell
         if [[ -d "$REPO_DIR/src/shell" ]]; then
-            # ponytail: never silence configure — a missing Qt6 module dies here, not later
-            cmake -B "$REPO_DIR/src/shell/build" "$REPO_DIR/src/shell" || {
+            # `make install` above already ran cmake configure and build through
+            # the Makefile's shell-target, so this was the second full pass over
+            # the same tree. What is left here is the part make does not do:
+            # putting the QML plugin and the QML tree where Qt and the apps look
+            # for them. Configure is still checked, because a missing Qt6 module
+            # should die here rather than at first launch.
+            cmake -B "$REPO_DIR/src/shell/build" "$REPO_DIR/src/shell" >/dev/null || {
                 err "cmake configure failed — a build dependency is missing."; exit 1; }
-            cmake --build "$REPO_DIR/src/shell/build" -j"$(nproc 2>/dev/null || echo 4)" || {
-                err "Failed to build b1air-shell — see the compiler output above."; exit 1; }
             # The QML plugin has to sit on Qt's import path for quickshell to
             # find it; ~/.local is not on that path, so this one needs root.
             local qml_dest

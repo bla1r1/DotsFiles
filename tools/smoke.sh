@@ -1,0 +1,289 @@
+#!/usr/bin/env bash
+#
+# Minimal smoke tests for the b1air desktop.
+#
+# Not a test suite — a short list of things that have actually broken here,
+# each cheap enough to run before every commit:
+#
+#   qml-syntax      A QML syntax error takes the entire shell down, and the
+#                   symptom is a chain of "Type X unavailable" for files that
+#                   are fine. It happened twice during this work; once it went
+#                   unnoticed for several commits because the changes after it
+#                   were all daemon-side.
+#   singletons      A Services/*.qml with `pragma Singleton` that is missing
+#                   from qmldir loads as an ordinary type: every reference to
+#                   it silently reads undefined.
+#   settings-schema Settings.set() with a key the schema does not declare warns
+#                   once on stderr and does nothing. Half the settings pages had
+#                   controls like that.
+#   ipc-targets     A toggle: command naming a widget WindowRegistry does not
+#                   know opens nothing at all.
+#   daemon-cli      The read-only verbs still answer.
+#   shell-boot      The shell actually starts. Only when there is a Wayland
+#                   session to start it in; skipped otherwise.
+#
+# Usage: tools/smoke.sh [check ...]     (default: all)
+# Exit status is the number of failed checks.
+
+set -uo pipefail
+
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+QML_DIRS=("$REPO/src/shell/qml" "$REPO/src/apps")
+
+QMLLINT="$(command -v qmllint || echo /usr/lib/qt6/bin/qmllint)"
+
+pass_count=0
+fail_count=0
+skip_count=0
+
+pass() { printf '  \033[32mok\033[0m   %s\n' "$1"; pass_count=$((pass_count + 1)); }
+fail() { printf '  \033[31mFAIL\033[0m %s\n' "$1"; fail_count=$((fail_count + 1)); }
+skip() { printf '  \033[33mskip\033[0m %s\n' "$1"; skip_count=$((skip_count + 1)); }
+head_() { printf '\n\033[1m%s\033[0m\n' "$1"; }
+
+# ── qml-syntax ───────────────────────────────────────────────────────────────
+check_qml_syntax() {
+    head_ "qml-syntax"
+    if [[ ! -x "$QMLLINT" ]]; then
+        skip "qmllint not found; install qt6-declarative"
+        return
+    fi
+
+    local files=()
+    local d
+    for d in "${QML_DIRS[@]}"; do
+        [[ -d "$d" ]] || continue
+        while IFS= read -r f; do files+=("$f"); done < <(find "$d" -name '*.qml' | sort)
+    done
+
+    # Only the [syntax] category fails the run. qmllint's other checks are
+    # advice — unused imports, shadowed properties — and there are hundreds of
+    # them; a smoke test that cries wolf is one nobody runs.
+    local out bad=0
+    out="$("$QMLLINT" "${files[@]}" 2>&1 | grep -F '[syntax]')"
+    if [[ -n "$out" ]]; then
+        printf '%s\n' "$out" | sed 's/^/      /'
+        bad=1
+    fi
+    if (( bad )); then
+        fail "${#files[@]} QML files, syntax errors above"
+    else
+        pass "${#files[@]} QML files parse"
+    fi
+}
+
+# ── singletons ───────────────────────────────────────────────────────────────
+check_singletons() {
+    head_ "singletons"
+    python3 - "$REPO" <<'PY'
+import os, re, sys
+repo = sys.argv[1]
+svc = os.path.join(repo, "src/shell/qml/Services")
+qmldir = os.path.join(svc, "qmldir")
+
+registered = {}
+for line in open(qmldir, encoding="utf-8"):
+    parts = line.split()
+    if len(parts) == 4 and parts[0] == "singleton":
+        registered[parts[1]] = parts[3]
+    elif len(parts) == 3 and parts[0] != "module":
+        registered[parts[0]] = parts[2]
+
+problems = []
+for name in sorted(os.listdir(svc)):
+    if not name.endswith(".qml"):
+        continue
+    text = open(os.path.join(svc, name), encoding="utf-8").read()
+    is_singleton = text.lstrip().startswith("pragma Singleton")
+    base = name[:-4]
+    if is_singleton and base not in registered:
+        problems.append(f"{name} declares `pragma Singleton` but is not in qmldir")
+    if base in registered and registered[base] != name:
+        problems.append(f"qmldir maps {base} to {registered[base]}, expected {name}")
+
+for base, file in sorted(registered.items()):
+    if not os.path.exists(os.path.join(svc, file)):
+        problems.append(f"qmldir registers {base} -> {file}, which does not exist")
+
+for p in problems:
+    print("      " + p)
+sys.exit(1 if problems else 0)
+PY
+    # shellcheck disable=SC2181
+    if [[ $? -eq 0 ]]; then pass "Services/qmldir matches the files on disk"
+    else fail "Services/qmldir is out of step with the files"; fi
+}
+
+# ── settings-schema ──────────────────────────────────────────────────────────
+check_settings_schema() {
+    head_ "settings-schema"
+    python3 - "$REPO" <<'PY'
+import os, re, sys
+repo = sys.argv[1]
+schema_path = os.path.join(repo, "src/shell/qml/Services/Settings.qml")
+schema = open(schema_path, encoding="utf-8").read()
+
+aliases  = set(re.findall(r'readonly property alias (\w+)\s*:', schema))
+declared = set(re.findall(r'^\s+property (?:bool|int|real|string|var) (\w+)', schema, re.M))
+defaults = set(re.findall(r'^\s+(\w+)\s*:', schema, re.M))
+
+problems = []
+
+# Every alias must have something behind it and a default to fall back on.
+for key in sorted(aliases):
+    if key not in declared:
+        problems.append(f"Settings.{key} is aliased but `data` declares no such property")
+    if key not in defaults:
+        problems.append(f"Settings.{key} has no entry in the defaults object")
+
+# Every key written anywhere must be one the schema knows.
+written = set()
+for root, dirs, files in os.walk(os.path.join(repo, "src")):
+    if "third_party" in root or "build" in root:
+        continue
+    for f in files:
+        if not f.endswith((".qml", ".cpp", ".hpp")):
+            continue
+        path = os.path.join(root, f)
+        if path == schema_path:
+            continue
+        text = open(path, encoding="utf-8", errors="replace").read()
+        for line in text.splitlines():
+            # A comment is not a call site. The first run of this check flagged
+            # AboutSettingsSection for a key it names only in a note explaining
+            # that the key does not exist.
+            code = line.split("//", 1)[0].split("*", 1)[0]
+            for pattern in (r'Settings\.set\(\s*"(\w+)"', r'set_json_value\(\s*"(\w+)"'):
+                for m in re.finditer(pattern, code):
+                    written.add((m.group(1), os.path.relpath(path, repo)))
+
+for key, where in sorted(written):
+    if key not in aliases:
+        problems.append(f'{where} writes "{key}", which the schema does not declare')
+
+for p in problems:
+    print("      " + p)
+print(f"      {len(aliases)} settings declared, {len(written)} write sites checked")
+sys.exit(1 if problems else 0)
+PY
+    if [[ $? -eq 0 ]]; then pass "every setting written is declared, and every alias has a default"
+    else fail "settings schema and its callers disagree"; fi
+}
+
+# ── ipc-targets ──────────────────────────────────────────────────────────────
+check_ipc_targets() {
+    head_ "ipc-targets"
+    python3 - "$REPO" <<'PY'
+import os, re, sys
+repo = sys.argv[1]
+registry = open(os.path.join(repo, "src/shell/qml/WindowRegistry.js"), encoding="utf-8").read()
+known = set(re.findall(r'"([a-z]+)":\s*\{\s*w:', registry))
+
+problems = []
+targets = set()
+for root, dirs, files in os.walk(os.path.join(repo, "src/shell")):
+    if "build" in root:
+        continue
+    for f in files:
+        if not f.endswith((".qml", ".js")):
+            continue
+        path = os.path.join(root, f)
+        text = open(path, encoding="utf-8", errors="replace").read()
+        for m in re.finditer(r'"toggle:([a-z]*):', text):
+            if m.group(1):
+                targets.add((m.group(1), os.path.relpath(path, repo)))
+
+for name, where in sorted(targets):
+    if name not in known:
+        problems.append(f'{where} opens "{name}", which WindowRegistry does not define')
+
+for p in problems:
+    print("      " + p)
+print(f"      {len(known)} widgets registered, {len(targets)} toggle targets checked")
+sys.exit(1 if problems else 0)
+PY
+    if [[ $? -eq 0 ]]; then pass "every toggle target exists in WindowRegistry"
+    else fail "a toggle command names a widget that does not exist"; fi
+}
+
+# ── daemon-cli ───────────────────────────────────────────────────────────────
+check_daemon_cli() {
+    head_ "daemon-cli"
+    local bin="$REPO/src/b1air-daemon"
+    if [[ ! -x "$bin" ]]; then
+        skip "src/b1air-daemon not built (run: make -C src)"
+        return
+    fi
+
+    local bad=0
+    # Read-only verbs only: nothing here changes the running session.
+    if ! "$bin" --version >/dev/null 2>&1; then
+        printf '      %s\n' "--version failed"; bad=1
+    fi
+    if ! "$bin" stats >/dev/null 2>&1; then
+        printf '      %s\n' "stats failed"; bad=1
+    fi
+    if ! "$bin" stats 2>/dev/null | python3 -c 'import json,sys; json.load(sys.stdin)' 2>/dev/null; then
+        printf '      %s\n' "stats did not print valid JSON"; bad=1
+    fi
+    if (( bad )); then fail "the daemon's read-only verbs"
+    else pass "--version and stats answer, stats is valid JSON"; fi
+}
+
+# ── shell-boot ───────────────────────────────────────────────────────────────
+check_shell_boot() {
+    head_ "shell-boot"
+    if [[ -z "${WAYLAND_DISPLAY:-}" ]]; then
+        skip "no WAYLAND_DISPLAY; nothing to start the shell in"
+        return
+    fi
+    if ! command -v quickshell >/dev/null 2>&1; then
+        skip "quickshell not installed"
+        return
+    fi
+
+    local log
+    log="$(mktemp)"
+    quickshell -p "$REPO/src/shell/qml/Main.qml" >"$log" 2>&1 &
+    local pid=$!
+    sleep 8
+
+    local bad=0
+    if ! kill -0 "$pid" 2>/dev/null; then
+        printf '      %s\n' "the shell exited within 8 seconds"; bad=1
+    fi
+    # PipeWire is not this project's problem and is absent on headless test
+    # machines; everything else at ERROR is.
+    if grep -a "ERROR" "$log" | grep -av "pipewire" | head -5 | grep -q .; then
+        grep -a "ERROR" "$log" | grep -av "pipewire" | head -5 | sed 's/^/      /'
+        bad=1
+    fi
+    kill "$pid" 2>/dev/null
+    wait "$pid" 2>/dev/null
+    rm -f "$log"
+
+    if (( bad )); then fail "the shell did not start cleanly"
+    else pass "the shell starts and stays up with no errors"; fi
+}
+
+# ── driver ───────────────────────────────────────────────────────────────────
+ALL=(qml_syntax singletons settings_schema ipc_targets daemon_cli shell_boot)
+
+to_run=()
+if (( $# == 0 )); then
+    to_run=("${ALL[@]}")
+else
+    for arg in "$@"; do to_run+=("${arg//-/_}"); done
+fi
+
+for c in "${to_run[@]}"; do
+    if declare -F "check_$c" >/dev/null; then
+        "check_$c"
+    else
+        printf '\nunknown check: %s (have: %s)\n' "$c" "${ALL[*]}"
+        fail_count=$((fail_count + 1))
+    fi
+done
+
+printf '\n%d passed, %d failed, %d skipped\n' "$pass_count" "$fail_count" "$skip_count"
+exit "$fail_count"

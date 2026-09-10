@@ -1,14 +1,44 @@
-CXX ?= ccache g++
-
-# `CC ?=` loses to make's own built-in default, so ccache never got used for the
-# 9.5 MB amalgamation. An explicit command-line CC= still wins over this.
+# `?=` assigns only when a variable is *undefined*, and make defines both CC and
+# CXX itself, so `CXX ?= ccache g++` never took effect: every C++ file in this
+# project has been compiled without the cache. Measured before the fix —
+# deleting daemon/system_control.o and rebuilding it took 20 seconds, twice in a
+# row, with ccache reporting no calls at all.
+#
+# `$(origin ...) = default` is the test that distinguishes make's own default
+# from something the user set; an explicit command-line CC=/CXX= still wins.
+ifeq ($(origin CXX),default)
+CXX = ccache g++
+endif
 ifeq ($(origin CC),default)
 CC = ccache gcc
 endif
 # -Ithird_party puts the vendored nlohmann/json.hpp ahead of the system one,
 # so the build no longer needs a distribution package for a single header.
 CXXFLAGS = -std=c++20 -O3 -Wall -Wextra -pthread -Idaemon -Ithird_party -Ithird_party/sqlite
-LDFLAGS = -lsystemd -lcrypto
+
+# libcrypto through pkg-config rather than a bare -lcrypto.
+#
+# It is the one library this suite genuinely cannot vendor: the secret store
+# encrypts with AES-256-GCM, and a hand-rolled replacement for that would be a
+# security regression, not an independence win. SQLite is compiled in from
+# third_party for exactly the opposite reason — it is self-contained, public
+# domain, and upstream publishes the amalgamation for this.
+#
+# pkg-config at least makes it a declared dependency: the flags come from the
+# installed OpenSSL instead of being guessed, and a machine without the headers
+# fails here with a name to search for rather than at the link step.
+#
+# STATIC_CRYPTO=1 links libcrypto.a instead, for a distribution that ships one.
+# Arch does not — its openssl package has only the shared objects — so this is
+# an option, not the default.
+CRYPTO_CFLAGS ?= $(shell pkg-config --cflags libcrypto 2>/dev/null)
+ifeq ($(STATIC_CRYPTO),1)
+CRYPTO_LIBS ?= -l:libcrypto.a $(shell pkg-config --libs --static libcrypto 2>/dev/null | sed 's/-lcrypto//')
+else
+CRYPTO_LIBS ?= $(shell pkg-config --libs libcrypto 2>/dev/null || echo -lcrypto)
+endif
+
+LDFLAGS = -lsystemd $(CRYPTO_LIBS)
 
 # SQLite is compiled in from third_party/sqlite rather than linked against the
 # system libsqlite3, so b1air-daemon carries its own copy and does not depend on
@@ -54,7 +84,7 @@ $(TARGET_POLKIT): $(POLKIT_OBJS) $(SQLITE_OBJ)
 	$(CXX) $(CXXFLAGS) $(POLKIT_CFLAGS) -o $@ $^ $(LDFLAGS) $(POLKIT_LIBS)
 
 $(TARGET_SECRET): $(SECRET_OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^ -lcrypto
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(CRYPTO_LIBS)
 
 $(SQLITE_OBJ): third_party/sqlite/sqlite3.c
 	$(CC) $(SQLITE_CFLAGS) -c $< -o $@
@@ -66,7 +96,7 @@ $(SQLITE_OBJ): third_party/sqlite/sqlite3.c
 # out was the old one. That is not a theoretical hazard — it happened during
 # this work, and the only symptom was a fix that appeared not to work.
 daemon/%.o: daemon/%.cpp
-	$(CXX) $(CXXFLAGS) -MMD -MP $(if $(filter daemon/polkit_agent_main.cpp,$<),$(POLKIT_CFLAGS),) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(CRYPTO_CFLAGS) -MMD -MP $(if $(filter daemon/polkit_agent_main.cpp,$<),$(POLKIT_CFLAGS),) -c $< -o $@
 
 -include $(DAEMON_OBJS:.o=.d) $(POLKIT_OBJS:.o=.d) $(SECRET_OBJS:.o=.d)
 
@@ -93,9 +123,14 @@ install: daemon-target polkit-target secret-target shell-target
 	mkdir -p $(HOME)/.config/b1air-shell
 	rsync -a shell/qml/ $(HOME)/.config/b1air-shell/
 
+# The static checks run anywhere; shell-boot needs a Wayland session and skips
+# itself without one.
+smoke: daemon-target
+	../tools/smoke.sh
+
 clean:
 	rm -f $(DAEMON_OBJS) $(SQLITE_OBJ) $(POLKIT_OBJS) $(SECRET_OBJS) $(TARGET_DAEMON) $(TARGET_POLKIT) $(TARGET_SECRET) $(TARGET_CONTROLLER)
 	rm -f $(DAEMON_OBJS:.o=.d) $(POLKIT_OBJS:.o=.d) $(SECRET_OBJS:.o=.d)
 	rm -rf shell/build
 
-.PHONY: all daemon-target polkit-target secret-target shell-target controller daemon apps shell install clean
+.PHONY: all daemon-target polkit-target secret-target shell-target controller daemon apps shell install smoke clean
