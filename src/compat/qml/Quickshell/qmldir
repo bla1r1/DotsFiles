@@ -1,0 +1,17 @@
+# A module directory that declares no plugin.
+#
+# The real Quickshell installs /usr/lib/qt6/qml/Quickshell with a qmldir saying
+#
+#     linktarget quickshell-coreplugin
+#     optional plugin quickshell-coreplugin
+#
+# and that directory is found on the default QML import path — the same one
+# QtQuick lives on, so it cannot simply be removed. A directory module wins over
+# a C++ registration for the same URI, so registering the compatibility types
+# was not enough on its own: every `import Quickshell` still resolved to the
+# real module and died on the missing plugin.
+#
+# This directory is added to the engine's import path ahead of the default one,
+# so the URI resolves here instead — to a module that asks for no plugin at all
+# and whose types come from the C++ registrations in the host binary.
+module Quickshell

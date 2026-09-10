@@ -28,10 +28,17 @@ struct DesktopSettings {
     bool barClock24h = true;
 
     // Idle & Power
-    int dimTimeout = 300;
-    int lockTimeout = 600;
-    int dpmsTimeout = 900;
-    int suspendTimeout = 1200;
+    //
+    // These four must match the defaults in shell/qml/Services/Settings.qml.
+    // They did not: the daemon fell back to 300/600/900/1200 while the Power
+    // page displayed 240/300/600/1800, so on a machine with no value in
+    // settings.json the page stated one number and swayidle was built with
+    // another. Found by a third schema — an offline settings editor — 
+    // disagreeing with both.
+    int dimTimeout = 240;
+    int lockTimeout = 300;
+    int dpmsTimeout = 600;
+    int suspendTimeout = 1800;
 
     // Autostart
     std::vector<std::string> autostartApps;

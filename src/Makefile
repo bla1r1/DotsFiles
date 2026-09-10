@@ -122,6 +122,18 @@ install: daemon-target polkit-target secret-target shell-target
 	install -m 755 $(TARGET_SECRET) $(PREFIX)/$(TARGET_SECRET)
 	mkdir -p $(HOME)/.config/b1air-shell
 	rsync -a shell/qml/ $(HOME)/.config/b1air-shell/
+	# The app windows live beside their backends under apps/, and the search
+	# path expects every window in one directory — so they are copied in here
+	# rather than kept as a second copy in the shell tree. Overwriting, not
+	# `cp -n`: a stale file in this directory shadows the installed one for
+	# ever, because it is searched before /usr/share/b1air-shell/qml.
+	find apps -maxdepth 2 -name '*Window.qml' \
+		-exec install -m 644 {} $(HOME)/.config/b1air-shell/ \;
+	# The plugin-free Quickshell module tree the standalone apps import ahead of
+	# the real one. Deliberately not under .config/b1air-shell: the `quickshell`
+	# process searches there, and it must keep finding the real module.
+	mkdir -p $(HOME)/.local/share/b1air-qs-compat
+	rsync -a compat/qml/ $(HOME)/.local/share/b1air-qs-compat/
 
 # The static checks run anywhere; shell-boot needs a Wayland session and skips
 # itself without one.

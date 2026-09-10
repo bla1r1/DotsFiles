@@ -679,8 +679,22 @@ build_b1air_suite() {
             # land in the same directory so one search path covers the suite.
             if sudo install -d -m 755 /usr/share/b1air-shell/qml 2>/dev/null; then
                 if sudo rsync -a --delete "$REPO_DIR/src/shell/qml/" /usr/share/b1air-shell/qml/; then
+                    # Every app window, from the one place each of them lives.
+                    # This used to be `cp -n`, which mattered when five of the
+                    # seven also existed under src/shell/qml: the rsync above
+                    # put the shell's copy here first and the -n then skipped
+                    # the app's, so which of the two duplicates shipped was
+                    # decided by the order of these two lines. There is one
+                    # copy of each now, so it simply copies.
                     sudo find "$REPO_DIR/src/apps" -maxdepth 2 -name '*Window.qml' \
-                        -exec cp -n {} /usr/share/b1air-shell/qml/ \; 2>/dev/null || true
+                        -exec cp {} /usr/share/b1air-shell/qml/ \; 2>/dev/null || true
+                    # The compatibility module tree, which lets the standalone
+                    # apps host the shell's own QML. A sibling directory, never
+                    # inside qml/: the shell searches that one and must keep
+                    # finding the real Quickshell.
+                    sudo install -d -m 755 /usr/share/b1air-shell/qs-compat 2>/dev/null \
+                        && sudo rsync -a "$REPO_DIR/src/compat/qml/" /usr/share/b1air-shell/qs-compat/ \
+                        || true
                     ok "shell QML installed to /usr/share/b1air-shell/qml"
                 else
                     warn "Could not install the shell QML; apps will fall back to a checkout."

@@ -1,0 +1,2 @@
+# See ../qmldir. The types are registered from C++ in the host binary.
+module Quickshell.Io

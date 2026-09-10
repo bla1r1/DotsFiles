@@ -16,10 +16,10 @@
 #   settings-schema Settings.set() with a key the schema does not declare warns
 #                   once on stderr and does nothing. Half the settings pages had
 #                   controls like that.
-#   window-copies   Five window files exist twice — once under src/apps for the
-#                   standalone binary, once under src/shell/qml for the shell.
-#                   Editing one and not the other is how a fix lands in the
-#                   copy nobody runs; it happened while writing this suite.
+#   window-copies   Each app window lives in exactly one place. Five of them
+#                   used to exist twice, and which copy shipped was decided by
+#                   the order of two lines in install.sh — so a fix could land
+#                   in the copy nobody runs, which happened.
 #   ipc-targets     A toggle: command naming a widget WindowRegistry does not
 #                   know opens nothing at all.
 #   daemon-cli      The read-only verbs still answer.
@@ -178,25 +178,33 @@ PY
 check_window_copies() {
     head_ "window-copies"
     python3 - "$REPO" <<'PY'
-import filecmp, glob, os, sys
+import glob, os, sys
 repo = sys.argv[1]
+
+# Each app window lives in exactly one place: beside its backend, under
+# src/apps/<app>/. Five of the seven used to exist under src/shell/qml as well,
+# and which of the two duplicates actually shipped was decided by the order of
+# two lines in install.sh. This check used to compare the pairs for drift; now
+# it makes sure the pairs cannot come back.
 problems = []
-checked = 0
-for path in sorted(glob.glob(os.path.join(repo, "src/apps/*/*.qml"))):
+app_windows = sorted(glob.glob(os.path.join(repo, "src/apps/*/*Window.qml")))
+for path in app_windows:
     twin = os.path.join(repo, "src/shell/qml", os.path.basename(path))
-    if not os.path.exists(twin):
-        continue
-    checked += 1
-    if not filecmp.cmp(path, twin, shallow=False):
-        problems.append(f"{os.path.basename(path)} differs between src/apps and src/shell/qml")
+    if os.path.exists(twin):
+        problems.append(f"{os.path.basename(path)} exists in both src/apps and src/shell/qml")
+
+stray = sorted(glob.glob(os.path.join(repo, "src/shell/qml/*Window.qml")))
+for path in stray:
+    if not any(os.path.basename(path) == os.path.basename(a) for a in app_windows):
+        problems.append(f"src/shell/qml/{os.path.basename(path)} is an app window in the shell tree")
 
 for p in problems:
     print("      " + p)
-print(f"      {checked} window files exist in both trees")
+print(f"      {len(app_windows)} app windows, one copy each")
 sys.exit(1 if problems else 0)
 PY
-    if [[ $? -eq 0 ]]; then pass "the duplicated window files are identical"
-    else fail "a window file has drifted between its two copies"; fi
+    if [[ $? -eq 0 ]]; then pass "every app window has exactly one copy"
+    else fail "an app window exists twice"; fi
 }
 
 # ── ipc-targets ──────────────────────────────────────────────────────────────

@@ -18,3 +18,8 @@ src/b1air-polkit-agent
 src/b1air-secret-service
 src/daemon/*.d
 tools/controller
+
+# Notes for the coding assistant working in this repository. Kept out of the
+# tree on purpose: it is guidance for a tool, not part of the desktop, and it
+# names paths on this machine.
+CLAUDE.md

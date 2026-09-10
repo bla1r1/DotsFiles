@@ -184,25 +184,22 @@ target_link_libraries(b1air-text PRIVATE
     Threads::Threads
 )
 
-# ── b1air-settings (Native Desktop Settings Application) ─────────────────────
+# ── b1air-settings (the desktop's settings panel, hosted without quickshell) ──
+qt_wrap_cpp(B1AIR_SETTINGS_MOC ../compat/qs_compat.hpp ../compat/qs_services.hpp)
 add_executable(b1air-settings
     ../apps/settings/main.cpp
+    ../compat/qs_compat.cpp
+    ../compat/qs_services.cpp
+    ${B1AIR_SETTINGS_MOC}
 )
-
 target_include_directories(b1air-settings PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../apps/settings
+    ${CMAKE_CURRENT_SOURCE_DIR}/../compat
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/..
 )
-
 target_link_libraries(b1air-settings PRIVATE
-    Qt6::Core
-    Qt6::Gui
-    Qt6::Qml
-    Qt6::Quick
-    Qt6::WaylandClient
-    Threads::Threads
-)
+    Qt6::Core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::WaylandClient Qt6::DBus Threads::Threads)
 
 # ── b1air-term (Native Terminal Emulator) ────────────────────────────────────
 qt_wrap_cpp(B1AIR_TERM_MOC ../apps/term/terminal_item.hpp)
@@ -299,6 +296,9 @@ target_link_libraries(b1air-git PRIVATE
 
 install(TARGETS b1air-shell b1air-polkit-agent b1air-secret-service b1air-files b1air-monitor b1air-text b1air-settings b1air-term b1air-view b1air-notes b1air-git DESTINATION /usr/local/bin)
 install(DIRECTORY qml/ DESTINATION /usr/local/share/b1air-shell/qml)
+# The plugin-free module tree the standalone apps import ahead of the real
+# Quickshell. Never installed where the shell searches.
+install(DIRECTORY ../compat/qml/ DESTINATION /usr/local/share/b1air-shell/qs-compat)
 
 # ── B1air.Daemon QML module ──────────────────────────────────────────────────
 # Exposes the running daemon's D-Bus interface to QML, so the shell can call it
