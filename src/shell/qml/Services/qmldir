@@ -16,3 +16,5 @@ singleton Cmd      1.0 Cmd.qml
 singleton Theme    1.0 Theme.qml
 DaemonErrors 1.0 DaemonErrors.qml
 singleton Screens 1.0 Screens.qml
+singleton SwayConfig 1.0 SwayConfig.qml
+singleton Focus 1.0 Focus.qml

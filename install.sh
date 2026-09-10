@@ -200,6 +200,12 @@ arch_packages() {
         # Tools the shell shells out to. Without these the button exists, the
         # command does not, and the action fails for no visible reason.
         power-profiles-daemon pamixer poppler gocryptfs easyeffects
+        # xdg-open, xdg-mime and xdg-settings: Default Apps reads and writes
+        # the handlers through them, and Files opens everything with xdg-open.
+        # They were relied on without being asked for — present on most
+        # systems as somebody else's dependency, which is not the same as
+        # installed.
+        xdg-utils
         wlsunset snapper
         # Storage & archives: removable media, phones, NTFS volumes.
         # libarchive (pulled in by base-devel/pacman itself) powers extraction
@@ -447,17 +453,43 @@ deploy_dotfiles() {
 
     mkdir -p "$BACKUP_DIR" "$HOME/.config"
 
-    # Backup and sync .config
+    # Merge .config, keeping what is the user's.
+    #
+    # This was `rsync -a --delete "$REPO_DIR/.config/" "$HOME/.config/"`, and
+    # --delete means "remove everything in the destination that is not in the
+    # source". The destination is the whole of ~/.config, so a plain install
+    # deleted every configuration directory belonging to any program this repo
+    # does not ship — browsers, editors, whatever the user had — along with
+    # ~/.config/b1air and ~/.config/b1air-term, which are this suite's own
+    # theme and terminal state. The `mv` loop above it moved only the handful
+    # of top-level names that collide into the backup; everything else was
+    # simply gone.
+    #
+    # Three changes: the backup is a copy rather than a move, the sync no
+    # longer deletes, and the two files the desktop writes at runtime are
+    # excluded so an update does not reset them. settings.json holds every
+    # choice made in Settings, and conf.d/custom_*.conf is generated from it
+    # by the Mouse & Touchpad, Window & Gaps and Appearance pages and by the
+    # keybinding editor.
     if [[ -d "$REPO_DIR/.config" ]]; then
         for item in "$REPO_DIR"/.config/*; do
             [[ -e "$item" ]] || continue
             local base
             base="$(basename "$item")"
             if [[ -e "$HOME/.config/$base" || -L "$HOME/.config/$base" ]]; then
-                mv "$HOME/.config/$base" "$BACKUP_DIR/$base"
+                cp -a "$HOME/.config/$base" "$BACKUP_DIR/$base"
             fi
         done
-        rsync -a --delete "$REPO_DIR/.config/" "$HOME/.config/"
+
+        rsync -a \
+            --exclude 'sway/settings.json' \
+            --exclude 'sway/conf.d/custom_*.conf' \
+            "$REPO_DIR/.config/" "$HOME/.config/"
+
+        # A first install has nothing to keep, so it gets the shipped defaults.
+        if [[ ! -f "$HOME/.config/sway/settings.json" ]]; then
+            cp "$REPO_DIR/.config/sway/settings.json" "$HOME/.config/sway/settings.json"
+        fi
     fi
 
     # Where Settings → Appearance → Theme keeps user themes. Created here so
@@ -491,11 +523,11 @@ deploy_dotfiles() {
         ok "Installed $(ls -1 "$REPO_DIR"/.local/share/applications/*.desktop 2>/dev/null | wc -l) desktop entries"
     fi
 
-    # Sync wallpapers
+    # Sync wallpapers. Added, not replaced: --delete here threw away every
+    # wallpaper the user had put in the folder themselves, and the folder is
+    # exactly the place they are invited to put them.
     if [[ -d "$REPO_DIR/.wallpapers" ]]; then
-        [[ -e "$HOME/.wallpapers" || -L "$HOME/.wallpapers" ]] \
-            && mv "$HOME/.wallpapers" "$BACKUP_DIR/.wallpapers"
-        rsync -a --delete "$REPO_DIR/.wallpapers/" "$HOME/.wallpapers/"
+        rsync -a "$REPO_DIR/.wallpapers/" "$HOME/.wallpapers/"
     fi
 
     # Build and install b1air-daemon C++ suite

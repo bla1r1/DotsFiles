@@ -31,7 +31,6 @@
   "soundDeviceFeedback": true,
   "touchpadSwipeWorkspace": true,
   "touchpadNaturalSwipe": true,
-  "touchpadPinchZoom": true,
   "autostartApps": ["b1air-shell"],
   "autostartCustom": [],
   "notificationRules": {

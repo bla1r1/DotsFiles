@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import "../../Ui"
 import "../../Services"
 
@@ -11,6 +12,29 @@ ColumnLayout {
     id: section
 
     Layout.fillWidth: true
+
+    /**
+     * Change an idle setting and make it take effect now.
+     *
+     * swayidle's command line is built out of these four timeouts once, when
+     * the session starts, so every change here only applied at the next login
+     * — with nothing on the page to say so. Someone shortening "Turn off
+     * screen after" to test it would sit through the old timeout and conclude
+     * the setting did nothing.
+     *
+     * The daemon rebuilds swayidle from the file, so the write has to have
+     * landed first; Settings.set writes asynchronously, hence the small delay.
+     */
+    function setIdleTimeout(key, value) {
+        Settings.set(key, value);
+        idleReload.restart();
+    }
+
+    Timer {
+        id: idleReload
+        interval: 300
+        onTriggered: Quickshell.execDetached(["b1air-daemon", "power", "idle-reload"])
+    }
     spacing: Design.s(Design.space.lg)
 
     // Services/Power is refcounted — only ControlCenter ever acquired it, so
@@ -220,26 +244,44 @@ ColumnLayout {
             onToggled: Settings.set("dimOnLock", !Settings.dimOnLock)
         }
 
+        // Dimming and locking were the two timeouts swayidle was already
+        // being built with and the only two this page did not show, so the
+        // machine dimmed at five minutes and locked at ten with nothing here
+        // saying so, let alone offering to change it.
+        Stepper {
+            label: "Dim screen after"
+            valueText: (Math.round(Settings.dimTimeout / 60)) + " min"
+            onDecrement: section.setIdleTimeout("dimTimeout", Math.max(60, Settings.dimTimeout - 60))
+            onIncrement: section.setIdleTimeout("dimTimeout", Math.min(3600, Settings.dimTimeout + 60))
+        }
+
+        Stepper {
+            label: "Lock screen after"
+            valueText: (Math.round(Settings.lockTimeout / 60)) + " min"
+            onDecrement: section.setIdleTimeout("lockTimeout", Math.max(60, Settings.lockTimeout - 60))
+            onIncrement: section.setIdleTimeout("lockTimeout", Math.min(7200, Settings.lockTimeout + 60))
+        }
+
         Stepper {
             label: "Turn off screen after"
             valueText: (Math.round(Settings.dpmsTimeout / 60)) + " min"
-            onDecrement: Settings.set("dpmsTimeout", Math.max(60, Settings.dpmsTimeout - 60))
-            onIncrement: Settings.set("dpmsTimeout", Math.min(3600, Settings.dpmsTimeout + 60))
+            onDecrement: section.setIdleTimeout("dpmsTimeout", Math.max(60, Settings.dpmsTimeout - 60))
+            onIncrement: section.setIdleTimeout("dpmsTimeout", Math.min(3600, Settings.dpmsTimeout + 60))
         }
 
         Toggle {
             label: "Automatic sleep"
             subtitle: "Suspend the system automatically when left idle"
             checked: Settings.autoSuspend
-            onToggled: Settings.set("autoSuspend", !Settings.autoSuspend)
+            onToggled: section.setIdleTimeout("autoSuspend", !Settings.autoSuspend)
         }
 
         Stepper {
             visible: Settings.autoSuspend
             label: "Suspend system after"
             valueText: (Math.round(Settings.suspendTimeout / 60)) + " min"
-            onDecrement: Settings.set("suspendTimeout", Math.max(300, Settings.suspendTimeout - 300))
-            onIncrement: Settings.set("suspendTimeout", Math.min(7200, Settings.suspendTimeout + 300))
+            onDecrement: section.setIdleTimeout("suspendTimeout", Math.max(300, Settings.suspendTimeout - 300))
+            onIncrement: section.setIdleTimeout("suspendTimeout", Math.min(7200, Settings.suspendTimeout + 300))
         }
     }
 }

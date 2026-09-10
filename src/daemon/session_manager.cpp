@@ -5,6 +5,7 @@
 #include "focustime_db.hpp"
 #include "daemon_dbus.hpp"
 #include "runtime.hpp"
+#include "proc_util.hpp"
 
 #include <iostream>
 #include <thread>
@@ -19,6 +20,7 @@
 #include <fcntl.h>
 #include <filesystem>
 #include <array>
+#include <mutex>
 #include <chrono>
 
 namespace b1air {
@@ -122,6 +124,66 @@ static bool is_process_running(const std::string& pattern) {
 }
 
 // ── Focus Tracker Thread ─────────────────────────────────────────────────────
+namespace {
+
+/**
+ * swayidle's command line, from the settings file.
+ *
+ * "Automatic sleep" on the Power page wrote `autoSuspend` and nothing read
+ * it: the suspend timeout went into this command whatever the toggle said,
+ * so a machine with automatic sleep switched off still suspended itself on
+ * the timer below the switch. The setting is honoured here — the timeout is
+ * simply not part of the command when it is off.
+ */
+std::string build_swayidle_command(const DesktopSettings& settings) {
+    const bool auto_suspend = SettingsManager::get_json_bool("autoSuspend", true);
+
+    std::string cmd = "swayidle -w "
+        "lock 'b1air-daemon lock' "
+        "timeout " + std::to_string(settings.dimTimeout) + " 'b1air-daemon ddc dim' resume 'b1air-daemon ddc undim' "
+        "timeout " + std::to_string(settings.lockTimeout) + " 'b1air-daemon power lock' resume 'b1air-daemon ddc undim' "
+        "timeout " + std::to_string(settings.dpmsTimeout) + " 'swaymsg \"output * dpms off\"' resume 'swaymsg \"output * dpms on\"; b1air-daemon ddc undim' ";
+
+    if (auto_suspend) {
+        cmd += "timeout " + std::to_string(settings.suspendTimeout) +
+               " 'b1air-daemon power suspend' resume 'swaymsg \"output * dpms on\"; b1air-daemon ddc undim' ";
+    }
+
+    // `loginctl lock-session` only asks logind to emit the session's Lock
+    // signal and returns immediately — it doesn't wait for our lock screen to
+    // actually be up. That's fine when something is there to catch the signal,
+    // but a lid-close suspend (handled entirely by logind's own
+    // HandleLidSwitch, never touching b1air-daemon's suspend_system()) has
+    // nothing subscribed to it, so the system suspended before the lock screen
+    // had rendered — it only appeared to lock on resume, once the spawn that
+    // started before sleep finally got to run. Calling the lock command
+    // directly, the same one `lock` above uses, blocks before-sleep until the
+    // screen is actually up.
+    cmd += "before-sleep 'b1air-daemon lock'";
+    return cmd;
+}
+
+} // namespace
+
+bool SessionManager::restart_swayidle() {
+    spawn_shell_detached("pkill -x swayidle");
+
+    // pkill returns before the process is gone, and a new swayidle overlapping
+    // the old one leaves two sets of timers running against the same seat —
+    // the shorter one wins and the change appears not to have applied.
+    //
+    // A fixed pause rather than polling is_process_running(): that spawns two
+    // pgreps per check, and pgrep counts a zombie as running, so a swayidle
+    // that sway has not reaped yet would keep the loop going to its limit
+    // every single time. swayidle exits on SIGTERM at once; a quarter second
+    // is room to spare, and a stale one would be killed by the next reload
+    // anyway.
+    usleep(250 * 1000);
+
+    spawn_shell_detached(build_swayidle_command(SettingsManager::load()));
+    return true;
+}
+
 void SessionManager::run_focus_tracker() {
     // Every failure below used to be a bare `return`. Screen-time tracking then
     // stopped for the rest of the session with nothing said anywhere, and the
@@ -163,6 +225,90 @@ void SessionManager::run_focus_tracker() {
     bool current_locked = false;
     auto last_switch_time = std::chrono::system_clock::now();
 
+    // ── The two reminders the settings page offers ───────────────────────────
+    //
+    // "Hourly Eye Care & Break Reminders — send a gentle notification when
+    // continuous screen time reaches 60 minutes" and "Daily Screen Time Limit
+    // Goal". Both wrote a value into settings.json that nothing read, so
+    // neither ever produced a notification.
+    //
+    // They belong here rather than in the shell because this is the process
+    // that knows when the screen is locked, and continuous screen time means
+    // nothing without that: a machine left locked overnight is not eighteen
+    // hours of screen time.
+    struct WatchState {
+        std::mutex m;
+        std::chrono::system_clock::time_point since = std::chrono::system_clock::now();
+        bool locked = false;
+        int64_t reminded_at_minutes = 0;
+        std::string goal_notified_date;
+    };
+    static WatchState watch;
+
+    auto notify = [](const std::string& title, const std::string& body,
+                     const std::string& icon) {
+        (void)util::spawn_detached({"notify-send", "-a", "FocusTime", "-i", icon, title, body});
+    };
+
+    std::thread reminder_th([&notify]() {
+        // Its own database handle: SQLite connections are not for sharing
+        // across threads, and the tracker's is busy on the event path.
+        FocusTimeDB rdb;
+        const bool have_db = rdb.open();
+
+        while (g_session_running) {
+            std::this_thread::sleep_for(std::chrono::seconds(60));
+            if (!g_session_running) break;
+
+            bool locked;
+            int64_t minutes;
+            int64_t reminded;
+            {
+                std::lock_guard<std::mutex> lock(watch.m);
+                locked = watch.locked;
+                minutes = std::chrono::duration_cast<std::chrono::minutes>(
+                    std::chrono::system_clock::now() - watch.since).count();
+                reminded = watch.reminded_at_minutes;
+            }
+            if (locked) continue;
+
+            // The settings page says "when continuous screen time reaches 60
+            // minutes", so 60 it is — named rather than repeated, since the
+            // same number decides both the threshold and where the next one
+            // lands.
+            constexpr int64_t kBreakReminderMinutes = 60;
+            if (SettingsManager::get_json_bool("focusBreakReminders", true)
+                    && minutes >= reminded + kBreakReminderMinutes) {
+                const int64_t mark_at = (minutes / kBreakReminderMinutes) * kBreakReminderMinutes;
+                {
+                    std::lock_guard<std::mutex> lock(watch.m);
+                    watch.reminded_at_minutes = mark_at;
+                }
+                notify("Time to look away",
+                       std::to_string(mark_at) + " minutes at the screen without a break.",
+                       "preferences-desktop-screensaver");
+            }
+
+            if (!have_db) continue;
+            const int goal_hours = SettingsManager::get_json_int("dailyScreenTimeGoal", 8);
+            if (goal_hours <= 0) continue;
+
+            const DayStats today = rdb.get_stats_for_date("");
+            if (today.total_active_seconds < static_cast<int64_t>(goal_hours) * 3600)
+                continue;
+            {
+                std::lock_guard<std::mutex> lock(watch.m);
+                if (watch.goal_notified_date == today.date) continue;
+                watch.goal_notified_date = today.date;
+            }
+            notify("Daily screen time goal reached",
+                   "You have passed " + std::to_string(goal_hours)
+                       + (goal_hours == 1 ? " hour" : " hours") + " today.",
+                   "appointment-soon");
+        }
+    });
+    reminder_th.detach();
+
     auto flush_interval = [&](const std::string& new_app, const std::string& new_title, bool new_locked) {
         auto now = std::chrono::system_clock::now();
         int64_t start_ts = std::chrono::duration_cast<std::chrono::seconds>(last_switch_time.time_since_epoch()).count();
@@ -197,6 +343,16 @@ void SessionManager::run_focus_tracker() {
                     split_ipc.send_command(0, "split v");
                 }
             }
+        }
+
+        if (is_locked != current_locked) {
+            // Locking ends the stretch of screen time; unlocking starts a new
+            // one. Without this the "60 minutes without a break" reminder
+            // counted a locked machine as time at the screen.
+            std::lock_guard<std::mutex> lock(watch.m);
+            watch.locked = is_locked;
+            watch.since = std::chrono::system_clock::now();
+            watch.reminded_at_minutes = 0;
         }
 
         if (new_app != current_app || is_locked != current_locked) {
@@ -317,8 +473,17 @@ int SessionManager::run_session() {
     mark("wallpaper restored");
 
     // 6. Spawn Background Threads (Focus tracker, Gamepad inhibitor, Settings inotify watcher)
-    std::thread focus_th(SessionManager::run_focus_tracker);
-    focus_th.detach();
+    //
+    // "Auto-Start FocusTime Daemon — launch background activity tracker
+    // automatically on login" was a switch with no reader: the tracker started
+    // regardless, so someone who did not want their window activity recorded
+    // had no way to say so. `b1air-daemon focus` still starts it by hand.
+    if (SettingsManager::get_json_bool("focusDaemonAutoStart", true)) {
+        std::thread focus_th(SessionManager::run_focus_tracker);
+        focus_th.detach();
+    } else {
+        std::cerr << "[b1air-session] focus tracker not started (focusDaemonAutoStart is off)\n";
+    }
 
     std::thread gamepad_th([&]() {
         while (g_session_running) {
@@ -341,25 +506,7 @@ int SessionManager::run_session() {
 
     // 9. Launch Swayidle
     if (!is_process_running("swayidle")) {
-        std::string idle_cmd = "swayidle -w "
-            "lock 'b1air-daemon lock' "
-            "timeout " + std::to_string(settings.dimTimeout) + " 'b1air-daemon ddc dim' resume 'b1air-daemon ddc undim' "
-            "timeout " + std::to_string(settings.lockTimeout) + " 'b1air-daemon power lock' resume 'b1air-daemon ddc undim' "
-            "timeout " + std::to_string(settings.dpmsTimeout) + " 'swaymsg \"output * dpms off\"' resume 'swaymsg \"output * dpms on\"; b1air-daemon ddc undim' "
-            "timeout " + std::to_string(settings.suspendTimeout) + " 'b1air-daemon power suspend' resume 'swaymsg \"output * dpms on\"; b1air-daemon ddc undim' "
-            // `loginctl lock-session` only asks logind to emit the session's
-            // Lock signal and returns immediately — it doesn't wait for our
-            // lock screen to actually be up. That's fine when something is
-            // there to catch the signal, but a lid-close suspend (handled
-            // entirely by logind's own HandleLidSwitch, never touching
-            // b1air-daemon's suspend_system()) has nothing subscribed to it,
-            // so the system suspended before the lock screen had rendered —
-            // it only appeared to lock on resume, once the spawn that started
-            // before sleep finally got to run. Calling the lock command
-            // directly, the same one `lock` above uses, blocks before-sleep
-            // until the screen is actually up.
-            "before-sleep 'b1air-daemon lock'";
-            spawn_shell_detached(idle_cmd);
+        spawn_shell_detached(build_swayidle_command(settings));
     }
 
     // 10. Launch Native Desktop Shell & TopBar (integrated Layer-Shell)

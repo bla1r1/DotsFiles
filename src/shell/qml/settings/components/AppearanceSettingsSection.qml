@@ -33,24 +33,31 @@ ColumnLayout {
 
 
 
+    // swaymsg changes this session; SwayConfig writes conf.d/custom_look.conf
+    // so the change is still there after a logout. All four of these were
+    // applied and then forgotten — see Services/SwayConfig.
     function setCornerRadius(val) {
         Settings.set("cornerRadius", val);
         Quickshell.execDetached(["swaymsg", "corner_radius", String(val)]);
+        SwayConfig.writeLook();
     }
 
     function toggleBlur(enabled) {
         Settings.set("blurEnabled", enabled);
         Quickshell.execDetached(["swaymsg", "blur", enabled ? "enable" : "disable"]);
+        SwayConfig.writeLook();
     }
 
     function toggleShadows(enabled) {
         Settings.set("shadowsEnabled", enabled);
         Quickshell.execDetached(["swaymsg", "shadows", enabled ? "enable" : "disable"]);
+        SwayConfig.writeLook();
     }
 
     function toggleDimInactive(enabled) {
         Settings.set("dimInactive", enabled);
         Quickshell.execDetached(["swaymsg", "default_dim_inactive", enabled ? "0.20" : "0.0"]);
+        SwayConfig.writeLook();
     }
 
     // ── 1. Color Scheme & Accents ────────────────────────────────────────────

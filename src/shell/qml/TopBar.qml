@@ -652,6 +652,71 @@ PanelWindow {
         }
 
         // ══════════════════════════════════════════════════════════════════════
+        // FOCUS TIMER PILL — only while a focus interval is running
+        // ══════════════════════════════════════════════════════════════════════
+        //
+        // A timer you cannot see is not much of a timer, and its own window is
+        // a full screen-time dashboard. Left of the clock, present only when
+        // there is something to show; click to pause or resume, middle-click
+        // for the dashboard.
+        Rectangle {
+            id: focusPill
+            visible: Focus.active
+            anchors.right: clockPill.left
+            anchors.rightMargin: 6
+            anchors.verticalCenter: parent.verticalCenter
+            width: focusRow.implicitWidth + 22
+            height: 28
+            radius: 999
+
+            readonly property color tone: Focus.onBreak ? Design.green : Design.sapphire
+            color: focusArea.containsMouse ? Qt.alpha(tone, 0.32) : Qt.alpha(tone, 0.18)
+            border.width: 1
+            border.color: Qt.alpha(tone, Focus.running ? 0.55 : 0.28)
+
+            Behavior on color { ColorAnimation { duration: 150 } }
+
+            Row {
+                id: focusRow
+                anchors.centerIn: parent
+                spacing: 6
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    // Paused shows the play glyph: it is what the click does.
+                    text: Focus.running ? "\u{f0520}" : "\u{f040a}"
+                    font.family: Design.font.icon
+                    font.pixelSize: Design.s(12)
+                    color: focusPill.tone
+                }
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: Focus.remainingText
+                    font.family: topBar.fontMain
+                    font.pixelSize: Design.s(12)
+                    font.bold: true
+                    color: focusPill.tone
+                    opacity: Focus.running ? 1.0 : 0.65
+                }
+            }
+
+            MouseArea {
+                id: focusArea
+                anchors.fill: parent
+                hoverEnabled: true
+                acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+                cursorShape: Qt.PointingHandCursor
+                onClicked: (mouse) => {
+                    if (mouse.button === Qt.MiddleButton)
+                        topBar.requestCommand("toggle:focustime:", true);
+                    else
+                        Focus.toggle();
+                }
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════════════
         // RIGHT ISLANDS: Stats, System Status
         // ══════════════════════════════════════════════════════════════════════
         Row {

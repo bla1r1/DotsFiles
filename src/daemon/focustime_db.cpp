@@ -67,6 +67,63 @@ bool FocusTimeDB::init_schema() {
         }
         return false;
     }
+    return run_migrations();
+}
+
+/**
+ * One-time cleanup of rows whose app_class is not an app_class.
+ *
+ * The tracker used to take the focused window's *title* where it meant its
+ * app_id, and for a while it recorded a bare workspace number. So the database
+ * carries rows filed under "Files — ~ — Files", "Git — DotsFiles",
+ * "Text Editor — env.sh — Text Editor", "System Monitor" and "1", and the
+ * dashboard lists each of them as a separate application for ever.
+ *
+ * The rule is narrow on purpose. A Wayland app_id has no whitespace in it —
+ * firefox, org.kde.dolphin, b1air-files — so a value containing a space was
+ * never one, and neither was a value that is nothing but digits. The tracker's
+ * own two sentinels, "Desktop" and "Screen Locked", are spelled out and kept.
+ *
+ * The rows are deleted rather than relabelled: a title cannot be mapped back to
+ * the app_id it belonged to without guessing, and inventing the answer would be
+ * worse than losing the hour. It runs once, recorded in `meta`.
+ *
+ * A one-word title — "Terminal" — is indistinguishable from an app_id and
+ * survives. Widening the rule to catch it would mean treating a leading capital
+ * as suspicious, and Alacritty's app_id really is "Alacritty".
+ */
+bool FocusTimeDB::run_migrations() {
+    if (!db_) return false;
+
+    const char* meta =
+        "CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);";
+    if (sqlite3_exec(db_, meta, nullptr, nullptr, nullptr) != SQLITE_OK) return false;
+
+    sqlite3_stmt* st = nullptr;
+    bool done = false;
+    if (sqlite3_prepare_v2(db_, "SELECT value FROM meta WHERE key='migration_app_class_v1';",
+                           -1, &st, nullptr) == SQLITE_OK) {
+        done = (sqlite3_step(st) == SQLITE_ROW);
+    }
+    sqlite3_finalize(st);
+    if (done) return true;
+
+    const char* cleanup =
+        "DELETE FROM events "
+        "WHERE app_class NOT IN ('Desktop','Screen Locked') "
+        "  AND ( app_class LIKE '% %' "
+        "     OR (app_class GLOB '[0-9]*' AND app_class NOT GLOB '*[^0-9]*') );";
+    if (sqlite3_exec(db_, cleanup, nullptr, nullptr, nullptr) != SQLITE_OK) return false;
+    const int removed = sqlite3_changes(db_);
+
+    (void)sqlite3_exec(db_,
+        "INSERT OR REPLACE INTO meta(key,value) VALUES('migration_app_class_v1','done');",
+        nullptr, nullptr, nullptr);
+
+    if (removed > 0) {
+        std::cerr << "[b1air-focus] removed " << removed
+                  << " screen-time rows filed under a window title instead of an app id\n";
+    }
     return true;
 }
 

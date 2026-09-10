@@ -37,6 +37,42 @@ Scope {
         // the answer arrives. The singleton is created lazily otherwise — at
         // the moment something first asks it a question.
         Screens.refresh();
+
+        // Start the clipboard monitor with the shell.
+        //
+        // Clipboard is a singleton too, and the only thing that referred to it
+        // was ClipboardPopup — which is built lazily, when the popup is first
+        // opened. So the monitor did not exist until the user went looking at
+        // the history, and the history it then showed was everything copied
+        // since that moment: on a fresh login, nothing. Measured with an empty
+        // store: copy three times, open the popup, zero records.
+        Clipboard.items.count;
+
+        // Same reason: a focus timer that only exists while its window is open
+        // is not a timer.
+        Focus.phase;
+    }
+
+    // "Open Guide on Login" in Startup settings, which wrote
+    // `openGuideAtStartup` and was read by nothing — the guide never appeared,
+    // whatever the toggle said.
+    //
+    // On the Settings signal rather than in Component.onCompleted, because at
+    // that point Settings has not read the file yet and the schema default
+    // (off) is what would be seen. The delay is for the bar and the popups to
+    // be up first: a guide that opens into a half-built shell lands behind it.
+    Connections {
+        target: Settings
+        function onLoadedChanged() {
+            if (Settings.loaded && Settings.openGuideAtStartup)
+                guideDelay.start();
+        }
+    }
+
+    Timer {
+        id: guideDelay
+        interval: 2000
+        onTriggered: masterWindow.handleIpcCommand("toggle:guide:", true)
     }
 
     Connections {
@@ -104,6 +140,19 @@ Scope {
         function toggleCalendar() { masterWindow.handleIpcCommand("toggle:calendar:", true) }
         function toggleClipboard() { masterWindow.handleIpcCommand("toggle:clipboard:", true) }
         function toggleFocusTime() { masterWindow.handleIpcCommand("toggle:focustime:", true) }
+
+        // The focus timer, for a key binding or a script. Its window is a
+        // screen-time dashboard that happens to hold the controls; starting a
+        // 25-minute interval should not require opening it.
+        function focusStart() { Focus.start() }
+        function focusPause() { Focus.pause() }
+        function focusToggleTimer() { Focus.toggle() }
+        function focusSkip() { Focus.skip() }
+        function focusStop() { Focus.stop() }
+        function focusState(): string {
+            return Focus.phase + " " + (Focus.running ? "running" : "paused")
+                 + " " + Focus.remaining + "s left, " + Focus.completedWork + " done";
+        }
         function toggleNetworkWifi() { masterWindow.handleIpcCommand("toggle:network:wifi", true) }
         function toggleNetworkBt() { masterWindow.handleIpcCommand("toggle:network:bt", true) }
         function toggleNetwork() { masterWindow.handleIpcCommand("toggle:network:bt", true) }
@@ -409,7 +458,11 @@ Scope {
         if (w === "network") return (a === "bt" || a === "bluetooth") ? "bluetooth" : "wifi";
         if (w === "control") return a || "main";
         if (w === "notifications") return "notifications";
-        if (w === "guide") return "about";
+        // The guide is the keybinding sheet, not the About page. "Open Guide
+        // on Login" promises "the keybinding and tips modal" and this opened
+        // System Specifications and a memory reading; About is still one page
+        // away, and still reachable directly as `toggle settings about`.
+        if (w === "guide") return "shortcuts";
         if (w === "focus") return "focus";
         if (w === "settings") {
             if (a === "wifi") return "network";

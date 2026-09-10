@@ -7,9 +7,15 @@ import Quickshell
 import Quickshell.Io
 import QtQuick.Window
 import "../Ui"
+import "../Services"
 
 PopupShell {
     id: window
+
+    // Named rather than referred to as `Focus` directly: this file is full of
+    // focus-state properties of its own (weekViewFocus, introStats and so on)
+    // and a bare `Focus` next to them reads like one of those.
+    readonly property var focusTimer: Focus
 
     // Durations that are choreography, not styling: a staged entrance, ambient
     // loops and slow tint crossfades. Deliberately off the motion scale.
@@ -731,6 +737,22 @@ PopupShell {
                                         font.weight: Design.weight.bold
                                         text: window.formatTimeLarge(window.animatedTotalSeconds)
                                     }
+                                    // "Daily Screen Time Limit Goal" is a
+                                    // stepper in Settings whose number appeared
+                                    // nowhere else. Shown against today's
+                                    // total, which is the only place it means
+                                    // anything.
+                                    Label {
+                                        Layout.alignment: Qt.AlignHCenter
+                                        role: "caption"
+                                        dim: window.totalSeconds < window.focusTimer.dailyGoalHours * 3600
+                                        color: window.totalSeconds >= window.focusTimer.dailyGoalHours * 3600
+                                               ? window.peach : Design.textDim
+                                        visible: window.selectedAppClass === "" && window.focusTimer.dailyGoalHours > 0
+                                        text: window.totalSeconds >= window.focusTimer.dailyGoalHours * 3600
+                                              ? "over the " + window.focusTimer.dailyGoalHours + "h goal"
+                                              : "of a " + window.focusTimer.dailyGoalHours + "h goal"
+                                    }
                                 }
                             }
 
@@ -786,6 +808,128 @@ PopupShell {
                                         text: (window.totalSeconds === 0 && window.yesterdaySeconds === 0) ? "No data" : "Same time"
                                         visible: (window.totalSeconds === 0 && window.yesterdaySeconds === 0) || window.totalSeconds === window.yesterdaySeconds
                                     }
+                                }
+                            }
+                        }
+
+                        // ==========================================
+                        // 1.7 THE FOCUS TIMER
+                        // ==========================================
+                        //
+                        // Settings has a card called "Focus & Break Intervals",
+                        // subtitled "Customize work cycles and rest duration
+                        // for FocusTime timer", with three duration steppers.
+                        // There was no timer anywhere to customise. This is it,
+                        // in the window those settings name.
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: Design.s(72)
+                            radius: Design.s(14)
+                            color: Design.surface
+                            border.color: Qt.alpha(pomoRing.tone, window.focusTimer.active ? 0.45 : 0.2)
+                            border.width: 1
+
+                            opacity: introStats
+                            transform: Translate { y: Design.s(30) * (1 - introStats) }
+
+                            RowLayout {
+                                anchors.fill: parent
+                                anchors.leftMargin: Design.s(18)
+                                anchors.rightMargin: Design.s(14)
+                                spacing: Design.s(16)
+
+                                // Progress ring around the remaining time.
+                                Item {
+                                    id: pomoRing
+                                    readonly property color tone: window.focusTimer.onBreak ? window.green : window.sapphire
+                                    Layout.preferredWidth: Design.s(44)
+                                    Layout.preferredHeight: Design.s(44)
+
+                                    Rectangle {
+                                        anchors.fill: parent
+                                        radius: width / 2
+                                        color: "transparent"
+                                        border.width: Design.s(3)
+                                        border.color: Qt.alpha(pomoRing.tone, 0.18)
+                                    }
+                                    Canvas {
+                                        anchors.fill: parent
+                                        // Repainting only on the value the arc is
+                                        // drawn from: a Canvas that repaints on
+                                        // every property change redraws this ring
+                                        // several times a second for nothing.
+                                        property real value: window.focusTimer.progress
+                                        onValueChanged: requestPaint()
+                                        onPaint: {
+                                            const ctx = getContext("2d");
+                                            ctx.reset();
+                                            const w = Design.s(3);
+                                            const r = Math.min(width, height) / 2 - w / 2;
+                                            ctx.beginPath();
+                                            ctx.arc(width / 2, height / 2, r,
+                                                    -Math.PI / 2,
+                                                    -Math.PI / 2 + 2 * Math.PI * Math.max(0, Math.min(1, value)));
+                                            ctx.lineWidth = w;
+                                            ctx.strokeStyle = pomoRing.tone;
+                                            ctx.lineCap = "round";
+                                            ctx.stroke();
+                                        }
+                                    }
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Design.s(1)
+                                    Label {
+                                        font.weight: Design.weight.semibold
+                                        dim: !window.focusTimer.active
+                                        text: window.focusTimer.active
+                                              ? window.focusTimer.phaseLabel
+                                                + " · interval " + (window.focusTimer.completedWork + 1)
+                                              : "Focus timer"
+                                    }
+                                    Label {
+                                        role: "caption"
+                                        dim: true
+                                        text: window.focusTimer.active
+                                              ? (window.focusTimer.running ? "Running" : "Paused")
+                                              : window.focusTimer.workMinutes + " min focus · "
+                                                + window.focusTimer.shortBreakMinutes + " min break · long break every 4"
+                                    }
+                                }
+
+                                Label {
+                                    role: "title"
+                                    isMono: true
+                                    color: window.focusTimer.active ? pomoRing.tone : Design.textFaint
+                                    text: window.focusTimer.active ? window.focusTimer.remainingText : "--:--"
+                                }
+
+                                ActionButton {
+                                    // Without this the button takes the row's
+                                    // spare width and the timer becomes a
+                                    // banner with a caption.
+                                    Layout.fillWidth: false
+                                    icon: window.focusTimer.running ? "\u{f03e4}" : "\u{f040a}"
+                                    label: window.focusTimer.running ? "Pause"
+                                         : (window.focusTimer.active ? "Resume" : "Start")
+                                    onActivated: window.focusTimer.toggle()
+                                }
+
+                                ActionButton {
+                                    Layout.fillWidth: false
+                                    visible: window.focusTimer.active
+                                    icon: "\u{f04ad}"
+                                    label: "Skip"
+                                    onActivated: window.focusTimer.skip()
+                                }
+
+                                ActionButton {
+                                    Layout.fillWidth: false
+                                    visible: window.focusTimer.active
+                                    icon: "\u{f04db}"
+                                    label: "Stop"
+                                    onActivated: window.focusTimer.stop()
                                 }
                             }
                         }

@@ -59,6 +59,14 @@ PanelWindow {
 
     function showOsd(icon, title, value, muted, color) {
         if (!osdWindow._ready) return;
+        // "Volume notifications" in Sound settings. It wrote
+        // `audioNotifications` and nothing read it, so the on-screen display
+        // appeared on every volume and microphone change however it was set.
+        // Brightness is not what the setting is about and is left alone.
+        if (Settings.audioNotifications === false
+                && (title === "Volume" || title === "Muted"
+                    || title === "Microphone" || title === "Mic Muted"))
+            return;
         osdWindow.osdIcon = icon;
         osdWindow.osdTitle = title;
         osdWindow.osdValue = Math.max(0, Math.min(100, Math.round(value)));

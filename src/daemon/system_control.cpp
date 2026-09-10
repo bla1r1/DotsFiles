@@ -444,7 +444,15 @@ static bool write_fd_all(int fd, const std::string& contents) {
 bool SystemControl::enable_game_mode() {
     SwayIPC ipc;
     if (ipc.connect()) {
-        ipc.send_command(0, "blur disable; shadows disable; corner_radius 0; default_border pixel 0; output * adaptive_sync on");
+        // "Adaptive Sync (VRR)" on the Game Mode page wrote
+        // `gameModeAdaptiveSync` and nothing read it: VRR was switched on for
+        // every game-mode session whatever the toggle said, which on a monitor
+        // that reports support and flickers with it is exactly the setting
+        // someone would go looking for.
+        std::string cmd = "blur disable; shadows disable; corner_radius 0; default_border pixel 0";
+        if (SettingsManager::get_json_bool("gameModeAdaptiveSync", false))
+            cmd += "; output * adaptive_sync on";
+        ipc.send_command(0, cmd);
     }
 
     (void)run_argv_status({"powerprofilesctl", "set", "performance"});
@@ -460,7 +468,22 @@ bool SystemControl::enable_game_mode() {
 bool SystemControl::disable_game_mode() {
     SwayIPC ipc;
     if (ipc.connect()) {
-        ipc.send_command(0, "blur enable; shadows enable; corner_radius 10; default_border pixel 2; output * adaptive_sync off");
+        // Restore what the user actually has, not the shipped defaults.
+        //
+        // This put back blur, shadows, a 10px corner radius and a 2px border
+        // as literals, so a desktop with square corners and no blur got them
+        // both back the first time game mode was switched off, and a border
+        // width chosen in Settings was replaced by 2. Leaving game mode is not
+        // an invitation to restyle the desktop.
+        const DesktopSettings s = SettingsManager::load();
+        std::string cmd =
+            std::string("blur ") + (SettingsManager::get_json_bool("blurEnabled", true) ? "enable" : "disable")
+            + "; shadows " + (SettingsManager::get_json_bool("shadowsEnabled", true) ? "enable" : "disable")
+            + "; corner_radius " + std::to_string(SettingsManager::get_json_int("cornerRadius", 10))
+            + "; default_border pixel " + std::to_string(s.borderWidth);
+        if (SettingsManager::get_json_bool("gameModeAdaptiveSync", false))
+            cmd += "; output * adaptive_sync off";
+        ipc.send_command(0, cmd);
     }
 
     (void)run_argv_status({"powerprofilesctl", "set", "balanced"});
@@ -491,9 +514,13 @@ bool SystemControl::run_quickshell_lock() {
     if (qs_lock.empty()) {
         return false;
     }
-    ddc_dim();
+    // "Dim screen on lock" on the Power page. The setting existed, the toggle
+    // wrote it, and nothing read it: the backlight went down on every lock
+    // whatever it said.
+    const bool dim = SettingsManager::get_json_bool("dimOnLock", true);
+    if (dim) ddc_dim();
     const int ret = run_argv_status({"quickshell", "-p", qs_lock}) ? 0 : 1;
-    ddc_undim();
+    if (dim) ddc_undim();
     return (ret == 0);
 }
 
@@ -570,9 +597,10 @@ bool SystemControl::run_swaylock() {
     add_pair("--effect-blur", "10x4"); add_pair("--effect-dim", "0.20"); add_pair("--effect-vignette", "0.25:0.25");
     add_pair("--grace", "1"); add_pair("--fade-in", "0.2");
 
-    ddc_dim();
+    const bool dim = SettingsManager::get_json_bool("dimOnLock", true);
+    if (dim) ddc_dim();
     const int ret = run_argv_status(args) ? 0 : 1;
-    ddc_undim();
+    if (dim) ddc_undim();
     return (ret == 0);
 }
 
@@ -651,7 +679,14 @@ bool SystemControl::caffeine_set(bool active) {
     if (active) {
         int fd = open(runtime_path("caffeine.state").c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0600);
         if (fd >= 0) close(fd);
-        (void)run_argv_status({"swaymsg", "inhibit_idle", "focus"});
+        // The inhibitor is the feature. Announcing it without checking left a
+        // machine promising to stay awake and going to sleep anyway.
+        if (!run_argv_status({"swaymsg", "inhibit_idle", "focus"})) {
+            unlink(runtime_path("caffeine.state").c_str());
+            notify_user("b1air DE", "Could not keep the screen awake",
+                        "The compositor refused the idle inhibitor.", "dialog-error");
+            return false;
+        }
         notify_user("b1air DE", "Caffeine Mode Active", "Screen sleep and idle lock disabled", "caffeine");
     } else {
         unlink(runtime_path("caffeine.state").c_str());
@@ -1683,15 +1718,33 @@ int SystemControl::get_volume() {
     try { return std::stoi(raw); } catch (...) { return 0; }
 }
 
+/**
+ * A freedesktop sound-theme event, if the user asked for it.
+ *
+ * Settings → Sound offers "Volume Step Feedback Click" and "Screenshot Shutter
+ * Sound"; both were switches storing values nothing read. The QML side has a
+ * SoundEffects service, but the events they describe happen here — the volume
+ * keys and the capture both run in the daemon — so the sounds belong here too.
+ * libcanberra and sound-theme-freedesktop are already in the package list.
+ */
+static void play_feedback_sound(const char* setting_key, const char* sound_name) {
+    if (!SettingsManager::get_json_bool(setting_key, true)) return;
+    (void)util::spawn_detached({"canberra-gtk-play", "-i", sound_name});
+}
+
 bool SystemControl::volume_up(int step) {
     // The OSD bar already covers this (see the mute/brightness fixes above).
-    return run_argv_status({"wpctl", "set-volume", "-l", "1.5", "@DEFAULT_AUDIO_SINK@", std::to_string(step) + "%+"})
+    const bool ok = run_argv_status({"wpctl", "set-volume", "-l", "1.5", "@DEFAULT_AUDIO_SINK@", std::to_string(step) + "%+"})
         || run_argv_status({"pamixer", "-i", std::to_string(step)});
+    if (ok) play_feedback_sound("soundVolumeFeedback", "audio-volume-change");
+    return ok;
 }
 
 bool SystemControl::volume_down(int step) {
-    return run_argv_status({"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", std::to_string(step) + "%-"})
+    const bool ok = run_argv_status({"wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", std::to_string(step) + "%-"})
         || run_argv_status({"pamixer", "-d", std::to_string(step)});
+    if (ok) play_feedback_sound("soundVolumeFeedback", "audio-volume-change");
+    return ok;
 }
 
 bool SystemControl::volume_toggle_mute() {
@@ -2350,8 +2403,29 @@ bool SystemControl::wallpaper_restore() {
 
 // ── Night Light ──────────────────────────────────────────────────────────────
 bool SystemControl::night_light_on(int temp) {
+    // spawn_detached tells you the fork worked, not that the program ran:
+    // with wlsunset missing the exec fails inside the child and this still
+    // announced "Night Light Enabled" over a screen that never changed
+    // colour. Check the binary is there, then check it stayed up.
+    if (!try_exec_present("wlsunset")) {
+        notify_user("Night Light", "wlsunset is not installed",
+                    "Install wlsunset to use night light.", "dialog-error");
+        return false;
+    }
+
     (void)run_argv_status({"pkill", "-x", "wlsunset"});
-    (void)util::spawn_detached({"wlsunset", "-t", std::to_string(temp)});
+    if (!util::spawn_detached({"wlsunset", "-t", std::to_string(temp)})) {
+        notify_user("Night Light", "Could not start wlsunset", {}, "dialog-error");
+        return false;
+    }
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    if (!run_argv_status({"pgrep", "-x", "wlsunset"})) {
+        notify_user("Night Light", "wlsunset exited immediately",
+                    "The compositor may not support gamma control.", "dialog-error");
+        return false;
+    }
+
     notify_user("Night Light", "Night Light Enabled", "Warm color temperature active", "weather-clear-night");
     return true;
 }
@@ -3075,10 +3149,12 @@ bool SystemControl::capture(const std::string& mode, const std::string& geom, bo
 
     if (!keep_file) {
         unlink(filepath.c_str());
+        play_feedback_sound("soundScreenshotFeedback", "camera-shutter");
         notify_user("Screenshot", "Copied to clipboard", "", "");
         return true;
     }
 
+    play_feedback_sound("soundScreenshotFeedback", "camera-shutter");
     notify_user("Screenshot", "Screenshot Saved", filepath, filepath);
     return true;
 }
@@ -3998,19 +4074,52 @@ bool SystemControl::disk_sweeper_clean() {
             }
         }
     }
-    (void)run_argv_status({"journalctl", "--vacuum-time=7d"});
-    if (!run_argv_status({"sudo", "paccache", "-rk2"}))
-        (void)run_argv_status({"sudo", "pacman", "-Sc", "--noconfirm"});
-    notify_user("Disk Sweeper", "Storage Cleaned", "Reclaimed cache and thumbnail storage", "drive-harddisk");
+    // Say what was actually cleaned. The package cache needs root, and
+    // `sudo` from a session daemon with no terminal simply fails — so the
+    // sweeper reported "Storage Cleaned • Reclaimed cache and thumbnail
+    // storage" on machines where the package cache, usually the largest part
+    // of it by far, had not been touched at all.
+    std::vector<std::string> done;
+    done.push_back("thumbnails");
+
+    if (run_argv_status({"journalctl", "--vacuum-time=7d"}))
+        done.push_back("journal");
+
+    if (run_argv_status({"sudo", "-n", "paccache", "-rk2"})
+        || run_argv_status({"sudo", "-n", "pacman", "-Sc", "--noconfirm"}))
+        done.push_back("package cache");
+
+    std::string summary = "Cleaned: ";
+    for (size_t i = 0; i < done.size(); ++i)
+        summary += (i ? ", " : "") + done[i];
+    if (done.size() < 3)
+        summary += ". The package cache needs root and was left alone.";
+
+    notify_user("Disk Sweeper", "Storage cleaned", summary, "drive-harddisk");
     return true;
 }
 
 bool SystemControl::snapshot_create(const std::string& comment) {
-    std::string c = comment.empty() ? "b1air pre-update snapshot" : comment;
-    if (!run_argv_status({"timeshift", "--create", "--comments", c, "--tags", "O"}))
-        (void)run_argv_status({"snapper", "create", "-d", c});
-    notify_user("System Restore", "Restore Point Created", "System snapshot saved successfully", "document-save");
-    return true;
+    const std::string c = comment.empty() ? "b1air pre-update snapshot" : comment;
+
+    // Both tools are optional and neither is in the package list, so a machine
+    // with neither is the normal case, not an exotic one. This used to try
+    // timeshift, then snapper, and then announce "Restore Point Created —
+    // System snapshot saved successfully" whatever had happened: a machine
+    // with neither installed was told its snapshot was saved. A false success
+    // is worse than a silent failure, because it is acted on.
+    if (run_argv_status({"timeshift", "--create", "--comments", c, "--tags", "O"})) {
+        notify_user("System Restore", "Restore point created", "Saved with timeshift", "document-save");
+        return true;
+    }
+    if (run_argv_status({"snapper", "create", "-d", c})) {
+        notify_user("System Restore", "Restore point created", "Saved with snapper", "document-save");
+        return true;
+    }
+
+    notify_user("System Restore", "No snapshot tool",
+                "Install timeshift or snapper to create restore points.", "dialog-error");
+    return false;
 }
 
 std::string SystemControl::snapshot_list() {

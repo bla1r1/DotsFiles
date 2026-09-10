@@ -19,28 +19,79 @@ Singleton {
     property string lastText: ""
     property string pendingSave: ""
 
-    // 1. Initial Load & Persistence
+    // 1. Initial load
+    //
+    // Nothing may be written back before this has finished. The clipboard
+    // watcher reports the current selection the moment it connects, which is
+    // sooner than a subprocess can read the store — so the first save of the
+    // session went out with a one-entry list and replaced everything that was
+    // there. Measured: a store holding ten entries came back holding one, the
+    // clip that happened to be on the clipboard at login.
+    property bool _loaded: false
+    property bool _saveWanted: false
+
+    function _applyStored(raw) {
+        if (root._loaded)
+            return;
+        try {
+            const list = JSON.parse((raw || "").trim() || "[]");
+            if (Array.isArray(list)) {
+                for (const entry of list) {
+                    if (!entry || !entry.text)
+                        continue;
+                    // Anything captured while the read was in flight is newer
+                    // than the stored copy and already at the top, so keep that
+                    // one rather than listing the clip twice.
+                    let dup = false;
+                    for (let i = 0; i < root.items.count; i++) {
+                        if (root.items.get(i).text === entry.text) {
+                            dup = true;
+                            break;
+                        }
+                    }
+                    if (!dup)
+                        root.items.append(entry);
+                }
+            }
+        } catch (e) {
+            console.log("Clipboard cache load error:", e);
+        }
+        root._loaded = true;
+        if (root._saveWanted)
+            root._save();
+    }
+
     Process {
         id: loadProcess
         running: true
         command: ["b1air-secret-service", "get", "clipboard-history"]
         stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    const raw = this.text ? this.text.trim() : "[]";
-                    const list = JSON.parse(raw);
-                    if (Array.isArray(list)) {
-                        for (let i = 0; i < list.length; i++) {
-                            root.items.append(list[i]);
-                        }
-                    }
-                } catch (e) {
-                    console.log("Clipboard cache load error:", e);
-                }
-            }
+            onStreamFinished: root._applyStored(this.text)
         }
     }
 
+    // If the store never answers — no daemon, a broken keyring — recording has
+    // to start anyway, or the history is frozen for the whole session.
+    Timer {
+        id: loadGuard
+        interval: 4000
+        running: !root._loaded
+        onTriggered: root._applyStored("")
+    }
+
+    // Writing the history back.
+    //
+    // `stdinEnabled = false` closes the pipe so the reader sees EOF, and it is
+    // a property, not a one-shot: it stayed false for every later run, so the
+    // second save onwards started the helper and handed it an empty stdin. The
+    // store therefore froze at whatever the first save of the session held.
+    // Measured with the debug build: seven saves, item counts 1..7, and a store
+    // still holding the single record from save one. Re-open stdin each time.
+    //
+    // The write is debounced because a save follows every single change —
+    // pinning, deleting, a burst of copies — and each one spawns a helper. A
+    // quarter of a second collapses a burst into one write, and since the
+    // payload is always the whole list, only the last write matters anyway.
     Process {
         id: saveProcess
         stdinEnabled: true
@@ -51,25 +102,103 @@ Singleton {
         }
     }
 
-    // 2. Continuous Clipboard Monitor Process
+    Timer {
+        id: saveDebounce
+        interval: 250
+        onTriggered: {
+            saveProcess.running = false;
+            saveProcess.stdinEnabled = true;
+            saveProcess.running = true;
+        }
+    }
+
+    // 2. Clipboard monitor: a watcher, and a poll that covers for it
+    //
+    // `wl-paste --watch` runs its command on every clipboard change and keeps
+    // running. StdioCollector hands over its text when the stream *closes*, and
+    // this stream never closes — so nothing was ever collected. Measured: copy
+    // twice, open the popup, and the six seeded templates are still all there
+    // is. SplitParser delivers a record at a time instead. The watched command
+    // marks the end of each one with U+001E, the ASCII record separator, which
+    // is the one thing that cannot turn up inside pasted text — a newline can,
+    // so the default marker would cut multi-line clips into pieces.
+    //
+    // The watcher alone is not enough. Measured on sway 1.12 with wl-clipboard
+    // 2.3.0: one-shot `wl-paste` returns the current clipboard correctly, while
+    // `wl-paste --watch` fires for nothing at all — three copies, zero events,
+    // no error on stderr. A clipboard manager that silently records nothing is
+    // worse than none, so the watcher is the fast path and `reconcile` below is
+    // the guarantee.
+    // `stdinEnabled` is not there to write anything: it is what makes stdin a
+    // pipe, so `cat` blocks until the shell process goes away and the wrapper
+    // can then kill the watcher. Without it the watcher outlived the shell —
+    // reparented to init and still subscribed to the clipboard — so every
+    // restart of the shell left another one behind. Measured: six orphaned
+    // `wl-paste --watch` processes after an afternoon of restarts, and with
+    // that many subscribers the compositor stopped delivering change events to
+    // any of them, which is a clipboard history that silently stops recording.
     Process {
         id: watcher
         running: true
-        command: ["bash", "-c", "wl-paste --watch bash -c 'wl-paste --no-newline 2>/dev/null'"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                if (this.text) {
-                    root._handleNewClip(this.text);
-                }
+        stdinEnabled: true
+        command: ["bash", "-c",
+                  "wl-paste --watch sh -c 'wl-paste --no-newline 2>/dev/null; printf \"\\036\"' & w=$!; cat >/dev/null 2>&1; kill $w 2>/dev/null"]
+        stdout: SplitParser {
+            splitMarker: "\u001e"
+            onRead: data => {
+                if (!data)
+                    return;
+                // The watcher has proved it works on this compositor, so the
+                // reconcile poll can stand down.
+                root._watchWorks = true;
+                root._handleNewClip(data);
             }
         }
-        onExited: restartTimer.start()
+        onExited: {
+            // A watcher that died has proved nothing any more.
+            root._watchWorks = false;
+            restartTimer.start();
+        }
     }
 
     Timer {
         id: restartTimer
         interval: 3000
         onTriggered: watcher.running = true
+    }
+
+    /** Set once the watcher has actually delivered a clip on this machine. */
+    property bool _watchWorks: false
+
+    // Reads the clipboard on a timer and feeds anything new through the same
+    // path as a watch event. It stops itself as soon as the watcher delivers
+    // once, so on a compositor where the watch works this costs three polls at
+    // startup and nothing afterwards; where it does not, the feature works.
+    Timer {
+        id: reconcile
+        interval: 3000
+        repeat: true
+        running: !root._watchWorks
+        onTriggered: {
+            // Off then on. A Process that has already run does not start again
+            // from `running = true` alone — it is already false, so the write
+            // changes nothing and no signal is emitted. Measured: the poll
+            // captured the clipboard once at startup and never again, six
+            // copies later the store still held the first one.
+            pollProc.running = false;
+            pollProc.running = true;
+        }
+    }
+
+    Process {
+        id: pollProc
+        command: ["wl-paste", "--no-newline"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (this.text)
+                    root._handleNewClip(this.text);
+            }
+        }
     }
 
     function _detectType(text) {
@@ -140,19 +269,40 @@ Singleton {
         Quickshell.execDetached(["bash", "-c", "printf '%s' \"$1\" | wl-copy", "--", text]);
     }
 
-    function togglePin(index) {
-        if (index >= 0 && index < root.items.count) {
-            const item = root.items.get(index);
-            item.pinned = !item.pinned;
-            root._save();
+    /**
+     * Row identity, not row number.
+     *
+     * These two took the index of the row that was clicked, and the popup
+     * hands out the index within the list it *displays* — which starts with
+     * six built-in templates and is narrowed further whenever the search box
+     * has anything in it. So the pin and delete buttons acted on a different
+     * clip than the one they were drawn next to: pressing delete on the first
+     * template removed the newest real entry, and with a search term active
+     * the offset was whatever the filter happened to make it.
+     */
+    function _indexOfId(id) {
+        for (let i = 0; i < root.items.count; i++) {
+            if (root.items.get(i).id === id)
+                return i;
         }
+        return -1;
     }
 
-    function deleteItem(index) {
-        if (index >= 0 && index < root.items.count) {
-            root.items.remove(index);
-            root._save();
-        }
+    function togglePin(id) {
+        const index = root._indexOfId(id);
+        if (index < 0)
+            return;
+        const item = root.items.get(index);
+        item.pinned = !item.pinned;
+        root._save();
+    }
+
+    function deleteItem(id) {
+        const index = root._indexOfId(id);
+        if (index < 0)
+            return;
+        root.items.remove(index);
+        root._save();
     }
 
     function clearHistory() {
@@ -166,6 +316,11 @@ Singleton {
     }
 
     function _save() {
+        if (!root._loaded) {
+            root._saveWanted = true;
+            return;
+        }
+
         const arr = [];
         for (let i = 0; i < root.items.count; i++) {
             const it = root.items.get(i);
@@ -178,9 +333,7 @@ Singleton {
                 pinned: it.pinned
             });
         }
-        const json = JSON.stringify(arr);
-        root.pendingSave = json;
-        if (saveProcess.running) saveProcess.running = false;
-        saveProcess.running = true;
+        root.pendingSave = JSON.stringify(arr);
+        saveDebounce.restart();
     }
 }

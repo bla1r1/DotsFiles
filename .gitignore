@@ -9,3 +9,12 @@ b1air-daemon
 src/shell/build/
 shell/build/
 build/
+
+# Build products the Makefile leaves in the tree. `src/b1air-daemon` was
+# already listed; its siblings and the header-dependency files the Makefile
+# now generates were not, so a build made the working tree look dirty and
+# a careless `git add -A` committed binaries.
+src/b1air-polkit-agent
+src/b1air-secret-service
+src/daemon/*.d
+tools/controller

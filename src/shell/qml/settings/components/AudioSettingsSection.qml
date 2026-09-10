@@ -318,7 +318,7 @@ ColumnLayout {
                     Layout.fillWidth: true
                     spacing: 0
                     Label { text: "Peripheral & Device Connect Chime"; weight: Design.weight.semibold }
-                    Label { text: "Play audio alert when headphones, USB, or bluetooth devices connect"; role: "caption"; dim: true }
+                    Label { text: "Play a chime when a headset, USB audio interface, dock or Bluetooth audio device connects"; role: "caption"; dim: true }
                 }
 
                 Toggle {

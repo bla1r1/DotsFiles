@@ -70,10 +70,28 @@ inline bool spawn_detached(const std::vector<std::string>& args,
                            const char* wayland_display = nullptr) {
     if (args.empty()) return false;
 
+    // Double fork. The first child forks again and exits at once; the
+    // grandchild is orphaned and inherited by init, which reaps it. The parent
+    // waits only for the short-lived middle process.
+    //
+    // The single fork this replaces left a zombie behind for every helper the
+    // daemon ever launched — a screenshot overlay, a polkit dialog, an editor —
+    // because a child that calls setsid() is still its parent's child, and
+    // nothing here ever waited on it. The comment claimed init would adopt it;
+    // init only adopts a child whose parent has *exited*, which for a session
+    // daemon is never. Measured on a running session: eight zombies parented
+    // to the daemon after an afternoon of launching helpers.
+    //
+    // SIGCHLD could not simply be ignored instead: this daemon also runs
+    // commands with waitpid() and needs their exit status.
     pid_t pid = fork();
     if (pid < 0) return false;
 
     if (pid == 0) {
+        pid_t inner = fork();
+        if (inner < 0) _exit(127);
+        if (inner > 0) _exit(0);
+
         (void)setsid();
         const int null_fd = open("/dev/null", O_RDWR | O_CLOEXEC);
         if (null_fd >= 0) {
@@ -93,9 +111,14 @@ inline bool spawn_detached(const std::vector<std::string>& args,
         _exit(127);
     }
 
-    // Reaped by the double-fork-free route: the child setsid()s and this
-    // process does not wait, so init adopts it once this process exits. Callers
-    // that need the exit status should not be using a detached spawn.
+    // Reap the middle process, which has already exited. This is the only wait
+    // in a detached spawn, and it returns immediately.
+    int status = 0;
+    while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {}
+
+    // Says the fork worked, nothing about the command: the grandchild is not
+    // waited on, by design. Callers that need an exit status should not be
+    // using a detached spawn.
     return true;
 }
 

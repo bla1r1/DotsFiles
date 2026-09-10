@@ -24,31 +24,41 @@ ColumnLayout {
     readonly property int borderWidth: Settings.borderWidth
     readonly property bool smartBorders: Settings.smartBorders
     readonly property bool smartGaps: Settings.smartGaps
-    readonly property real inactiveOpacity: Settings.inactiveOpacity
+    // `inactiveOpacity` was read here into a property no control bound to and
+    // nothing else ever looked at; it is gone from the schema — see the note
+    // in Services/SwayConfig for why it could not simply be adopted.
 
+    // swaymsg changes this session; SwayConfig writes conf.d/custom_look.conf
+    // so the change is still there after a logout. Every one of these settings
+    // was applied and then forgotten — see Services/SwayConfig.
     function setGapsInner(val) {
         Settings.set("gapsInner", val);
         Quickshell.execDetached(["swaymsg", "gaps", "inner", "all", "set", String(val)]);
+        SwayConfig.writeLook();
     }
 
     function setGapsOuter(val) {
         Settings.set("gapsOuter", val);
         Quickshell.execDetached(["swaymsg", "gaps", "outer", "all", "set", String(val)]);
+        SwayConfig.writeLook();
     }
 
     function setBorderWidth(val) {
         Settings.set("borderWidth", val);
         Quickshell.execDetached(["swaymsg", "default_border", "pixel", String(val)]);
+        SwayConfig.writeLook();
     }
 
     function toggleSmartBorders(val) {
         Settings.set("smartBorders", val);
         Quickshell.execDetached(["swaymsg", "smart_borders", val ? "on" : "off"]);
+        SwayConfig.writeLook();
     }
 
     function toggleSmartGaps(val) {
         Settings.set("smartGaps", val);
         Quickshell.execDetached(["swaymsg", "smart_gaps", val ? "on" : "off"]);
+        SwayConfig.writeLook();
     }
 
     // ── 1. Gaps Configuration ────────────────────────────────────────────────

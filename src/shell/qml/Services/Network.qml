@@ -148,12 +148,39 @@ Singleton {
         stdout: StdioCollector {
             onStreamFinished: {
                 root.savedWifi = (this.text || "").split("\n")
-                    .map(l => l.split(":"))
+                    .map(l => root._splitTerse(l))
                     .filter(f => f.length >= 2 && f[1] === "802-11-wireless" && f[0] !== "")
                     .map(f => ({ name: f[0], autoconnect: f[2] === "yes" }));
             }
         }
         function restart() { running = false; running = true; }
+    }
+
+    /**
+     * One line of `nmcli -t` output into its fields.
+     *
+     * nmcli separates fields with ":" and escapes a literal colon inside a
+     * value as "\\:". Splitting on every colon therefore tears a network whose
+     * name contains one into two fields, the type lands in the wrong column,
+     * and the row is dropped: an SSID like "Cafe:Guest" simply vanished from
+     * the saved-networks list.
+     */
+    function _splitTerse(line) {
+        const out = [];
+        let cur = "";
+        for (let i = 0; i < line.length; ++i) {
+            const c = line[i];
+            if (c === "\\" && i + 1 < line.length) {
+                cur += line[++i];
+            } else if (c === ":") {
+                out.push(cur);
+                cur = "";
+            } else {
+                cur += c;
+            }
+        }
+        out.push(cur);
+        return out;
     }
 
     function disconnectWifi() {

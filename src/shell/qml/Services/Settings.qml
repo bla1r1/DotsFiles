@@ -67,7 +67,6 @@ Singleton {
     readonly property alias borderWidth: data.borderWidth
     readonly property alias smartBorders: data.smartBorders
     readonly property alias smartGaps: data.smartGaps
-    readonly property alias inactiveOpacity: data.inactiveOpacity
 
     // Appearance & compositor effects. Defaults mirror conf.d/look-and-feel.conf
     // so the UI shows what the session actually booted with.
@@ -113,7 +112,6 @@ Singleton {
     // Touchpad & Gestures
     readonly property alias touchpadSwipeWorkspace: data.touchpadSwipeWorkspace
     readonly property alias touchpadNaturalSwipe: data.touchpadNaturalSwipe
-    readonly property alias touchpadPinchZoom: data.touchpadPinchZoom
 
     // Pointer & touchpad. Defaults mirror conf.d/input.conf.
     readonly property alias naturalScroll: data.naturalScroll
@@ -254,7 +252,6 @@ Singleton {
         borderWidth: 2,
         smartBorders: true,
         smartGaps: false,
-        inactiveOpacity: 1.0,
         themeName: "catppuccin-mocha",
         accentName: "",
         cornerRadius: 10,
@@ -287,7 +284,6 @@ Singleton {
         soundDeviceFeedback: true,
         touchpadSwipeWorkspace: true,
         touchpadNaturalSwipe: true,
-        touchpadPinchZoom: true,
         naturalScroll: false,
         tapToClick: true,
         dwt: true,
@@ -357,7 +353,6 @@ Singleton {
             property int borderWidth: 2
             property bool smartBorders: true
             property bool smartGaps: false
-            property real inactiveOpacity: 1.0
             property string themeName: "catppuccin-mocha"
             property string accentName: ""
             property int cornerRadius: 10
@@ -397,7 +392,6 @@ Singleton {
 
             property bool touchpadSwipeWorkspace: true
             property bool touchpadNaturalSwipe: true
-            property bool touchpadPinchZoom: true
             property bool naturalScroll: false
             property bool tapToClick: true
             property bool dwt: true

@@ -34,7 +34,26 @@ Singleton {
     // Notification History model (for Control Center history panel)
     readonly property ListModel history: ListModel {}
 
-    property bool dnd: false
+    // Do Not Disturb.
+    //
+    // `dnd` used to be a plain runtime bool: toggling it never touched
+    // Settings.notificationsDnd, and nothing ever read that key back, so the
+    // switch forgot itself on every shell restart while the setting sat in the
+    // file doing nothing.
+    //
+    // Game Mode's "Do Not Disturb (DND) — mute all popups and toast
+    // notifications while in game" was inert for the same reason: the switch
+    // stored a value and no notification path consulted it.
+    property bool manualDnd: false
+
+    readonly property bool dnd: root.manualDnd
+        || (Settings.gameModeEnabled === true && Settings.gameModeDND === true)
+        // "Auto-Silence Notifications in Focus Mode" on the Screen Time page,
+        // which had the same shape as the two above: a switch, a stored value
+        // and no reader. Services/Focus decides when it applies — during a
+        // work interval and not during a break, or the notification saying the
+        // break is over would be the one thing suppressed.
+        || Focus.wantsDnd
     property int toastTimeoutMs: 5000
     readonly property int unreadCount: history.count
 
@@ -121,6 +140,22 @@ Singleton {
     }
 
     function toggleDnd() {
-        root.dnd = !root.dnd;
+        root.manualDnd = !root.manualDnd;
+        Settings.set("notificationsDnd", root.manualDnd);
+    }
+
+    // Restored once Settings has actually read the file; reading it earlier
+    // gets the schema default rather than the saved choice.
+    Connections {
+        target: Settings
+        function onLoadedChanged() {
+            if (Settings.loaded)
+                root.manualDnd = Settings.notificationsDnd === true;
+        }
+    }
+
+    Component.onCompleted: {
+        if (Settings.loaded)
+            root.manualDnd = Settings.notificationsDnd === true;
     }
 }

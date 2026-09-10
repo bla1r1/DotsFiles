@@ -23,37 +23,88 @@ ColumnLayout {
 
     readonly property bool touchpadSwipeWorkspace: Settings.touchpadSwipeWorkspace
     readonly property bool touchpadNaturalSwipe: Settings.touchpadNaturalSwipe
-    readonly property bool touchpadPinchZoom: Settings.touchpadPinchZoom
+
+    // Applying and keeping.
+    //
+    // Every control on this page ran a `swaymsg input ...`, which changes the
+    // running compositor and nothing else: sway rebuilds its input config from
+    // conf.d at startup, and nothing read the saved values back. Natural
+    // scrolling, tap-to-click, the pointer speed, the acceleration profile and
+    // the left-handed swap all reverted at the next login, every time, with
+    // the toggle still showing what the user had chosen.
+    //
+    // Services/SwayConfig writes the same state into conf.d/custom_input.conf,
+    // which sway includes after its defaults. Live application stays: swaymsg
+    // for this session, the file for the next.
+    function _persist() { SwayConfig.writeInput(); }
 
     function setNaturalScroll(on) {
         Settings.set("naturalScroll", on);
         Quickshell.execDetached(["swaymsg", "input", "type:touchpad", "natural_scroll", on ? "enabled" : "disabled"]);
+        section._persist();
     }
 
     function setTapToClick(on) {
         Settings.set("tapToClick", on);
         Quickshell.execDetached(["swaymsg", "input", "type:touchpad", "tap", on ? "enabled" : "disabled"]);
+        section._persist();
     }
 
     function setDwt(on) {
         Settings.set("dwt", on);
         Quickshell.execDetached(["swaymsg", "input", "type:touchpad", "dwt", on ? "enabled" : "disabled"]);
+        section._persist();
     }
 
     function setPointerAccel(val) {
         Settings.set("pointerAccel", val);
         Quickshell.execDetached(["swaymsg", "input", "type:pointer", "pointer_accel", String(val)]);
         Quickshell.execDetached(["swaymsg", "input", "type:touchpad", "pointer_accel", String(val)]);
+        section._persist();
     }
 
     function setAccelProfile(prof) {
         Settings.set("accelProfile", prof);
         Quickshell.execDetached(["swaymsg", "input", "type:pointer", "accel_profile", prof]);
+        section._persist();
     }
 
     function setLeftHanded(on) {
         Settings.set("leftHanded", on);
         Quickshell.execDetached(["swaymsg", "input", "type:pointer", "left_handed", on ? "enabled" : "disabled"]);
+        section._persist();
+    }
+
+    /**
+     * Three-finger workspace swipe, and its direction.
+     *
+     * Both toggles only wrote a setting: no binding was ever created, in this
+     * session or the next, so the gesture did nothing whichever way they were
+     * set. sway takes `bindgesture` at runtime as well as from the config, so
+     * the switch takes effect at once and survives the next login.
+     */
+    function setSwipeWorkspace(on) {
+        Settings.set("touchpadSwipeWorkspace", on);
+        section._applyGestures(on, Settings.touchpadNaturalSwipe);
+        section._persist();
+    }
+
+    function setNaturalSwipe(on) {
+        Settings.set("touchpadNaturalSwipe", on);
+        section._applyGestures(Settings.touchpadSwipeWorkspace, on);
+        section._persist();
+    }
+
+    function _applyGestures(enabled, natural) {
+        if (!enabled) {
+            Quickshell.execDetached(["swaymsg", "unbindgesture", "swipe:3:left"]);
+            Quickshell.execDetached(["swaymsg", "unbindgesture", "swipe:3:right"]);
+            return;
+        }
+        Quickshell.execDetached(["swaymsg", "bindgesture", "swipe:3:left", "workspace",
+                                 natural ? "prev" : "next"]);
+        Quickshell.execDetached(["swaymsg", "bindgesture", "swipe:3:right", "workspace",
+                                 natural ? "next" : "prev"]);
     }
 
     // ── 1. Touchpad Card ─────────────────────────────────────────────────────
@@ -130,7 +181,7 @@ ColumnLayout {
     // ── 2. Multi-Touch Gestures ──────────────────────────────────────────────
     Card {
         title: "Multi-Touch Gestures"
-        subtitle: "3-finger and 4-finger swipes for smooth desktop navigation"
+        subtitle: "Three-finger swipe between workspaces"
         icon: "\u{f0048}"
         accentColor: Design.teal
 
@@ -151,10 +202,7 @@ ColumnLayout {
 
                 Toggle {
                     checked: section.touchpadSwipeWorkspace
-                    onToggled: {
-                        const next = !section.touchpadSwipeWorkspace;
-                        Settings.set("touchpadSwipeWorkspace", next);
-                    }
+                    onToggled: section.setSwipeWorkspace(!section.touchpadSwipeWorkspace)
                 }
             }
 
@@ -173,34 +221,17 @@ ColumnLayout {
 
                 Toggle {
                     checked: section.touchpadNaturalSwipe
-                    onToggled: {
-                        const next = !section.touchpadNaturalSwipe;
-                        Settings.set("touchpadNaturalSwipe", next);
-                    }
+                    enabled: section.touchpadSwipeWorkspace
+                    onToggled: section.setNaturalSwipe(!section.touchpadNaturalSwipe)
                 }
             }
 
-            Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Design.tint(Design.line, 0.4) }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Design.s(Design.space.md)
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 0
-                    Label { text: "Pinch to Zoom"; weight: Design.weight.semibold }
-                    Label { text: "Allow 2-finger pinch gesture in browsers and document viewers"; role: "caption"; dim: true }
-                }
-
-                Toggle {
-                    checked: section.touchpadPinchZoom
-                    onToggled: {
-                        const next = !section.touchpadPinchZoom;
-                        Settings.set("touchpadPinchZoom", next);
-                    }
-                }
-            }
+            // "Pinch to Zoom — allow 2-finger pinch in browsers and document
+            // viewers" was here. It wrote a setting nothing read, and there was
+            // nothing for it to read: a compositor forwards pinch to the
+            // focused client unless something binds it, and nothing binds it
+            // here, so pinch already reaches the browser and the toggle
+            // described a state that is simply always on.
         }
     }
 

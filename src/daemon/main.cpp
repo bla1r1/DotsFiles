@@ -345,7 +345,16 @@ int main(int argc, char* argv[]) {
         }
     } else if (cmd == "volume") {
         std::string sub = (argc >= 3) ? argv[2] : "get";
-        int step = (argc >= 4) ? std::atoi(argv[3]) : 5;
+        // "Volume key step size" in Sound settings. The key bindings passed a
+        // literal 5 and the setting was read by nothing, so the stepper moved
+        // a number in settings.json and the keys kept moving the volume by 5.
+        // The bindings now leave the step out and it comes from the file; an
+        // explicit argument still wins, for anyone scripting it.
+        int step = (argc >= 4)
+            ? std::atoi(argv[3])
+            : SettingsManager::get_json_int("audioStep", 5);
+        if (step < 1) step = 1;
+        if (step > 25) step = 25;
         if (sub == "get") {
             std::cout << SystemControl::get_volume() << "\n";
             return 0;
@@ -594,10 +603,16 @@ int main(int argc, char* argv[]) {
         }
     } else if (cmd == "power") {
         if (argc < 3) {
-            std::cerr << "Usage: " << argv[0] << " power {lock|logout|suspend|reboot|shutdown}\n";
+            std::cerr << "Usage: " << argv[0] << " power {lock|logout|suspend|reboot|shutdown|idle-reload}\n";
             return 1;
         }
         std::string sub = argv[2];
+        // Before the D-Bus hand-off: restarting swayidle is a local operation
+        // on this session's own processes, and the running daemon has no
+        // Power method for it — sending it over the bus would just fail.
+        // Settings calls this after changing an idle timeout so the new
+        // timings apply to the session the user is looking at, not the next.
+        if (sub == "idle-reload") return SessionManager::restart_swayidle() ? 0 : 1;
         if (DaemonDBus::is_running()) return DaemonDBus::call_power(sub) ? 0 : 1;
         if (sub == "lock") return SystemControl::lock_session_async() ? 0 : 1;
         if (sub == "logout") return SystemControl::logout_session() ? 0 : 1;

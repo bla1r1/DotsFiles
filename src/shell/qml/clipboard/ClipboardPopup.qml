@@ -17,20 +17,29 @@ PopupShell {
     property string searchFilter: ""
 
     readonly property var permanentTemplates: [
-        { text: "Best regards,\nBlair\nSent from b1air desktop", title: "Email Signature", type: "text", pinned: true },
-        { text: "feat(scope): short summary\n\nDetailed context and implementation rationale.", title: "Git Commit Template", type: "code", pinned: true },
-        { text: "sudo pacman -Syu && yay -Sua", title: "Arch System Upgrade", type: "code", pinned: true },
-        { text: "- [ ] Task 1\n- [ ] Task 2\n- [ ] Task 3", title: "Markdown Checklist", type: "code", pinned: true },
-        { text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.", title: "Lorem Ipsum Text", type: "text", pinned: true },
-        { text: "#include <iostream>\n\nint main(int argc, char* argv[]) {\n    std::cout << \"Hello, b1air!\\n\";\n    return 0;\n}", title: "C++20 Boilerplate", type: "code", pinned: true }
+        { text: "Best regards,\nBlair\nSent from b1air desktop", title: "Email Signature", type: "text", pinned: true, template: true },
+        { text: "feat(scope): short summary\n\nDetailed context and implementation rationale.", title: "Git Commit Template", type: "code", pinned: true, template: true },
+        { text: "sudo pacman -Syu && yay -Sua", title: "Arch System Upgrade", type: "code", pinned: true, template: true },
+        { text: "- [ ] Task 1\n- [ ] Task 2\n- [ ] Task 3", title: "Markdown Checklist", type: "code", pinned: true, template: true },
+        { text: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.", title: "Lorem Ipsum Text", type: "text", pinned: true, template: true },
+        { text: "#include <iostream>\n\nint main(int argc, char* argv[]) {\n    std::cout << \"Hello, b1air!\\n\";\n    return 0;\n}", title: "C++20 Boilerplate", type: "code", pinned: true, template: true }
     ]
 
+    // Order: what the user pinned, then what they copied, then the built-ins.
+    //
+    // The templates came first. Six of them, and the panel shows six rows — so
+    // a clipboard manager opened to a full screen of boilerplate and the thing
+    // just copied was below the fold, every time. They are still here, and
+    // still last, because that is where a fixed list of snippets belongs once
+    // there is real history to show.
     readonly property var allItems: {
-        const list = [];
+        const pinned = [];
+        const recent = [];
         for (let i = 0; i < Clipboard.items.count; i++) {
-            list.push(Clipboard.items.get(i));
+            const it = Clipboard.items.get(i);
+            (it.pinned ? pinned : recent).push(it);
         }
-        return root.permanentTemplates.concat(list);
+        return pinned.concat(recent, root.permanentTemplates);
     }
 
     readonly property var filteredItems: root.allItems.filter(it => {
@@ -177,18 +186,24 @@ PopupShell {
                         spacing: Design.s(2)
                         Layout.alignment: Qt.AlignTop
 
+                        // A template is not in the history, so there is
+                        // nothing to unpin or delete — the buttons were drawn
+                        // anyway and acted on whatever real clip happened to
+                        // share the row number.
                         IconButton {
+                            visible: !clipCard.modelData.template
                             icon: clipCard.modelData.pinned ? "\u{f0403}" : "\u{f0404}"
                             role: "caption"
                             hoverTone: Design.accent
-                            onClicked: Clipboard.togglePin(clipCard.index)
+                            onClicked: Clipboard.togglePin(clipCard.modelData.id)
                         }
 
                         IconButton {
+                            visible: !clipCard.modelData.template
                             icon: "\u{f0156}"
                             role: "caption"
                             hoverTone: Design.danger
-                            onClicked: Clipboard.deleteItem(clipCard.index)
+                            onClicked: Clipboard.deleteItem(clipCard.modelData.id)
                         }
                     }
                 }

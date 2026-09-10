@@ -131,7 +131,6 @@ ColumnLayout {
                 icon: "\u{f00c5}"
                 onActivated: {
                     Quickshell.execDetached(["wl-copy", "vnc://" + section.localIp + ":" + section.vncPort]);
-                    SoundEffects.play(SoundEffects.action);
                 }
             }
         }
@@ -207,7 +206,6 @@ ColumnLayout {
                 icon: "\u{f04b}"
                 onActivated: {
                     Quickshell.execDetached(["bash", "-c", "sudo systemctl enable --now rustdesk 2>/dev/null || systemctl --user restart rustdesk 2>/dev/null || true"]);
-                    SoundEffects.play(SoundEffects.action);
                 }
             }
         }
@@ -243,7 +241,6 @@ ColumnLayout {
                     icon: "\u{f0079}"
                     onActivated: {
                         Daemon.sidecarCreate(1920, 1080);
-                        SoundEffects.play(SoundEffects.action);
                     }
                 }
 
@@ -252,7 +249,6 @@ ColumnLayout {
                     icon: "\u{f00d}"
                     onActivated: {
                         Daemon.sidecarRemove();
-                        SoundEffects.play(SoundEffects.action);
                     }
                 }
             }

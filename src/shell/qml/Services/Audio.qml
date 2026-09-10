@@ -65,6 +65,42 @@ Singleton {
     readonly property var sourceNodes: Pipewire.nodes.values.filter(n => !n.isSink && !n.isStream && n.audio)
     readonly property var streamNodes: Pipewire.nodes.values.filter(n => n.isStream)
 
+    // ── Device connect chime ─────────────────────────────────────────────────
+    //
+    // A headset, a USB audio interface, a dock or a Bluetooth audio device
+    // appears here as a new PipeWire sink or source, which is the only place
+    // in the shell where "a peripheral just connected" is actually observable.
+    // Sound settings has offered a toggle for it since the page was written
+    // and nothing read the setting.
+    //
+    // Nodes are already being watched for the volume UI, so this costs a list
+    // comparison per change and a process only when something is plugged in.
+    property var _knownNodeIds: []
+    property bool _chimeArmed: false
+
+    // Everything present at login arrives as a burst of new nodes. Without a
+    // pause the shell would chime at itself on every start.
+    Timer {
+        interval: 5000
+        running: true
+        onTriggered: root._chimeArmed = true
+    }
+
+    function _noteNodes() {
+        const now = root.sinkNodes.concat(root.sourceNodes).map(n => String(n.id));
+        const before = root._knownNodeIds;
+        root._knownNodeIds = now;
+
+        if (!root._chimeArmed)
+            return;
+        for (const id of now) {
+            if (before.indexOf(id) < 0) {
+                SoundEffects.playDeviceConnected();
+                return;
+            }
+        }
+    }
+
     PwObjectTracker {
         objects: [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource].filter(Boolean).concat(
             root._tracking ? root.sinkNodes.concat(root.sourceNodes, root.streamNodes) : []
@@ -239,8 +275,8 @@ Singleton {
 
     // Rebuild whenever the graph or the tracked values move. Cheap: it is a
     // diff against ListModels that mostly do not change.
-    onSinkNodesChanged: root._rebuild()
-    onSourceNodesChanged: root._rebuild()
+    onSinkNodesChanged: { root._rebuild(); root._noteNodes(); }
+    onSourceNodesChanged: { root._rebuild(); root._noteNodes(); }
     onStreamNodesChanged: root._rebuild()
 
     Connections {

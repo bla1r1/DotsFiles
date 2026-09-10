@@ -60,6 +60,7 @@ private:
     std::string db_path_;
 
     bool init_schema();
+    bool run_migrations();
     std::string default_db_path();
 };
 
